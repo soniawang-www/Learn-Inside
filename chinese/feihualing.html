@@ -761,9 +761,8 @@ async function savePdf(){
         return sv; };
       tip.textContent = '已生成 '+pages+' 页 PDF：';
       if(!isMobile){
-        // 电脑：直接下载；支持系统分享的（如 Mac 上的 Safari）再多给一个分享按钮
+        // 电脑：只给“保存到本地”，直接下载
         box.appendChild(saveBtn('plum'));
-        if(canShare) box.appendChild(shareBtn('ghost'));
         note.textContent = '点“保存到本地”，PDF 会下载到电脑的“下载”文件夹，打开后就可以打印。';
       } else if(canShare){
         box.appendChild(shareBtn('plum'));
