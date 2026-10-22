@@ -217,6 +217,20 @@ h1{font-weight:600;letter-spacing:.06em}
 .lockup .col svg:last-child{margin-left:0}
 .brandbar{gap:9px;margin:0 0 6px}
 .brandbar .bdiv{width:1.5px;height:12px;background:var(--lg-sub);opacity:.45;flex:none}
+/* 自适应：手机、平板、电脑和各种窗口大小 */
+body{font-size:1rem}
+@media (min-width:768px){html{font-size:17px}}
+@media (min-width:1200px){html{font-size:18px}}
+@media (min-width:1700px){html{font-size:19.5px}}
+@media (min-width:768px){.wrap{max-width:880px}.pbar .in{max-width:848px}}
+@media (min-width:1200px){.wrap{max-width:1020px}.pbar .in{max-width:988px}}
+@media (min-width:1700px){.wrap{max-width:1140px}.pbar .in{max-width:1108px}}
+@media (min-width:1000px){
+ .qs,#poems{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+ #home{max-width:960px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ #home>:not(a.card){grid-column:1/-1}
+ .chars8{max-width:760px}
+}
 </style>
 <div id="home">
   <header>
