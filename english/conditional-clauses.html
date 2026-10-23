@@ -253,10 +253,10 @@ input[type=range]{width:100%;accent-color:var(--plum)}
 .prb[aria-expanded="true"]{background:var(--plum);color:var(--card)}
 /* 打印练习 */
 #printArea{position:fixed;inset:0;z-index:40;overflow-y:auto;background:#fff;color:#000}
-.pv-bar{position:sticky;top:0;z-index:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:#eaf3f1;border-bottom:1px solid #cfe0dc;color:#1d2f3a}
-.pv-bar .btn{background:#1f8a70;color:#fff;text-decoration:none;display:inline-flex;align-items:center}
-.pv-bar .btn.plum{background:#c2377a}
-.pv-bar .btn.ghost{background:#fff;color:#1f8a70;border-color:#1f8a70}
+.pv-bar{position:sticky;top:0;z-index:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:#F6F4EE;border-bottom:1px solid #DCD7CA;color:#1E2B28}
+.pv-bar .btn{background:#1D5C4D;color:#fff;text-decoration:none;display:inline-flex;align-items:center}
+.pv-bar .btn.plum{background:#B04A6F}
+.pv-bar .btn.ghost{background:#fff;color:#1D5C4D;border-color:#1D5C4D}
 .pv-tip{flex-basis:100%;font-size:.9rem;line-height:1.6;display:flex;flex-direction:column;gap:6px}
 .pv-save{display:flex;flex-wrap:wrap;gap:8px}
 .pv-doc{padding:16px}
@@ -882,7 +882,7 @@ $("pVoice").onclick=()=>{voice=!voice;$("pVoice").textContent="声音 "+(voice?"
 showStep();
 
 /* ---------- 打印练习 ---------- */
-const SHEET_TITLE="条件从句练习";
+const SHEET_TITLE="条件从句练习单";
 // 一道题在纸上的样子：网页预览和 PDF 共用
 function qPrint(q,i){
   if(q.t==="pick"){const n=q.o.length,r=i%n,o=q.o.map((_,j)=>q.o[(j+r)%n]),a=(q.a-r+n)%n;
@@ -895,26 +895,35 @@ function qPrint(q,i){
 function sheetParts(idxs,withAns){
   let body="",ans="";
   idxs.forEach(k=>{const l=LEVELS[k];
-    body+=`<h2>${l.name}　${l.sub}</h2><p class="d">${l.desc}</p><ol>`;ans+=`<h3>${l.name}　${l.sub}</h3><ol>`;
+    body+=`<h2><span class="tag">${l.name}</span>${l.sub}</h2><p class="d">${l.desc}</p>`;ans+=`<h3>${l.name}　${l.sub}</h3>`;
     l.qs.forEach((q,i)=>{const p=qPrint(q,i);
-      body+=`<li>${p.text}${p.opts?`<div class="o">${p.opts.map(x=>`<span>${x}</span>`).join("")}</div>`:""}${p.words?`<div class="w">${p.words}</div><div class="ln"></div>`:""}</li>`;
-      ans+=`<li><b>${p.key}</b>　${p.why}</li>`});
-    body+="</ol>";ans+="</ol>"});
-  return {body,ans:withAns?`<section class="ans"><h1>答案和解释</h1>${ans}</section>`:""};
+      body+=`<div class="it"><span class="sn">${i+1}.</span><div class="sq">${p.text}${p.opts?`<div class="o">${p.opts.map(x=>`<span>${x}</span>`).join("")}</div>`:""}${p.words?`<div class="w">${p.words}</div><div class="ln"></div>`:""}</div></div>`;
+      ans+=`<div class="ai"><span class="sn">${i+1}.</span><div><b>${p.key}</b>${p.why}</div></div>`});
+  });
+  return {body,ans:withAns?`<section class="ans"><div class="head"><h1>答案和解释</h1></div>${ans}</section>`:""};
 }
-const SHEET_CSS=`.sheet{font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:12.5pt;line-height:1.7;color:#000;background:#fff;max-width:720px;margin:0 auto}
-.sheet h1{font-family:inherit;font-weight:700;font-size:20pt;margin:0 0 4px;letter-spacing:0;display:block}
-.sheet h2{font-family:inherit;font-weight:700;font-size:14pt;margin:22px 0 0;border-bottom:1.5px solid #000;padding-bottom:2px;letter-spacing:0}
-.sheet h3{font-family:inherit;font-weight:700;font-size:12pt;margin:16px 0 0;color:#000;letter-spacing:0}
-.sheet .who{margin:0 0 6px}.sheet .d{margin:2px 0 0;font-size:10.5pt;color:#444}
-.sheet ol{margin:6px 0 0;padding-left:1.6em}.sheet li{margin:0 0 9px;break-inside:avoid}
-.sheet .o{display:flex;flex-wrap:wrap;gap:2px 2.2em;margin-top:2px}.sheet .w{margin-top:2px}
-.sheet .ln{border-bottom:1px solid #000;height:1.9em;max-width:32em}
-.sheet .ans{break-before:page;font-size:10.5pt;line-height:1.55}.sheet .ans li{margin-bottom:4px}`;
-const sheetInner=(idxs,withAns)=>{const p=sheetParts(idxs,withAns);return `<h1>${SHEET_TITLE}</h1><p class="who">姓名 __________　　日期 __________　　得分 __________</p>${p.body}${p.ans}`};
+const SHEET_CSS=`.sheet{font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;font-size:12pt;line-height:1.65;color:#1E2B28;background:#fff;max-width:720px;margin:0 auto}
+.sheet .head{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 16px;flex-wrap:wrap;border-bottom:2px solid #1D5C4D;padding-bottom:8px;margin-bottom:4px}
+.sheet h1{font-family:"Zhili Serif","Songti SC","STSong","SimSun",serif;font-weight:600;font-size:21pt;line-height:1.3;letter-spacing:.12em;margin:0;display:block;color:#1E2B28}
+.sheet .head span{font-size:10.5pt;color:#5D6A65}
+.sheet h2{font-family:"Zhili Serif","Songti SC","STSong","SimSun",serif;font-weight:600;font-size:14pt;line-height:1.4;color:#1D5C4D;margin:20px 0 0;letter-spacing:.04em;display:flex;align-items:center;gap:10px;border:0;padding:0}
+.sheet h2 .tag{font-size:9.5pt;font-weight:600;color:#B04A6F;border:1.5px solid #B04A6F;border-radius:6px;padding:1px 7px;letter-spacing:0;line-height:1.3}
+.sheet .d{margin:3px 0 2px;font-size:10pt;color:#5D6A65}
+.sheet .it{display:flex;gap:4px;padding:8px 0;border-bottom:1px dashed #DCD7CA;break-inside:avoid;page-break-inside:avoid}
+.sheet .sn{flex:none;min-width:1.9em;color:#1D5C4D;font-family:"Nunito",sans-serif;font-weight:800}
+.sheet .sq{flex:1;min-width:0;font-family:"Nunito","PingFang SC","Microsoft YaHei",sans-serif;font-weight:500}
+.sheet .o{display:flex;flex-wrap:wrap;gap:2px 2em;margin-top:3px;font-weight:500;color:#3A4743}
+.sheet .w{margin-top:3px;font-weight:500;color:#3A4743}
+.sheet .ln{border-bottom:1px solid #1E2B28;height:1.9em;max-width:30em}
+.sheet .ans{break-before:page;page-break-before:always;font-size:10.5pt;line-height:1.55;margin-top:28px}
+.sheet .ans h1{font-size:17pt}
+.sheet h3{font-family:"Zhili Serif","Songti SC","STSong","SimSun",serif;font-weight:600;font-size:12pt;color:#1D5C4D;margin:14px 0 2px;letter-spacing:.04em}
+.sheet .ai{display:flex;gap:4px;padding:3px 0;break-inside:avoid}.sheet .ai .sn{font-weight:700}
+.sheet .ai b{color:#B04A6F;font-family:"Nunito",sans-serif;font-weight:800;margin-right:.8em}`;
+const sheetInner=(idxs,withAns)=>{const p=sheetParts(idxs,withAns),n=idxs.reduce((a,k)=>a+LEVELS[k].qs.length,0);return `<div class="head"><div><h1>${SHEET_TITLE}</h1><span>共 ${idxs.length} 组 · ${n} 题</span></div><span>姓名：________　日期：________　得分：________</span></div>${p.body}${p.ans}`};
 // 下载用：一个独立的网页文件，打开后自己能打印
 function sheetHTML(idxs,withAns){
-  return `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>条件从句练习</title><style>@page{margin:15mm}body{margin:0;padding:16px;background:#fff}${SHEET_CSS}
+  return `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>条件从句练习单</title><style>@page{margin:15mm}body{margin:0;padding:16px;background:#fff}${SHEET_CSS}
 .np{font:inherit;padding:8px 22px;border-radius:999px;border:2px solid #000;background:#fff;margin-bottom:14px;cursor:pointer}
 @media print{.np{display:none}body{padding:0}}</style></head><body><div class="sheet"><button class="np" onclick="window.print()">打印</button>${sheetInner(idxs,withAns)}</div></body></html>`;
 }
@@ -926,27 +935,43 @@ document.querySelectorAll("#prScope .tog").forEach(b=>b.onclick=()=>{prScope=b.d
   document.querySelectorAll("#prScope .tog").forEach(t=>t.setAttribute("aria-pressed",t===b));prInfo()});
 // 把练习单画成 A4 图片。手机浏览器调不出打印时，用它拼成 PDF 或存成图片
 function sheetImages(idxs,withAns){
-  const W=1240,H=1754,M=96,FF='"PingFang SC","Microsoft YaHei","Noto Sans SC","Heiti SC",sans-serif',F=(px,b)=>(b?"700 ":"")+px+"px "+FF;
+  const W=1240,H=1754,M=96,INK="#1E2B28",JADE="#1D5C4D",PLUM="#B04A6F",SOFT="#5D6A65",LINE="#DCD7CA";
+  const SANS='"PingFang SC","Microsoft YaHei","Noto Sans SC","Heiti SC",sans-serif',SERIF='"Zhili Serif","Songti SC","STSong","SimSun",serif',EN='"Nunito",'+SANS;
+  const F=(px,b,ff)=>(b?(b===true?"700 ":b+" "):"")+px+"px "+(ff||SANS);
   const pages=[];let ctx,y;
   const np=()=>{const c=document.createElement("canvas");c.width=W;c.height=H;ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);pages.push(c);y=M};
   const CJK="\\u2E80-\\u9FFF\\uFF00-\\uFFEF\\u3000-\\u303F",RE=new RegExp("["+CJK+"]|[^\\s"+CJK+"]+\\s*|\\s+","g");
-  const wrap=(t,px,b,maxW)=>{ctx.font=F(px,b);const rows=[];let cur="",w=0;
+  const wrap=(t,px,b,ff,maxW)=>{ctx.font=F(px,b,ff);const rows=[];let cur="",w=0;
     for(const k of (t.match(RE)||[])){const kw=ctx.measureText(k).width;if(w+kw>maxW&&cur){rows.push(cur);cur="";w=0}cur+=k;w+=kw}
     if(cur)rows.push(cur);return rows};
-  const text=(t,px,o)=>{o=o||{};const x=M+(o.ind||0),rows=wrap(t,px,o.b,W-M-x);
-    rows.forEach(r=>{if(y+px*1.55>H-M)np();ctx.font=F(px,o.b);ctx.fillStyle=o.c||"#000";ctx.fillText(r,x,y+px);y+=px*1.55});y+=o.gap||0};
-  const rule=(x1,x2,lw)=>{ctx.fillStyle="#000";ctx.fillRect(x1,y,x2-x1,lw)};
+  const text=(t,px,o)=>{o=o||{};const x=M+(o.ind||0),rows=wrap(t,px,o.b,o.ff,W-M-x);
+    rows.forEach(r=>{if(y+px*1.55>H-M)np();ctx.font=F(px,o.b,o.ff);ctx.fillStyle=o.c||INK;if("letterSpacing" in ctx)ctx.letterSpacing=o.ls||"0px";ctx.fillText(r,x,y+px);y+=px*1.55});
+    if("letterSpacing" in ctx)ctx.letterSpacing="0px";y+=o.gap||0};
+  const rule=(x1,x2,lw,c)=>{ctx.fillStyle=c||INK;ctx.fillRect(x1,y,x2-x1,lw)};
+  const dash=()=>{ctx.save();ctx.strokeStyle=LINE;ctx.lineWidth=2;ctx.setLineDash([8,7]);ctx.beginPath();ctx.moveTo(M,y);ctx.lineTo(W-M,y);ctx.stroke();ctx.restore()};
+  const num=(i,px)=>{ctx.font=F(px,"800",EN);ctx.fillStyle=JADE;ctx.fillText((i+1)+".",M,y+px)};
   const room=h=>{if(y+h>H-M)np()};
-  np();text(SHEET_TITLE,46,{b:true,gap:4});text("姓名 __________　　日期 __________　　得分 __________",24,{gap:10});
-  idxs.forEach(k=>{const l=LEVELS[k];room(230);y+=22;text(l.name+"　"+l.sub,30,{b:true});rule(M,W-M,3);y+=10;text(l.desc,20,{c:"#444",gap:10});
-    l.qs.forEach((q,i)=>{const p=qPrint(q,i);room(p.words?190:130);
-      text((i+1)+". "+p.text,25,{});
-      if(p.opts)text(p.opts.join("　　　"),24,{ind:40});
-      if(p.words){text(p.words,24,{ind:40});y+=44;rule(M+40,W-M-200,2);y+=6}
-      y+=14})});
-  if(withAns){np();text("答案和解释",38,{b:true,gap:8});
-    idxs.forEach(k=>{const l=LEVELS[k];room(120);y+=12;text(l.name+"　"+l.sub,24,{b:true,gap:2});
-      l.qs.forEach((q,i)=>{const p=qPrint(q,i);text((i+1)+". "+p.key+"　"+p.why,20,{ind:10})})})}
+  const nq=idxs.reduce((a,k)=>a+LEVELS[k].qs.length,0);
+  np();text(SHEET_TITLE,46,{b:"600",ff:SERIF,ls:"6px",gap:2});
+  ctx.font=F(22,false);ctx.fillStyle=SOFT;ctx.fillText(`共 ${idxs.length} 组 · ${nq} 题`,M,y+22);
+  const who="姓名：__________　日期：__________　得分：________";ctx.textAlign="right";ctx.fillText(who,W-M,y+22);ctx.textAlign="left";y+=22*1.6+6;
+  rule(M,W-M,4,JADE);y+=14;
+  idxs.forEach(k=>{const l=LEVELS[k];room(330);y+=26;
+    ctx.font=F(20,"600",SERIF);const tw=ctx.measureText(l.name).width+20;
+    ctx.strokeStyle=PLUM;ctx.lineWidth=2.5;ctx.beginPath();ctx.roundRect?ctx.roundRect(M,y+2,tw,34,8):ctx.rect(M,y+2,tw,34);ctx.stroke();
+    ctx.fillStyle=PLUM;ctx.fillText(l.name,M+10,y+27);
+    ctx.font=F(30,"600",SERIF);ctx.fillStyle=JADE;ctx.fillText(l.sub,M+tw+16,y+31);y+=46;
+    text(l.desc,20,{c:SOFT,gap:6});
+    l.qs.forEach((q,i)=>{const p=qPrint(q,i);room(p.words?190:130);y+=12;
+      num(i,25);text(p.text,25,{ind:52,b:"600",ff:EN});
+      if(p.opts)text(p.opts.join("　　　"),24,{ind:52,ff:EN,c:"#3A4743"});
+      if(p.words){text(p.words,24,{ind:52,ff:EN,c:"#3A4743"});y+=44;rule(M+52,W-M-200,2);y+=6}
+      y+=10;dash()})});
+  if(withAns){np();text("答案和解释",38,{b:"600",ff:SERIF,ls:"4px",gap:6});rule(M,W-M,4,JADE);y+=10;
+    idxs.forEach(k=>{const l=LEVELS[k];room(120);y+=14;text(l.name+"　"+l.sub,24,{b:"600",ff:SERIF,c:JADE,gap:2});
+      l.qs.forEach((q,i)=>{const p=qPrint(q,i);const y0=y;num(i,20);
+        ctx.font=F(20,"800",EN);ctx.fillStyle=PLUM;const kw=ctx.measureText(p.key).width;ctx.fillText(p.key,M+44,y+20);
+        text(p.why,20,{ind:44+kw+18})})})}
   return pages;
 }
 // 不用任何库，自己拼一个 PDF：每页放一张 A4 图片
