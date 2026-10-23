@@ -144,22 +144,16 @@ body{font-size:1rem}
 @media (min-width:1700px){html{font-size:19.5px}}
 @media (min-width:900px){.wrap{max-width:1000px}}
 @media (min-width:900px){.grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
-/* 电脑上：左边放标志、搜索和分类，右边卡片铺满，不再一列居中留白 */
+/* 电脑上：标志和搜索框并排 */
 @media (min-width:1000px){
- .wrap{display:grid;grid-template-columns:350px minmax(0,1fr);column-gap:48px;align-items:start}
+ .wrap{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:40px;align-items:center}
  .wrap>header{grid-column:1;grid-row:1}
- .wrap>.tools{grid-column:1;grid-row:2;position:static}
- .wrap>.meta{grid-column:1;grid-row:3}
- .wrap>.foot{grid-column:1;grid-row:4;border-top:0;padding-top:0}
- .wrap>main{grid-column:2;grid-row:1/span 5;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;align-items:stretch}
- .wrap>main .group,.wrap>main .grid{display:contents}
- .wrap>main .gh{display:none}
- .wrap>main .empty{grid-column:1/-1}
+ .wrap>.tools{grid-column:2;grid-row:1}
+ .wrap>:not(header):not(.tools):not(style){grid-column:1/-1}
 }
-@media (min-width:1700px){.wrap{grid-template-columns:380px minmax(0,1fr)}}
 input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
-@media (min-width:1200px){.wrap{max-width:1180px}}
-@media (min-width:1700px){.wrap{max-width:1360px}}
+@media (min-width:1200px){.wrap{max-width:1180px}.lockup{zoom:1.15}}
+@media (min-width:1700px){.wrap{max-width:1360px}.lockup{zoom:1.3}}
 </style>
 <div class="wrap">
   <header style="display:flex;flex-direction:column;gap:6px">
@@ -189,8 +183,8 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;display
 /* ===== 页面清单：新增学习页时，在这里加一行 =====
    path：仓库里的路径；cat：科目文件夹；title：页面标题；desc：一句话介绍；tags：搜索关键词 */
 const PAGES=[
- {path:"english/personal-pronouns.html",cat:"english",title:"人称代词宝典",desc:"英语里的“你、我、他”全家：主格、宾格、my 和 mine、be 动词。互动课加练习，可打印。",tags:["代词","人称代词","I me my mine","主格","宾格","物主代词","am is are","主谓宾","pronouns"]},
- {path:"english/conditional-clauses.html",cat:"english",title:"条件从句宝典",desc:"「如果……就……」的全部说法：if、unless、even if、in case。互动课加练习，可打印。",tags:["条件句","if","从句","unless","when","第一条件句","零条件句","conditionals"]},
+ {path:"english/personal-pronouns.html",cat:"english",title:"人称代词",desc:"英语里的“你、我、他”全家：主格、宾格、my 和 mine、be 动词。互动课加练习，可打印。",tags:["代词","人称代词","I me my mine","主格","宾格","物主代词","am is are","主谓宾","pronouns"]},
+ {path:"english/conditional-clauses.html",cat:"english",title:"条件从句",desc:"「如果……就……」的全部说法：if、unless、even if、in case。互动课加练习，可打印。",tags:["条件句","if","从句","unless","when","第一条件句","零条件句","conditionals"]},
  {path:"chinese/feihualing.html",cat:"chinese",title:"飞花令练习馆",desc:"选一个字背古诗，再和对手比一比。每个版本都有“背一背”和“比一比”。",tags:["飞花令","古诗","诗词","语文","背诗","feihualing"]}
 ];
 /* 科目：文件夹 → 显示名。新科目加在这里 */
