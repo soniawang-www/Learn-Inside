@@ -404,7 +404,7 @@ function kpCards(kps) {
   return `<div class="kpcards">${shown.map((k) => `<div class="kpcard">
       <div class="kphead"><a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
       ${k.signals?.length ? `<div class="sig-title">怎么认出这个考点</div><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul>` : (k.summary ? `<p class="small">${rich(k.summary)}</p>` : '')}
-      <div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">学这个知识点${k.locked ? ' 🔒' : ''}</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? ' 🔒' : ''}</button></div>
+      <div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? ' 🔒' : ''}</button></div>
     </div>`).join('')}
     ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`).join('、')}</div>` : ''}</div>`;
 }
@@ -446,7 +446,6 @@ const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">🔒
 async function renderKp(id) {
   const k = await api(`/amc8/api/kp/${enc(id)}?student=${auth.student.id}`);
   const ST = { right: ['✓', '做对了'], wrong: ['✗', '做错了'], todo: ['○', '还没做'] };
-  const steps = k.lesson?.steps?.length;
   $app.innerHTML = `${topnav()}<div class="page">
     <a href="javascript:history.back()" class="small">← 返回</a>
     <h1>${esc(k.name)} ${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</h1>
@@ -456,9 +455,6 @@ async function renderKp(id) {
       ${k.prerequisites.length ? `<p class="small muted">前置知识：${k.prerequisites.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
     </div>
     ${k.signals.length ? `<div class="card"><h2>怎么认出这个考点</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
-    <div class="card feature"><div><h2>知识点课 <span class="tag">会员</span></h2>
-      <p class="small muted">${k.has_lesson ? `一步步跟着学${steps ? `，共 ${steps} 步` : ''}：先找规律，再讲为什么，最后自己动手。` : '这个知识点的课程还在制作中。'}</p></div>
-      ${k.has_lesson ? `<button class="btn primary" id="learn">${k.locked ? '🔒 ' : '▶ '}开始学习</button>` : ''}</div>
     <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
       <p class="small muted">${k.drill.count ? `把考这个知识点的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识点的真题。'}</p></div>
       ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>` : ''}</div>
@@ -467,10 +463,6 @@ async function renderKp(id) {
   </div>`;
   typeset($app);
   bindKpCards($app);
-  $app.querySelector('#learn')?.addEventListener('click', () => {
-    if (k.locked || !k.lesson) return modal(lockedPanel('知识点课是会员内容'));
-    openLesson(k.lesson, { doneLabel: k.drill.count ? '去突击' : '学完了', onDone: () => k.drill.count && startDrill(k.id) });
-  });
 }
 
 // ───────── 单题页（从知识点页「相关真题」进入） ─────────
