@@ -399,11 +399,19 @@ body{font-size:1rem}
 }
 /* ---------- 改版：一张图、故事、诊所、造句、回想、复习 ---------- */
 
-ruby.nt{ruby-position:under;ruby-align:center}
-ruby.nt rt{font-family:var(--body);font-size:.74rem;font-weight:700;line-height:1.5;letter-spacing:0;padding-top:3px;white-space:nowrap}
+.scr .say{position:relative;margin:10px 0 0;max-width:30em;align-self:stretch;font-family:var(--body);font-size:.98rem;line-height:1.65;color:var(--ink);text-align:left;background:var(--jade-soft);border:0;border-radius:20px 20px 20px 4px;padding:10px 16px;margin-left:52px}
+.scr .say::before{content:"";position:absolute;left:-54px;bottom:-4px;width:44px;height:44px;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%2242%22%20height%3D%2240%22%20rx%3D%2214%22%20fill%3D%22%231D5C4D%22/%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2222%22%20r%3D%223.6%22%20fill%3D%22%23fff%22/%3E%3Ccircle%20cx%3D%2231%22%20cy%3D%2222%22%20r%3D%223.6%22%20fill%3D%22%23fff%22/%3E%3Ccircle%20cx%3D%2217.8%22%20cy%3D%2222.6%22%20r%3D%221.6%22%20fill%3D%22%2318302A%22/%3E%3Ccircle%20cx%3D%2231.8%22%20cy%3D%2222.6%22%20r%3D%221.6%22%20fill%3D%22%2318302A%22/%3E%3Cellipse%20cx%3D%2211%22%20cy%3D%2230%22%20rx%3D%223.4%22%20ry%3D%222.2%22%20fill%3D%22%23F29BBB%22/%3E%3Cellipse%20cx%3D%2237%22%20cy%3D%2230%22%20rx%3D%223.4%22%20ry%3D%222.2%22%20fill%3D%22%23F29BBB%22/%3E%3Cpath%20d%3D%22M20%2031c2.5%202.6%205.5%202.6%208%200%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22/%3E%3Ccircle%20cx%3D%2236%22%20cy%3D%226%22%20r%3D%224.5%22%20fill%3D%22%23E07C9F%22/%3E%3C/svg%3E") center/contain no-repeat;animation:bob 2.4s ease-in-out infinite}
+.scr .say:empty{display:none}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+ruby.nt{ruby-position:under;ruby-align:center;white-space:nowrap}
+ruby.nt>b{position:relative}
+ruby.nt>b::after{content:"";position:absolute;inset:-7px -7px;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%2040%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M10%2024C5%2010%2038%203%2062%204c26%202%2036%2010%2033%2021-3%2010-33%2013-55%2012C16%2036%203%2029%208%2018c3-6%2012-10%2024-12%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20vector-effect%3D%22non-scaling-stroke%22/%3E%3C/svg%3E") center/100% 100% no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%2040%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M10%2024C5%2010%2038%203%2062%204c26%202%2036%2010%2033%2021-3%2010-33%2013-55%2012C16%2036%203%2029%208%2018c3-6%2012-10%2024-12%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20vector-effect%3D%22non-scaling-stroke%22/%3E%3C/svg%3E") center/100% 100% no-repeat;background:currentColor;pointer-events:none;animation:circ .45s ease-out both}
+@keyframes circ{from{opacity:0;transform:scale(1.25) rotate(-6deg)}to{opacity:1;transform:none}}
+ruby.nt rt{font-family:var(--body);font-size:.78rem;font-weight:700;line-height:1.5;letter-spacing:0;white-space:nowrap;padding-top:6px;transform:rotate(-2deg);animation:tagin .4s .15s ease-out both}
+ruby.nt rt::before{content:"";display:inline-block;width:.95em;height:.95em;margin-right:2px;vertical-align:-1px;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20d%3D%22M14%2018C6%2016%205%209%209%203M5%207l4-4%203%205%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20d%3D%22M14%2018C6%2016%205%209%209%203M5%207l4-4%203%205%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E") center/contain no-repeat;background:currentColor}
+@keyframes tagin{from{opacity:0;transform:translateY(-4px) rotate(-2deg)}to{opacity:1;transform:rotate(-2deg)}}
 ruby.nt rt.i{color:var(--plum)}ruby.nt rt.p{color:var(--jade)}ruby.nt rt.w{color:var(--warn)}
-ruby.nt rt::before{content:"↑ "}
-.scr .big:has(ruby.nt){line-height:2.6}
+.scr .big:has(ruby.nt){line-height:2.7}
 .scr .big div.x{display:block;margin-top:0;width:100%}
 .scr:has(.turn:not([hidden])) .big{padding-top:24px}
 .scr .big div.x.here{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
@@ -528,8 +536,9 @@ button.dl{cursor:pointer;border-style:dashed}
       <div class="scr" id="pScr">
         <span class="turn" id="pTurn" hidden>轮到你了，点一点</span>
         <div class="big" id="pMain"></div>
+        <p class="say" id="pCap" aria-live="polite"></p>
       </div>
-      <div class="cap"><span class="who">讲解</span><p id="pCap" aria-live="polite"></p></div>
+      
       <div class="ctl">
         <button class="rb" id="pPrev" aria-label="上一步"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="rb play" id="pPlay" aria-label="播放"></button>
