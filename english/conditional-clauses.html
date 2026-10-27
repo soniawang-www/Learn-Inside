@@ -1110,7 +1110,7 @@ const RV={K:"li-cond-v1",
  today(){const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()},
  days(a){return Math.floor((new Date(this.today().replace(/-/g,"/"))-new Date(a.replace(/-/g,"/")))/864e5)},
  done(c){const o=this.get();o.done=o.done||{};o.stage=o.stage||{};if(!o.done[c]){o.done[c]=this.today();o.stage[c]=0;this.set(o);drawReview()}},
- due(){const o=this.get();if(location.hash==="#review-demo")return{c:1,st:0};for(const c of [1,2,3]){if(!o.done||!o.done[c])continue;const st=o.stage[c]||0;if(st<3&&this.days(o.done[c])>=[1,3,7][st])return{c,st}}return null},
+ due(){const o=this.get();if(location.hash==="#review-demo")return{c:+Object.keys(RVLV)[0],st:0};for(const c of [1,2,3]){if(!o.done||!o.done[c])continue;const st=o.stage[c]||0;if(st<3&&this.days(o.done[c])>=[1,3,7][st])return{c,st}}return null},
  next(){const o=this.get();let best=null;for(const c of [1,2,3]){if(!o.done||!o.done[c])continue;const st=o.stage[c]||0;if(st>=3)continue;const left=[1,3,7][st]-this.days(o.done[c]);if(!best||left<best.left)best={c,st,left}}return best}};
 const RVLV={1:[0,1,2,3],2:[4],3:[5]};
 let rvq=null;
