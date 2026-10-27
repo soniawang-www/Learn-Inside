@@ -1,0 +1,3 @@
+node_modules/
+.wrangler/
+amc8-src/seed.sql

@@ -1,7 +1,22 @@
 {
   "name": "learn-inside",
+  "main": "worker/index.js",
   "compatibility_date": "2026-10-12",
   "assets": {
-    "directory": "./"
+    "directory": "./",
+    "binding": "ASSETS",
+    // 只有 AMC 8 模考的 API 经过 Worker，学习页等其他请求直接出静态文件
+    "run_worker_first": ["/amc8/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "amc8-mock",
+      "database_id": "0776ad4b-3605-4f67-a555-312bec426720"
+    }
+  ],
+  "vars": {
+    "FREE_MODE": "true",       // 试用期全部内容免费；收费时改为 "false"
+    "INVITE_CODES": "AMC2026"  // 逗号分隔；留空 = 不需要邀请码
   }
 }

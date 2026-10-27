@@ -1,0 +1,74 @@
+{
+  "_note": "小奥知识体系为主干，amc_ext=1 表示小奥覆盖较弱、AMC 8 常考的扩展节点。tier 控制讲解正文是否付费，summary 永远免费可见。",
+  "points": [
+    { "id": "calc", "name": "计算", "sort": 1 },
+    { "id": "calc.arith", "parent": "calc", "name": "四则运算与巧算", "summary": "凑整、分组、等差数列求和等速算技巧。" },
+    { "id": "calc.fraction", "parent": "calc", "name": "分数、小数与百分数", "summary": "三种形式互化与混合运算。" },
+    { "id": "calc.estimate", "parent": "calc", "name": "估算", "summary": "用放缩快速判断选项范围，AMC 常用来排除干扰项。" },
+
+    { "id": "nt", "name": "数论", "sort": 2 },
+    { "id": "nt.divisibility", "parent": "nt", "name": "整除特征", "summary": "2、3、4、5、8、9、11 的整除判定。" },
+    { "id": "nt.prime", "parent": "nt", "name": "质数与分解质因数", "summary": "唯一分解；约数个数公式 (a+1)(b+1)…",
+      "content": "## 约数个数公式\n\n把 $n$ 分解质因数：$n = p_1^{a_1} p_2^{a_2} \\cdots p_k^{a_k}$。\n\n$n$ 的每个约数都形如 $p_1^{b_1} p_2^{b_2}\\cdots$，其中 $0 \\le b_i \\le a_i$。每个指数有 $a_i+1$ 种取法，所以\n\n$$\\text{约数个数} = (a_1+1)(a_2+1)\\cdots(a_k+1)$$\n\n**例**：$72 = 2^3 \\times 3^2$，约数个数 $= 4 \\times 3 = 12$。\n\n**易错**：忘记 $+1$（指数取 0 的情况，也就是不选这个质因数）。" },
+    { "id": "nt.gcdlcm", "parent": "nt", "name": "最大公约数与最小公倍数", "summary": "短除法、辗转相除；$\\gcd \\times \\text{lcm} = ab$。" },
+    { "id": "nt.remainder", "parent": "nt", "name": "余数与同余", "summary": "余数的加减乘性质；找幂的余数周期。",
+      "content": "## 幂的余数找周期\n\n求 $a^n$ 除以 $m$ 的余数时，先依次算 $a^1, a^2, a^3, \\dots$ 除以 $m$ 的余数，一定会出现循环。\n\n**例**：$2^n \\bmod 7$：$2, 4, 1, 2, 4, 1, \\dots$，周期为 3。\n\n于是 $2^{2026}$：$2026 \\div 3$ 余 $1$，对应周期里的第 1 个，余数是 $2$。\n\n**关键**：找到余数为 1 的那一项，后面一定重复。" },
+    { "id": "nt.digits", "parent": "nt", "name": "位值原理与数字问题", "summary": "$\\overline{abc} = 100a + 10b + c$。" },
+    { "id": "nt.parity", "parent": "nt", "name": "奇偶分析", "summary": "奇偶性快速排除不可能情形。" },
+
+    { "id": "cnt", "name": "计数与概率", "sort": 3 },
+    { "id": "cnt.enum", "parent": "cnt", "name": "枚举与分类", "summary": "有序列举、按特征分类，不重不漏。" },
+    { "id": "cnt.addmul", "parent": "cnt", "name": "加法原理与乘法原理", "summary": "分类用加法，分步用乘法。" },
+    { "id": "cnt.perm", "parent": "cnt", "name": "排列与组合", "summary": "有序用排列，无序用组合；“严格递增”往往就是组合。",
+      "content": "## 什么时候用组合\n\n从 $n$ 个不同元素里选 $k$ 个、**不管顺序**：$\\binom{n}{k} = \\dfrac{n!}{k!(n-k)!}$。\n\n**巧用**：要求“各位数字严格递增”时，只要选出哪几个数字，排列方式就唯一确定了，所以个数 $= \\binom{n}{k}$。\n\n**例**：各位都是奇数且严格递增的三位数，从 $\\{1,3,5,7,9\\}$ 选 3 个：$\\binom{5}{3} = 10$。" },
+    { "id": "cnt.ie", "parent": "cnt", "name": "容斥原理", "summary": "$|A\\cup B| = |A|+|B|-|A\\cap B|$。" },
+    { "id": "cnt.prob", "parent": "cnt", "name": "古典概率", "amc_ext": 1, "summary": "等可能事件：概率 = 有利结果数 ÷ 总结果数。",
+      "content": "## 两颗骰子的 36 种结果\n\n两颗骰子要看成**有区别的**（比如一红一蓝），总结果是 $6 \\times 6 = 36$ 种，每种等可能。\n\n点数和为 $s$ 的结果数：\n\n| 和 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n| 个数 | 1 | 2 | 3 | 4 | 5 | 6 | 5 | 4 | 3 | 2 | 1 |\n\n**易错**：把 (1,2) 和 (2,1) 当成同一种，总数算成 21，概率就错了。" },
+
+    { "id": "geo", "name": "几何", "sort": 4 },
+    { "id": "geo.angle", "parent": "geo", "name": "角与平行线", "summary": "三角形内角和、外角、平行线截得的角。" },
+    { "id": "geo.area", "parent": "geo", "name": "直线形面积", "summary": "割补、等积变形、一半模型。",
+      "content": "## 割补法\n\n不规则图形的面积，常常用“大图形 − 去掉的部分”来算。\n\n**例**：长方形里去掉一个角上的三角形，剩下的四边形面积 = 长方形面积 − 三角形面积。\n\n**一半模型**：三角形的顶点在长方形一边上、底是对边时，三角形面积是长方形的一半。" },
+    { "id": "geo.circle", "parent": "geo", "name": "圆与扇形", "summary": "周长、面积、扇形与弓形。" },
+    { "id": "geo.pyth", "parent": "geo", "name": "勾股定理", "amc_ext": 1, "summary": "$a^2+b^2=c^2$；常见勾股数 3-4-5、5-12-13。" },
+    { "id": "geo.similar", "parent": "geo", "name": "相似与比例线段", "amc_ext": 1, "summary": "相似三角形对应边成比例，面积比是相似比的平方。" },
+    { "id": "geo.coord", "parent": "geo", "name": "坐标几何", "amc_ext": 1, "summary": "两点距离、中点、用坐标算面积。" },
+    { "id": "geo.solid", "parent": "geo", "name": "立体图形", "summary": "表面积、体积、展开图。" },
+
+    { "id": "app", "name": "应用题", "sort": 5 },
+    { "id": "app.ratio", "parent": "app", "name": "比与比例", "summary": "按比分配、正反比例。" },
+    { "id": "app.percent", "parent": "app", "name": "百分数应用（折扣、利润）", "summary": "连续打折是连乘，不是相加。" },
+    { "id": "app.travel", "parent": "app", "name": "行程问题", "summary": "相遇、追及、往返平均速度。",
+      "content": "## 往返平均速度\n\n平均速度 = **总路程 ÷ 总时间**，不是两个速度的平均数。\n\n去程速度 $v_1$、回程速度 $v_2$、路程相同时：\n\n$$\\bar v = \\frac{2 v_1 v_2}{v_1 + v_2}$$\n\n**技巧**：设路程为两个速度的公倍数（如 4 和 6 设 12 km），直接算时间更直观。" },
+    { "id": "app.work", "parent": "app", "name": "工程问题", "summary": "把总量看成 1，效率相加。" },
+    { "id": "app.sumdiff", "parent": "app", "name": "和差倍与年龄问题", "summary": "线段图找等量关系。" },
+
+    { "id": "alg", "name": "代数初步", "sort": 6, "amc_ext": 1 },
+    { "id": "alg.equation", "parent": "alg", "name": "方程与方程组", "amc_ext": 1, "summary": "设未知数列方程，比算术法更直接。" },
+    { "id": "alg.pattern", "parent": "alg", "name": "数列与找规律", "summary": "等差数列、周期规律。" },
+
+    { "id": "stat", "name": "统计", "sort": 7, "amc_ext": 1 },
+    { "id": "stat.mean", "parent": "stat", "name": "平均数", "summary": "总和 = 平均数 × 个数。",
+      "content": "## 用总和思考平均数\n\n知道平均数和个数，第一步先求**总和**：总和 = 平均数 × 个数。\n\n**例**：5 个数平均 12，总和 60；已知四个数的和是 47，第五个就是 13。" },
+    { "id": "stat.median", "parent": "stat", "name": "中位数与众数", "amc_ext": 1, "summary": "中位数要先排序；个数为偶数时取中间两个的平均。" },
+
+    { "id": "logic", "name": "逻辑与组合", "sort": 8 },
+    { "id": "logic.reason", "parent": "logic", "name": "逻辑推理", "summary": "列表法、假设法。" },
+    { "id": "logic.pigeon", "parent": "logic", "name": "抽屉原理", "summary": "最不利原则。" }
+  ],
+  "edges": [
+    ["calc.arith", "alg.pattern"],
+    ["calc.fraction", "app.ratio"],
+    ["app.ratio", "app.percent"],
+    ["app.ratio", "geo.similar"],
+    ["nt.prime", "nt.gcdlcm"],
+    ["nt.divisibility", "nt.remainder"],
+    ["cnt.enum", "cnt.addmul"],
+    ["cnt.addmul", "cnt.perm"],
+    ["cnt.perm", "cnt.prob"],
+    ["cnt.enum", "cnt.prob"],
+    ["geo.area", "geo.pyth"],
+    ["geo.pyth", "geo.coord"],
+    ["stat.mean", "stat.median"]
+  ]
+}
