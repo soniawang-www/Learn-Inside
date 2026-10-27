@@ -131,7 +131,9 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     <div class="lp-player">
       <div class="lp-top"><div class="lp-segs">${steps.map(() => '<i></i>').join('')}</div><span class="lp-no"></span>
         <button class="lp-vb" aria-pressed="${voice.on}">声音 ${voice.on ? '开' : '关'}</button></div>
-      <div class="lp-scr"><span class="lp-turn" hidden>轮到你了，点一点</span><div class="lp-main"></div><p class="lp-say" aria-live="polite"></p></div>
+      <div class="lp-scr"><span class="lp-turn" hidden>轮到你了，点一点</span>
+        <div class="lp-vis"></div>
+        <div class="lp-side"><div class="lp-main"></div><p class="lp-say" aria-live="polite"></p></div></div>
       <div class="lp-ctl"><button class="lp-rb lp-prev" aria-label="上一步">${ICON.prev}</button>
         <button class="lp-rb lp-play" aria-label="播放">${ICON.play}</button>
         <button class="lp-nx">下一步</button></div>
@@ -139,7 +141,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     <p class="lp-tip">按中间的播放键会自动往下讲，遇到「轮到你了」会停下来等你。也可以自己按「下一步」。</p>
   </div>`;
   const $ = (q) => root.querySelector(q);
-  const main = $('.lp-main'), say = $('.lp-say'), turn = $('.lp-turn');
+  const vis = $('.lp-vis'), side = $('.lp-main'), say = $('.lp-say'), turn = $('.lp-turn'), scr = $('.lp-scr');
   const setSay = (t) => { say.innerHTML = md(t); typeset(say); if (playing && voice.on) voice.speak(t, () => {}); };
   const interactive = (s) => ['quiz', 'pick2'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw');
 
@@ -156,17 +158,25 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     $('.lp-no').textContent = `${i + 1}/${steps.length}`;
     $('.lp-prev').disabled = i === 0;
     $('.lp-nx').textContent = i === steps.length - 1 ? doneLabel : '下一步';
-    main.innerHTML = s.html ? `<div class="lp-html">${s.html}</div>` : '';
+    // 有图（方格路线等）时：大屏左边放图，右边放讲解和题目；没图时单列居中。手机上一律上下排。
+    const hasVis = s.type === 'grid' || !!s.grid || (s.type === 'tabs' && s.tabs.some((t) => t.grid));
+    scr.classList.toggle('solo', !hasVis);
+    const main = hasVis ? side : vis;
+    vis.innerHTML = ''; side.innerHTML = '';
+    if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html}</div>`);
     turn.hidden = !(interactive(s) && !solved.has(i));
-    if (s.grid && s.type !== 'grid') main.appendChild(gridWidget(s.grid, () => {}, setSay));
+    if (s.grid && s.type !== 'grid') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
     let first = s.say || '';
     if (s.type === 'tabs') {
       const box = document.createElement('div');
-      box.innerHTML = `<div class="lp-tabs">${s.tabs.map((t, k) => `<button class="lp-tp ${k ? '' : 'on'}" data-k="${k}">${md(t.label)}</button>`).join('')}</div><div class="lp-tab"></div>`;
+      box.innerHTML = `<div class="lp-tabs">${s.tabs.map((t, k) => `<button class="lp-tp ${k ? '' : 'on'}" data-k="${k}">${md(t.label)}</button>`).join('')}</div>`;
+      const pane = document.createElement('div');
+      pane.className = 'lp-tab';
       main.appendChild(box);
+      vis.appendChild(pane);
       const show = (k, initial) => {
         box.querySelectorAll('.lp-tp').forEach((b) => b.classList.toggle('on', +b.dataset.k === k));
-        const t = s.tabs[k], pane = box.querySelector('.lp-tab');
+        const t = s.tabs[k];
         pane.innerHTML = t.html || '';
         if (t.grid) pane.appendChild(gridWidget(t.grid, () => {}, setSay));
         typeset(pane);
@@ -201,17 +211,17 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       box.querySelector('button').onclick = (e) => { e.target.hidden = true; box.querySelector('.lp-ans').hidden = false; typeset(box); };
       main.appendChild(box);
     }
-    if (s.type === 'grid') main.appendChild(gridWidget(s.grid, (t) => solvedNow(i, t), setSay));
+    if (s.type === 'grid') vis.appendChild(gridWidget(s.grid, (t) => solvedNow(i, t), setSay));
     if (s.type === 'here') {
       const box = document.createElement('div');
       box.className = 'lp-here';
       box.innerHTML = s.items.map((it) => `<div class="${it.on ? 'on' : ''}"><b>${md(it.t)}</b><span>${md(it.d || '')}</span></div>`).join('');
-      main.appendChild(box);
+      vis.appendChild(box);
     }
     if (solved.has(i) && s.ok) first = s.ok;
     say.innerHTML = md(first);
-    typeset(main); typeset(say);
-    main.classList.remove('lp-in'); void main.offsetWidth; if (!reduce()) main.classList.add('lp-in');
+    typeset(vis); typeset(side); typeset(say);
+    for (const el of [vis, side]) { el.classList.remove('lp-in'); void el.offsetWidth; if (!reduce()) el.classList.add('lp-in'); }
     if (playing) {
       if (interactive(s) && !solved.has(i)) voice.speak(first, () => {}); // 等孩子操作
       else voice.speak(first, () => { if (playing && steps[i] === s) go(i + 1); });
