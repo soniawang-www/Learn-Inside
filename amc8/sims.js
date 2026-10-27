@@ -125,22 +125,23 @@ function deal(box, p, api) {
 function erase(box, p, api) {
   let shown = false;
   box.innerHTML = `<div class="er-row">${p.nums.map((x) => `<button class="er-n" data-x="${x}"><b>${x}</b><small></small></button>`).join('')}</div><div class="er-info"></div>` +
-    bar(btn('er-show', `显示除以 ${p.m} 的余数`));
+    (p.m ? bar(btn('er-show', `显示除以 ${p.m} 的余数`)) : '');
   const total = p.nums.reduce((a, b) => a + b, 0);
   const ok = once((t) => api.solved(t));
   const paint = () => {
     box.querySelectorAll('.er-n small').forEach((s, i) => { s.textContent = shown ? `余 ${p.nums[i] % p.m}` : ''; });
   };
-  box.querySelector('.er-info').innerHTML = `五个数的和 = <b>${total}</b>，除以 ${p.m} 余 <b>${total % p.m}</b>。点一个数把它擦掉。`;
+  const sq = p.test === 'square', good = (r) => (sq ? Number.isInteger(Math.sqrt(r)) : r % p.m === 0);
+  box.querySelector('.er-info').innerHTML = sq ? `${p.nums.length} 个数的和 = <b>${total}</b>。点一个数把它漏掉。` : `${p.nums.length} 个数的和 = <b>${total}</b>，除以 ${p.m} 余 <b>${total % p.m}</b>。点一个数把它擦掉。`;
   box.addEventListener('click', (e) => {
     if (e.target.closest('.er-show')) { shown = !shown; paint(); return; }
     const b = e.target.closest('.er-n'); if (!b) return;
     box.querySelectorAll('.er-n').forEach((x) => x.classList.remove('off', 'good'));
     const x = +b.dataset.x, rest = total - x;
-    b.classList.add(rest % p.m === 0 ? 'good' : 'off');
-    box.querySelector('.er-info').innerHTML = `擦掉 ${x}：剩下的和 = ${total} − ${x} = <b>${rest}</b>，除以 ${p.m} 余 <b>${rest % p.m}</b>`;
-    if (rest % p.m === 0) ok(p.say_ok.replace('{x}', x).replace('{r}', rest));
-    else api.say(`剩下 ${rest}，除以 ${p.m} 余 ${rest % p.m}，不是 ${p.m} 的倍数。被擦掉的数除以 ${p.m} 应该余几？`);
+    b.classList.add(good(rest) ? 'good' : 'off');
+    box.querySelector('.er-info').innerHTML = sq ? `漏掉 ${x}：和 = ${total} − ${x} = <b>${rest}</b>${good(rest) ? ` = ${Math.sqrt(rest)}²` : '，不是平方数'}` : `擦掉 ${x}：剩下的和 = ${total} − ${x} = <b>${rest}</b>，除以 ${p.m} 余 <b>${rest % p.m}</b>`;
+    if (good(rest)) ok(p.say_ok.replace('{x}', x).replace('{r}', rest));
+    else api.say(sq ? (p.say_bad || `${rest} 不是平方数。比 ${total} 小的平方数有哪些？`).replace('{r}', rest) : `剩下 ${rest}，除以 ${p.m} 余 ${rest % p.m}，不是 ${p.m} 的倍数。被擦掉的数除以 ${p.m} 应该余几？`);
   });
   paint();
 }
@@ -520,4 +521,5 @@ function circles18(box, p, api) {
   draw(1.4);
 }
 
-export const SIMS = { circles18,  tap, sum, seq, deal, erase, clock, rotate, circle12, hist, insertN, fold, pairs16, cars, cheese, assign, hooks, n2, trap, mirror };
+import { SIMS24 } from './sims24.js';
+export const SIMS = { ...SIMS24, circles18,  tap, sum, seq, deal, erase, clock, rotate, circle12, hist, insertN, fold, pairs16, cars, cheese, assign, hooks, n2, trap, mirror };
