@@ -15,6 +15,14 @@ for (let i = 0; i < 60; i++) {
   try { await fetch(BASE + '/'); break; } catch { await new Promise((r) => setTimeout(r, 1000)); }
 }
 
+// 示例卷线上已下线；本地测试时用管理员密钥重新发布一份（wrangler dev --var ADMIN_KEY:localtest）
+{
+  const { readFileSync } = await import('node:fs');
+  const sample = JSON.parse(readFileSync(new URL('../data/exams/sample-2026.json', import.meta.url), 'utf8'));
+  sample.published = true;
+  const r = await fetch(BASE + '/amc8/api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': process.env.ADMIN_KEY || 'localtest' }, body: JSON.stringify({ exams: [sample] }) });
+  ok(r.status === 200, '本地重新发布示例卷用于测试');
+}
 ok((await call('/amc8/api/auth/join', 'POST', { invite_code: 'wrong', nickname: 'x' })).status === 403, '错误邀请码被拒绝');
 const join = await call('/amc8/api/auth/join', 'POST', { invite_code: 'AMC2026', nickname: '测试' });
 ok(join.status === 200 && join.data.token, '加入试用');
@@ -26,7 +34,7 @@ ok(me.data.premium === true && me.data.free_mode === true, '试用期 premium �
 
 const exams = await call(`/amc8/api/exams?student=${sid}`);
 ok(exams.data.length >= 1, `试卷列表 ${exams.data.length} 套`);
-const examId = exams.data[0].id;
+const examId = 'sample-2026';
 
 // 模考模式不能看提示
 const ex = await call('/amc8/api/sessions', 'POST', { exam_id: examId, student_id: sid, mode: 'exam' });

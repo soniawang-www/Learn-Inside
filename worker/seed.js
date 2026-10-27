@@ -63,11 +63,16 @@ function upsertSql(table, obj) {
 
 // 已上线的库需要补的列（CREATE TABLE IF NOT EXISTS 不会给旧表加列）
 const MIGRATIONS = ['ALTER TABLE problem ADD COLUMN stem_zh TEXT', 'ALTER TABLE problem ADD COLUMN choices_zh TEXT'];
+// 每次都执行的数据修正（幂等）
+const FIXUPS = ["UPDATE exam SET published = 0 WHERE id = 'sample-2026'"]; // 示例卷下线
 
 /** 给旧表补列（已存在则跳过）；表还不存在时什么也不做，留给 seed 建表 */
 export async function migrate(db) {
   for (const m of MIGRATIONS) {
     try { await db.prepare(m).run(); } catch (e) { if (!/duplicate column|no such table/i.test(String(e.message))) throw e; }
+  }
+  for (const f of FIXUPS) {
+    try { await db.prepare(f).run(); } catch (e) { if (!/no such table/i.test(String(e.message))) throw e; }
   }
 }
 

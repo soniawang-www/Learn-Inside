@@ -370,7 +370,7 @@ async function renderReview(sid) {
         <ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>
         ${it.correct ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
-        ${it.basic ? `<div class="section-label">简单思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
+        ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
         <div class="section-label">考点</div>
         <div class="chips">${it.kps.map((k) => `<a class="chip ${k.primary ? 'primary' : ''}" href="#/kp/${encodeURIComponent(k.id)}">${esc(k.name)}${k.locked ? '<span class="lock">🔒</span>' : ''}</a>`).join('')}</div>
         ${it.advanced ? `<div style="margin-top:14px"><button class="btn" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}

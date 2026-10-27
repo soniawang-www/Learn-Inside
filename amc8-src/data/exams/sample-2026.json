@@ -4,14 +4,23 @@
   "year": 2026,
   "source": "original",
   "duration_sec": 960,
-  "_note": "原创样题，10 题 16 分钟（按真题 25 题 40 分钟同比例）。真题请按同样格式录入 data/exams/amc8-YYYY.json。",
+  "_note": "原创示例卷，已下线（published=false），只给本地测试用。",
   "problems": [
     {
       "number": 1,
       "stem": "What is the value of $(2+4+6+\\cdots+20)-(1+3+5+\\cdots+19)$?",
-      "choices": { "A": "$0$", "B": "$1$", "C": "$10$", "D": "$19$", "E": "$20$" },
+      "choices": {
+        "A": "$0$",
+        "B": "$1$",
+        "C": "$10$",
+        "D": "$19$",
+        "E": "$20$"
+      },
       "answer": "C",
-      "kps": { "calc.arith": 1.0, "alg.pattern": 0.3 },
+      "kps": {
+        "calc.arith": 1.0,
+        "alg.pattern": 0.3
+      },
       "hints": [
         "两个括号里各有几个数？",
         "把它们一对一配对：$2-1,\\ 4-3,\\ \\dots$",
@@ -19,18 +28,39 @@
       ],
       "basic": "配对：$(2-1)+(4-3)+\\cdots+(20-19)$，共 10 对，每对差 1，结果是 $10$。",
       "advanced": [
-        { "title": "先别急着求和", "body": "直接算两个和（110 和 100）当然可以，但 AMC 鼓励找更快的办法。" },
-        { "title": "数一数个数", "body": "$2,4,\\dots,20$ 有 10 个；$1,3,\\dots,19$ 也有 10 个。个数相同，就可以配对。" },
-        { "title": "配对相减", "body": "$(2-1)+(4-3)+\\cdots+(20-19)$，每对都等于 $1$。" },
-        { "title": "结论", "body": "10 对 × 1 = $10$，选 **C**。" }
+        {
+          "title": "先别急着求和",
+          "body": "直接算两个和（110 和 100）当然可以，但 AMC 鼓励找更快的办法。"
+        },
+        {
+          "title": "数一数个数",
+          "body": "$2,4,\\dots,20$ 有 10 个；$1,3,\\dots,19$ 也有 10 个。个数相同，就可以配对。"
+        },
+        {
+          "title": "配对相减",
+          "body": "$(2-1)+(4-3)+\\cdots+(20-19)$，每对都等于 $1$。"
+        },
+        {
+          "title": "结论",
+          "body": "10 对 × 1 = $10$，选 **C**。"
+        }
       ]
     },
     {
       "number": 2,
       "stem": "A jacket originally costs $\\$40$. It is put on sale for $25\\%$ off, and then a coupon takes an additional $10\\%$ off the sale price. What is the final price, in dollars?",
-      "choices": { "A": "$22$", "B": "$24$", "C": "$26$", "D": "$27$", "E": "$28$" },
+      "choices": {
+        "A": "$22$",
+        "B": "$24$",
+        "C": "$26$",
+        "D": "$27$",
+        "E": "$28$"
+      },
       "answer": "D",
-      "kps": { "app.percent": 1.0, "calc.fraction": 0.3 },
+      "kps": {
+        "app.percent": 1.0,
+        "calc.fraction": 0.3
+      },
       "hints": [
         "第二次打折是在哪个价格上打？",
         "先算打 75 折后的价格。",
@@ -38,18 +68,39 @@
       ],
       "basic": "$40 \\times 0.75 = 30$，$30 \\times 0.9 = 27$。注意不能把 25% 和 10% 直接加成 35%（那样会得到 26，正是干扰项 C）。",
       "advanced": [
-        { "title": "两次折扣的基数不同", "body": "第一次在原价 40 美元上打折，第二次在**折后价**上打折。" },
-        { "title": "第一次", "body": "减 25% 就是乘以 $0.75$：$40 \\times 0.75 = 30$。" },
-        { "title": "第二次", "body": "再减 10% 就是乘以 $0.9$：$30 \\times 0.9 = 27$。" },
-        { "title": "看看陷阱", "body": "如果直接减 35%，得 $40 \\times 0.65 = 26$，正是选项 C。选 **D**。" }
+        {
+          "title": "两次折扣的基数不同",
+          "body": "第一次在原价 40 美元上打折，第二次在**折后价**上打折。"
+        },
+        {
+          "title": "第一次",
+          "body": "减 25% 就是乘以 $0.75$：$40 \\times 0.75 = 30$。"
+        },
+        {
+          "title": "第二次",
+          "body": "再减 10% 就是乘以 $0.9$：$30 \\times 0.9 = 27$。"
+        },
+        {
+          "title": "看看陷阱",
+          "body": "如果直接减 35%，得 $40 \\times 0.65 = 26$，正是选项 C。选 **D**。"
+        }
       ]
     },
     {
       "number": 3,
       "stem": "How many positive integers divide $72$?",
-      "choices": { "A": "$8$", "B": "$10$", "C": "$11$", "D": "$12$", "E": "$14$" },
+      "choices": {
+        "A": "$8$",
+        "B": "$10$",
+        "C": "$11$",
+        "D": "$12$",
+        "E": "$14$"
+      },
       "answer": "D",
-      "kps": { "nt.prime": 1.0, "nt.divisibility": 0.3 },
+      "kps": {
+        "nt.prime": 1.0,
+        "nt.divisibility": 0.3
+      },
       "hints": [
         "先把 72 分解质因数。",
         "$72 = 2^3 \\times 3^2$。",
@@ -57,18 +108,39 @@
       ],
       "basic": "$72 = 2^3 \\times 3^2$，约数个数 $=(3+1)(2+1)=12$。",
       "advanced": [
-        { "title": "分解质因数", "body": "$72 = 8 \\times 9 = 2^3 \\times 3^2$。" },
-        { "title": "约数长什么样", "body": "每个约数都是 $2^a \\times 3^b$，其中 $a \\in \\{0,1,2,3\\}$，$b \\in \\{0,1,2\\}$。" },
-        { "title": "数组合", "body": "$a$ 有 4 种选法，$b$ 有 3 种，共 $4 \\times 3 = 12$ 个。" },
-        { "title": "验证", "body": "1, 2, 3, 4, 6, 8, 9, 12, 18, 24, 36, 72，正好 12 个。选 **D**。" }
+        {
+          "title": "分解质因数",
+          "body": "$72 = 8 \\times 9 = 2^3 \\times 3^2$。"
+        },
+        {
+          "title": "约数长什么样",
+          "body": "每个约数都是 $2^a \\times 3^b$，其中 $a \\in \\{0,1,2,3\\}$，$b \\in \\{0,1,2\\}$。"
+        },
+        {
+          "title": "数组合",
+          "body": "$a$ 有 4 种选法，$b$ 有 3 种，共 $4 \\times 3 = 12$ 个。"
+        },
+        {
+          "title": "验证",
+          "body": "1, 2, 3, 4, 6, 8, 9, 12, 18, 24, 36, 72，正好 12 个。选 **D**。"
+        }
       ]
     },
     {
       "number": 4,
       "stem": "The mean of five numbers is $12$. Four of the numbers are $8$, $10$, $14$, and $15$. What is the median of the five numbers?",
-      "choices": { "A": "$10$", "B": "$12$", "C": "$13$", "D": "$14$", "E": "$15$" },
+      "choices": {
+        "A": "$10$",
+        "B": "$12$",
+        "C": "$13$",
+        "D": "$14$",
+        "E": "$15$"
+      },
       "answer": "C",
-      "kps": { "stat.mean": 1.0, "stat.median": 0.5 },
+      "kps": {
+        "stat.mean": 1.0,
+        "stat.median": 0.5
+      },
       "hints": [
         "先求五个数的总和。",
         "总和是 $5 \\times 12 = 60$，第五个数是多少？",
@@ -76,18 +148,35 @@
       ],
       "basic": "总和 $60$，第五个数 $60-47=13$。排序 $8,10,13,14,15$，中位数 $13$。",
       "advanced": [
-        { "title": "平均数 → 总和", "body": "$5 \\times 12 = 60$。" },
-        { "title": "求第五个数", "body": "$8+10+14+15 = 47$，第五个数 $= 60 - 47 = 13$。" },
-        { "title": "排序找中间", "body": "$8, 10, \\mathbf{13}, 14, 15$，中位数是 $13$。选 **C**。" }
+        {
+          "title": "平均数 → 总和",
+          "body": "$5 \\times 12 = 60$。"
+        },
+        {
+          "title": "求第五个数",
+          "body": "$8+10+14+15 = 47$，第五个数 $= 60 - 47 = 13$。"
+        },
+        {
+          "title": "排序找中间",
+          "body": "$8, 10, \\mathbf{13}, 14, 15$，中位数是 $13$。选 **C**。"
+        }
       ]
     },
     {
       "number": 5,
       "stem": "Rectangle $ABCD$ has $AB = 8$ and $BC = 6$. Point $E$ is the midpoint of $\\overline{CD}$. What is the area of quadrilateral $ABCE$?",
       "figure": "<svg viewBox='0 0 240 200' xmlns='http://www.w3.org/2000/svg' font-family='Times New Roman,serif' font-size='16' font-style='italic'><polygon points='30,170 210,170 210,35 120,35' fill='currentColor' fill-opacity='0.12'/><rect x='30' y='35' width='180' height='135' fill='none' stroke='currentColor' stroke-width='1.6'/><line x1='30' y1='170' x2='120' y2='35' stroke='currentColor' stroke-width='1.6'/><circle cx='120' cy='35' r='2.5' fill='currentColor'/><g fill='currentColor'><text x='14' y='188'>A</text><text x='214' y='188'>B</text><text x='214' y='30'>C</text><text x='14' y='30'>D</text><text x='114' y='27'>E</text></g></svg>",
-      "choices": { "A": "$24$", "B": "$30$", "C": "$32$", "D": "$36$", "E": "$40$" },
+      "choices": {
+        "A": "$24$",
+        "B": "$30$",
+        "C": "$32$",
+        "D": "$36$",
+        "E": "$40$"
+      },
       "answer": "D",
-      "kps": { "geo.area": 1.0 },
+      "kps": {
+        "geo.area": 1.0
+      },
       "hints": [
         "直接算四边形不方便，能不能用“大减小”？",
         "长方形去掉了哪个三角形？",
@@ -95,18 +184,39 @@
       ],
       "basic": "长方形面积 $48$，减去三角形 $ADE$ 的面积 $\\tfrac12 \\times 4 \\times 6 = 12$，得 $36$。",
       "advanced": [
-        { "title": "大减小", "body": "四边形 $ABCE$ = 长方形 $ABCD$ − 三角形 $ADE$。" },
-        { "title": "长方形", "body": "$8 \\times 6 = 48$。" },
-        { "title": "三角形 ADE", "body": "$E$ 是 $CD$ 中点，$DE = 4$，直角边 $AD = 6$，面积 $\\tfrac12 \\times 4 \\times 6 = 12$。" },
-        { "title": "结论", "body": "$48 - 12 = 36$，选 **D**。" }
+        {
+          "title": "大减小",
+          "body": "四边形 $ABCE$ = 长方形 $ABCD$ − 三角形 $ADE$。"
+        },
+        {
+          "title": "长方形",
+          "body": "$8 \\times 6 = 48$。"
+        },
+        {
+          "title": "三角形 ADE",
+          "body": "$E$ 是 $CD$ 中点，$DE = 4$，直角边 $AD = 6$，面积 $\\tfrac12 \\times 4 \\times 6 = 12$。"
+        },
+        {
+          "title": "结论",
+          "body": "$48 - 12 = 36$，选 **D**。"
+        }
       ]
     },
     {
       "number": 6,
       "stem": "Mia walks from home to school at $4$ kilometers per hour and walks back home along the same route at $6$ kilometers per hour. What is her average speed, in kilometers per hour, for the entire round trip?",
-      "choices": { "A": "$4.5$", "B": "$4.8$", "C": "$5$", "D": "$5.2$", "E": "$5.5$" },
+      "choices": {
+        "A": "$4.5$",
+        "B": "$4.8$",
+        "C": "$5$",
+        "D": "$5.2$",
+        "E": "$5.5$"
+      },
       "answer": "B",
-      "kps": { "app.travel": 1.0, "stat.mean": 0.3 },
+      "kps": {
+        "app.travel": 1.0,
+        "stat.mean": 0.3
+      },
       "hints": [
         "平均速度 = 总路程 ÷ 总时间，不是 $(4+6)\\div 2$。",
         "设路程是 4 和 6 的公倍数，比如 12 km。",
@@ -114,18 +224,39 @@
       ],
       "basic": "设单程 12 km：去 3 h，回 2 h，总 24 km ÷ 5 h $= 4.8$。",
       "advanced": [
-        { "title": "常见误区", "body": "$(4+6)\\div 2 = 5$ 是选项 C，但这是错的：慢的那段走得更久。" },
-        { "title": "设一个方便的路程", "body": "设单程 $12$ km（4 和 6 的最小公倍数）。" },
-        { "title": "算时间", "body": "去：$12 \\div 4 = 3$ h；回：$12 \\div 6 = 2$ h；共 5 h。" },
-        { "title": "结论", "body": "$24 \\div 5 = 4.8$，选 **B**。" }
+        {
+          "title": "常见误区",
+          "body": "$(4+6)\\div 2 = 5$ 是选项 C，但这是错的：慢的那段走得更久。"
+        },
+        {
+          "title": "设一个方便的路程",
+          "body": "设单程 $12$ km（4 和 6 的最小公倍数）。"
+        },
+        {
+          "title": "算时间",
+          "body": "去：$12 \\div 4 = 3$ h；回：$12 \\div 6 = 2$ h；共 5 h。"
+        },
+        {
+          "title": "结论",
+          "body": "$24 \\div 5 = 4.8$，选 **B**。"
+        }
       ]
     },
     {
       "number": 7,
       "stem": "How many three-digit positive integers have all digits odd and digits in strictly increasing order from left to right?",
-      "choices": { "A": "$6$", "B": "$10$", "C": "$15$", "D": "$20$", "E": "$60$" },
+      "choices": {
+        "A": "$6$",
+        "B": "$10$",
+        "C": "$15$",
+        "D": "$20$",
+        "E": "$60$"
+      },
       "answer": "B",
-      "kps": { "cnt.perm": 1.0, "nt.digits": 0.3 },
+      "kps": {
+        "cnt.perm": 1.0,
+        "nt.digits": 0.3
+      },
       "hints": [
         "奇数数字有哪几个？",
         "选定 3 个数字后，“严格递增”的排法有几种？",
@@ -133,18 +264,40 @@
       ],
       "basic": "从 $\\{1,3,5,7,9\\}$ 选 3 个，排法唯一，共 $\\binom{5}{3} = 10$ 个。",
       "advanced": [
-        { "title": "可用的数字", "body": "奇数数字：$1, 3, 5, 7, 9$，共 5 个。" },
-        { "title": "关键观察", "body": "比如选了 $\\{3, 7, 9\\}$，严格递增只能排成 $379$，排法唯一。" },
-        { "title": "转化为组合", "body": "所以答案就是从 5 个里选 3 个：$\\binom{5}{3} = 10$。" },
-        { "title": "陷阱", "body": "如果算成排列 $5 \\times 4 \\times 3 = 60$，就是选项 E。选 **B**。" }
+        {
+          "title": "可用的数字",
+          "body": "奇数数字：$1, 3, 5, 7, 9$，共 5 个。"
+        },
+        {
+          "title": "关键观察",
+          "body": "比如选了 $\\{3, 7, 9\\}$，严格递增只能排成 $379$，排法唯一。"
+        },
+        {
+          "title": "转化为组合",
+          "body": "所以答案就是从 5 个里选 3 个：$\\binom{5}{3} = 10$。"
+        },
+        {
+          "title": "陷阱",
+          "body": "如果算成排列 $5 \\times 4 \\times 3 = 60$，就是选项 E。选 **B**。"
+        }
       ]
     },
     {
       "number": 8,
       "stem": "Two fair standard six-sided dice are rolled. What is the probability that the sum of the two numbers rolled is a prime number?",
-      "choices": { "A": "$\\dfrac{1}{3}$", "B": "$\\dfrac{7}{18}$", "C": "$\\dfrac{5}{12}$", "D": "$\\dfrac{4}{9}$", "E": "$\\dfrac{1}{2}$" },
+      "choices": {
+        "A": "$\\dfrac{1}{3}$",
+        "B": "$\\dfrac{7}{18}$",
+        "C": "$\\dfrac{5}{12}$",
+        "D": "$\\dfrac{4}{9}$",
+        "E": "$\\dfrac{1}{2}$"
+      },
       "answer": "C",
-      "kps": { "cnt.prob": 1.0, "nt.prime": 0.3, "cnt.enum": 0.3 },
+      "kps": {
+        "cnt.prob": 1.0,
+        "nt.prime": 0.3,
+        "cnt.enum": 0.3
+      },
       "hints": [
         "总共有多少种等可能的结果？",
         "2 到 12 之间的质数有哪些？",
@@ -152,18 +305,40 @@
       ],
       "basic": "共 36 种。和为 2、3、5、7、11 的分别有 1、2、4、6、2 种，共 15 种，概率 $\\tfrac{15}{36} = \\tfrac{5}{12}$。",
       "advanced": [
-        { "title": "总结果数", "body": "两颗骰子看成不同颜色，共 $6 \\times 6 = 36$ 种。" },
-        { "title": "可能的质数和", "body": "和在 2~12 之间，质数有 $2, 3, 5, 7, 11$。" },
-        { "title": "逐个计数", "body": "和为 2：1 种；3：2 种；5：4 种；7：6 种；11：2 种。" },
-        { "title": "结论", "body": "$1+2+4+6+2 = 15$，概率 $\\tfrac{15}{36} = \\tfrac{5}{12}$，选 **C**。" }
+        {
+          "title": "总结果数",
+          "body": "两颗骰子看成不同颜色，共 $6 \\times 6 = 36$ 种。"
+        },
+        {
+          "title": "可能的质数和",
+          "body": "和在 2~12 之间，质数有 $2, 3, 5, 7, 11$。"
+        },
+        {
+          "title": "逐个计数",
+          "body": "和为 2：1 种；3：2 种；5：4 种；7：6 种；11：2 种。"
+        },
+        {
+          "title": "结论",
+          "body": "$1+2+4+6+2 = 15$，概率 $\\tfrac{15}{36} = \\tfrac{5}{12}$，选 **C**。"
+        }
       ]
     },
     {
       "number": 9,
       "stem": "A triangle has vertices at $(0,0)$, $(6,0)$, and $(6,8)$. What is the length of the altitude from the vertex $(6,0)$ to the opposite side?",
-      "choices": { "A": "$4$", "B": "$4.5$", "C": "$4.8$", "D": "$5$", "E": "$6$" },
+      "choices": {
+        "A": "$4$",
+        "B": "$4.5$",
+        "C": "$4.8$",
+        "D": "$5$",
+        "E": "$6$"
+      },
       "answer": "C",
-      "kps": { "geo.pyth": 1.0, "geo.area": 0.5, "geo.coord": 0.5 },
+      "kps": {
+        "geo.pyth": 1.0,
+        "geo.area": 0.5,
+        "geo.coord": 0.5
+      },
       "hints": [
         "这是一个直角三角形，直角在哪个顶点？",
         "斜边多长？面积是多少？",
@@ -171,18 +346,39 @@
       ],
       "basic": "直角在 $(6,0)$，两直角边 6 和 8，斜边 10，面积 24。斜边上的高 $= 2 \\times 24 \\div 10 = 4.8$。",
       "advanced": [
-        { "title": "认出直角三角形", "body": "$(0,0)\\to(6,0)$ 水平，$(6,0)\\to(6,8)$ 竖直，直角在 $(6,0)$。" },
-        { "title": "斜边", "body": "直角边 6 和 8，是 3-4-5 的两倍，斜边 $= 10$。" },
-        { "title": "面积算两次", "body": "$\\tfrac12 \\times 6 \\times 8 = 24 = \\tfrac12 \\times 10 \\times h$。" },
-        { "title": "结论", "body": "$h = 4.8$，选 **C**。" }
+        {
+          "title": "认出直角三角形",
+          "body": "$(0,0)\\to(6,0)$ 水平，$(6,0)\\to(6,8)$ 竖直，直角在 $(6,0)$。"
+        },
+        {
+          "title": "斜边",
+          "body": "直角边 6 和 8，是 3-4-5 的两倍，斜边 $= 10$。"
+        },
+        {
+          "title": "面积算两次",
+          "body": "$\\tfrac12 \\times 6 \\times 8 = 24 = \\tfrac12 \\times 10 \\times h$。"
+        },
+        {
+          "title": "结论",
+          "body": "$h = 4.8$，选 **C**。"
+        }
       ]
     },
     {
       "number": 10,
       "stem": "What is the remainder when $2^{2026}$ is divided by $7$?",
-      "choices": { "A": "$1$", "B": "$2$", "C": "$4$", "D": "$5$", "E": "$6$" },
+      "choices": {
+        "A": "$1$",
+        "B": "$2$",
+        "C": "$4$",
+        "D": "$5$",
+        "E": "$6$"
+      },
       "answer": "B",
-      "kps": { "nt.remainder": 1.0, "alg.pattern": 0.3 },
+      "kps": {
+        "nt.remainder": 1.0,
+        "alg.pattern": 0.3
+      },
       "hints": [
         "先算 $2^1, 2^2, 2^3, \\dots$ 除以 7 的余数。",
         "余数是 $2, 4, 1, 2, 4, 1, \\dots$，周期是几？",
@@ -190,11 +386,24 @@
       ],
       "basic": "$2^3 = 8 \\equiv 1 \\pmod 7$，周期 3。$2026 = 3 \\times 675 + 1$，所以余数同 $2^1$，为 $2$。",
       "advanced": [
-        { "title": "列出前几项", "body": "$2^1 \\to 2$，$2^2 \\to 4$，$2^3 = 8 \\to 1$，$2^4 \\to 2$ ……" },
-        { "title": "找到周期", "body": "余数按 $2, 4, 1$ 循环，周期是 3。" },
-        { "title": "定位", "body": "$2026 \\div 3 = 675$ 余 $1$，对应周期中第 1 个。" },
-        { "title": "结论", "body": "余数是 $2$，选 **B**。" }
+        {
+          "title": "列出前几项",
+          "body": "$2^1 \\to 2$，$2^2 \\to 4$，$2^3 = 8 \\to 1$，$2^4 \\to 2$ ……"
+        },
+        {
+          "title": "找到周期",
+          "body": "余数按 $2, 4, 1$ 循环，周期是 3。"
+        },
+        {
+          "title": "定位",
+          "body": "$2026 \\div 3 = 675$ 余 $1$，对应周期中第 1 个。"
+        },
+        {
+          "title": "结论",
+          "body": "余数是 $2$，选 **B**。"
+        }
       ]
     }
-  ]
+  ],
+  "published": false
 }

@@ -53,7 +53,7 @@ amc8-src/tests/e2e.mjs   端到端测试
 | `answer` | A–E |
 | `kps` | `{知识点id: 权重}`，主考点 1.0，辅助 0.3~0.5 |
 | `hints` | 最多 3 级，由浅到深 |
-| `basic` | 简单思路（免费） |
+| `basic` | 解题思路（免费） |
 | `advanced` | 互动解析步骤 `[{title, body}]`（付费），或用 `advanced_url` 指向独立互动页 |
 | `difficulty` | 可选；不填按题号推算 |
 
