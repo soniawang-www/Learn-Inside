@@ -412,6 +412,7 @@ ruby.nt rt::before{content:"";display:inline-block;width:.95em;height:.95em;marg
 @keyframes tagin{from{opacity:0;transform:translateY(-4px) rotate(-2deg)}to{opacity:1;transform:rotate(-2deg)}}
 ruby.nt rt.i{color:var(--plum)}ruby.nt rt.p{color:var(--jade)}ruby.nt rt.w{color:var(--warn)}
 .scr .big:has(ruby.nt){line-height:2.7}
+@media (prefers-reduced-motion:reduce){.scr .say::before,ruby.nt>b::after,ruby.nt rt{animation:none!important}}
 .scr .big div.x{display:block;margin-top:0;width:100%}
 .scr:has(.turn:not([hidden])) .big{padding-top:24px}
 .scr .big div.x.here{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
