@@ -221,7 +221,7 @@ async function renderExam(sid) {
 
   // 刷新 / 断线重连时找回已看过的提示
   for (const h of data.hints_seen) {
-    const list = (S.hints[h.problem_id] ||= []);
+    const list = S.hints[h.problem_id] || (S.hints[h.problem_id] = []);
     if (!list[h.level - 1]) {
       const r = await api(`/amc8/api/sessions/${sid}/hint`, { method: 'POST', body: { problem_id: h.problem_id, level: h.level } });
       list[h.level - 1] = r.content;
@@ -288,7 +288,7 @@ async function renderExam(sid) {
     if (hb) hb.onclick = async () => {
       const level = hints.length + 1;
       const r = await api(`/amc8/api/sessions/${sid}/hint`, { method: 'POST', body: { problem_id: p.id, level } });
-      (S.hints[p.id] ||= [])[level - 1] = r.content; save(); draw();
+      (S.hints[p.id] || (S.hints[p.id] = []))[level - 1] = r.content; save(); draw();
     };
   }
 

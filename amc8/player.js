@@ -101,15 +101,15 @@ function gridWidget(cfg, onSolved, setSay) {
   el('.hits').innerHTML = hits.join('');
   const draw = () => {
     el('.drawn').innerHTML = path.slice(1).map((b, k) => seg(path[k], b, 'var(--lp-plum)', cfg.dir)).join('') +
-      `<circle class="head" cx="${X(path.at(-1)[0])}" cy="${Y(path.at(-1)[1])}" r="6"/>`;
+      `<circle class="head" cx="${X(path[path.length - 1][0])}" cy="${Y(path[path.length - 1][1])}" r="6"/>`;
     el('.lp-count').textContent = `已走 ${path.length - 1} 格`;
   };
   wrap.addEventListener('click', (e) => {
     if (e.target.closest('.lp-reset')) { path = [from]; done = false; wrap.classList.remove('ok'); draw(); setSay(cfg.say_reset || '重新来，从起点出发，一格一格点路口。'); return; }
     const h = e.target.closest('.hit');
     if (!h || done) return;
-    const p = [+h.dataset.x, +h.dataset.y], cur = path.at(-1);
-    if (path.length > 1 && p[0] === path.at(-2)[0] && p[1] === path.at(-2)[1]) { path.pop(); draw(); return; }
+    const p = [+h.dataset.x, +h.dataset.y], cur = path[path.length - 1];
+    if (path.length > 1 && p[0] === path[path.length - 2][0] && p[1] === path[path.length - 2][1]) { path.pop(); draw(); return; }
     if (Math.abs(p[0] - cur[0]) + Math.abs(p[1] - cur[1]) !== 1) { setSay('只能沿着街道走到**相邻**的路口哦，不能跳格，也不能斜着穿过街区。'); return; }
     path.push(p); draw();
     if (p[0] === to[0] && p[1] === to[1]) {
