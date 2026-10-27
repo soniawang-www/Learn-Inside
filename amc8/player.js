@@ -12,6 +12,8 @@
 //   here   全景图：items: [{ t, d, on }]
 // 旧格式 [{title, body}] 自动当作 info。
 
+import { SIMS } from './sims.js';
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 const typeset = (el) => { if (window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false }); };
@@ -143,7 +145,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
   const $ = (q) => root.querySelector(q);
   const vis = $('.lp-vis'), side = $('.lp-main'), say = $('.lp-say'), turn = $('.lp-turn'), scr = $('.lp-scr');
   const setSay = (t) => { say.innerHTML = md(t); typeset(say); if (playing && voice.on) voice.speak(t, () => {}); };
-  const interactive = (s) => ['quiz', 'pick2'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw');
+  const interactive = (s) => ['quiz', 'pick2', 'fill'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw') || (s.type === 'sim' && !!s.goal);
 
   function solvedNow(i0, text) {
     solved.add(i0);
@@ -157,15 +159,42 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     root.querySelectorAll('.lp-segs i').forEach((e, k) => { e.className = k < i ? 'd' : k === i ? 'c' : ''; });
     $('.lp-no').textContent = `${i + 1}/${steps.length}`;
     $('.lp-prev').disabled = i === 0;
-    $('.lp-nx').textContent = i === steps.length - 1 ? doneLabel : '下一步';
+    $('.lp-ctl .lp-nx').textContent = i === steps.length - 1 ? doneLabel : '下一步';
     // 有图（方格路线等）时：大屏左边放图，右边放讲解和题目；没图时单列居中。手机上一律上下排。
-    const hasVis = s.type === 'grid' || !!s.grid || (s.type === 'tabs' && s.tabs.some((t) => t.grid));
+    const hasVis = s.type === 'grid' || s.type === 'sim' || !!s.grid || !!s.fig || (s.type === 'tabs' && s.tabs.some((t) => t.grid || t.fig));
     scr.classList.toggle('solo', !hasVis);
     const main = hasVis ? side : vis;
     vis.innerHTML = ''; side.innerHTML = '';
     if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html}</div>`);
     turn.hidden = !(interactive(s) && !solved.has(i));
     if (s.grid && s.type !== 'grid') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
+    if (s.fig) vis.insertAdjacentHTML('beforeend', `<div class="lp-fig">${s.fig}</div>`);
+    if (s.type === 'sim') {
+      const box = document.createElement('div');
+      box.className = `lp-simbox sim-${s.sim}`;
+      vis.appendChild(box);
+      const i0 = i;
+      try {
+        SIMS[s.sim](box, s, { say: setSay, solved: (t) => { if (i === i0 && !solved.has(i0)) solvedNow(i0, t || s.ok || '完成！'); } });
+      } catch (err) { box.textContent = '这个互动加载失败了，可以直接按「下一步」。'; console.error(err); }
+    }
+    if (s.type === 'fill') {
+      const box = document.createElement('div');
+      box.className = 'lp-fill';
+      box.innerHTML = (s.q ? `<div class="lp-q">${md(s.q)}</div>` : '') +
+        `<div class="lp-frow">${s.pre ? `<span>${md(s.pre)}</span>` : ''}<input class="lp-input" inputmode="decimal" autocomplete="off" aria-label="答案">${s.post ? `<span>${md(s.post)}</span>` : ''}<button class="lp-chk">确定</button></div>`;
+      main.appendChild(box);
+      let tries = 0;
+      const check = () => {
+        if (solved.has(i)) return;
+        const v = box.querySelector('.lp-input').value.trim().replace(/\s+/g, '').replace(/，/g, ',');
+        if (!v) return;
+        if (s.a.map(String).includes(v)) { box.querySelector('.lp-input').classList.add('ok'); box.querySelector('.lp-input').disabled = true; solvedNow(i, s.ok || '对啦！'); }
+        else { tries++; box.querySelector('.lp-input').classList.add('no'); setTimeout(() => box.querySelector('.lp-input')?.classList.remove('no'), 500); setSay(tries >= 2 && s.show ? s.show : (s.hint || '再算一算。')); }
+      };
+      box.querySelector('.lp-chk').onclick = check;
+      box.querySelector('.lp-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
+    }
     let first = s.say || '';
     if (s.type === 'tabs') {
       const box = document.createElement('div');
@@ -179,6 +208,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
         const t = s.tabs[k];
         pane.innerHTML = t.html || '';
         if (t.grid) pane.appendChild(gridWidget(t.grid, () => {}, setSay));
+        if (t.fig) pane.insertAdjacentHTML('beforeend', `<div class="lp-fig">${t.fig}</div>`);
         typeset(pane);
         if (t.say && !initial) setSay(t.say);
       };
@@ -240,7 +270,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     if (v) render(); else voice.stop();
   }
   $('.lp-prev').onclick = () => go(i - 1);
-  $('.lp-nx').onclick = () => go(i + 1);
+  $('.lp-ctl .lp-nx').onclick = () => go(i + 1);
   $('.lp-play').onclick = () => setPlaying(!playing);
   $('.lp-vb').onclick = (e) => { voice.set(!voice.on); e.currentTarget.setAttribute('aria-pressed', voice.on); e.currentTarget.textContent = `声音 ${voice.on ? '开' : '关'}`; };
   root.querySelector('.lp-x')?.addEventListener('click', () => { voice.stop(); onClose(); });
