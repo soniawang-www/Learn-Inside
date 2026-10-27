@@ -24,20 +24,31 @@ amc8-src/tests/e2e.mjs   端到端测试
 2. 浏览器打开一次 `https://learn-inside.com/amc8/api/admin/seed`，看到 `{"ok":true,...}` 即建表和导入题库完成。
 3. 打开 `https://learn-inside.com/amc8/`，邀请码 `AMC2026`。
 
-## 更新题库
+## 导入真题（推荐方式）
+
+真题放在私有仓库 `soniawang-www/amc8-data`，**不要放进这个公开仓库**。
+
+1. 打开 `https://learn-inside.com/amc8/admin.html`
+2. 填管理员密钥（Cloudflare 里设置的 Secret `ADMIN_KEY`）
+3. 选择 `amc8-data/exams/` 下的试卷 JSON（可多选），页面会先显示题数和答案串，确认后点「导入」
+
+同一套试卷可以反复导入：题目内容会更新，孩子的作答记录不受影响。
+
+## 更新内置示例卷
 
 1. 修改 `amc8-src/data/` 下的 JSON（试卷一套一个文件，格式见 `sample-2026.json`）。
 2. 在仓库根目录运行 `node amc8-src/scripts/build-seed.mjs > amc8-src/seed.sql`（会校验答案和知识点）。
 3. 提交并推送，等部署完成。
 4. 题库已初始化后，再次导入需要管理员密钥：在 Cloudflare 控制台 → learn-inside → Settings → Variables and Secrets 添加 **Secret** `ADMIN_KEY`（不要写进仓库），然后打开 `https://learn-inside.com/amc8/api/admin/seed?key=你的密钥`。
 
-导入是 INSERT OR REPLACE，可重复执行，不影响作答记录。
+导入用 UPSERT（不会删除已有行），可重复执行，不影响作答记录。
 
 ## 试卷 JSON 字段
 
 | 字段 | 说明 |
 |---|---|
-| `stem` / `choices` | Markdown + `$LaTeX$` |
+| `stem` / `choices` | 英文原题，Markdown + `$LaTeX$`；选项值以 `<svg` 或 `<img` 开头时按图形显示 |
+| `stem_zh` / `choices_zh` | 中文题干 / 选项（可选），考试页可切换 English / 中文 / 双语 |
 | `figure` | 内联 SVG（用 `currentColor` 适配深色模式），或图片 URL |
 | `answer` | A–E |
 | `kps` | `{知识点id: 权重}`，主考点 1.0，辅助 0.3~0.5 |

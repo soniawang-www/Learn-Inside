@@ -35,7 +35,28 @@ const apiList = async (path) => (await api(path))._array;
 // ───────── 渲染工具 ─────────
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 /** 题目文本：转义 HTML，保留 $…$ 给 KaTeX；**粗体** 和换行 */
-const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<i>$2</i>').replace(/\n/g, '<br>');
+const isFig = (v) => /^\s*<(svg|img)\b/i.test(String(v || ''));
+
+// ── 题目语言：en 英文 / zh 中文 / both 双语（中区考试可选语言） ──
+const LANGS = { en: 'English', zh: '中文', both: '双语' };
+const lang = { get: () => store.get('amc8.lang', 'en'), next() { const ks = Object.keys(LANGS); const n = ks[(ks.indexOf(this.get()) + 1) % ks.length]; store.set('amc8.lang', n); return n; } };
+function stemHtml(p) {
+  const L = lang.get();
+  if (!p.stem_zh || L === 'en') return rich(p.stem);
+  if (L === 'zh') return rich(p.stem_zh);
+  return `${rich(p.stem)}<div class="zh">${rich(p.stem_zh)}</div>`;
+}
+function choiceHtml(p, k) {
+  const en = p.choices[k];
+  if (isFig(en)) return `<span class="fig-choice">${en}</span>`;
+  const zh = p.choices_zh?.[k];
+  const L = lang.get();
+  if (!zh || zh === en || L === 'en') return rich(en);
+  if (L === 'zh') return rich(zh);
+  return `${rich(en)}<span class="zh-inline">${rich(zh)}</span>`;
+}
+const figChoices = (p) => Object.values(p.choices).every(isFig);
 function typeset(el = document.body) {
   if (!window.renderMathInElement) { setTimeout(() => typeset(el), 60); return; }
   window.renderMathInElement(el, {
@@ -214,6 +235,7 @@ async function renderExam(sid) {
         <span class="ez-user">👤 ${esc(auth.student?.nickname || '')}</span>
         <span class="ez-title">${esc(data.exam.title)}${practice ? '<span class="ez-mode">练习</span>' : ''}</span>
         <span class="ez-sp"></span>
+        <button class="ez-tool" id="lang" title="切换题目语言">🌐 ${LANGS[lang.get()]}</button>
         <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
         <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
         <span class="ez-timer" id="timer">剩余时间 <b>--:--</b></span>
@@ -231,9 +253,9 @@ async function renderExam(sid) {
           <div class="ez-q">
             <div class="ez-qhead"><span class="ez-qno">${p.number}.(1分)</span>
               <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">📌 ${S.flags[p.id] ? '已标记' : '标记'}</button></div>
-            <div class="ez-stem">${rich(p.stem)}</div>
+            <div class="ez-stem">${stemHtml(p)}</div>
             ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
-            <ul class="ez-opts">${Object.entries(p.choices).map(([k, v]) => `<li class="ez-opt ${S.answers[p.id] === k ? 'sel' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${rich(v)}</span></li>`).join('')}</ul>
+            <ul class="ez-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="ez-opt ${S.answers[p.id] === k ? 'sel' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${choiceHtml(p, k)}</span></li>`).join('')}</ul>
             <div class="ez-nav">
               <button class="ez-btn" id="prev" ${S.cur === 0 ? 'disabled' : ''}>上一题</button>
               <button class="ez-btn next" id="next" ${S.cur === problems.length - 1 ? 'disabled' : ''}>下一题</button>
@@ -255,6 +277,7 @@ async function renderExam(sid) {
     $app.querySelector('#flag').onclick = () => { S.flags[p.id] ? delete S.flags[p.id] : (S.flags[p.id] = true); save(); draw(); };
     $app.querySelector('#refresh').onclick = () => { flushTime(); save(); location.reload(); };
     $app.querySelector('#font').onclick = () => { S.big = !S.big; save(); draw(); };
+    $app.querySelector('#lang').onclick = () => { lang.next(); draw(); };
     $app.querySelector('#cardbtn').onclick = () => { cardOpen = !cardOpen; draw(); };
     $app.querySelector('#mask')?.addEventListener('click', () => { cardOpen = false; draw(); });
     $app.querySelector('#submit').onclick = confirmSubmit;
@@ -326,7 +349,7 @@ async function renderReview(sid) {
       <div><div class="muted small">得分</div><span class="big">${r.session.score}</span><span class="muted"> / ${r.total}</span></div>
       <div><div class="muted small">用时</div><b>${fmtTime(used)}</b><span class="muted"> / ${fmtTime(r.exam.duration_sec)}</span></div>
       <div><div class="muted small">模式</div><b>${r.session.mode === 'exam' ? '模考' : '练习'}</b></div>
-      <div style="margin-left:auto"><a class="btn" href="#/profile">查看画像</a></div>
+      <div style="margin-left:auto" class="row"><button class="btn" id="lang">🌐 ${LANGS[lang.get()]}</button><a class="btn" href="#/profile">查看画像</a></div>
     </div>
     ${wrong.length ? `<p class="small muted" style="margin:12px 0 0">做错 / 没做的 ${wrong.length} 题，请让孩子在每道题下面点一下“错因”。这能让画像区分“不会”和“粗心”，准确很多。</p>` : ''}
     </div>
@@ -343,8 +366,8 @@ async function renderReview(sid) {
         <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${it.choice}`}${it.correct ? '' : ` · 正确答案 ${it.answer}`}</span>
         <span class="meta">${fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · ⚑' : ''}</span></summary>
       <div class="body">
-        <div class="stem">${rich(it.stem)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
-        <ul class="choices">${Object.entries(it.choices).map(([k, v]) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${rich(v)}</span></li>`).join('')}</ul>
+        <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
+        <ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>
         ${it.correct ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">简单思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
@@ -361,6 +384,7 @@ async function renderReview(sid) {
     box.querySelectorAll('button').forEach((x) => x.classList.toggle('on', !on && x === b));
   }));
   $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv)));
+  $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
 }
 
 async function openAdvanced(problemId) {

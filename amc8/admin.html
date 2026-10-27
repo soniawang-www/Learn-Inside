@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>题库导入</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page" style="max-width:640px">
+    <h1>题库导入</h1>
+    <div class="card">
+      <p class="small muted">选择私有仓库 <code>amc8-data/exams/</code> 里的试卷 JSON 文件，导入到网站。同一套试卷可以反复导入，会覆盖题目内容，不影响孩子的作答记录。</p>
+      <label class="field"><span>管理员密钥（ADMIN_KEY）</span><input type="text" id="key" autocomplete="off" spellcheck="false"></label>
+      <label class="field"><span>试卷文件（可多选）</span><input type="file" id="files" accept=".json,application/json" multiple></label>
+      <div id="preview" class="small"></div>
+      <div class="row" style="margin-top:12px"><button class="btn primary" id="go" disabled>导入</button></div>
+      <pre id="out" class="small" style="white-space:pre-wrap;margin-top:14px"></pre>
+    </div>
+    <p class="small muted"><a href="./">← 返回模拟考</a></p>
+  </div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let exams = [];
+  try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
+  $('files').onchange = async () => {
+    exams = []; const lines = [];
+    for (const f of $('files').files) {
+      try {
+        const ex = JSON.parse(await f.text());
+        if (!ex.id || !Array.isArray(ex.problems)) throw new Error('缺少 id 或 problems');
+        exams.push(ex);
+        lines.push(`✓ ${f.name}：${ex.title}（${ex.problems.length} 题，答案 ${ex.problems.map((p) => p.answer).join('')}）`);
+      } catch (e) { lines.push(`✗ ${f.name}：${e.message}`); }
+    }
+    $('preview').textContent = lines.join('\n');
+    $('preview').style.whiteSpace = 'pre-wrap';
+    $('go').disabled = !exams.length;
+  };
+  $('go').onclick = async () => {
+    const key = $('key').value.trim();
+    try { sessionStorage.setItem('amc8.adminKey', key); } catch {}
+    $('go').disabled = true; $('out').textContent = '导入中…';
+    try {
+      const r = await fetch('api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ exams }) });
+      const d = await r.json();
+      $('out').textContent = r.ok ? `导入成功：${d.exams.join('、')}，共写入 ${d.rows} 行。` : `导入失败：${d.error}`;
+    } catch (e) { $('out').textContent = '导入失败：' + e.message; }
+    $('go').disabled = false;
+  };
+</script>
+</body>
+</html>

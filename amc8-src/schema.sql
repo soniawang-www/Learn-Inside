@@ -46,9 +46,11 @@ CREATE TABLE IF NOT EXISTS problem (
   id           TEXT PRIMARY KEY,              -- 如 'amc8-2024-p07'
   exam_id      TEXT NOT NULL REFERENCES exam(id),
   number       INTEGER NOT NULL,              -- 题号 1..25
-  stem         TEXT NOT NULL,                 -- Markdown + $LaTeX$
+  stem         TEXT NOT NULL,                 -- Markdown + $LaTeX$（英文原题）
+  stem_zh      TEXT,                          -- 中文题干（可选）
   figure       TEXT,                          -- 内联 SVG 或 R2 图片 URL
-  choices      TEXT NOT NULL,                 -- JSON: {"A":"..","B":"..",...}
+  choices      TEXT NOT NULL,                 -- JSON: {"A":"..","B":"..",...}；值以 <svg / <img 开头时按图形显示
+  choices_zh   TEXT,                          -- 中文选项（可选，缺省用 choices）
   answer       TEXT NOT NULL,                 -- 'A'..'E'
   difficulty   REAL,                          -- 校准后难度；NULL 时按题号推算
   reviewed     INTEGER NOT NULL DEFAULT 0,    -- 人工审核过才上线

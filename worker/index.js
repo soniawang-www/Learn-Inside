@@ -1,10 +1,11 @@
 // AMC 8 模拟考 · Cloudflare Worker API（挂在 Learn-Inside 站点的 /amc8/ 下）
 // wrangler.jsonc 里 run_worker_first 只包含 /amc8/api/*，其余请求不经过这里，直接出静态文件。
 import { recomputeMastery, displayMastery } from './mastery.js';
-import { seedDatabase } from './seed.js';
+import { seedDatabase, importExams, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 
 const PREFIX = '/amc8';
+let migrated = null;
 
 const DEADLINE_GRACE_MS = 30_000; // 交卷允许的网络延迟
 
@@ -138,7 +139,7 @@ async function sessionPayload(env, sessionId) {
   const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ?').bind(s.exam_id).first();
   const { results } = await env.DB
     .prepare(
-      `SELECT p.id, p.number, p.stem, p.figure, p.choices,
+      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh,
               (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count
          FROM problem p WHERE p.exam_id = ? ORDER BY p.number`
     )
@@ -148,7 +149,7 @@ async function sessionPayload(env, sessionId) {
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now() },
     exam,
-    problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
+    problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), choices_zh: p.choices_zh ? JSON.parse(p.choices_zh) : null, hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
     hints_seen: seen,
   };
 }
@@ -225,7 +226,7 @@ async function reviewPayload(env, acc, sessionId) {
   const premium = await hasTier(env, acc, 'premium');
   const { results: rows } = await env.DB
     .prepare(
-      `SELECT p.id, p.number, p.stem, p.figure, p.choices, p.answer,
+      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer,
               ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason,
               sb.content AS basic,
               sa.tier AS adv_tier
@@ -257,7 +258,8 @@ async function reviewPayload(env, acc, sessionId) {
     exam,
     total: rows.length,
     items: rows.map((r) => ({
-      problem_id: r.id, number: r.number, stem: r.stem, figure: r.figure, choices: JSON.parse(r.choices),
+      problem_id: r.id, number: r.number, stem: r.stem, stem_zh: r.stem_zh, figure: r.figure, choices: JSON.parse(r.choices),
+      choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null,
       answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
       basic: r.basic,
@@ -392,12 +394,29 @@ async function seedHandler(req, env, _p, url) {
 route('GET', '/api/admin/seed', seedHandler);
 route('POST', '/api/admin/seed', seedHandler);
 
+// 导入试卷（真题放在私有仓库，通过 /amc8/admin.html 上传 JSON，始终需要 ADMIN_KEY）
+route('POST', '/api/admin/import', async (req, env) => {
+  const key = req.headers.get('x-admin-key');
+  if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
+  const payload = await body(req);
+  const exams = Array.isArray(payload) ? payload : payload.exams ?? [payload];
+  try {
+    const result = await importExams(env.DB, { schema: SCHEMA, knowledge: KNOWLEDGE, exams });
+    return json({ ok: true, ...result });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+});
+
 // ───────── 入口 ─────────
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (!url.pathname.startsWith(PREFIX + '/api/')) return env.ASSETS.fetch(req);
     const path = url.pathname.slice(PREFIX.length);
+    // 每个 Worker 实例启动后先补一次列（旧库升级用，之后直接跳过）
+    migrated ??= migrate(env.DB).catch((e) => { migrated = null; throw e; });
+    try { await migrated; } catch (e) { console.error('migrate failed', e); }
     for (const r of routes) {
       if (r.method !== req.method) continue;
       const m = path.match(r.re);

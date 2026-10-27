@@ -120,6 +120,14 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .ez-stem { font-family: var(--serif); font-size: 17px; line-height: 1.75; }
 .figure { display: flex; justify-content: center; margin: 14px 0 4px; color: var(--text); }
 .figure svg { width: min(300px, 100%); height: auto; }
+.zh { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-family: var(--sans); font-size: .92em; color: var(--muted); }
+.zh-inline { margin-left: 10px; font-family: var(--sans); font-size: .85em; color: var(--muted); }
+.figure img.scan, .fig-choice img { background: #fff; border-radius: 4px; padding: 4px; display: block; margin: 0 auto; }
+.figure > * + * { margin-top: 8px; }
+.figure { flex-direction: column; align-items: center; }
+.ez-opts.figs, .choices.figs { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.ez-opts.figs .ez-opt, .choices.figs .choice { align-items: flex-start; }
+.fig-choice svg { width: 100%; max-width: 180px; height: auto; display: block; }
 .ez-opts { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 4px; }
 .ez-opt { display: flex; align-items: center; gap: 12px; padding: 7px 10px; border-radius: 4px; cursor: pointer; font-family: var(--serif); font-size: 16px; border: 1px solid transparent; }
 .ez-opt:hover { background: var(--surface-2); }
