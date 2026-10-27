@@ -251,8 +251,8 @@ function insertN(box, p, api) {
     const mean = all.reduce((s, x) => s + x.v, 0) / L;
     box.querySelector('.in-n').textContent = N;
     box.querySelector('.in-row').innerHTML = all.map((x, i) => `<span class="in-c ${x.n ? 'n' : ''} ${L % 2 === 0 && (i === L / 2 - 1 || i === L / 2) ? 'mid' : ''}">${x.v}</span>`).join('');
-    const eq = Math.abs(mean - 2 * med) < 1e-9;
-    box.querySelector('.in-stat').innerHTML = `中位数 <b>${fmt(med)}</b> · 平均数 <b>${fmt(mean)}</b> · 中位数的 2 倍 <b>${fmt(2 * med)}</b> ${eq ? '<b class="plum">✓ 相等</b>' : `<span class="muted">（差 ${fmt(Math.abs(mean - 2 * med))}）</span>`}`;
+    const k = p.k ?? 2, eq = Math.abs(mean - k * med) < 1e-9;
+    box.querySelector('.in-stat').innerHTML = `中位数 <b>${fmt(med)}</b> · 平均数 <b>${fmt(mean)}</b>${k !== 1 ? ` · 中位数的 ${k} 倍 <b>${fmt(k * med)}</b>` : ''} ${eq ? '<b class="plum">✓ 相等</b>' : `<span class="muted">（差 ${fmt(Math.abs(mean - k * med))}）</span>`}`;
     if (eq) ok();
   };
   box.querySelector('.in-range').addEventListener('input', (e) => draw(+e.target.value));
@@ -261,7 +261,7 @@ function insertN(box, p, api) {
 
 // ── 对折（2025 第 15 题）：点格子涂银色，看金金对 ──
 function fold(box, p, api) {
-  const n = 6, u = 40, o = 16, half = n / 2;
+  const n = 6, u = 40, o = 16, half = n / 2, NS = p.silver || 13;
   let cells = '';
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) cells += `<rect class="fd-c" data-r="${r}" data-c="${c}" x="${o + c * u}" y="${o + r * u}" width="${u}" height="${u}"/>`;
   box.innerHTML = SVG(o * 2 + n * u, o * 2 + n * u, `${cells}<g class="fd-pairs"></g><line class="fd-fold" x1="${o + half * u}" y1="4" x2="${o + half * u}" y2="${o * 2 + n * u - 4}"/>`) +
@@ -277,14 +277,14 @@ function fold(box, p, api) {
       else if (a && b) ss++; else sg++;
     }
     box.querySelector('.fd-pairs').innerHTML = marks;
-    box.querySelector('.fd-info').innerHTML = `银色 <b>${silver.size}</b>/13 · 金金对 <b class="plum">${gg}</b> · 银银对 ${ss} · 银金对 ${sg}`;
-    if (silver.size === 13 && gg === p.target) ok();
+    box.querySelector('.fd-info').innerHTML = `银色 <b>${silver.size}</b>/${NS} · 金金对 <b class="plum">${gg}</b> · 银银对 ${ss} · 银金对 ${sg}`;
+    if (silver.size === NS && gg === p.target) ok();
   };
   box.addEventListener('click', (e) => {
     if (e.target.closest('.fd-reset')) { silver.clear(); paint(); return; }
     const c = e.target.closest('.fd-c'); if (!c) return;
     const k = `${c.dataset.r},${c.dataset.c}`;
-    if (silver.has(k)) silver.delete(k); else if (silver.size < 13) silver.add(k); else { api.say('已经涂了 13 个银色。想换位置，先点一个银色格子取消。'); return; }
+    if (silver.has(k)) silver.delete(k); else if (silver.size < NS) silver.add(k); else { api.say(`已经涂了 ${NS} 个银色。想换位置，先点一个银色格子取消。`); return; }
     paint();
   });
   paint();
@@ -367,8 +367,9 @@ function assign(box, p, api) {
   const val = {};
   let cur = null;
   const edge = ([u, v, q], cls) => { const [x1, y1] = N[u], [x2, y2] = N[v]; return `<path d="M${x1},${y1} ${q ? `Q${q[0]},${q[1]} ` : 'L'}${x2},${y2}" class="${cls}"/>`; };
-  box.innerHTML = SVG(380, 280, `<g class="as-e"></g><g class="as-n"></g>`) +
-    `<div class="as-pal">${[1, 2, 3, 4, 5, 6, 7].map((g) => `<button class="as-g" data-g="${g}">${g}</button>`).join('')}</div>` +
+  const NG = p.n || 7, ALL = Object.keys(N).length;
+  box.innerHTML = SVG(p.vw || 380, p.vh || 280, `<g class="as-e"></g><g class="as-n"></g>`) +
+    `<div class="as-pal">${Array.from({ length: NG }, (_, i) => i + 1).map((g) => `<button class="as-g" data-g="${g}">${g}</button>`).join('')}</div>` +
     bar(`<span class="as-info"></span>${btn('as-reset', '清空')}`);
   const ok = once(() => api.solved(p.say_ok));
   const paint = () => {
@@ -378,8 +379,8 @@ function assign(box, p, api) {
     const used = new Set(Object.values(val));
     box.querySelectorAll('.as-g').forEach((b) => b.classList.toggle('used', used.has(+b.dataset.g)));
     const n = Object.keys(val).length;
-    box.querySelector('.as-info').innerHTML = cur ? `给 <b>${cur}</b> 选一个年级` : `已填 ${n}/7${bad.length ? ` · <b class="bad">${bad.length} 条走道两端只差 1</b>` : ''}`;
-    if (n === 7 && !bad.length) ok();
+    box.querySelector('.as-info').innerHTML = cur ? `给 <b>${cur}</b> 选一个年级` : `已填 ${n}/${ALL}${bad.length ? ` · <b class="bad">${bad.length} 条走道两端只差 1</b>` : ''}`;
+    if (n === ALL && !bad.length) ok();
   };
   box.addEventListener('click', (e) => {
     if (e.target.closest('.as-reset')) { for (const k in val) delete val[k]; cur = null; paint(); return; }

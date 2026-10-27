@@ -54,12 +54,31 @@ amc8-src/tests/e2e.mjs   端到端测试
 | `kps` | `{知识点id: 权重}`，主考点 1.0，辅助 0.3~0.5 |
 | `hints` | 最多 3 级，由浅到深 |
 | `basic` | 解题思路（免费） |
-| `advanced` | 互动解析步骤 `[{title, body}]`（付费），或用 `advanced_url` 指向独立互动页 |
+| `advanced` | 互动解析（付费）：`{title, steps}`，步骤类型见下；或用 `advanced_url` 指向独立互动页 |
 | `difficulty` | 可选；不填按题号推算 |
 
 真题设 `"duration_sec": 2400`（40 分钟）。
 
 ⚠️ 这个仓库是公开的，`amc8-src/data/` 里的内容任何人都能在 GitHub 上看到。真题数据建议放在私有仓库，或者只在本地生成 `content.generated.js`。
+
+## 互动课步骤类型（互动解析和知识点课共用）
+
+播放器 `amc8/player.js`，组件 `amc8/sims.js`。每步都有 `say`（小助手的话），可选 `html`（屏幕内容）、`fig`（静态图，大屏放左边）。
+
+| type | 说明 |
+|---|---|
+| `info` | 讲一句 |
+| `here` | 全景图：`items: [{t, d, on}]` |
+| `tabs` | 几个按钮换着看：`tabs: [{label, html, say, fig?, grid?}]` |
+| `quiz` / `pick2` | 选择：`q, opts, a, why[], ok`，答对才算完成 |
+| `fill` | 填数字：`q, a: [可接受答案], hint, show, pre, post` |
+| `recall` | 合上书想一想：`q, ans`（点开看答案） |
+| `grid` | 方格路线：看路线 / `mode: 'draw'` 自己画 |
+| `sim` | 动手组件：`sim: 名字` + 参数，`goal: true` 时等孩子完成；组件列表见 `sims.js` 末尾的 `SIMS` |
+
+## 知识点内容
+
+知识点课（`lesson`）和识别信号（`signals`）放在私有仓库 `amc8-data/knowledge/points.json`，在 admin.html 和试卷一起导入（先导入知识点）。公开仓库的 `knowledge.json` 只放名称、一句话说明和识别信号。
 
 ## 设计要点
 
