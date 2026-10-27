@@ -11,9 +11,9 @@
   <div class="page" style="max-width:640px">
     <h1>题库导入</h1>
     <div class="card">
-      <p class="small muted">选择私有仓库 <code>amc8-data/exams/</code> 里的试卷 JSON 文件，导入到网站。同一套试卷可以反复导入，会覆盖题目内容，不影响孩子的作答记录。</p>
+      <p class="small muted">选择私有仓库 <code>amc8-data</code> 里的 JSON 文件导入：<code>exams/</code> 下的试卷，和 <code>knowledge/points.json</code>（考点识别信号、知识点课）。可以一次多选，反复导入不影响孩子的作答记录。建议先导入知识点，再导入试卷。</p>
       <label class="field"><span>管理员密钥（ADMIN_KEY）</span><input type="text" id="key" autocomplete="off" spellcheck="false"></label>
-      <label class="field"><span>试卷文件（可多选）</span><input type="file" id="files" accept=".json,application/json" multiple></label>
+      <label class="field"><span>文件（可多选）</span><input type="file" id="files" accept=".json,application/json" multiple></label>
       <div id="preview" class="small"></div>
       <div class="row" style="margin-top:12px"><button class="btn primary" id="go" disabled>导入</button></div>
       <pre id="out" class="small" style="white-space:pre-wrap;margin-top:14px"></pre>
@@ -22,30 +22,34 @@
   </div>
 <script>
   const $ = (id) => document.getElementById(id);
-  let exams = [];
+  let exams = [], points = [];
   try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
   $('files').onchange = async () => {
-    exams = []; const lines = [];
+    exams = []; points = []; const lines = [];
     for (const f of $('files').files) {
       try {
-        const ex = JSON.parse(await f.text());
-        if (!ex.id || !Array.isArray(ex.problems)) throw new Error('缺少 id 或 problems');
-        exams.push(ex);
-        lines.push(`✓ ${f.name}：${ex.title}（${ex.problems.length} 题，答案 ${ex.problems.map((p) => p.answer).join('')}）`);
+        const d = JSON.parse(await f.text());
+        if (Array.isArray(d.points)) {
+          points.push(...d.points);
+          lines.push(`✓ ${f.name}：知识点 ${d.points.length} 个（识别信号 ${d.points.filter((p) => p.signals).length}，知识点课 ${d.points.filter((p) => p.lesson).length}）`);
+        } else if (d.id && Array.isArray(d.problems)) {
+          exams.push(d);
+          lines.push(`✓ ${f.name}：${d.title}（${d.problems.length} 题，答案 ${d.problems.map((p) => p.answer).join('')}，互动解析 ${d.problems.filter((p) => p.advanced).length} 题）`);
+        } else throw new Error('不是试卷或知识点文件');
       } catch (e) { lines.push(`✗ ${f.name}：${e.message}`); }
     }
     $('preview').textContent = lines.join('\n');
     $('preview').style.whiteSpace = 'pre-wrap';
-    $('go').disabled = !exams.length;
+    $('go').disabled = !exams.length && !points.length;
   };
   $('go').onclick = async () => {
     const key = $('key').value.trim();
     try { sessionStorage.setItem('amc8.adminKey', key); } catch {}
     $('go').disabled = true; $('out').textContent = '导入中…';
     try {
-      const r = await fetch('api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ exams }) });
+      const r = await fetch('api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ exams, knowledge: { points } }) });
       const d = await r.json();
-      $('out').textContent = r.ok ? `导入成功：${d.exams.join('、')}，共写入 ${d.rows} 行。` : `导入失败：${d.error}`;
+      $('out').textContent = r.ok ? `导入成功：${[d.points ? `知识点 ${d.points} 个` : '', ...d.exams].filter(Boolean).join('、')}。` : `导入失败：${d.error}`;
     } catch (e) { $('out').textContent = '导入失败：' + e.message; }
     $('go').disabled = false;
   };

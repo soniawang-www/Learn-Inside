@@ -82,7 +82,9 @@ CREATE TABLE IF NOT EXISTS knowledge_point (
   sort        INTEGER NOT NULL DEFAULT 0,
   tier        TEXT NOT NULL DEFAULT 'premium',-- 讲解内容的权限
   summary     TEXT,                           -- 一句话说明（免费可见）
-  content     TEXT                            -- 讲解正文 Markdown（受 tier 保护）
+  content     TEXT,                           -- 讲解正文 Markdown（受 tier 保护）
+  signals     TEXT,                           -- 识别信号 JSON [{see, think}]：看到什么 → 想到这个考点（免费可见）
+  lesson      TEXT                            -- 知识点互动课 JSON（播放器步骤，受 tier 保护）
 );
 
 CREATE TABLE IF NOT EXISTS kp_edge (           -- from 是 to 的前置
@@ -107,7 +109,17 @@ CREATE TABLE IF NOT EXISTS exam_session (
   started_at   INTEGER NOT NULL,
   deadline_at  INTEGER NOT NULL,              -- 服务端计时，前端倒计时只是显示
   submitted_at INTEGER,
-  score        INTEGER
+  score        INTEGER,
+  title        TEXT,                          -- 突击 / 单题练习的标题（exam_id = 'drill' 时用）
+  kp_id        TEXT                           -- 知识点突击对应的知识点
+);
+
+-- 突击 / 单题练习：一次会话包含哪些题（跨试卷）
+CREATE TABLE IF NOT EXISTS session_problem (
+  session_id  TEXT NOT NULL REFERENCES exam_session(id),
+  problem_id  TEXT NOT NULL REFERENCES problem(id),
+  ord         INTEGER NOT NULL,
+  PRIMARY KEY (session_id, problem_id)
 );
 
 -- 练习模式下查看提示的记录（服务端为准，交卷时汇总进 attempt_event.hints_used）

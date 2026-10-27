@@ -10,6 +10,7 @@ export function buildRows(knowledge, exams) {
       id: p.id, parent_id: p.parent ?? null, name: p.name,
       amc_ext: p.amc_ext ? 1 : 0, sort: p.sort ?? i,
       tier: p.tier ?? 'premium', summary: p.summary ?? null, content: p.content ?? null,
+      signals: p.signals ? JSON.stringify(p.signals) : null, lesson: p.lesson ? JSON.stringify(p.lesson) : null,
     }]);
   });
   for (const [from, to] of knowledge.edges) rows.push(['kp_edge', { from_kp: from, to_kp: to }]);
@@ -62,9 +63,18 @@ function upsertSql(table, obj) {
 }
 
 // 已上线的库需要补的列（CREATE TABLE IF NOT EXISTS 不会给旧表加列）
-const MIGRATIONS = ['ALTER TABLE problem ADD COLUMN stem_zh TEXT', 'ALTER TABLE problem ADD COLUMN choices_zh TEXT'];
+const MIGRATIONS = [
+  'ALTER TABLE problem ADD COLUMN stem_zh TEXT', 'ALTER TABLE problem ADD COLUMN choices_zh TEXT',
+  'ALTER TABLE knowledge_point ADD COLUMN signals TEXT', 'ALTER TABLE knowledge_point ADD COLUMN lesson TEXT',
+  'ALTER TABLE exam_session ADD COLUMN title TEXT', 'ALTER TABLE exam_session ADD COLUMN kp_id TEXT',
+  `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
+     problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
+];
 // 每次都执行的数据修正（幂等）
-const FIXUPS = ["UPDATE exam SET published = 0 WHERE id = 'sample-2026'"]; // 示例卷下线
+const FIXUPS = [
+  "UPDATE exam SET published = 0 WHERE id = 'sample-2026'", // 示例卷下线
+  "INSERT OR IGNORE INTO exam (id, title, year, source, duration_sec, published) VALUES ('drill', '知识点突击', NULL, 'system', 0, 0)", // 突击会话挂在这个隐藏试卷下
+];
 
 /** 给旧表补列（已存在则跳过）；表还不存在时什么也不做，留给 seed 建表 */
 export async function migrate(db) {
@@ -86,9 +96,34 @@ async function writeRows(db, rows) {
   for (let i = 0; i < stmts.length; i += 80) await db.batch(stmts.slice(i, i + 80));
 }
 
-/** 只导入试卷（知识图谱用内置的做校验，不改动） */
-export async function importExams(db, { schema, knowledge, exams }) {
+const KP_FIELDS = ['parent_id', 'name', 'amc_ext', 'sort', 'tier', 'summary', 'content', 'signals', 'lesson'];
+
+/** 知识点部分更新：只改 JSON 里出现的字段；不存在的知识点会新建（需要 name） */
+async function upsertPoints(db, points) {
+  const stmts = [];
+  for (const p of points) {
+    if (!p.id) throw new Error('知识点缺少 id');
+    const row = { id: p.id };
+    if ('parent' in p) row.parent_id = p.parent;
+    for (const f of KP_FIELDS) if (f in p && f !== 'parent_id') row[f] = p[f];
+    if ('amc_ext' in row) row.amc_ext = row.amc_ext ? 1 : 0;
+    for (const f of ['signals', 'lesson']) if (f in row && row[f] !== null && typeof row[f] !== 'string') row[f] = JSON.stringify(row[f]);
+    const ins = { name: p.name ?? p.id, ...row };
+    const cols = Object.keys(ins);
+    const upd = Object.keys(row).filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`);
+    stmts.push(db.prepare(
+      `INSERT INTO knowledge_point (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')}) ON CONFLICT (id) DO ` +
+      (upd.length ? `UPDATE SET ${upd.join(', ')}` : 'NOTHING')).bind(...Object.values(ins)));
+  }
+  for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
+}
+
+/** 导入试卷和 / 或知识点（知识点课程等付费内容放私有仓库，从这里导入） */
+export async function importContent(db, { schema, exams = [], points = [] }) {
   await ensureSchema(db, schema);
+  if (points.length) await upsertPoints(db, points);
+  const { results } = await db.prepare('SELECT id FROM knowledge_point').all();
+  const knowledge = { points: results.map((r) => ({ id: r.id, name: r.id })), edges: [] }; // 只用来校验题目的考点 id
   const rows = buildRows(knowledge, exams).filter(([t]) => t !== 'knowledge_point' && t !== 'kp_edge');
   // 先清掉这些试卷旧的提示 / 解析 / 考点，避免删掉的条目残留
   for (const ex of exams) {
@@ -96,7 +131,7 @@ export async function importExams(db, { schema, knowledge, exams }) {
       db.prepare(`DELETE FROM ${t} WHERE problem_id IN (SELECT id FROM problem WHERE exam_id = ?)`).bind(ex.id)));
   }
   await writeRows(db, rows);
-  return { rows: rows.length, exams: exams.map((e) => `${e.id}（${e.problems.length} 题）`) };
+  return { rows: rows.length, points: points.length, exams: exams.map((e) => `${e.id}（${e.problems.length} 题）`) };
 }
 
 /** 在 D1 上建表并写入题库（可重复执行） */

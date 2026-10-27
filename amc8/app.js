@@ -1,5 +1,6 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/  #/exam/:sid  #/review/:sid  #/kp/:id  #/profile
+import { mountPlayer } from './player.js';
 
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
@@ -110,6 +111,7 @@ function topnav() {
 let cleanup = null;
 async function router() {
   cleanup?.(); cleanup = null;
+  closeLesson();
   $modal.innerHTML = '';
   const [, page, id] = (location.hash.slice(1) || '/').split('/');
   try {
@@ -117,6 +119,7 @@ async function router() {
     if (page === 'exam') return await renderExam(id);
     if (page === 'review') return await renderReview(id);
     if (page === 'kp') return await renderKp(id);
+    if (page === 'problem') return await renderProblem(id);
     if (page === 'profile') return await renderProfile();
     return await renderHome();
   } catch (e) {
@@ -251,7 +254,7 @@ async function renderExam(sid) {
         </aside>
         <main class="ez-main">
           <div class="ez-q">
-            <div class="ez-qhead"><span class="ez-qno">${p.number}.(1分)</span>
+            <div class="ez-qhead"><span class="ez-qno">${p.number}.(1分)${data.session.drill ? ` <span class="ez-src">${esc(p.label)}</span>` : ''}</span>
               <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">📌 ${S.flags[p.id] ? '已标记' : '标记'}</button></div>
             <div class="ez-stem">${stemHtml(p)}</div>
             ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
@@ -362,7 +365,7 @@ async function renderReview(sid) {
     const cls = it.choice === null ? 'blank' : it.correct ? 'right' : 'wrong';
     return `<details class="ritem ${cls}" ${it.correct ? '' : 'open'}>
       <summary><span class="mark">${it.correct ? '✓' : it.choice === null ? '–' : '✗'}</span>
-        <b>Problem ${it.number}</b>
+        <b>Problem ${it.number}</b>${r.session.mode !== 'exam' && r.exam.id === 'drill' ? `<span class="muted small">${esc(it.label)}</span>` : ''}
         <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${it.choice}`}${it.correct ? '' : ` · 正确答案 ${it.answer}`}</span>
         <span class="meta">${fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · ⚑' : ''}</span></summary>
       <div class="body">
@@ -371,9 +374,9 @@ async function renderReview(sid) {
         ${it.correct ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
+        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button> <span class="small muted">会员 · 一步步跟着做</span></div>` : ''}
         <div class="section-label">考点</div>
-        <div class="chips">${it.kps.map((k) => `<a class="chip ${k.primary ? 'primary' : ''}" href="#/kp/${encodeURIComponent(k.id)}">${esc(k.name)}${k.locked ? '<span class="lock">🔒</span>' : ''}</a>`).join('')}</div>
-        ${it.advanced ? `<div style="margin-top:14px"><button class="btn" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
+        ${kpCards(it.kps)}
       </div></details>`;
   }
 
@@ -383,28 +386,54 @@ async function renderReview(sid) {
     await api(`/amc8/api/attempts/${box.dataset.attempt}`, { method: 'PATCH', body: { error_reason: on ? null : b.dataset.reason } });
     box.querySelectorAll('button').forEach((x) => x.classList.toggle('on', !on && x === b));
   }));
+  bindKpCards($app);
   $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv)));
   $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
+}
+
+// ───────── 考点卡：识别信号（免费）+ 学知识点 / 真题突击（会员） ─────────
+const enc = encodeURIComponent;
+function kpCards(kps) {
+  if (!kps?.length) return '';
+  const main = kps.filter((k) => k.primary);
+  const rest = kps.filter((k) => !k.primary);
+  const shown = main.length ? main : kps.slice(0, 1);
+  return `<div class="kpcards">${shown.map((k) => `<div class="kpcard">
+      <div class="kphead"><a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
+      ${k.signals?.length ? `<div class="sig-title">怎么认出这个考点</div><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul>` : (k.summary ? `<p class="small">${rich(k.summary)}</p>` : '')}
+      <div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">学这个知识点${k.locked ? ' 🔒' : ''}</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? ' 🔒' : ''}</button></div>
+    </div>`).join('')}
+    ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`).join('、')}</div>` : ''}</div>`;
+}
+function bindKpCards(root) {
+  root.querySelectorAll('[data-drill]').forEach((b) => (b.onclick = () => startDrill(b.dataset.drill)));
+}
+async function startDrill(kpId) {
+  const r = await api('/amc8/api/sessions', { method: 'POST', body: { kp_id: kpId, student_id: auth.student.id } });
+  if (r.status === 402) return modal(lockedPanel('知识点突击是会员功能'));
+  location.hash = `#/exam/${r.session.id}`;
+}
+
+// ───────── 互动课（全屏播放器） ─────────
+let lessonClose = null;
+function closeLesson() { lessonClose?.(); lessonClose = null; }
+function openLesson(lesson, { onDone, doneLabel } = {}) {
+  closeLesson();
+  const ov = document.createElement('div');
+  ov.className = 'lp-overlay';
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+  let ctl;
+  const close = () => { ctl?.stop(); ov.remove(); document.body.style.overflow = ''; lessonClose = null; };
+  ctl = mountPlayer(ov, lesson, { onClose: close, onDone: () => { close(); onDone?.(); }, doneLabel: doneLabel || '学完了' });
+  lessonClose = close;
 }
 
 async function openAdvanced(problemId) {
   const r = await api(`/amc8/api/problems/${problemId}/advanced`);
   if (r.locked) return modal(lockedPanel('互动解析是会员内容'));
   if (r.url) { window.open(r.url, '_blank'); return; }
-  let shown = 1;
-  modal(`<h2>互动解析</h2><div class="progress"><div></div></div><div class="steps"></div>
-    <div class="actions"><button class="btn" data-close>关闭</button><button class="btn" id="all">全部展开</button><button class="btn primary" id="nx">下一步</button></div>`,
-  (el) => {
-    const paint = () => {
-      el.querySelector('.steps').innerHTML = r.steps.slice(0, shown).map((s) => `<div class="step"><b>${rich(s.title)}</b>${rich(s.body)}</div>`).join('');
-      el.querySelector('.progress div').style.width = `${(shown / r.steps.length) * 100}%`;
-      el.querySelector('#nx').disabled = shown >= r.steps.length;
-      typeset(el);
-    };
-    el.querySelector('#nx').onclick = () => { shown++; paint(); };
-    el.querySelector('#all').onclick = () => { shown = r.steps.length; paint(); };
-    paint();
-  });
+  openLesson({ title: '互动解析', ...r.lesson });
 }
 
 const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">🔒</div><p><b>${esc(title)}</b></p>
@@ -412,19 +441,62 @@ const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">🔒
 
 // ───────── 知识点 ─────────
 async function renderKp(id) {
-  const k = await api(`/amc8/api/kp/${encodeURIComponent(id)}?student=${auth.student.id}`);
+  const k = await api(`/amc8/api/kp/${enc(id)}?student=${auth.student.id}`);
+  const ST = { right: ['✓', '做对了'], wrong: ['✗', '做错了'], todo: ['○', '还没做'] };
+  const steps = k.lesson?.steps?.length;
   $app.innerHTML = `${topnav()}<div class="page">
     <a href="javascript:history.back()" class="small">← 返回</a>
     <h1>${esc(k.name)} ${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</h1>
     <div class="card">
       <p>${rich(k.summary || '')}</p>
       ${k.mastery ? `<p class="small muted">当前掌握度：<b>${k.mastery.label}</b>（${k.mastery.score}）</p>` : ''}
-      ${k.prerequisites.length ? `<p class="small muted">前置知识：${k.prerequisites.map((p) => `<a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
+      ${k.prerequisites.length ? `<p class="small muted">前置知识：${k.prerequisites.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
     </div>
-    <div class="card md">${k.locked ? lockedPanel('知识点讲解是会员内容').replace(/<div class="actions".*?<\/div>/, '') : k.content ? markdown(k.content) : '<p class="muted">讲解内容还在编写中。</p>'}</div>
-    ${k.problems.length ? `<div class="card"><h2>相关题目</h2><div class="chips">${k.problems.map((p) => `<span class="chip">${esc(p.exam_title)} · 第 ${p.number} 题</span>`).join('')}</div></div>` : ''}
+    ${k.signals.length ? `<div class="card"><h2>怎么认出这个考点</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
+    <div class="card feature"><div><h2>知识点课 <span class="tag">会员</span></h2>
+      <p class="small muted">${k.has_lesson ? `一步步跟着学${steps ? `，共 ${steps} 步` : ''}：先找规律，再讲为什么，最后自己动手。` : '这个知识点的课程还在制作中。'}</p></div>
+      ${k.has_lesson ? `<button class="btn primary" id="learn">${k.locked ? '🔒 ' : '▶ '}开始学习</button>` : ''}</div>
+    <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
+      <p class="small muted">${k.drill.count ? `把考这个知识点的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识点的真题。'}</p></div>
+      ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>` : ''}</div>
+    ${k.problems.length ? `<div class="card"><h2>相关真题</h2><div class="plist">${k.problems.map((p) => `<a class="prow st-${p.status}" href="#/problem/${enc(p.id)}">
+        <span class="pst" title="${ST[p.status][1]}">${ST[p.status][0]}</span><span>${esc(p.label)}</span>${p.weight >= 1 ? '<span class="tag">主考点</span>' : ''}<span class="go">›</span></a>`).join('')}</div></div>` : ''}
   </div>`;
   typeset($app);
+  bindKpCards($app);
+  $app.querySelector('#learn')?.addEventListener('click', () => {
+    if (k.locked || !k.lesson) return modal(lockedPanel('知识点课是会员内容'));
+    openLesson(k.lesson, { doneLabel: k.drill.count ? '去突击' : '学完了', onDone: () => k.drill.count && startDrill(k.id) });
+  });
+}
+
+// ───────── 单题页（从知识点页「相关真题」进入） ─────────
+async function renderProblem(id) {
+  const p = await api(`/amc8/api/problems/${enc(id)}?student=${auth.student.id}`);
+  const done = p.attempted;
+  $app.innerHTML = `${topnav()}<div class="page">
+    <a href="javascript:history.back()" class="small">← 返回</a>
+    <div class="row" style="justify-content:space-between"><h1>${esc(p.label)}</h1><button class="btn" id="lang">🌐 ${LANGS[lang.get()]}</button></div>
+    <div class="card">
+      <div class="stem">${stemHtml(p)}${p.figure ? `<div class="figure">${p.figure}</div>` : ''}</div>
+      <ul class="choices ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="choice ${done && k === p.answer ? 'correct' : done && k === p.last.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(p, k)}</span></li>`).join('')}</ul>
+    </div>
+    ${done ? `<div class="card">
+        <p>${p.last.correct ? '✓ 上次做对了' : `✗ 上次${p.last.choice ? `选了 ${p.last.choice}` : '没作答'}，正确答案 <b>${p.answer}</b>`}</p>
+        ${p.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(p.basic)}</div>` : ''}
+        ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">▶ 互动解析${p.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
+        <div class="section-label">考点</div>${kpCards(p.kps)}
+        <div class="row" style="margin-top:14px"><button class="btn" id="try">再做一次</button></div>
+      </div>` : `<div class="card feature"><div><h2>还没做过这道题</h2><p class="small muted">先自己做，做完再看答案、解题思路和互动解析。</p></div><button class="btn primary" id="try">做这道题</button></div>`}
+  </div>`;
+  typeset($app);
+  bindKpCards($app);
+  $app.querySelector('[data-adv]')?.addEventListener('click', (e) => openAdvanced(e.currentTarget.dataset.adv));
+  $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
+  $app.querySelector('#try').onclick = async () => {
+    const r = await api('/amc8/api/sessions', { method: 'POST', body: { problem_ids: [p.problem_id], student_id: auth.student.id } });
+    location.hash = `#/exam/${r.session.id}`;
+  };
 }
 
 // ───────── 画像 ─────────

@@ -1,7 +1,7 @@
 // AMC 8 模拟考 · Cloudflare Worker API（挂在 Learn-Inside 站点的 /amc8/ 下）
 // wrangler.jsonc 里 run_worker_first 只包含 /amc8/api/*，其余请求不经过这里，直接出静态文件。
 import { recomputeMastery, displayMastery } from './mastery.js';
-import { seedDatabase, importExams, migrate } from './seed.js';
+import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 
 const PREFIX = '/amc8';
@@ -109,21 +109,70 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
 });
 
 // 开始考试：服务端定 deadline，下发题目（不含答案）
+// 开始考试 / 知识点突击 / 单题练习
+//   { exam_id, mode }          整套试卷（exam 模考 / practice 练习）
+//   { kp_id }                  知识点突击：该考点下所有已发布真题（会员）
+//   { problem_ids: [id] }      单题练习（从知识点页「相关真题」进入）
 route('POST', '/api/sessions', async (req, env) => {
   const acc = await requireAccount(req, env);
-  const { exam_id, student_id, mode = 'exam' } = await body(req);
-  if (!['exam', 'practice'].includes(mode)) throw new HttpError(400, 'mode 只能是 exam 或 practice');
+  const { exam_id, student_id, mode = 'exam', kp_id, problem_ids } = await body(req);
   await requireStudent(env, acc, student_id);
-  const exam = await env.DB.prepare('SELECT * FROM exam WHERE id = ? AND published = 1').bind(exam_id).first();
-  if (!exam) throw new HttpError(404, '试卷不存在');
   const id = uid();
   const t = now();
+  if (kp_id || problem_ids) {
+    let ids, title;
+    if (kp_id) {
+      const kp = await env.DB.prepare('SELECT id, name FROM knowledge_point WHERE id = ?').bind(kp_id).first();
+      if (!kp) throw new HttpError(404, '知识点不存在');
+      if (!(await hasTier(env, acc, 'premium'))) throw new HttpError(402, '知识点突击是会员功能');
+      ids = await drillProblemIds(env, kp_id);
+      title = `知识点突击 · ${kp.name}`;
+    } else {
+      if (!Array.isArray(problem_ids) || !problem_ids.length || problem_ids.length > 30) throw new HttpError(400, 'problem_ids 不合法');
+      const { results } = await env.DB
+        .prepare(`SELECT p.id FROM problem p JOIN exam e ON e.id = p.exam_id WHERE e.published = 1 AND p.id IN (${problem_ids.map(() => '?').join(',')})`)
+        .bind(...problem_ids).all();
+      const ok = new Set(results.map((r) => r.id));
+      ids = problem_ids.filter((x) => ok.has(x));
+      title = ids.length === 1 ? '单题练习' : '专项练习';
+    }
+    if (!ids.length) throw new HttpError(404, '没有可练的题');
+    const stmts = [env.DB
+      .prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, kp_id) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?)")
+      .bind(id, student_id, t, t + ids.length * 180 * 1000, title, kp_id ?? null)];
+    ids.forEach((pid, i) => stmts.push(env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
+    await env.DB.batch(stmts);
+    return json(await sessionPayload(env, id));
+  }
+  if (!['exam', 'practice'].includes(mode)) throw new HttpError(400, 'mode 只能是 exam 或 practice');
+  const exam = await env.DB.prepare('SELECT * FROM exam WHERE id = ? AND published = 1').bind(exam_id).first();
+  if (!exam) throw new HttpError(404, '试卷不存在');
   await env.DB
     .prepare('INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(id, student_id, exam_id, mode, t, t + exam.duration_sec * 1000)
     .run();
   return json(await sessionPayload(env, id));
 });
+
+/** 知识点突击的题：主考点或权重 ≥ 0.5 的已发布真题，按年份、题号 */
+async function drillProblemIds(env, kpId) {
+  const { results } = await env.DB
+    .prepare(`SELECT p.id FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
+               WHERE pk.kp_id = ? AND pk.weight >= 0.5 AND e.published = 1 ORDER BY e.year, p.number`)
+    .bind(kpId).all();
+  return results.map((r) => r.id);
+}
+
+/** 会话里的题（整卷按题号；突击按加入顺序），cols 是要取的 p.* 列 */
+async function sessionProblems(env, s, cols) {
+  const sql = s.exam_id === 'drill'
+    ? `SELECT ${cols}, e.title AS exam_title FROM session_problem sp JOIN problem p ON p.id = sp.problem_id JOIN exam e ON e.id = p.exam_id
+        WHERE sp.session_id = ? ORDER BY sp.ord`
+    : `SELECT ${cols}, e.title AS exam_title FROM problem p JOIN exam e ON e.id = p.exam_id WHERE p.exam_id = ? ORDER BY p.number`;
+  const { results } = await env.DB.prepare(sql).bind(s.exam_id === 'drill' ? s.id : s.exam_id).all();
+  return results;
+}
+const labelOf = (p) => `${p.exam_title} 第 ${p.number} 题`;
 
 async function loadSession(env, account, sessionId) {
   const s = await env.DB
@@ -137,17 +186,14 @@ async function loadSession(env, account, sessionId) {
 async function sessionPayload(env, sessionId) {
   const s = await env.DB.prepare('SELECT * FROM exam_session WHERE id = ?').bind(sessionId).first();
   const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ?').bind(s.exam_id).first();
-  const { results } = await env.DB
-    .prepare(
-      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh,
-              (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count
-         FROM problem p WHERE p.exam_id = ? ORDER BY p.number`
-    )
-    .bind(s.exam_id)
-    .all();
+  const drill = s.exam_id === 'drill';
+  if (drill) { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
+  const results = (await sessionProblems(env, s,
+    'p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count'))
+    .map((p, i) => ({ ...p, label: labelOf(p), seq: i + 1, number: drill ? i + 1 : p.number }));
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
-    session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now() },
+    session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill },
     exam,
     problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), choices_zh: p.choices_zh ? JSON.parse(p.choices_zh) : null, hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
     hints_seen: seen,
@@ -171,9 +217,10 @@ route('POST', '/api/sessions/:id/hint', async (req, env, p) => {
     const prev = await env.DB.prepare('SELECT 1 FROM session_hint WHERE session_id = ? AND problem_id = ? AND level = ?').bind(s.id, problem_id, level - 1).first();
     if (!prev) throw new HttpError(400, '请先看上一级提示');
   }
+  if (!(await sessionProblems(env, s, 'p.id')).some((x) => x.id === problem_id)) throw new HttpError(404, '这道题不在本次练习里');
   const h = await env.DB
-    .prepare('SELECT h.content FROM hint h JOIN problem pr ON pr.id = h.problem_id WHERE h.problem_id = ? AND h.level = ? AND pr.exam_id = ?')
-    .bind(problem_id, level, s.exam_id)
+    .prepare('SELECT h.content FROM hint h WHERE h.problem_id = ? AND h.level = ?')
+    .bind(problem_id, level)
     .first();
   if (!h) throw new HttpError(404, '没有这一级提示');
   await env.DB.prepare('INSERT OR IGNORE INTO session_hint (session_id, problem_id, level, viewed_at) VALUES (?, ?, ?, ?)').bind(s.id, problem_id, level, now()).run();
@@ -189,7 +236,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const t = now();
   const late = t > s.deadline_at + DEADLINE_GRACE_MS;
 
-  const { results: problems } = await env.DB.prepare('SELECT id, answer FROM problem WHERE exam_id = ? ORDER BY number').bind(s.exam_id).all();
+  const problems = await sessionProblems(env, s, 'p.id, p.answer');
   const { results: hintRows } = await env.DB
     .prepare('SELECT problem_id, MAX(level) AS lv FROM session_hint WHERE session_id = ? GROUP BY problem_id')
     .bind(s.id)
@@ -219,46 +266,58 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
 });
 
-// 复盘数据：答案、简单思路、考点（带锁定状态）
+/** 题目的考点（带识别信号；讲解 / 突击是否解锁） */
+async function kpTags(env, acc, problemIds) {
+  if (!problemIds.length) return {};
+  const premium = await hasTier(env, acc, 'premium');
+  const { results } = await env.DB
+    .prepare(
+      `SELECT pk.problem_id, pk.weight, k.id, k.name, k.tier, k.amc_ext, k.summary, k.signals, (k.lesson IS NOT NULL OR k.content IS NOT NULL) AS has_lesson
+         FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
+        WHERE pk.problem_id IN (${problemIds.map(() => '?').join(',')}) ORDER BY pk.weight DESC`
+    )
+    .bind(...problemIds)
+    .all();
+  const out = {};
+  for (const t of results) {
+    (out[t.problem_id] ||= []).push({
+      id: t.id, name: t.name, primary: t.weight >= 1, amc_ext: !!t.amc_ext, summary: t.summary,
+      signals: t.signals ? JSON.parse(t.signals) : [], has_lesson: !!t.has_lesson,
+      locked: !(t.tier === 'free' || premium),
+    });
+  }
+  return out;
+}
+
+// 复盘数据：答案、解题思路、考点（带锁定状态）
 async function reviewPayload(env, acc, sessionId) {
   const s = await env.DB.prepare('SELECT * FROM exam_session WHERE id = ?').bind(sessionId).first();
   const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ?').bind(s.exam_id).first();
+  const drill = s.exam_id === 'drill';
+  if (drill) { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
   const premium = await hasTier(env, acc, 'premium');
   const { results: rows } = await env.DB
     .prepare(
       `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer,
               ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason,
               sb.content AS basic,
-              sa.tier AS adv_tier
-         FROM problem p
-         JOIN attempt_event ae ON ae.problem_id = p.id AND ae.session_id = ?
+              sa.tier AS adv_tier, e.title AS exam_title
+         FROM attempt_event ae
+         JOIN problem p ON p.id = ae.problem_id
+         JOIN exam e ON e.id = p.exam_id
          LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic'
          LEFT JOIN solution sa ON sa.problem_id = p.id AND sa.kind = 'advanced'
-        WHERE p.exam_id = ? ORDER BY p.number`
+        WHERE ae.session_id = ? ORDER BY ae.id`
     )
-    .bind(sessionId, s.exam_id)
+    .bind(sessionId)
     .all();
-  const { results: tags } = await env.DB
-    .prepare(
-      `SELECT pk.problem_id, pk.weight, k.id, k.name, k.tier, k.amc_ext
-         FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
-         JOIN problem p ON p.id = pk.problem_id WHERE p.exam_id = ? ORDER BY pk.weight DESC`
-    )
-    .bind(s.exam_id)
-    .all();
-  const kpByProblem = {};
-  for (const t of tags) {
-    (kpByProblem[t.problem_id] ||= []).push({
-      id: t.id, name: t.name, primary: t.weight >= 1, amc_ext: !!t.amc_ext,
-      locked: !(t.tier === 'free' || premium),
-    });
-  }
+  const kpByProblem = await kpTags(env, acc, rows.map((r) => r.id));
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, submitted_at: s.submitted_at, score: s.score, student_id: s.student_id },
     exam,
     total: rows.length,
-    items: rows.map((r) => ({
-      problem_id: r.id, number: r.number, stem: r.stem, stem_zh: r.stem_zh, figure: r.figure, choices: JSON.parse(r.choices),
+    items: rows.map((r, i) => ({
+      problem_id: r.id, number: drill ? i + 1 : r.number, label: labelOf(r), stem: r.stem, stem_zh: r.stem_zh, figure: r.figure, choices: JSON.parse(r.choices),
       choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null,
       answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
@@ -303,9 +362,36 @@ route('GET', '/api/problems/:id/advanced', async (req, env, p) => {
   const sol = await env.DB.prepare("SELECT * FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(p.id).first();
   if (!sol) throw new HttpError(404, '这道题还没有高级解析');
   if (!(await hasTier(env, acc, sol.tier))) return json({ locked: true, tier: sol.tier }, 402);
-  let steps = null;
-  try { steps = JSON.parse(sol.content); } catch { steps = [{ title: '解析', body: sol.content }]; }
-  return json({ locked: false, steps, url: sol.url });
+  let lesson;
+  try { const v = JSON.parse(sol.content); lesson = Array.isArray(v) ? { steps: v } : v; } catch { lesson = { steps: [{ title: '解析', body: sol.content }] }; }
+  return json({ locked: false, lesson, steps: lesson.steps, url: sol.url });
+});
+
+// 单题页：题目、出处、考点；做过的才给答案和解析（防止先看答案）
+route('GET', '/api/problems/:id', async (req, env, p, url) => {
+  const acc = await requireAccount(req, env);
+  const studentId = url.searchParams.get('student');
+  if (studentId) await requireStudent(env, acc, studentId);
+  const pr = await env.DB
+    .prepare(`SELECT p.*, e.title AS exam_title FROM problem p JOIN exam e ON e.id = p.exam_id WHERE p.id = ? AND e.published = 1`)
+    .bind(p.id).first();
+  if (!pr) throw new HttpError(404, '题目不存在');
+  const last = studentId ? await env.DB
+    .prepare('SELECT choice, correct, created_at, session_id FROM attempt_event WHERE problem_id = ? AND student_id = ? ORDER BY created_at DESC, id DESC LIMIT 1')
+    .bind(pr.id, studentId).first() : null;
+  const premium = await hasTier(env, acc, 'premium');
+  const out = {
+    problem_id: pr.id, number: pr.number, label: `${pr.exam_title} 第 ${pr.number} 题`, exam_title: pr.exam_title,
+    stem: pr.stem, stem_zh: pr.stem_zh, figure: pr.figure, choices: JSON.parse(pr.choices), choices_zh: pr.choices_zh ? JSON.parse(pr.choices_zh) : null,
+    kps: (await kpTags(env, acc, [pr.id]))[pr.id] || [],
+    attempted: !!last, last,
+  };
+  if (last) {
+    const sb = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
+    const sa = await env.DB.prepare("SELECT tier FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
+    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || premium) } : null });
+  }
+  return json(out);
 });
 
 // 知识图谱（名称与一句话说明免费）
@@ -325,21 +411,32 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     .prepare('SELECT k.id, k.name FROM kp_edge e JOIN knowledge_point k ON k.id = e.from_kp WHERE e.to_kp = ?')
     .bind(kp.id)
     .all();
+  const studentId = url.searchParams.get('student');
   const { results: problems } = await env.DB
-    .prepare('SELECT p.id, p.number, e.title AS exam_title FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id WHERE pk.kp_id = ? ORDER BY e.year DESC, p.number')
-    .bind(kp.id)
+    .prepare(
+      `SELECT p.id, p.number, e.title AS exam_title, pk.weight,
+              (SELECT ae.correct FROM attempt_event ae WHERE ae.problem_id = p.id AND ae.student_id = ? ORDER BY ae.created_at DESC, ae.id DESC LIMIT 1) AS last_correct
+         FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
+        WHERE pk.kp_id = ? AND e.published = 1 ORDER BY e.year DESC, p.number`
+    )
+    .bind(studentId, kp.id)
     .all();
   let mastery = null;
-  const studentId = url.searchParams.get('student');
   if (studentId) {
     await requireStudent(env, acc, studentId);
     const m = await env.DB.prepare('SELECT rating, evidence FROM mastery WHERE student_id = ? AND kp_id = ?').bind(studentId, kp.id).first();
     if (m) mastery = displayMastery(m.rating, m.evidence);
   }
+  const premium = await hasTier(env, acc, 'premium');
   return json({
     id: kp.id, name: kp.name, summary: kp.summary, amc_ext: !!kp.amc_ext,
-    locked: !unlocked, content: unlocked ? kp.content : null,
-    prerequisites: prereq, problems, mastery,
+    signals: kp.signals ? JSON.parse(kp.signals) : [],
+    has_lesson: !!(kp.lesson || kp.content),
+    locked: !unlocked, content: unlocked ? kp.content : null, lesson: unlocked && kp.lesson ? JSON.parse(kp.lesson) : null,
+    drill: { count: problems.filter((x) => x.weight >= 0.5).length, locked: !premium },
+    prerequisites: prereq,
+    problems: problems.map((x) => ({ ...x, label: `${x.exam_title} 第 ${x.number} 题`, status: x.last_correct === null ? 'todo' : x.last_correct ? 'right' : 'wrong' })),
+    mastery,
   });
 });
 
@@ -358,8 +455,8 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
     .all();
   const { results: sessions } = await env.DB
     .prepare(
-      `SELECT s.id, s.mode, s.score, s.submitted_at, e.title,
-              (SELECT COUNT(*) FROM problem p WHERE p.exam_id = e.id) AS total
+      `SELECT s.id, s.mode, s.score, s.submitted_at, COALESCE(s.title, e.title) AS title,
+              (SELECT COUNT(*) FROM attempt_event a WHERE a.session_id = s.id) AS total
          FROM exam_session s JOIN exam e ON e.id = s.exam_id
         WHERE s.student_id = ? AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 20`
     )
@@ -399,9 +496,17 @@ route('POST', '/api/admin/import', async (req, env) => {
   const key = req.headers.get('x-admin-key');
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
   const payload = await body(req);
-  const exams = Array.isArray(payload) ? payload : payload.exams ?? [payload];
+  // 支持：{ exams: [...], knowledge: { points: [...] } }，也支持直接传一套试卷或一个知识点文件
+  let exams = [], points = [];
+  if (Array.isArray(payload)) exams = payload;
+  else {
+    if (payload.exams) exams = payload.exams;
+    else if (payload.problems) exams = [payload];
+    if (payload.knowledge?.points) points = payload.knowledge.points;
+    else if (payload.points) points = payload.points;
+  }
   try {
-    const result = await importExams(env.DB, { schema: SCHEMA, knowledge: KNOWLEDGE, exams });
+    const result = await importContent(env.DB, { schema: SCHEMA, exams, points });
     return json({ ok: true, ...result });
   } catch (e) {
     throw new HttpError(400, e.message);
