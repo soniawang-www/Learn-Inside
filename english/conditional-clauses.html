@@ -398,6 +398,12 @@ body{font-size:1rem}
  .chars8{max-width:760px}
 }
 /* ---------- 改版：一张图、故事、诊所、造句、回想、复习 ---------- */
+
+ruby.nt{ruby-position:under;ruby-align:center}
+ruby.nt rt{font-family:var(--body);font-size:.74rem;font-weight:700;line-height:1.5;letter-spacing:0;padding-top:3px;white-space:nowrap}
+ruby.nt rt.i{color:var(--plum)}ruby.nt rt.p{color:var(--jade)}ruby.nt rt.w{color:var(--warn)}
+ruby.nt rt::before{content:"↑ "}
+.scr .big:has(ruby.nt){line-height:2.6}
 .scr .big div.x{display:block;margin-top:0;width:100%}
 .scr:has(.turn:not([hidden])) .big{padding-top:24px}
 .scr .big div.x.here{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
@@ -1112,6 +1118,44 @@ function drawReview(){const box=$("review");if(!box)return;const d=RV.due(),nx=R
  if(nx){box.hidden=false;box.innerHTML=`<div class="rvh small">${IC.cal}<b>${box.dataset.fin?"复习完成！":"复习计划"}</b><span>${CH[nx.c].short}${nx.left<=0?"：今天":`：${nx.left} 天后`}再回来（第 ${nx.st+1} / 3 次）</span></div>${why}`;return}
  box.hidden=true}
 
+/* ---------- 讲解直接标在句子上（ruby 小标注）---------- */
+const NOTES={
+ "全景图#0":{rains:"下雨","will stay":"就待在家"},
+ "条件句有两半#0":{If:"条件从句",stay:"主句：结果"},
+ "条件句有两半#2":{rains:"话没说完……"},
+ "条件句有两半#3":{",":"if 打头加逗号"},
+ "条件句有两半#4":{if:"if 在后"},
+ "零条件句#0":{heat:"加热",melts:"就融化"},
+ "零条件句#3":{heats:"三单 +s",heat:"原形"},
+ "零条件句#4":{If:"如果",When:"每当"},
+ "零条件句#5":{"don't get":"don't + 原形",happens:"问规律"},
+ "第一条件句#2":{rains:"这边没有 will","will stay":"will 在这边"},
+ "第一条件句#4":{rains:"一直不变"},
+ "第一条件句#6":{"'ll tell":"'ll = will","won't go":"won't + 原形",Will:"will 提前"},
+ "第一条件句#8":{"are doing":"正在做","have finished":"已经做完","can't come":"can 可以用"},
+ "零还是第一#0":{get:"每次都这样","will get":"就这一次"},
+ "零还是第一#1":{get:"每次都这样","will get":"就这一次"},
+ "零还是第一#4":{If:"不一定",When:"一定会"},
+ "主句的变化#1":{"will break":"很有把握","might break":"也许","can watch":"可以","must practise":"必须","should see":"应该","are going to have":"打算"},
+ "主句的变化#2":{tell:"祈使句","don't cross":"叫别人别做"},
+ "unless 除非#0":{Unless:"除非",hurry:"肯定"},
+ "unless 除非#1":{"don't hurry":"有 not",Unless:"= if … not",hurry:"不再写 not"},
+ "只要和只有#0":{"as long as":"只要"},
+ "只要和只有#1":{if:"如果","as long as":"只要","only if":"只有……才"},
+ "只要和只有#4":{"Only if":"放句首","will you pass":"will 提前"},
+ "即使和不管#0":{"Even if":"即使","will play":"照样"},
+ "即使和不管#3":{"Even if":"还不知道","Even though":"已经是事实"},
+ "in case 和其他#0":{"in case":"以防万一","'ll take":"先带伞"},
+ "in case 和其他#4":{"as soon as":"一……就",arrive:"不用 will"},
+ "in case 和其他#6":{and:"就会",or:"不然"},
+ "想象的条件#2":{had:"过去时","would fly":"would + 原形"},
+ "想象的条件#3":{were:"习惯用 were"},
+ "想象的条件#4":{"had practised":"过去完成时","would have played":"过去没发生"},
+ "想象的条件#7":{studies:"觉得真有可能",studied:"觉得不太可能"}};
+function applyNotes(){const N=NOTES[LES[li].name+"#"+si];if(!N)return;const used=new Set();
+ document.querySelectorAll("#pMain b.i,#pMain b.p,#pMain b.w").forEach(el=>{const t=el.textContent.trim();if(!(t in N)||used.has(t)||el.closest("ruby"))return;used.add(t);
+  const r=document.createElement("ruby");r.className="nt";el.before(r);r.appendChild(el);const rt=document.createElement("rt");rt.className=el.className.split(" ")[0];rt.textContent=N[t];r.appendChild(rt)})}
+
 /* ---------- 互动课：播放器 ---------- */
 let li=0,si=0,ls={},playing=false,voice=true,started=false,seq=0,tmr;const doneL=new Set();
 const TTS="speechSynthesis" in window&&"SpeechSynthesisUtterance" in window;
@@ -1136,7 +1180,7 @@ function showStep(){
   $("pNext").textContent=si<n-1?"下一步":li<LES.length-1?"下一课":"去练一练";
   if(si===n-1)doneL.add(li);
   document.querySelectorAll("#lessons button").forEach((b,k)=>{b.setAttribute("aria-pressed",k===li);b.classList.toggle("done",doneL.has(k))});
-  document.querySelectorAll('#pMain [data-on="1"]').forEach(e=>requestAnimationFrame(()=>requestAnimationFrame(()=>e.classList.add("on"))));
+  applyNotes();document.querySelectorAll('#pMain [data-on="1"]').forEach(e=>requestAnimationFrame(()=>requestAnimationFrame(()=>e.classList.add("on"))));
   setPlayIcon();
   narrate([{t:cap,l:"zh-CN"},{t:FN(st.en),l:"en-US"}],()=>{
     if(!playing||wait())return;
