@@ -16,7 +16,7 @@ const num = (x) => Number(x).toLocaleString('en-US');
 const H = { T, fmt, gcd, num, esc, pi: Math.PI, sqrt: Math.sqrt, abs: Math.abs, round: Math.round, floor: Math.floor, min: Math.min, max: Math.max, sin: Math.sin, cos: Math.cos };
 function compile(expr, keys) {
   // eslint-disable-next-line no-new-func
-  return new Function('v', 'h', `const {${Object.keys(H).join(',')}} = h; const {${keys.join(',')}} = v; return (${expr});`);
+  return new Function('__v', '__h', `const {${Object.keys(H).join(',')}} = __h; const {${keys.join(',')}} = __v; return (${expr});`);
 }
 function slider(box, p, api) {
   const keys = p.vars.map((v) => v.k);
