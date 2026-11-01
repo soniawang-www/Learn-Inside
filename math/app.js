@@ -180,7 +180,7 @@ document.addEventListener('click', (e) => { const a = e.target.closest('[data-ms
 
 // 注册礼：在登录页、游客提示、账号页、复盘页统一用这一块
 const GIFT = (more = '') => `<div class="gift"><span class="gift-n">10<small>次</small></span><span><b>注册就送 10 次互动解析</b>
-  <small>会员才有的一步步讲解，像老师在旁边讲一样；解锁一道题用 1 次，之后随时重看${more}</small></span></div>`;
+  <small>会员才有的一步步讲解；解锁一道题用 1 次，之后随时重看${more}</small></span></div>`;
 
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
 let joinTab = store.get('li.hadAccount') ? 'login' : 'register';
