@@ -11,7 +11,7 @@
 // 全站一套账号；会员分科目（entitlement.tier = math / chinese）和全科（all），全科包含所有科目。
 // 免费次数全站共用。接口在 /api/ 下（/math/api/ 也能访问，兼容旧页面）。
 
-import { payUrl, verifyNotify, queryTrade } from './alipay.js';
+import { payUrl, verifyNotify, queryTrade, refundTrade, refundQuery, closeTrade } from './alipay.js';
 
 export const FREE_CREDITS = 10;
 export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio'] };
@@ -44,6 +44,8 @@ export const BILLING_MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS pay_order (id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES account(id), plan TEXT NOT NULL,
      days INTEGER NOT NULL, amount TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', trade_no TEXT, buyer TEXT,
      created_at INTEGER NOT NULL, paid_at INTEGER)`,
+  'ALTER TABLE pay_order ADD COLUMN refund_no TEXT',
+  'ALTER TABLE pay_order ADD COLUMN refunded_at INTEGER',
   `CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id TEXT, action TEXT NOT NULL,
      detail TEXT, created_at INTEGER NOT NULL)`,
   'ALTER TABLE pay_order ADD COLUMN tier TEXT',
@@ -262,7 +264,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   route('POST', '/api/pay/create', async (req, env, _p, url) => {
     const acc = await requireAccount(req, env);
     if (!payReady(env)) throw new HttpError(503, '在线支付还没开通');
-    const { plan, mobile, from = 'math' } = await body(req);
+    const { plan, from = 'math' } = await body(req);
     const pl = plansOf(env).find((x) => x.id === plan);
     if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');
     const back = SUBJECTS.includes(from) ? from : 'math'; // 付完回到哪个科目的页面
@@ -272,8 +274,9 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       .bind(id, acc.id, order.plan, order.tier, order.days, order.amount, 'pending', now()).run();
     const base = url.origin;
     const payurl = await payUrl(env, {
-      orderId: id, amount: order.amount, subject: `learn-inside 会员 · ${pl.name}（${pl.days} 天）`, mobile: !!mobile,
-      notifyUrl: `${base}/api/pay/notify`, returnUrl: `${base}/api/pay/return?o=${id}&f=${back}`, quitUrl: `${base}/${back}/#/account`,
+      orderId: id, amount: order.amount, subject: `learn-inside 会员 · ${pl.name}（${pl.days} 天）`,
+      // 本地调试（http://127.0.0.1）支付宝回调不到，不传 notify_url，靠查询兜底
+      notifyUrl: base.startsWith('https://') ? `${base}/api/pay/notify` : undefined, returnUrl: `${base}/api/pay/return?o=${id}&f=${back}`,
     });
     return json({ order_id: id, url: payurl });
   });
@@ -291,8 +294,10 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       await log(env, order.account_id, 'pay_mismatch', { order: order.id, expect: order.amount, got: params.total_amount });
       return text('fail');
     }
-    if (paidOk(params.trade_status)) await grantOrder(env, order, params.trade_no, params.buyer_logon_id || params.buyer_id);
-    else if (params.trade_status === 'TRADE_CLOSED' && order.status === 'pending')
+    // 退款、关单等通知也可能是 TRADE_SUCCESS / TRADE_CLOSED，带 out_biz_no / gmt_refund / refund_fee 的不算付款成功
+    const refundEvent = !!(params.out_biz_no || params.gmt_refund || params.refund_fee);
+    if (paidOk(params.trade_status) && !refundEvent) await grantOrder(env, order, params.trade_no, params.buyer_logon_id || params.buyer_id);
+    else if (params.trade_status === 'TRADE_CLOSED' && !refundEvent && order.status === 'pending')
       await env.DB.prepare("UPDATE pay_order SET status = 'closed' WHERE id = ? AND status = 'pending'").bind(order.id).run();
     return text('success');
   });
@@ -440,6 +445,52 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       .bind(code, kind, n, String(note).slice(0, 100) || null, now(), kind === 'days' ? tier : null)));
     await log(env, null, 'codes', { kind, amount: n, count: c, note, tier: kind === 'days' ? tier : undefined });
     return json({ codes });
+  });
+
+  // 退款（整单）：退成功后收回这笔订单开的会员天数。同一订单重试复用同一个 out_request_no
+  route('POST', '/api/admin/orders/:id/refund', async (req, env, p) => {
+    requireAdmin(req, env);
+    if (!payReady(env)) throw new HttpError(503, '在线支付还没配置');
+    const o = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ?').bind(p.id).first();
+    if (!o) throw new HttpError(404, '订单不存在');
+    if (o.status === 'refunded') return json({ ok: true, status: 'refunded' });
+    if (o.status !== 'paid' && o.status !== 'refunding') throw new HttpError(409, '只有已付款的订单能退款');
+    const { reason = '' } = await body(req);
+    const no = o.refund_no || `R${o.id}`;
+    if (!o.refund_no) await env.DB.prepare("UPDATE pay_order SET refund_no = ?, status = 'refunding' WHERE id = ?").bind(no, o.id).run();
+    const r = await refundTrade(env, o.id, o.amount, no, String(reason).slice(0, 100));
+    let done = r.code === '10000' && r.fund_change === 'Y';
+    if (!done && r.code === '10000') {
+      const q = await refundQuery(env, o.id, no);
+      done = q.code === '10000' && q.refund_status === 'REFUND_SUCCESS';
+    }
+    if (!done) {
+      await log(env, o.account_id, 'refund_pending', { order: o.id, code: r.code, sub_code: r.sub_code });
+      return json({ ok: false, status: 'refunding', message: r.code === '10000' ? '支付宝已受理，稍后再点一次确认结果' : (r.sub_msg || r.msg || '退款失败') });
+    }
+    await env.DB.batch([
+      env.DB.prepare("UPDATE pay_order SET status = 'refunded', refunded_at = ? WHERE id = ?").bind(now(), o.id),
+      env.DB.prepare('DELETE FROM entitlement WHERE account_id = ? AND source = ?').bind(o.account_id, `alipay:${o.trade_no || o.id}`),
+    ]);
+    await log(env, o.account_id, 'refund', { order: o.id, amount: o.amount, reason });
+    return json({ ok: true, status: 'refunded' });
+  });
+  // 关闭未付款订单（先查一次，已经付了就按付款处理）
+  route('POST', '/api/admin/orders/:id/close', async (req, env, p) => {
+    requireAdmin(req, env);
+    const o = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ?').bind(p.id).first();
+    if (!o) throw new HttpError(404, '订单不存在');
+    if (o.status !== 'pending') throw new HttpError(409, '只有待付款的订单能关闭');
+    if (payReady(env)) {
+      const q = await queryTrade(env, o.id);
+      if (q.code === '10000' && paidOk(q.trade_status) && money(q.total_amount) === o.amount) {
+        await grantOrder(env, o, q.trade_no, q.buyer_logon_id);
+        return json({ ok: true, status: 'paid' });
+      }
+      if (q.code === '10000') await closeTrade(env, o.id); // 交易不存在（用户没扫码）时不用关
+    }
+    await env.DB.prepare("UPDATE pay_order SET status = 'closed' WHERE id = ? AND status = 'pending'").bind(o.id).run();
+    return json({ ok: true, status: 'closed' });
   });
 
   route('GET', '/api/admin/orders', async (req, env) => {

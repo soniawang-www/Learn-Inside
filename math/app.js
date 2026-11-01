@@ -279,7 +279,7 @@ async function renderAccount() {
   $app.querySelectorAll('[data-plan]').forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     try {
-      const r = await api('/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, from: 'math', mobile: /Mobi|Android|iPhone/i.test(navigator.userAgent) } });
+      const r = await api('/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, from: 'math' } });
       location.href = r.url;
     } catch (err) { b.disabled = false; modal(`<h2>没能发起支付</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
   }));

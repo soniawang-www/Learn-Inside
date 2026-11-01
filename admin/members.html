@@ -108,7 +108,7 @@
         <button class="btn danger" data-del>删除账号</button>
       </div></details><span class="small kl-warn" data-msg></span></div>`;
   }
-  const NAMES = { support: '修改客服', delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
+  const NAMES = { refund: '退款', refund_pending: '退款待确认', support: '修改客服', delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
   async function search() {
     try {
       const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()));
@@ -160,12 +160,25 @@
   async function loadOrders() {
     try {
       const d = await api('orders');
-      const ST = { pending: '待付款', paid: '<span class="member">已付款</span>', closed: '已关闭' };
+      const ST = { pending: '待付款', paid: '<span class="member">已付款</span>', closed: '已关闭', refunding: '退款中', refunded: '已退款' };
       const paid = d.filter((o) => o.status === 'paid');
       $('orders').innerHTML = `<p class="small">已付款 ${paid.length} 单，合计 ¥${paid.reduce((a, o) => a + Number(o.amount), 0).toFixed(2)}</p>
-        <table class="codes"><tr><th>时间</th><th>账号</th><th>套餐</th><th>金额</th><th>状态</th><th>订单号 / 支付宝交易号</th></tr>${d.map((o) => `<tr>
+        <table class="codes"><tr><th>时间</th><th>账号</th><th>套餐</th><th>金额</th><th>状态</th><th>订单号 / 支付宝交易号</th><th></th></tr>${d.map((o) => `<tr>
         <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${SC[o.tier || 'math']}会员 ${o.plan.split('.').pop() === 'month' ? '月卡' : o.plan.split('.').pop() === 'quarter' ? '季卡' : o.plan.split('.').pop() === 'year' ? '年卡' : o.plan}（${o.days} 天）</td><td>¥${o.amount}</td><td>${ST[o.status] || o.status}</td>
-        <td class="small">${o.id}${o.trade_no ? `<br>${o.trade_no}` : ''}</td></tr>`).join('')}</table>`;
+        <td class="small">${o.id}${o.trade_no ? `<br>${o.trade_no}` : ''}</td>
+        <td>${o.status === 'paid' ? `<button class="btn danger" data-refund="${o.id}">退款</button>` : o.status === 'refunding' ? `<button class="btn" data-refund="${o.id}">确认退款结果</button>` : o.status === 'pending' ? `<button class="btn" data-close-order="${o.id}">关闭</button>` : ''}</td></tr>`).join('')}</table>`;
+      $('orders').querySelectorAll('[data-refund]').forEach((b) => (b.onclick = async () => {
+        if (b.textContent === '退款' && !confirm(`整单退款 ${b.closest('tr').children[3].textContent}？退款后会收回这笔订单开的会员天数。`)) return;
+        const reason = b.textContent === '退款' ? (prompt('退款原因（会记在操作记录里）', '') ?? null) : '';
+        if (reason === null) return;
+        b.disabled = true;
+        try { const r = await api(`orders/${b.dataset.refund}/refund`, { reason }); if (!r.ok) alert(r.message); loadOrders(); } catch (e) { alert(e.message); b.disabled = false; }
+      }));
+      $('orders').querySelectorAll('[data-close-order]').forEach((b) => (b.onclick = async () => {
+        if (!confirm('关闭这笔待付款订单？关闭后家长不能再用它付款（会先查一次，已经付了就直接开通）。')) return;
+        b.disabled = true;
+        try { const r = await api(`orders/${b.dataset.closeOrder}/close`, {}); alert(r.status === 'paid' ? '这笔其实已经付款，已开通会员' : '已关闭'); loadOrders(); } catch (e) { alert(e.message); b.disabled = false; }
+      }));
     } catch (e) { $('orders').textContent = e.message; }
   }
   // 客服二维码：在浏览器里缩到 480px 宽再上传，图片小、扫码也清楚

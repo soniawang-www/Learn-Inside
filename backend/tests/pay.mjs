@@ -32,10 +32,10 @@ const v = createVerify('RSA-SHA256'); v.update(content(q, ['sign']));
 ok(v.verify(K.appPub, q.sign, 'base64'), '收银台地址用应用私钥 RSA2 签名，验签通过');
 const biz = JSON.parse(q.biz_content);
 ok(q.method === 'alipay.trade.page.pay' && biz.total_amount === '39.00' && biz.product_code === 'FAST_INSTANT_TRADE_PAY' && biz.out_trade_no === c1.data.order_id, '电脑：page.pay，金额 39.00');
-ok(q.notify_url.endsWith('/api/pay/notify') && !q.notify_url.includes('/math/') && q.return_url.includes('/api/pay/return?o=') && q.return_url.endsWith('&f=math'), '通知和跳回地址是全站的');
+ok(!('notify_url' in q) && q.return_url.includes('/api/pay/return?o=') && q.return_url.endsWith('&f=math'), '本地 http 不传 notify_url（上线是 https 才传），跳回地址是全站的');
 const m = await call('/math/api/pay/create', 'POST', { plan: 'math.year', mobile: true }, T);
 const mq = Object.fromEntries(new URL(m.data.url).searchParams);
-ok(mq.method === 'alipay.trade.wap.pay' && JSON.parse(mq.biz_content).product_code === 'QUICK_WAP_WAY', '手机：wap.pay');
+ok(mq.method === 'alipay.trade.page.pay' && JSON.parse(mq.biz_content).product_code === 'FAST_INSTANT_TRADE_PAY', '手机浏览器也用 page.pay（AI 网页应用收款只签了这个接口）');
 ok((await call('/math/api/pay/create', 'POST', { plan: 'nope' }, T)).status === 400, '不存在的套餐被拒');
 
 const base = { notify_time: '2026-11-01 22:00:00', notify_type: 'trade_status_sync', notify_id: 'n1', app_id: '2021000000000001', out_trade_no: c1.data.order_id, trade_no: 'T001', trade_status: 'TRADE_SUCCESS', total_amount: '39.00', buyer_logon_id: 'abc***@x.com' };
@@ -46,6 +46,8 @@ ok(await notify({ ...base, app_id: '999' }) === 'fail', 'app_id 不符被拒');
   ok(await (await fetch(BASE + '/math/api/pay/notify', { method: 'POST', body })).text() === 'fail', '签名不对被拒');
 }
 ok(!(await call('/math/api/account', 'GET', null, T)).data.memberships.math, '以上都没有开通会员');
+ok(await notify({ ...base, refund_fee: '39.00', gmt_refund: '2026-11-02 00:00:00', out_biz_no: 'R1' }) === 'success', '退款通知回 success');
+ok(!(await call('/math/api/account', 'GET', null, T)).data.memberships.math, '退款通知不会开通会员');
 ok(await notify(base) === 'success', '正确的付款通知 → success');
 const a1 = await call('/math/api/account', 'GET', null, T);
 a1.data.member_until = a1.data.memberships.math;
@@ -72,3 +74,15 @@ const other = await call('/math/api/auth/register', 'POST', { phone: '136' + Str
 ok((await call(`/math/api/pay/orders/${c1.data.order_id}`, 'GET', null, other.data.token)).status === 404, '看不到别人的订单');
 const orders = await call('/math/api/admin/orders', 'GET', null, null, true);
 ok(orders.data.filter((o) => o.status === 'paid').length >= 2, '后台能看到订单');
+
+// 退款：整单退，收回这笔订单开的会员天数
+const before = (await call('/api/account', 'GET', null, T)).data.memberships;
+const rf = await call(`/api/admin/orders/${c1.data.order_id}/refund`, 'POST', { reason: '测试退款' }, null, true);
+ok(rf.data.ok && rf.data.status === 'refunded', '后台退款成功');
+const after = (await call('/api/account', 'GET', null, T)).data.memberships;
+ok(!after.math || after.math < before.math, '退款后收回这笔订单的会员天数');
+ok((await call(`/api/admin/orders/${c1.data.order_id}/refund`, 'POST', {}, null, true)).data.status === 'refunded', '重复退款不会再退');
+const c4 = await call('/api/pay/create', 'POST', { plan: 'math.month' }, T);
+writeFileSync(`${DIR}/amount`, '0.00');
+const cl = await call(`/api/admin/orders/${c4.data.order_id}/close`, 'POST', {}, null, true);
+ok(cl.data.status === 'closed', '关闭未付款订单');

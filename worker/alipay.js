@@ -61,21 +61,31 @@ async function signedParams(env, method, biz, extra = {}) {
   return p;
 }
 
-/** 收银台地址（GET 跳转）：电脑用 page.pay，手机浏览器用 wap.pay */
-export async function payUrl(env, { orderId, amount, subject, mobile, notifyUrl, returnUrl, quitUrl }) {
-  const method = mobile ? 'alipay.trade.wap.pay' : 'alipay.trade.page.pay';
-  const biz = { out_trade_no: orderId, total_amount: amount, subject, product_code: mobile ? 'QUICK_WAP_WAY' : 'FAST_INSTANT_TRADE_PAY', timeout_express: '30m' };
-  if (mobile && quitUrl) biz.quit_url = quitUrl;
-  const p = await signedParams(env, method, biz, { notify_url: notifyUrl, return_url: returnUrl });
+/** 收银台地址（GET 跳转）。AI 网页应用收款签约的是 alipay.trade.page.pay，电脑和手机浏览器都用它 */
+export async function payUrl(env, { orderId, amount, subject, notifyUrl, returnUrl }) {
+  const biz = { out_trade_no: orderId, total_amount: amount, subject, product_code: 'FAST_INSTANT_TRADE_PAY', timeout_express: '30m' };
+  const extra = { return_url: returnUrl };
+  if (notifyUrl) extra.notify_url = notifyUrl;
+  const p = await signedParams(env, 'alipay.trade.page.pay', biz, extra);
   return `${env.ALIPAY_GATEWAY || GATEWAY}?${new URLSearchParams(p)}`;
 }
 
-/** 主动查询订单（通知没收到时兜底）。返回 alipay_trade_query_response */
-export async function queryTrade(env, orderId) {
-  const p = await signedParams(env, 'alipay.trade.query', { out_trade_no: orderId });
+/** 调用一个接口，返回 <method>_response（HTTPS 直连支付宝网关） */
+async function call(env, method, biz) {
+  const p = await signedParams(env, method, biz);
   const r = await fetch(env.ALIPAY_GATEWAY || GATEWAY, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded;charset=utf-8' }, body: new URLSearchParams(p),
   });
   const d = await r.json();
-  return d.alipay_trade_query_response || {};
+  return d[method.replace(/\./g, '_') + '_response'] || {};
 }
+/** 主动查询订单（通知没收到时兜底） */
+export const queryTrade = (env, orderId) => call(env, 'alipay.trade.query', { out_trade_no: orderId });
+/** 退款：同一次退款重试必须复用同一个 out_request_no */
+export const refundTrade = (env, orderId, amount, requestNo, reason) =>
+  call(env, 'alipay.trade.refund', { out_trade_no: orderId, refund_amount: amount, out_request_no: requestNo, refund_reason: reason || undefined });
+/** 退款查询：只有 refund_status=REFUND_SUCCESS 才算退成功 */
+export const refundQuery = (env, orderId, requestNo) =>
+  call(env, 'alipay.trade.fastpay.refund.query', { out_trade_no: orderId, out_request_no: requestNo, query_options: ['gmt_refund_pay'] });
+/** 关闭未付款交易 */
+export const closeTrade = (env, orderId) => call(env, 'alipay.trade.close', { out_trade_no: orderId });

@@ -141,8 +141,10 @@ node backend/tests/e2e.mjs http://127.0.0.1:8787
 ## 在线支付（支付宝）
 
 代码：`worker/alipay.js`（RSA2 加签、验签、下单地址、查询），`worker/billing.js` 的「在线支付」部分。
-电脑浏览器走 `alipay.trade.page.pay`，手机浏览器走 `alipay.trade.wap.pay`；付款结果以**异步通知**为准（验签 + 核对 app_id、订单号、金额），
-没收到通知时，结果页查订单会主动调 `alipay.trade.query` 兜底。同一订单只开通一次。
+AI 网页应用收款只签约 `alipay.trade.page.pay`，电脑和手机浏览器都用它；付款结果以**异步通知**为准（验签 + 核对 app_id、订单号、金额），
+没收到通知时，结果页查订单会主动调 `alipay.trade.query` 兜底。同一订单只开通一次；退款、关单类通知（带 `out_biz_no` / `gmt_refund` / `refund_fee`）不当作付款。
+后台「支付订单」可以整单退款（`alipay.trade.refund`，同一订单重试复用同一 `out_request_no`，未确认时用 `alipay.trade.fastpay.refund.query` 查结果，退成功后收回这笔订单的会员天数）和关闭待付款订单（`alipay.trade.close`）。
+本地 http 调试时不传 `notify_url`（支付宝回调不到），上线是 https 自动带上 `https://learn-inside.com/api/pay/notify`。
 
 配置（Cloudflare 控制台 → learn-inside → Settings → Variables and Secrets）：
 
