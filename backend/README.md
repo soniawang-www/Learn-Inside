@@ -30,7 +30,7 @@ backend/                 开发用（不公开）
   schema.sql             建表
   data/                  知识图谱 + 示例试卷
   scripts/build-seed.mjs 生成 content.generated.js
-  tests/                 e2e.mjs 功能、billing.mjs 会员、pay.mjs 支付
+  tests/                 e2e.mjs 功能、billing.mjs 会员、pay.mjs 支付、full.mjs 全盘（游客 / 10 次额度 / 会员时间 / 错题周期 / 支付 / 后台）、ui.mjs 浏览器全流程
 ```
 
 `worker/`、`backend/`、`wrangler.jsonc` 写在 `.assetsignore` 里，不会作为静态文件公开。
@@ -166,3 +166,12 @@ AI 网页应用收款只签约 `alipay.trade.page.pay`，电脑和手机浏览�
 测试（模拟支付宝，不连真网关）：`node backend/tests/pay/keys.mjs` 生成两对测试密钥，`node backend/tests/pay/mockgw.mjs` 起假网关，
 再按 `backend/tests/pay.mjs` 开头的说明启动 wrangler，运行 `node backend/tests/pay.mjs http://127.0.0.1:8788 <keys 所在目录>`。
 后台 `/admin/members.html` 的「支付订单」标签能看到所有订单和已收款合计。
+
+## 全盘测试
+
+```
+# 正式收费模式（带假支付宝，见 tests/pay.mjs 开头），另开一个试用模式服务
+FREE_BASE=http://127.0.0.1:8787 node backend/tests/full.mjs http://127.0.0.1:8788 <keys 目录> [本地 D1 的 sqlite 文件]
+node backend/tests/ui.mjs http://127.0.0.1:8788      # 需要 playwright
+```
+`node --check` 查不出部分模板字符串错误，改完前端后以 ui.mjs（会在真实浏览器里加载每个页面）为准。
