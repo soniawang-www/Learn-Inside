@@ -68,6 +68,14 @@ await call(`/amc8/api/attempts/${wrongItem.attempt_id}`, 'PATCH', { error_reason
 const after = await call(`/amc8/api/students/${sid}/profile`);
 const permAfter = after.data.points.find((p) => p.id === 'cnt.perm').score;
 ok(permAfter > permBefore, `标“粗心”后排列组合掌握度上调 ${permBefore} → ${permAfter}`);
+const wrongCount = sub.data.items.filter((i) => !i.correct).length;
+const ms = after.data.mistakes.find((m) => m.problem_id === wrongItem.problem_id);
+ok(after.data.mistakes.length === wrongCount && ms.status === 'pending' && ms.reason === 'careless', `错题本收集 ${wrongCount} 题，带错因`);
+const fix = await call('/amc8/api/sessions', 'POST', { problem_ids: [wrongItem.problem_id], student_id: sid, purpose: 'pending' });
+ok(fix.data.exam.title === '错题订正', '错题订正会话');
+await call(`/amc8/api/sessions/${fix.data.session.id}/submit`, 'POST', { answers: { [wrongItem.problem_id]: wrongItem.answer }, times: {}, flags: {} });
+const fixed = (await call(`/amc8/api/students/${sid}/profile`)).data.mistakes.find((m) => m.problem_id === wrongItem.problem_id);
+ok(fixed.status === 'fixed' && fixed.review_at > Date.now(), '订正做对 → 已订正，一周后提醒复习');
 
 const adv = await call(`/amc8/api/problems/${probs[0].id}/advanced`);
 ok(adv.status === 200 && adv.data.steps.length > 0, '高级解析可看（试用期）');

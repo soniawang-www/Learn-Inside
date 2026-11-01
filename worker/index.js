@@ -113,9 +113,10 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
 //   { exam_id, mode }          整套试卷（exam 模考 / practice 练习）
 //   { kp_id }                  知识点突击：该考点下所有已发布真题（会员）
 //   { problem_ids: [id] }      单题练习（从知识点页「相关真题」进入）
+//   { problem_ids, purpose }   错题本：purpose = pending 订正 / due 复习（只影响标题）
 route('POST', '/api/sessions', async (req, env) => {
   const acc = await requireAccount(req, env);
-  const { exam_id, student_id, mode = 'exam', kp_id, problem_ids } = await body(req);
+  const { exam_id, student_id, mode = 'exam', kp_id, problem_ids, purpose } = await body(req);
   await requireStudent(env, acc, student_id);
   const id = uid();
   const t = now();
@@ -134,7 +135,7 @@ route('POST', '/api/sessions', async (req, env) => {
         .bind(...problem_ids).all();
       const ok = new Set(results.map((r) => r.id));
       ids = problem_ids.filter((x) => ok.has(x));
-      title = ids.length === 1 ? '单题练习' : '专项练习';
+      title = { pending: '错题订正', due: '错题复习' }[purpose] || (ids.length === 1 ? '单题练习' : '专项练习');
     }
     if (!ids.length) throw new HttpError(404, '没有可练的题');
     const stmts = [env.DB
@@ -469,8 +470,52 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
   const points = m
     .map((r) => ({ id: r.kp_id, name: r.name, group: r.parent_name, evidence: Math.round(r.evidence * 10) / 10, ...displayMastery(r.rating, r.evidence) }))
     .sort((a, b) => a.score - b.score);
-  return json({ student: { id: st.id, nickname: st.nickname }, points, sessions, error_reasons: reasons });
+  return json({ student: { id: st.id, nickname: st.nickname }, points, sessions, error_reasons: reasons, mistakes: await mistakeBook(env, st.id) });
 });
+
+// 错题本：做错过（含未作答）的题，按最近一次错误后的表现分阶段
+//   pending  待订正：最近一次还是错的
+//   due      该复习：订正对了一次，已过 REVIEW_DAYS 天，再做一次巩固
+//   fixed    已订正：订正对了一次，还没到复习时间
+//   mastered 已掌握：最近一次错误之后又做对了两次以上
+const REVIEW_DAYS = 7;
+async function mistakeBook(env, studentId) {
+  const { results: rows } = await env.DB
+    .prepare(
+      `SELECT ae.problem_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, e.title AS exam_title, e.year
+         FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id JOIN exam e ON e.id = p.exam_id
+        WHERE ae.student_id = ? AND ae.problem_id IN (SELECT problem_id FROM attempt_event WHERE student_id = ? AND correct = 0)
+        ORDER BY ae.created_at, ae.id`
+    )
+    .bind(studentId, studentId)
+    .all();
+  const by = new Map();
+  for (const r of rows) {
+    const m = by.get(r.problem_id) || { problem_id: r.problem_id, label: labelOf(r), year: r.year, number: r.number, wrong_n: 0, right_since: 0 };
+    if (r.correct) m.right_since++;
+    else { m.wrong_n++; m.right_since = 0; m.last_wrong_at = r.created_at; m.last_choice = r.choice; if (r.error_reason) m.reason = r.error_reason; }
+    m.last_at = r.created_at;
+    by.set(r.problem_id, m);
+  }
+  const list = [...by.values()];
+  if (!list.length) return [];
+  const { results: kps } = await env.DB
+    .prepare(`SELECT pk.problem_id, k.id, k.name FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
+               WHERE pk.weight >= 1 AND pk.problem_id IN (${list.map(() => '?').join(',')})`)
+    .bind(...list.map((x) => x.problem_id))
+    .all();
+  const kpOf = {};
+  for (const k of kps) (kpOf[k.problem_id] ||= []).push({ id: k.id, name: k.name });
+  const t = now();
+  return list
+    .map((m) => {
+      const status = m.right_since === 0 ? 'pending' : m.right_since >= 2 ? 'mastered'
+        : t - m.last_at >= REVIEW_DAYS * 86400000 ? 'due' : 'fixed';
+      const review_at = status === 'fixed' ? m.last_at + REVIEW_DAYS * 86400000 : null;
+      return { ...m, status, review_at, reason: m.reason ?? null, kps: kpOf[m.problem_id] || [] };
+    })
+    .sort((a, b) => b.last_wrong_at - a.last_wrong_at);
+}
 
 // 初始化 / 更新题库：建表 + 写入内置题库（可重复执行）
 // 数据库还没有试卷时任何人都能触发（首次上线只需打开一次这个地址）；
