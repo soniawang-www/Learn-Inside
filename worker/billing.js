@@ -345,6 +345,32 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     return json({ ok: true, account: await accountRow(env, await env.DB.prepare('SELECT * FROM account WHERE id = ?').bind(a.id).first()) });
   });
 
+  // 删除账号：连同孩子、做题记录、掌握度、会员、解锁一起删；已付款订单的金额和交易号留在操作记录里备查
+  route('DELETE', '/api/admin/accounts/:id', async (req, env, p) => {
+    requireAdmin(req, env);
+    const a = await env.DB.prepare('SELECT * FROM account WHERE id = ?').bind(p.id).first();
+    if (!a) throw new HttpError(404, '账号不存在');
+    const { results: sts } = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ?').bind(a.id).all();
+    const { results: paid } = await env.DB.prepare("SELECT id, plan, amount, trade_no, paid_at FROM pay_order WHERE account_id = ? AND status = 'paid'").bind(a.id).all();
+    const sess = 'SELECT s.id FROM exam_session s JOIN student st ON st.id = s.student_id WHERE st.account_id = ?';
+    const stu = 'SELECT id FROM student WHERE account_id = ?';
+    const q = (sql) => env.DB.prepare(sql).bind(a.id);
+    await env.DB.batch([
+      q(`DELETE FROM session_hint WHERE session_id IN (${sess})`),
+      q(`DELETE FROM session_problem WHERE session_id IN (${sess})`),
+      q(`DELETE FROM attempt_event WHERE student_id IN (${stu})`),
+      q(`DELETE FROM mastery WHERE student_id IN (${stu})`),
+      q(`DELETE FROM exam_session WHERE student_id IN (${stu})`),
+      q('DELETE FROM student WHERE account_id = ?'),
+      q('DELETE FROM entitlement WHERE account_id = ?'),
+      q('DELETE FROM unlock WHERE account_id = ?'),
+      q('DELETE FROM pay_order WHERE account_id = ?'),
+      q('DELETE FROM account WHERE id = ?'),
+    ]);
+    await log(env, null, 'delete', { account: a.id, phone: a.phone, students: sts.map((x) => x.nickname), paid_orders: paid });
+    return json({ ok: true, deleted: { phone: a.phone, students: sts.length, paid_orders: paid.length } });
+  });
+
   route('GET', '/api/admin/log', async (req, env, _p, url) => {
     requireAdmin(req, env);
     const acc = url.searchParams.get('account');

@@ -91,3 +91,13 @@ await call(`/math/api/admin/accounts/${oid}`, 'POST', { action: 'reset_password'
 ok((await call('/math/api/auth/login', 'POST', { phone: phone2, password: 'newpass9' })).status === 200, '后台重置密码');
 const logs = await call('/math/api/admin/log', 'GET', null, null, true);
 ok(logs.data.some((l) => l.action === 'add_days' && l.detail.includes('分享活动')) && !logs.data.some((l) => l.detail.includes('newpass9')), '操作记录有原因，不记密码');
+
+// 删除账号
+const del = await call(`/math/api/admin/accounts/${oid}`, 'DELETE', null, null, true);
+ok(del.status === 200 && del.data.deleted.students === 1, '后台删除账号');
+ok((await call('/math/api/auth/login', 'POST', { phone: phone2, password: 'newpass9' })).status === 403, '删除后不能登录');
+ok((await call('/math/api/me', 'GET', null, old.data.token)).status === 401, '删除后原登录失效');
+ok((await call(`/math/api/admin/accounts/${aid}`, 'DELETE')).status === 403, '删除需要管理员密钥');
+const del2 = await call(`/math/api/admin/accounts/${aid}`, 'DELETE', null, null, true);
+ok(del2.status === 200, '有做题记录、解锁、会员记录的账号也能删');
+ok((await call('/math/api/admin/accounts?q=' + phone, 'GET', null, null, true)).data.accounts.length === 0, '后台搜不到了');

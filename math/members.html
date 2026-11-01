@@ -13,6 +13,7 @@
     .acc .ops input { width: 8em; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
     .acc .ops .btn { padding: 4px 12px; font-size: 13px; }
     .tabs2 { display: flex; gap: 6px; margin-bottom: 12px; }
+    .btn.danger { border-color: var(--bad, #b42318); color: var(--bad, #b42318); }
     .member { color: var(--ok, #1d7a46); font-weight: 600; }
     table.codes { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.codes td, table.codes th { padding: 5px 4px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -83,9 +84,10 @@
         <input type="number" placeholder="±次数" data-v="add_credits"><button class="btn" data-op="add_credits">加次数</button>
         <input type="text" placeholder="新密码" data-v="reset_password"><button class="btn" data-op="reset_password">重置密码</button>
         <input type="text" placeholder="备注" data-v="note" value="${esc(a.note || '')}"><button class="btn" data-op="note">存备注</button>
+        <button class="btn danger" data-del>删除账号</button>
       </div></details><span class="small kl-warn" data-msg></span></div>`;
   }
-  const NAMES = { pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
+  const NAMES = { delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
   async function search() {
     try {
       const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()));
@@ -95,6 +97,17 @@
   }
   $('search').onsubmit = (e) => { e.preventDefault(); search(); };
   $('list').onclick = async (e) => {
+    const del = e.target.closest('[data-del]');
+    if (del) {
+      const box = del.closest('.acc'), who = box.querySelector('.head b').textContent;
+      if (!confirm(`删除账号 ${who}？\n孩子、做题记录、知识图谱、错题本、会员和解锁记录都会一起删除，不能恢复。`)) return;
+      try {
+        const r = await fetch('api/admin/accounts/' + box.dataset.id, { method: 'DELETE', headers: { 'x-admin-key': $('key').value.trim() } });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error);
+        box.outerHTML = `<div class="acc small muted">已删除 ${esc(who)}${d.deleted.paid_orders ? `（有 ${d.deleted.paid_orders} 笔已付款订单，金额和交易号记在操作记录里）` : ''}</div>`;
+      } catch (err) { box.querySelector('[data-msg]').textContent = err.message; }
+      return;
+    }
     const b = e.target.closest('[data-op]'); if (!b) return;
     const box = b.closest('.acc'), op = b.dataset.op, inp = box.querySelector(`[data-v="${op}"]`);
     const value = inp ? inp.value.trim() : null;
@@ -138,7 +151,7 @@
     try {
       const d = await api('log');
       $('log').innerHTML = d.map((l) => { const x = JSON.parse(l.detail || 'null') || {};
-        return `<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">${time(l.created_at)} · ${esc(l.phone || (l.account_id ? '未绑定手机号' : '—'))} · <b>${NAMES[l.action] || l.action}</b> ${esc(x.value ?? x.code ?? (x.count ? `${x.count} 个 ${x.kind === 'days' ? `${x.amount} 天` : `${x.amount} 次`}` : ''))} ${x.reason ? `（${esc(x.reason)}）` : ''}${x.note ? `（${esc(x.note)}）` : ''}</div>`; }).join('') || '<p class="muted small">还没有记录</p>';
+        return `<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">${time(l.created_at)} · ${esc(l.phone || x.phone || (x.students ? x.students.join('、') : l.account_id ? '未绑定手机号' : '—'))} · <b>${NAMES[l.action] || l.action}</b> ${esc(x.value ?? x.code ?? (x.count ? `${x.count} 个 ${x.kind === 'days' ? `${x.amount} 天` : `${x.amount} 次`}` : ''))} ${x.reason ? `（${esc(x.reason)}）` : ''}${x.note ? `（${esc(x.note)}）` : ''}</div>`; }).join('') || '<p class="muted small">还没有记录</p>';
     } catch (e) { $('log').textContent = e.message; }
   }
   document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => {
