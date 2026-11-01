@@ -1,5 +1,7 @@
 {
   "name": "learn-inside",
+  // 部署时保留控制台里加的变量（价格、支付宝 APPID 等），不被这个文件覆盖
+  "keep_vars": true,
   "main": "worker/index.js",
   "compatibility_date": "2026-10-12",
   "assets": {
@@ -17,11 +19,8 @@
   ],
   "vars": {
     "FREE_MODE": "true",       // 试用期全部内容免费；收费时改为 "false"
-    "INVITE_CODES": "AMC2026", // 旧的邀请码加入（现在用手机号注册）；逗号分隔，留空 = 不需要邀请码
-    // 会员价格（元），留空显示“价格待定”：PRICE_<数学 MATH / 全科 ALL / 语文 CHINESE>_<MONTH / QUARTER / YEAR>
-    "PRICE_MATH_MONTH": "", "PRICE_MATH_QUARTER": "", "PRICE_MATH_YEAR": "",
-    "PRICE_ALL_MONTH": "", "PRICE_ALL_QUARTER": "", "PRICE_ALL_YEAR": "",
-    "PAY_CONTACT": ""          // 在线支付开通前，账号页显示的购买激活码联系方式，比如“微信 xxx”
-    // 支付宝：ALIPAY_APP_ID 在控制台加变量；ALIPAY_PRIVATE_KEY、ALIPAY_PUBLIC_KEY 必须用 Secret，不要写进这里（见 backend/README.md）
+    "INVITE_CODES": "AMC2026"  // 旧的邀请码加入（现在用手机号注册）；逗号分隔，留空 = 不需要邀请码
+    // 会员价格不写在这里，在 Cloudflare 控制台加变量 PRICE_<MATH / ALL / CHINESE>_<MONTH / QUARTER / YEAR>（元），没设的显示“价格待定”
+    // 支付宝：在控制台加 AIPAY_APP_ID（变量）、AIPAY_PRIVATE_KEY 和 AIPAY_ALIPAY_PUBLIC_KEY（Secret），不要写进这里（见 backend/README.md）
   }
 }

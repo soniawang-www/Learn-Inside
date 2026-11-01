@@ -148,12 +148,15 @@ node backend/tests/e2e.mjs http://127.0.0.1:8787
 
 | 名称 | 类型 | 内容 |
 |---|---|---|
-| `ALIPAY_APP_ID`（也可以写成支付宝后台给的 `AIPAY_APP_ID`，下同） | 变量 | 支付宝开放平台应用的 APPID |
-| `ALIPAY_PRIVATE_KEY` | **Secret** | 应用私钥（密钥工具生成的那串，PKCS8 或 PKCS1 都行） |
-| `ALIPAY_PUBLIC_KEY` | **Secret** | **支付宝公钥**（上传应用公钥后，平台显示的那串；不是应用公钥） |
+| `AIPAY_APP_ID` | 变量 | 线上 APPID |
+| `AIPAY_PRIVATE_KEY` | **Secret** | 线上 **JAVA 语言私钥**（PKCS8）；也可以用 `AIPAY_PRIVATE_PKCS_KEY` 放非 Java 私钥（PKCS1） |
+| `AIPAY_ALIPAY_PUBLIC_KEY` | **Secret** | 线上**支付宝公钥**。注意 `AIPAY_PUBLIC_KEY` 是应用公钥，这里用不到 |
 | `ALIPAY_SELLER_ID` | 变量，可选 | 收款支付宝账号的 2088 开头 PID，用来多核对一项 |
-| `ALIPAY_GATEWAY` | 变量，可选 | 默认正式环境；沙箱填 `https://openapi-sandbox.dl.alipaydev.com/gateway.do` |
-| `PRICE_<MATH/ALL/CHINESE>_<MONTH/QUARTER/YEAR>` | 变量 | 价格（元） |
+| `ALIPAY_GATEWAY` | 变量，可选 | 默认正式环境 `https://openapi.alipay.com/gateway.do`；沙箱填 `https://openapi-sandbox.dl.alipaydev.com/gateway.do` |
+| `PRICE_<MATH/ALL/CHINESE>_<MONTH/QUARTER/YEAR>` | 变量 | 价格（元），没设的显示“价格待定” |
+
+（旧写法 `ALIPAY_APP_ID` / `ALIPAY_PRIVATE_KEY` / `ALIPAY_PUBLIC_KEY`（支付宝公钥）也认。）
+`wrangler.jsonc` 里有 `keep_vars: true`，推送部署不会冲掉控制台里加的变量。
 
 开放平台里：接口加签方式选**公钥**（不是证书），通知地址是 `https://learn-inside.com/api/pay/notify`（全站共用，下单时自动带上）；申请收款产品时网站链接填 `https://learn-inside.com/`。
 
