@@ -133,7 +133,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const { phone: p, password } = await body(req);
     const phone = normPhone(p);
     const acc = await env.DB.prepare('SELECT * FROM account WHERE phone = ?').bind(phone).first();
-    if (!acc || !(await checkPw(password, acc.pw_hash))) throw new HttpError(403, '手机号或密码不对');
+    if (!acc || !(await checkPw(password, acc.pw_hash))) throw new HttpError(403, '手机号或密码错误');
     const student = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1').bind(acc.id).first();
     return json({ token: acc.token, student });
   });

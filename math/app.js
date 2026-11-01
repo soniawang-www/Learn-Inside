@@ -138,30 +138,59 @@ window.addEventListener('hashchange', router);
 // 「去错题本订正」带上知识项筛选
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-mskp]'); if (a) { msKp = a.dataset.mskp; msFam = ''; msFilter = 'todo'; msMore = false; } });
 
-// ───────── 登录 / 注册 ─────────
-let joinTab = 'register';
+// ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
+let joinTab = store.get('amc8.hadAccount') ? 'login' : 'register';
 function renderJoin() {
   const reg = joinTab === 'register';
-  $app.innerHTML = `${topnav()}<div class="page"><div class="card" style="max-width:420px;margin:40px auto">
-    <div class="ctabs"><a class="${reg ? 'on' : ''}" data-tab="register">注册</a><a class="${reg ? '' : 'on'}" data-tab="login">登录</a></div>
-    <form id="join">
-      <label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
-      <label class="field"><span>密码${reg ? '（至少 6 位）' : ''}</span><input type="password" name="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></label>
-      ${reg ? '<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" placeholder="比如：小桐"></label>' : ''}
-      <button class="btn primary" type="submit">${reg ? '注册并开始' : '登录'}</button>
-      <div class="error-msg" id="err"></div>
-    </form>
-    <p class="small muted">${reg ? '注册就送 10 次免费次数，可以解锁互动解析或知识项突击。孩子的作答记录只用于生成知识图谱和错题本。' : '忘记密码请联系我们重置。'}</p>
-  </div></div>`;
+  $app.innerHTML = `${topnav()}<div class="auth-wrap">
+    <section class="auth-intro">
+      <h1>奥数查漏补缺</h1>
+      <p>做真题，自动找出孩子的薄弱知识项，错题按知识项整理，一步步补上。</p>
+      <ul>
+        <li><b>真题模考</b>AMC 8 历年真题，按正式考试计时</li>
+        <li><b>知识图谱</b>30 个知识项的掌握程度和前后依赖，一眼看出先补哪里</li>
+        <li><b>错题本</b>订正、一周后复习，直到真正掌握</li>
+        <li><b>互动解析</b>像老师一样一步步讲，注册送 10 次</li>
+      </ul>
+    </section>
+    <section class="auth-card card">
+      <h2>${reg ? '注册账号' : '登录'}</h2>
+      <p class="small muted">${reg ? '已有账号？' : '还没有账号？'}<a href="javascript:" data-tab="${reg ? 'login' : 'register'}">${reg ? '直接登录' : '免费注册'}</a></p>
+      <form id="join" novalidate>
+        <label class="field"><span>手机号</span>
+          <div class="input-group"><span class="prefix">+86</span><input type="tel" name="phone" inputmode="numeric" maxlength="11" placeholder="请输入手机号" autocomplete="username"></div></label>
+        <label class="field"><span>${reg ? '设置密码' : '密码'}</span>
+          <div class="input-group"><input type="password" name="password" placeholder="${reg ? '至少 6 位' : '请输入密码'}" autocomplete="${reg ? 'new-password' : 'current-password'}"><button type="button" class="eye" aria-label="显示密码">显示</button></div></label>
+        ${reg ? '<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" placeholder="例如：小桐（以后可以再加孩子）"></label>' : ''}
+        <div class="error-msg" id="err" role="alert"></div>
+        <button class="btn primary block" type="submit">${reg ? '注册' : '登录'}</button>
+      </form>
+      <div class="auth-foot small muted">${reg
+        ? '注册即送 10 次互动解析。孩子的作答记录只用来生成知识图谱和错题本，不会公开。'
+        : '<a href="javascript:" id="forgot">忘记密码？</a>'}</div>
+    </section>
+  </div>`;
   $app.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => { joinTab = t.dataset.tab; renderJoin(); }));
+  $app.querySelector('.eye').onclick = (e) => {
+    const i = e.target.previousElementSibling; const show = i.type === 'password';
+    i.type = show ? 'text' : 'password'; e.target.textContent = show ? '隐藏' : '显示';
+  };
+  document.getElementById('forgot')?.addEventListener('click', () => modal(`<h2>忘记密码</h2>
+    <p>目前还不能用短信找回。请联系我们，核对手机号和孩子昵称后帮你重置密码。</p><div class="actions"><button class="btn primary" data-close>知道了</button></div>`));
+  const err = document.getElementById('err');
   document.getElementById('join').onsubmit = async (e) => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
+    f.phone = String(f.phone || '').replace(/\D/g, '');
+    if (!/^1\d{10}$/.test(f.phone)) return (err.textContent = '请输入正确的 11 位手机号');
+    if (!f.password || (reg && f.password.length < 6)) return (err.textContent = reg ? '密码至少 6 位' : '请输入密码');
+    if (reg && !String(f.nickname || '').trim()) return (err.textContent = '请填写孩子的昵称');
+    const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; err.textContent = '';
     try {
       const r = await api(`/math/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
-      auth.save(r.token, r.student);
+      auth.save(r.token, r.student); store.set('amc8.hadAccount', true);
       location.hash = '#/'; router();
-    } catch (err) { document.getElementById('err').textContent = err.message; }
+    } catch (x) { err.textContent = x.message; btn.disabled = false; }
   };
 }
 
@@ -191,7 +220,7 @@ async function renderAccount() {
           <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
           <label class="field"><span>新密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
           <button class="btn">保存</button><div class="error-msg" id="perr"></div></form></details>`
-      : `<p class="small kg-warn">这个账号只保存在当前浏览器里，换手机或清理浏览器就找不回来了。绑定手机号后可以在任何设备登录。</p>
+      : `<p class="small">绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。</p>
         <form id="bind"><label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
           <label class="field"><span>设置密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
           <button class="btn primary">绑定</button><div class="error-msg" id="berr"></div></form>`}
@@ -264,7 +293,7 @@ async function renderHome() {
   const fams = await apiList(`/math/api/families?student=${st.id}`);
   $app.innerHTML = `${topnav()}<div class="page">
     <h1>考试</h1>
-    ${me.has_phone ? '' : '<a class="card bind-tip" href="#/account">这个账号还没绑定手机号，换设备就找不回记录了。<b>去绑定 ›</b></a>'}
+    ${me.has_phone ? '' : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     ${me.students.length > 1 ? `<div class="card row"><span class="muted">当前学生</span>
       <select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select></div>` : ''}
     <div class="fam-list">${fams.map((f) => `<a class="card fam" href="#/contest/${f.id}">
