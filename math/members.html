@@ -13,7 +13,7 @@
     .acc .ops input { width: 8em; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
     .acc .ops .btn { padding: 4px 12px; font-size: 13px; }
     .tabs2 { display: flex; gap: 6px; margin-bottom: 12px; }
-    .btn.danger { border-color: var(--bad, #b42318); color: var(--bad, #b42318); }
+    .btn.danger { background: transparent; border-color: var(--bad, #b42318); color: var(--bad, #b42318); }
     .member { color: var(--ok, #1d7a46); font-weight: 600; }
     table.codes { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.codes td, table.codes th { padding: 5px 4px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -41,6 +41,7 @@
         <h2>生成激活码</h2>
         <form id="gen" class="row" style="flex-wrap:wrap;gap:8px">
           <select id="kind"><option value="days">会员天数</option><option value="credits">免费次数</option></select>
+          <select id="ctier">${'<!--scopes-->'}</select>
           <input type="number" id="amount" value="31" min="1" style="width:6em">
           <span class="small muted">× 个数</span><input type="number" id="count" value="1" min="1" max="200" style="width:5em">
           <input type="text" id="cnote" placeholder="备注（比如：小红书 11 月活动）" style="flex:1;min-width:180px">
@@ -64,13 +65,17 @@
   try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
   $('key').onchange = () => { try { sessionStorage.setItem('amc8.adminKey', $('key').value.trim()); } catch {} };
   async function api(path, body) {
-    const r = await fetch('api/admin/' + path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', 'x-admin-key': $('key').value.trim() }, body: body ? JSON.stringify(body) : undefined });
+    const r = await fetch('/api/admin/' + path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', 'x-admin-key': $('key').value.trim() }, body: body ? JSON.stringify(body) : undefined });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || `请求失败 (${r.status})`);
     return d;
   }
-  const memberText = (a) => a.member_until === 'forever' ? '<span class="member">永久会员</span>'
-    : a.member_until ? `<span class="member">会员到 ${day(a.member_until)}</span>` : '<span class="muted">非会员</span>';
+  // 会员种类：数学 / 语文 / 全科
+  const SC = { math: '数学', chinese: '语文', all: '全科' };
+  const scopeOpts = (sel = 'math') => Object.entries(SC).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}会员</option>`).join('');
+  const memberText = (a) => Object.keys(a.memberships || {}).length
+    ? Object.entries(a.memberships).map(([k, u]) => `<span class="member">${SC[k] || k}会员${u === 'forever' ? '永久' : `到 ${day(u)}`}</span>`).join(' ')
+    : '<span class="muted">非会员</span>';
   function accHtml(a) {
     return `<div class="acc" data-id="${a.id}">
       <div class="head"><b>${esc(a.phone || '（未绑定手机号）')}</b><span>${esc(a.students.join('、'))}</span>${memberText(a)}
@@ -78,6 +83,7 @@
         <span class="small muted">注册 ${day(a.created_at)} · 最近做题 ${time(a.last_active)}</span></div>
       ${a.note ? `<div class="small">备注：${esc(a.note)}</div>` : ''}
       <details><summary class="small">操作</summary><div class="ops" style="margin-top:8px">
+        <select data-tier>${scopeOpts()}</select>
         <input type="number" placeholder="天数" data-v="add_days"><button class="btn" data-op="add_days">加会员</button>
         <input type="date" data-v="set_expiry"><button class="btn" data-op="set_expiry">改到期日</button>
         <button class="btn" data-op="revoke">取消会员</button>
@@ -102,7 +108,7 @@
       const box = del.closest('.acc'), who = box.querySelector('.head b').textContent;
       if (!confirm(`删除账号 ${who}？\n孩子、做题记录、知识图谱、错题本、会员和解锁记录都会一起删除，不能恢复。`)) return;
       try {
-        const r = await fetch('api/admin/accounts/' + box.dataset.id, { method: 'DELETE', headers: { 'x-admin-key': $('key').value.trim() } });
+        const r = await fetch('/api/admin/accounts/' + box.dataset.id, { method: 'DELETE', headers: { 'x-admin-key': $('key').value.trim() } });
         const d = await r.json(); if (!r.ok) throw new Error(d.error);
         box.outerHTML = `<div class="acc small muted">已删除 ${esc(who)}${d.deleted.paid_orders ? `（有 ${d.deleted.paid_orders} 笔已付款订单，金额和交易号记在操作记录里）` : ''}</div>`;
       } catch (err) { box.querySelector('[data-msg]').textContent = err.message; }
@@ -114,17 +120,17 @@
     if (inp && !value && op !== 'note') return (box.querySelector('[data-msg]').textContent = '先填内容');
     const reason = ['add_days', 'set_expiry', 'add_credits'].includes(op) ? (prompt('原因（会记在操作记录里，比如：分享活动）', '') ?? null) : '';
     if (reason === null) return;
-    if (op === 'revoke' && !confirm('确定取消这个账号的会员？')) return;
+    if (op === 'revoke' && !confirm(`确定取消这个账号的${SC[box.querySelector('[data-tier]').value]}会员？`)) return;
     try {
-      const d = await api('accounts/' + box.dataset.id, { action: op, value, reason });
+      const d = await api('accounts/' + box.dataset.id, { action: op, value, reason, tier: box.querySelector('[data-tier]').value });
       box.outerHTML = accHtml(d.account);
     } catch (err) { box.querySelector('[data-msg]').textContent = err.message; }
   };
   $('gen').onsubmit = async (e) => {
     e.preventDefault();
     try {
-      const d = await api('codes', { kind: $('kind').value, amount: +$('amount').value, count: +$('count').value, note: $('cnote').value });
-      $('newcodes').textContent = `新生成 ${d.codes.length} 个（${$('kind').value === 'days' ? `会员 ${$('amount').value} 天` : `${$('amount').value} 次`}）：\n` + d.codes.join('\n');
+      const d = await api('codes', { kind: $('kind').value, amount: +$('amount').value, count: +$('count').value, note: $('cnote').value, tier: $('ctier').value });
+      $('newcodes').textContent = `新生成 ${d.codes.length} 个（${$('kind').value === 'days' ? `${SC[$('ctier').value]}会员 ${$('amount').value} 天` : `${$('amount').value} 次`}）：\n` + d.codes.join('\n');
       loadCodes();
     } catch (err) { $('newcodes').textContent = err.message; }
   };
@@ -132,7 +138,7 @@
     try {
       const d = await api('codes');
       $('codes').innerHTML = `<table class="codes"><tr><th>激活码</th><th>内容</th><th>备注</th><th>生成</th><th>使用</th></tr>${d.map((c) => `<tr>
-        <td><code class="c">${c.code}</code></td><td>${c.kind === 'days' ? `会员 ${c.amount} 天` : `${c.amount} 次`}</td><td>${esc(c.note || '')}</td>
+        <td><code class="c">${c.code}</code></td><td>${c.kind === 'days' ? `${SC[c.tier || 'math']}会员 ${c.amount} 天` : `${c.amount} 次`}</td><td>${esc(c.note || '')}</td>
         <td>${day(c.created_at)}</td><td>${c.used_by ? `${esc(c.used_phone || '未绑定手机号')} · ${day(c.used_at)}` : '<span class="muted">未使用</span>'}</td></tr>`).join('')}</table>`;
     } catch (e) { $('codes').textContent = e.message; }
   }
@@ -143,7 +149,7 @@
       const paid = d.filter((o) => o.status === 'paid');
       $('orders').innerHTML = `<p class="small">已付款 ${paid.length} 单，合计 ¥${paid.reduce((a, o) => a + Number(o.amount), 0).toFixed(2)}</p>
         <table class="codes"><tr><th>时间</th><th>账号</th><th>套餐</th><th>金额</th><th>状态</th><th>订单号 / 支付宝交易号</th></tr>${d.map((o) => `<tr>
-        <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${o.plan}（${o.days} 天）</td><td>¥${o.amount}</td><td>${ST[o.status] || o.status}</td>
+        <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${SC[o.tier || 'math']}会员 ${o.plan.split('.').pop() === 'month' ? '月卡' : o.plan.split('.').pop() === 'quarter' ? '季卡' : o.plan.split('.').pop() === 'year' ? '年卡' : o.plan}（${o.days} 天）</td><td>¥${o.amount}</td><td>${ST[o.status] || o.status}</td>
         <td class="small">${o.id}${o.trade_no ? `<br>${o.trade_no}` : ''}</td></tr>`).join('')}</table>`;
     } catch (e) { $('orders').textContent = e.message; }
   }
@@ -151,7 +157,7 @@
     try {
       const d = await api('log');
       $('log').innerHTML = d.map((l) => { const x = JSON.parse(l.detail || 'null') || {};
-        return `<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">${time(l.created_at)} · ${esc(l.phone || x.phone || (x.students ? x.students.join('、') : l.account_id ? '未绑定手机号' : '—'))} · <b>${NAMES[l.action] || l.action}</b> ${esc(x.value ?? x.code ?? (x.count ? `${x.count} 个 ${x.kind === 'days' ? `${x.amount} 天` : `${x.amount} 次`}` : ''))} ${x.reason ? `（${esc(x.reason)}）` : ''}${x.note ? `（${esc(x.note)}）` : ''}</div>`; }).join('') || '<p class="muted small">还没有记录</p>';
+        return `<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">${time(l.created_at)} · ${esc(l.phone || x.phone || (x.students ? x.students.join('、') : l.account_id ? '未绑定手机号' : '—'))} · <b>${NAMES[l.action] || l.action}</b> ${x.tier ? `${SC[x.tier]}会员 ` : ''}${esc(x.value ?? x.code ?? (x.count ? `${x.count} 个 ${x.kind === 'days' ? `${x.amount} 天` : `${x.amount} 次`}` : ''))} ${x.reason ? `（${esc(x.reason)}）` : ''}${x.note ? `（${esc(x.note)}）` : ''}</div>`; }).join('') || '<p class="muted small">还没有记录</p>';
     } catch (e) { $('log').textContent = e.message; }
   }
   document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => {
@@ -161,6 +167,8 @@
     if (b.dataset.tab === 'log') loadLog();
     if (b.dataset.tab === 'orders') loadOrders();
   }));
+  $('ctier').innerHTML = scopeOpts();
+  $('kind').onchange = () => { $('ctier').hidden = $('kind').value !== 'days'; };
   if ($('key').value) search();
 </script>
 </body>

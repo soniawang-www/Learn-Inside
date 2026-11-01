@@ -6,17 +6,29 @@
 //   会员有效期内 → 全部放开
 //   用过 1 次解锁的内容（unlock 表）→ 永久可看
 //   其余：用 1 次免费次数解锁（新账号送 FREE_CREDITS 次），次数用完提示开通会员
-// 解锁项：adv:<题目 id> 一道题的互动解析；drill:<知识项 id> 一个知识项的真题突击
+// 解锁项：adv:<题目 id> 一道题的互动解析；drill:<知识项 id> 一个知识项的真题突击（都属于数学）
+//
+// 全站一套账号；会员分科目（entitlement.tier = math / chinese）和全科（all），全科包含所有科目。
+// 免费次数全站共用。接口在 /api/ 下（/math/api/ 也能访问，兼容旧页面）。
 
 import { payUrl, verifyNotify, queryTrade } from './alipay.js';
 
 export const FREE_CREDITS = 10;
 export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio'] };
-export const PLANS = [
-  { id: 'month', name: '月卡', days: 31, env: 'PRICE_MONTH' },
-  { id: 'quarter', name: '季卡', days: 92, env: 'PRICE_QUARTER' },
-  { id: 'year', name: '年卡', days: 366, env: 'PRICE_YEAR' },
+// 会员种类：live = 已经上线、账号页显示套餐
+export const SCOPES = [
+  { id: 'math', name: '数学', live: true },
+  { id: 'chinese', name: '语文', live: false },
+  { id: 'all', name: '全科', live: true },
 ];
+export const PERIODS = [
+  { id: 'month', name: '月卡', days: 31 },
+  { id: 'quarter', name: '季卡', days: 92 },
+  { id: 'year', name: '年卡', days: 366 },
+];
+// 解锁项属于哪个科目
+const KIND_SUBJECT = { adv: 'math', drill: 'math' };
+const SUBJECTS = SCOPES.filter((x) => x.id !== 'all').map((x) => x.id);
 const DAY = 86400000;
 
 export const BILLING_MIGRATIONS = [
@@ -34,6 +46,9 @@ export const BILLING_MIGRATIONS = [
      created_at INTEGER NOT NULL, paid_at INTEGER)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id TEXT, action TEXT NOT NULL,
      detail TEXT, created_at INTEGER NOT NULL)`,
+  'ALTER TABLE pay_order ADD COLUMN tier TEXT',
+  'ALTER TABLE redeem_code ADD COLUMN tier TEXT',
+  "UPDATE entitlement SET tier = 'math' WHERE tier = 'premium'", // 只有数学时开的会员算数学会员
 ];
 
 export function registerBilling({ route, json, HttpError, body, requireAccount, uid, now }) {
@@ -59,13 +74,14 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   }
 
   // ───────── 会员与次数 ─────────
-  /** 会员到期时间：null = 不是会员，Infinity = 永久 */
-  async function memberUntil(env, accountId) {
+  const validTier = (t) => SCOPES.some((x) => x.id === t);
+  /** 这些会员种类连续有效到什么时候：null = 没有，Infinity = 永久（续费的几段首尾相接合起来算） */
+  async function chainUntil(env, accountId, tiers) {
     const t = now();
     const { results } = await env.DB
-      .prepare("SELECT starts_at, expires_at FROM entitlement WHERE account_id = ? AND tier = 'premium' AND (expires_at IS NULL OR expires_at > ?) ORDER BY starts_at")
-      .bind(accountId, t).all();
-    // 连续的几段（续费会接在后面）合起来算
+      .prepare(`SELECT starts_at, expires_at FROM entitlement WHERE account_id = ? AND tier IN (${tiers.map(() => '?').join(',')})
+                 AND (expires_at IS NULL OR expires_at > ?) ORDER BY starts_at`)
+      .bind(accountId, ...tiers, t).all();
     let until = null;
     for (const r of results) {
       if (r.starts_at > (until ?? t)) break;
@@ -74,41 +90,61 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     }
     return until;
   }
+  /** 某科能不能用会员内容：本科会员或全科会员 */
+  const memberUntil = (env, accountId, subject = 'math') => chainUntil(env, accountId, [subject, 'all']);
+  /** 每种会员各自到期时间（账号页、后台显示） */
+  async function memberships(env, accountId) {
+    const out = {};
+    const { results } = await env.DB.prepare('SELECT DISTINCT tier FROM entitlement WHERE account_id = ? AND (expires_at IS NULL OR expires_at > ?)')
+      .bind(accountId, now()).all();
+    for (const { tier } of results) {
+      if (!validTier(tier)) continue;
+      // 科目会员可能接在全科后面才开始，到期日按“本科或全科”连起来算
+      const u = tier === 'all' ? await chainUntil(env, accountId, ['all']) : await memberUntil(env, accountId, tier);
+      if (u !== null) out[tier] = u === Infinity ? 'forever' : u;
+    }
+    return out;
+  }
   const isSample = (item) => {
     const [kind, id] = item.split(':');
     if (kind === 'adv') return SAMPLES.exams.some((e) => id.startsWith(e + '-p'));
     if (kind === 'drill') return SAMPLES.drills.includes(id);
     return false;
   };
-  /** 一次查好：会员、已解锁、剩余次数，之后 can(item) 同步判断 */
-  async function accessCtx(env, acc) {
+  /** 一次查好：本科会员、已解锁、剩余次数，之后 can(item) 同步判断 */
+  async function accessCtx(env, acc, subject = 'math') {
     const free = env.FREE_MODE === 'true';
-    const until = free ? null : await memberUntil(env, acc.id);
+    const until = free ? null : await memberUntil(env, acc.id, subject);
     const member = free || until !== null;
     const { results } = member ? { results: [] } : await env.DB.prepare('SELECT item FROM unlock WHERE account_id = ?').bind(acc.id).all();
     const unlocked = new Set(results.map((r) => r.item));
     const credits = acc.credits ?? FREE_CREDITS;
     return { free, member, until, credits, can: (item) => member || isSample(item) || unlocked.has(item) };
   }
-  async function addDays(env, accountId, days, source) {
-    const t = now();
-    const until = await memberUntil(env, accountId);
+  /** 加会员天数：接在同种会员（科目会员也接在全科后面）的到期日之后 */
+  async function addDays(env, accountId, days, tier, source) {
+    if (!validTier(tier)) throw new HttpError(400, '会员种类不对');
+    const until = tier === 'all' ? await chainUntil(env, accountId, ['all']) : await memberUntil(env, accountId, tier);
     if (until === Infinity) return;
-    const start = until ?? t;
-    await env.DB.prepare("INSERT INTO entitlement (id, account_id, tier, starts_at, expires_at, source) VALUES (?, ?, 'premium', ?, ?, ?)")
-      .bind(uid(), accountId, start, start + days * DAY, source).run();
+    const start = until ?? now();
+    await env.DB.prepare('INSERT INTO entitlement (id, account_id, tier, starts_at, expires_at, source) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(uid(), accountId, tier, start, start + days * DAY, source).run();
   }
-  async function revoke(env, accountId) {
+  async function revoke(env, accountId, tier) {
     const t = now();
     await env.DB.batch([
-      env.DB.prepare("DELETE FROM entitlement WHERE account_id = ? AND tier = 'premium' AND starts_at > ?").bind(accountId, t),
-      env.DB.prepare("UPDATE entitlement SET expires_at = ? WHERE account_id = ? AND tier = 'premium' AND (expires_at IS NULL OR expires_at > ?)").bind(t, accountId, t),
+      env.DB.prepare('DELETE FROM entitlement WHERE account_id = ? AND tier = ? AND starts_at > ?').bind(accountId, tier, t),
+      env.DB.prepare('UPDATE entitlement SET expires_at = ? WHERE account_id = ? AND tier = ? AND (expires_at IS NULL OR expires_at > ?)').bind(t, accountId, tier, t),
     ]);
   }
   const log = (env, accountId, action, detail) =>
     env.DB.prepare('INSERT INTO admin_log (account_id, action, detail, created_at) VALUES (?, ?, ?, ?)')
       .bind(accountId, action, typeof detail === 'string' ? detail : JSON.stringify(detail ?? null), now()).run();
-  const plansOf = (env) => PLANS.map((p) => ({ id: p.id, name: p.name, days: p.days, price: env[p.env] ? Number(env[p.env]) : null }));
+  // 价格：PRICE_<科目>_<周期>，比如 PRICE_MATH_MONTH、PRICE_ALL_YEAR（元）
+  const plansOf = (env) => SCOPES.filter((sc) => sc.live).flatMap((sc) => PERIODS.map((p) => {
+    const v = env[`PRICE_${sc.id.toUpperCase()}_${p.id.toUpperCase()}`];
+    return { id: `${sc.id}.${p.id}`, scope: sc.id, scope_name: sc.name, name: `${sc.name}${p.name}`, period: p.name, days: p.days, price: v ? Number(v) : null };
+  }));
 
   // ───────── 登录 ─────────
   // 注册：手机号 + 密码 + 孩子昵称（不发短信验证码；忘记密码由管理员在后台重置）
@@ -163,11 +199,11 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   route('GET', '/api/account', async (req, env) => {
     const acc = await requireAccount(req, env);
     const ctx = await accessCtx(env, acc);
-    const until = ctx.free ? null : await memberUntil(env, acc.id);
     const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM unlock WHERE account_id = ?').bind(acc.id).first();
+    const ms = await memberships(env, acc.id);
     return json({
       phone: acc.phone, free_mode: ctx.free,
-      member: until !== null, member_until: until === Infinity ? 'forever' : until,
+      memberships: ms, scopes: SCOPES.filter((x) => x.live || ms[x.id]).map(({ id, name }) => ({ id, name })),
       credits: ctx.credits, free_credits: FREE_CREDITS, unlocked: n.n,
       plans: plansOf(env), pay_ready: payReady(env), contact: env.PAY_CONTACT || '',
     });
@@ -183,7 +219,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     } else if (kind === 'drill') {
       if (!(await env.DB.prepare('SELECT 1 FROM knowledge_point WHERE id = ?').bind(id).first())) throw new HttpError(404, '知识项不存在');
     } else throw new HttpError(400, '解锁项不合法');
-    const ctx = await accessCtx(env, acc);
+    const ctx = await accessCtx(env, acc, KIND_SUBJECT[kind]);
     if (ctx.can(item)) return json({ ok: true, charged: false, credits: ctx.credits });
     const r = await env.DB.prepare('UPDATE account SET credits = credits - 1 WHERE id = ? AND credits > 0').bind(acc.id).run();
     if (!r.meta.changes) return json({ error: '免费次数用完了', need: 'member', credits: 0 }, 402);
@@ -200,10 +236,10 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     if (row.used_by) throw new HttpError(409, row.used_by === acc.id ? '这个激活码你已经用过了' : '这个激活码已经被使用');
     const r = await env.DB.prepare('UPDATE redeem_code SET used_by = ?, used_at = ? WHERE code = ? AND used_by IS NULL').bind(acc.id, now(), code).run();
     if (!r.meta.changes) throw new HttpError(409, '这个激活码已经被使用');
-    if (row.kind === 'days') await addDays(env, acc.id, row.amount, `code:${code}`);
+    if (row.kind === 'days') await addDays(env, acc.id, row.amount, row.tier || 'math', `code:${code}`);
     else await env.DB.prepare('UPDATE account SET credits = credits + ? WHERE id = ?').bind(row.amount, acc.id).run();
-    await log(env, acc.id, 'redeem', { code, kind: row.kind, amount: row.amount });
-    return json({ ok: true, kind: row.kind, amount: row.amount });
+    await log(env, acc.id, 'redeem', { code, kind: row.kind, amount: row.amount, tier: row.tier });
+    return json({ ok: true, kind: row.kind, amount: row.amount, tier: row.tier || 'math', tier_name: SCOPES.find((x) => x.id === (row.tier || 'math'))?.name });
   });
 
   // ───────── 在线支付（支付宝） ─────────
@@ -216,7 +252,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const r = await env.DB.prepare("UPDATE pay_order SET status = 'paid', trade_no = ?, buyer = ?, paid_at = ? WHERE id = ? AND status = 'pending'")
       .bind(tradeNo || null, buyer || null, now(), order.id).run();
     if (!r.meta.changes) return false;
-    await addDays(env, order.account_id, order.days, `alipay:${tradeNo || order.id}`);
+    await addDays(env, order.account_id, order.days, order.tier || 'math', `alipay:${tradeNo || order.id}`);
     await log(env, order.account_id, 'pay', { order: order.id, plan: order.plan, amount: order.amount, trade_no: tradeNo });
     return true;
   }
@@ -225,17 +261,18 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   route('POST', '/api/pay/create', async (req, env, _p, url) => {
     const acc = await requireAccount(req, env);
     if (!payReady(env)) throw new HttpError(503, '在线支付还没开通');
-    const { plan, mobile } = await body(req);
+    const { plan, mobile, from = 'math' } = await body(req);
     const pl = plansOf(env).find((x) => x.id === plan);
     if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');
+    const back = SUBJECTS.includes(from) ? from : 'math'; // 付完回到哪个科目的页面
     const id = 'M' + new Date(now() + 8 * 3600000).toISOString().slice(0, 10).replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
-    const order = { id, plan: pl.id, days: pl.days, amount: money(pl.price) };
-    await env.DB.prepare('INSERT INTO pay_order (id, account_id, plan, days, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, acc.id, order.plan, order.days, order.amount, 'pending', now()).run();
+    const order = { id, plan: pl.id, tier: pl.scope, days: pl.days, amount: money(pl.price) };
+    await env.DB.prepare('INSERT INTO pay_order (id, account_id, plan, tier, days, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, acc.id, order.plan, order.tier, order.days, order.amount, 'pending', now()).run();
     const base = url.origin;
     const payurl = await payUrl(env, {
-      orderId: id, amount: order.amount, subject: `奥数会员 · ${pl.name}（${pl.days} 天）`, mobile: !!mobile,
-      notifyUrl: `${base}/math/api/pay/notify`, returnUrl: `${base}/math/api/pay/return?o=${id}`, quitUrl: `${base}/math/#/account`,
+      orderId: id, amount: order.amount, subject: `learn-inside 会员 · ${pl.name}（${pl.days} 天）`, mobile: !!mobile,
+      notifyUrl: `${base}/api/pay/notify`, returnUrl: `${base}/api/pay/return?o=${id}&f=${back}`, quitUrl: `${base}/${back}/#/account`,
     });
     return json({ order_id: id, url: payurl });
   });
@@ -261,7 +298,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
 
   // 付完款支付宝跳回这里 → 转到网页的结果页（参数在 hash 前面会丢，所以经服务端转一下）
   route('GET', '/api/pay/return', async (_req, _env, _p, url) =>
-    Response.redirect(`${url.origin}/math/#/account/paid/${encodeURIComponent(url.searchParams.get('o') || '')}`, 302));
+    Response.redirect(`${url.origin}/${SUBJECTS.includes(url.searchParams.get('f')) ? url.searchParams.get('f') : 'math'}/#/account/paid/${encodeURIComponent(url.searchParams.get('o') || '')}`, 302));
 
   // 查订单状态；还没收到通知就主动问一次支付宝
   route('GET', '/api/pay/orders/:id', async (req, env, p) => {
@@ -277,8 +314,10 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
         }
       } catch (e) { console.error('alipay query failed', e); }
     }
-    const until = await memberUntil(env, acc.id);
-    return json({ id: order.id, status: order.status, plan: order.plan, days: order.days, amount: order.amount, member_until: until === Infinity ? 'forever' : until });
+    const tier = order.tier || 'math';
+    const until = tier === 'all' ? await chainUntil(env, acc.id, ['all']) : await memberUntil(env, acc.id, tier);
+    const pl = plansOf(env).find((x) => x.id === order.plan);
+    return json({ id: order.id, status: order.status, plan: order.plan, plan_name: pl?.name || order.plan, tier, days: order.days, amount: order.amount, member_until: until === Infinity ? 'forever' : until });
   });
 
   // ───────── 会员管理后台（x-admin-key） ─────────
@@ -287,13 +326,13 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
   }
   async function accountRow(env, a) {
-    const until = await memberUntil(env, a.id);
+    const ms = await memberships(env, a.id);
     const { results: sts } = await env.DB.prepare('SELECT nickname FROM student WHERE account_id = ? ORDER BY created_at').bind(a.id).all();
     const last = await env.DB.prepare('SELECT MAX(ae.created_at) AS t FROM attempt_event ae JOIN student s ON s.id = ae.student_id WHERE s.account_id = ?').bind(a.id).first();
     const un = await env.DB.prepare('SELECT COUNT(*) AS n FROM unlock WHERE account_id = ?').bind(a.id).first();
     return {
       id: a.id, phone: a.phone, created_at: a.created_at, note: a.note, credits: a.credits,
-      member_until: until === Infinity ? 'forever' : until, students: sts.map((s) => s.nickname),
+      memberships: ms, students: sts.map((s) => s.nickname),
       last_active: last?.t || null, unlocked: un.n,
     };
   }
@@ -312,25 +351,26 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   });
 
   // { action, value }：add_days 加会员天数（接在原到期日后）/ set_expiry 改到期日（YYYY-MM-DD，北京时间当天结束）/
-  //   revoke 取消会员 / add_credits 加减次数 / reset_password 重置密码 / note 备注
+  //   revoke 取消会员 / add_credits（会员相关的操作带 tier：math / chinese / all） 加减次数 / reset_password 重置密码 / note 备注
   route('POST', '/api/admin/accounts/:id', async (req, env, p) => {
     requireAdmin(req, env);
     const a = await env.DB.prepare('SELECT * FROM account WHERE id = ?').bind(p.id).first();
     if (!a) throw new HttpError(404, '账号不存在');
-    const { action, value, reason = '' } = await body(req);
+    const { action, value, reason = '', tier = 'math' } = await body(req);
     const n = Math.trunc(Number(value));
+    if (['add_days', 'set_expiry', 'revoke'].includes(action) && !validTier(tier)) throw new HttpError(400, '会员种类不对');
     if (action === 'add_days') {
       if (!(n > 0 && n <= 3660)) throw new HttpError(400, '天数不合法');
-      await addDays(env, a.id, n, `manual:${reason}`);
+      await addDays(env, a.id, n, tier, `manual:${reason}`);
     } else if (action === 'set_expiry') {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
       if (!m) throw new HttpError(400, '日期格式是 YYYY-MM-DD');
       const end = Date.UTC(+m[1], +m[2] - 1, +m[3] + 1) - 8 * 3600000; // 北京时间当天 24:00
-      await revoke(env, a.id);
-      if (end > now()) await env.DB.prepare("INSERT INTO entitlement (id, account_id, tier, starts_at, expires_at, source) VALUES (?, ?, 'premium', ?, ?, ?)")
-        .bind(uid(), a.id, now(), end, `manual:${reason}`).run();
+      await revoke(env, a.id, tier);
+      if (end > now()) await env.DB.prepare('INSERT INTO entitlement (id, account_id, tier, starts_at, expires_at, source) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(uid(), a.id, tier, now(), end, `manual:${reason}`).run();
     } else if (action === 'revoke') {
-      await revoke(env, a.id);
+      await revoke(env, a.id, tier);
     } else if (action === 'add_credits') {
       if (!n || Math.abs(n) > 1000) throw new HttpError(400, '次数不合法');
       await env.DB.prepare('UPDATE account SET credits = MAX(0, credits + ?) WHERE id = ?').bind(n, a.id).run();
@@ -341,7 +381,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     } else if (action === 'note') {
       await env.DB.prepare('UPDATE account SET note = ? WHERE id = ?').bind(String(value || '').slice(0, 200) || null, a.id).run();
     } else throw new HttpError(400, '不认识的操作');
-    await log(env, a.id, action, { value: action === 'reset_password' ? '***' : value, reason });
+    await log(env, a.id, action, { value: action === 'reset_password' ? '***' : value, reason, ...(['add_days', 'set_expiry', 'revoke'].includes(action) ? { tier } : {}) });
     return json({ ok: true, account: await accountRow(env, await env.DB.prepare('SELECT * FROM account WHERE id = ?').bind(a.id).first()) });
   });
 
@@ -380,11 +420,12 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     return json(results);
   });
 
-  // 生成激活码 { kind: days|credits, amount, count, note }
+  // 生成激活码 { kind: days|credits, amount, count, note, tier }（tier 只对会员天数有用）
   const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉容易看错的 0 O 1 I
   route('POST', '/api/admin/codes', async (req, env) => {
     requireAdmin(req, env);
-    const { kind, amount, count = 1, note = '' } = await body(req);
+    const { kind, amount, count = 1, note = '', tier = 'math' } = await body(req);
+    if (kind === 'days' && !validTier(tier)) throw new HttpError(400, '会员种类不对');
     const n = Math.trunc(Number(amount)), c = Math.trunc(Number(count));
     if (!['days', 'credits'].includes(kind)) throw new HttpError(400, '类型是 days 或 credits');
     if (!(n > 0 && n <= 3660)) throw new HttpError(400, '数量不合法');
@@ -394,9 +435,9 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       const r = crypto.getRandomValues(new Uint8Array(10));
       codes.push(Array.from(r, (x) => ALPHA[x % ALPHA.length]).join(''));
     }
-    await env.DB.batch(codes.map((code) => env.DB.prepare('INSERT INTO redeem_code (code, kind, amount, note, created_at) VALUES (?, ?, ?, ?, ?)')
-      .bind(code, kind, n, String(note).slice(0, 100) || null, now())));
-    await log(env, null, 'codes', { kind, amount: n, count: c, note });
+    await env.DB.batch(codes.map((code) => env.DB.prepare('INSERT INTO redeem_code (code, kind, amount, note, created_at, tier) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(code, kind, n, String(note).slice(0, 100) || null, now(), kind === 'days' ? tier : null)));
+    await log(env, null, 'codes', { kind, amount: n, count: c, note, tier: kind === 'days' ? tier : undefined });
     return json({ codes });
   });
 
@@ -413,6 +454,9 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       'SELECT c.*, a.phone AS used_phone FROM redeem_code c LEFT JOIN account a ON a.id = c.used_by ORDER BY c.created_at DESC LIMIT 300').all();
     return json(results);
   });
+
+  // 后台用：会员种类
+  route('GET', '/api/admin/scopes', async (req, env) => { requireAdmin(req, env); return json(SCOPES); });
 
   return { accessCtx, memberUntil };
 }

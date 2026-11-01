@@ -119,7 +119,10 @@ node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 - 家长用**手机号 + 密码**注册登录（不发短信验证码；忘记密码在会员管理后台重置）。试用期用邀请码建的老账号，可以在「账号」页绑定手机号。
 - **免费次数**：每个账号送 10 次（`worker/billing.js` 的 `FREE_CREDITS`）。1 次解锁一道题的互动解析（之后随时看）或一个知识项的真题突击。
 - **免费样板**：`SAMPLES`，目前是 2026 年整套互动解析，和「直线形面积」「分百与比例应用题」两个知识项的突击，不扣次数。
-- **会员**：月卡 31 天、季卡 92 天、年卡 366 天，价格在 `wrangler.jsonc` 的 `PRICE_MONTH` / `PRICE_QUARTER` / `PRICE_YEAR` 填（元），留空显示“价格待定”。续费接在原到期日之后。会员期间互动解析和突击不限次数。
+- **账号全站通用**，接口在 `/api/`（账号、会员、免费次数、激活码、支付、会员管理），数学自己的接口在 `/math/api/`。登录状态存在浏览器的 `li.token`，以后语文等页面直接读它。
+- **会员分科目**：数学会员、语文会员（还没上线，`billing.js` 的 `SCOPES` 里 `live: false`），以及包含所有科目的**全科会员**。科目会员续费会接在全科会员到期之后。
+- 每种会员有月卡 31 天、季卡 92 天、年卡 366 天，价格在 `wrangler.jsonc` 填（元）：`PRICE_MATH_MONTH`、`PRICE_ALL_YEAR` 这样的 `PRICE_<科目>_<周期>`，留空显示“价格待定”、不能在线买。会员期间本科目互动解析和突击不限次数。
+- **免费次数全站共用** 10 次。
 - 答案、基础解题思路、知识图谱、错题本始终免费。
 - **会员管理后台**：`/math/members.html`（需要 ADMIN_KEY）：按手机号或昵称搜账号，加会员天数、改到期日、取消会员、加减次数、重置密码、备注；生成激活码（会员天数或次数）；所有操作有记录。分享活动的奖励在这里手动发。
 - **开始收费**：把 `FREE_MODE` 改成 `"false"`。之前的账号都有 10 次免费次数。
@@ -141,9 +144,9 @@ node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 | `ALIPAY_PUBLIC_KEY` | **Secret** | **支付宝公钥**（上传应用公钥后，平台显示的那串；不是应用公钥） |
 | `ALIPAY_SELLER_ID` | 变量，可选 | 收款支付宝账号的 2088 开头 PID，用来多核对一项 |
 | `ALIPAY_GATEWAY` | 变量，可选 | 默认正式环境；沙箱填 `https://openapi-sandbox.dl.alipaydev.com/gateway.do` |
-| `PRICE_MONTH` / `PRICE_QUARTER` / `PRICE_YEAR` | 变量 | 价格（元） |
+| `PRICE_<MATH/ALL/CHINESE>_<MONTH/QUARTER/YEAR>` | 变量 | 价格（元） |
 
-开放平台里：接口加签方式选**公钥**（不是证书），授权回调/通知地址填 `https://learn-inside.com/math/api/pay/notify`。
+开放平台里：接口加签方式选**公钥**（不是证书），通知地址是 `https://learn-inside.com/api/pay/notify`（全站共用，下单时自动带上）；申请收款产品时网站链接填 `https://learn-inside.com/`。
 
 测试（模拟支付宝，不连真网关）：`node amc8-src/tests/pay/keys.mjs` 生成两对测试密钥，`node amc8-src/tests/pay/mockgw.mjs` 起假网关，
 再按 `amc8-src/tests/pay.mjs` 开头的说明启动 wrangler，运行 `node amc8-src/tests/pay.mjs http://127.0.0.1:8788 <keys 所在目录>`。

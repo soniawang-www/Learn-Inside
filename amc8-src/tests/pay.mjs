@@ -23,17 +23,17 @@ const notify = async (params) => {
 const reg = await call('/math/api/auth/register', 'POST', { phone: '135' + String(Date.now()).slice(-8), password: 'pay123', nickname: '付款' });
 const T = reg.data.token;
 const acc = await call('/math/api/account', 'GET', null, T);
-ok(acc.data.pay_ready && acc.data.plans.map((p) => p.price).join() === '39,99,299', '支付已配置，三档价格 39/99/299');
+ok(acc.data.pay_ready && acc.data.plans.filter((p) => p.scope === 'math').map((p) => p.price).join() === '39,99,299', '支付已配置，数学三档 39/99/299');
 
-const c1 = await call('/math/api/pay/create', 'POST', { plan: 'month' }, T);
+const c1 = await call('/math/api/pay/create', 'POST', { plan: 'math.month' }, T);
 const u = new URL(c1.data.url);
 const q = Object.fromEntries(u.searchParams);
 const v = createVerify('RSA-SHA256'); v.update(content(q, ['sign']));
 ok(v.verify(K.appPub, q.sign, 'base64'), '收银台地址用应用私钥 RSA2 签名，验签通过');
 const biz = JSON.parse(q.biz_content);
 ok(q.method === 'alipay.trade.page.pay' && biz.total_amount === '39.00' && biz.product_code === 'FAST_INSTANT_TRADE_PAY' && biz.out_trade_no === c1.data.order_id, '电脑：page.pay，金额 39.00');
-ok(q.notify_url.endsWith('/math/api/pay/notify') && q.return_url.includes('/math/api/pay/return?o='), '通知和跳回地址');
-const m = await call('/math/api/pay/create', 'POST', { plan: 'year', mobile: true }, T);
+ok(q.notify_url.endsWith('/api/pay/notify') && !q.notify_url.includes('/math/') && q.return_url.includes('/api/pay/return?o=') && q.return_url.endsWith('&f=math'), '通知和跳回地址是全站的');
+const m = await call('/math/api/pay/create', 'POST', { plan: 'math.year', mobile: true }, T);
 const mq = Object.fromEntries(new URL(m.data.url).searchParams);
 ok(mq.method === 'alipay.trade.wap.pay' && JSON.parse(mq.biz_content).product_code === 'QUICK_WAP_WAY', '手机：wap.pay');
 ok((await call('/math/api/pay/create', 'POST', { plan: 'nope' }, T)).status === 400, '不存在的套餐被拒');
@@ -45,26 +45,29 @@ ok(await notify({ ...base, app_id: '999' }) === 'fail', 'app_id 不符被拒');
   const body = new URLSearchParams({ ...base, sign_type: 'RSA2', sign: 'AAAA' });
   ok(await (await fetch(BASE + '/math/api/pay/notify', { method: 'POST', body })).text() === 'fail', '签名不对被拒');
 }
-ok((await call('/math/api/account', 'GET', null, T)).data.member === false, '以上都没有开通会员');
+ok(!(await call('/math/api/account', 'GET', null, T)).data.memberships.math, '以上都没有开通会员');
 ok(await notify(base) === 'success', '正确的付款通知 → success');
 const a1 = await call('/math/api/account', 'GET', null, T);
-ok(a1.data.member && Math.round((a1.data.member_until - Date.now()) / 86400000) === 31, '开通月卡 31 天');
+a1.data.member_until = a1.data.memberships.math;
+ok(Math.round((a1.data.member_until - Date.now()) / 86400000) === 31, '开通数学月卡 31 天');
 ok(await notify(base) === 'success', '重复通知也回 success');
-ok((await call('/math/api/account', 'GET', null, T)).data.member_until === a1.data.member_until, '重复通知不重复加天数');
+ok((await call('/math/api/account', 'GET', null, T)).data.memberships.math === a1.data.member_until, '重复通知不重复加天数');
 const o1 = await call(`/math/api/pay/orders/${c1.data.order_id}`, 'GET', null, T);
 ok(o1.data.status === 'paid', '订单状态：已付款');
 
 // 没收到通知：查订单时主动问支付宝（假网关返回已付款）
-const c2 = await call('/math/api/pay/create', 'POST', { plan: 'quarter' }, T);
+const c2 = await call('/math/api/pay/create', 'POST', { plan: 'math.quarter' }, T);
 writeFileSync(`${DIR}/amount`, '99.00');
 const o2 = await call(`/math/api/pay/orders/${c2.data.order_id}`, 'GET', null, T);
 ok(o2.data.status === 'paid' && Math.round((o2.data.member_until - a1.data.member_until) / 86400000) === 92, '主动查询到已付款 → 季卡接在后面 92 天');
-const c3 = await call('/math/api/pay/create', 'POST', { plan: 'month' }, T);
+const c3 = await call('/math/api/pay/create', 'POST', { plan: 'math.month' }, T);
 writeFileSync(`${DIR}/amount`, '1.00');
 ok((await call(`/math/api/pay/orders/${c3.data.order_id}`, 'GET', null, T)).data.status === 'pending', '查询金额不符：不开通');
 
 const ret = await call(`/math/api/pay/return?o=${c1.data.order_id}&trade_no=T001`);
 ok(ret.status === 302 && ret.headers.get('location').endsWith(`/math/#/account/paid/${c1.data.order_id}`), '付完跳回网页结果页');
+const ca = await call('/api/pay/create', 'POST', { plan: 'all.year' }, T);
+ok(ca.status === 200 && JSON.parse(new URL(ca.data.url).searchParams.get('biz_content')).total_amount === '599.00', '全科年卡 599');
 const other = await call('/math/api/auth/register', 'POST', { phone: '136' + String(Date.now()).slice(-8), password: 'pay123', nickname: '别人' });
 ok((await call(`/math/api/pay/orders/${c1.data.order_id}`, 'GET', null, other.data.token)).status === 404, '看不到别人的订单');
 const orders = await call('/math/api/admin/orders', 'GET', null, null, true);

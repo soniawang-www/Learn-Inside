@@ -832,3 +832,4 @@ details summary { cursor: pointer; color: var(--accent); }
   .exam-list .exam:nth-child(2) { border-top: 0; }
 }
 #bind, #pw, #redeem { max-width: 480px; }
+.mtag { display: inline-block; font-weight: 600; color: var(--accent); }

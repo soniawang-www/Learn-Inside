@@ -12,12 +12,14 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
+// 登录状态全站共用（li.*）；以前存在 amc8.* 的自动搬过来
+if (!store.get('li.token') && store.get('amc8.token')) { store.set('li.token', store.get('amc8.token')); store.set('li.student', store.get('amc8.student')); }
 const auth = {
-  get token() { return store.get('amc8.token'); },
-  get student() { return store.get('amc8.student'); },
-  save(token, student) { store.set('amc8.token', token); store.set('amc8.student', student); },
-  setStudent(s) { store.set('amc8.student', s); },
-  clear() { store.del('amc8.token'); store.del('amc8.student'); },
+  get token() { return store.get('li.token'); },
+  get student() { return store.get('li.student'); },
+  save(token, student) { store.set('li.token', token); store.set('li.student', student); },
+  setStudent(s) { store.set('li.student', s); },
+  clear() { store.del('li.token'); store.del('li.student'); store.del('amc8.token'); store.del('amc8.student'); },
 };
 
 // ───────── API ─────────
@@ -139,7 +141,7 @@ window.addEventListener('hashchange', router);
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-mskp]'); if (a) { msKp = a.dataset.mskp; msFam = ''; msFilter = 'todo'; msMore = false; } });
 
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
-let joinTab = store.get('amc8.hadAccount') ? 'login' : 'register';
+let joinTab = store.get('li.hadAccount') ? 'login' : 'register';
 function renderJoin() {
   const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
@@ -187,8 +189,8 @@ function renderJoin() {
     if (reg && !String(f.nickname || '').trim()) return (err.textContent = '请填写孩子的昵称');
     const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; err.textContent = '';
     try {
-      const r = await api(`/math/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
-      auth.save(r.token, r.student); store.set('amc8.hadAccount', true);
+      const r = await api(`/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
+      auth.save(r.token, r.student); store.set('li.hadAccount', true);
       location.hash = '#/'; router();
     } catch (x) { err.textContent = x.message; btn.disabled = false; }
   };
@@ -197,16 +199,20 @@ function renderJoin() {
 // ───────── 账号与会员 ─────────
 const fmtDay = (ms) => new Date(ms).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
 async function renderAccount() {
-  const a = await api('/math/api/account');
+  const a = await api('/api/account');
+  const untilText = (u) => (u === 'forever' ? '永久' : `到 ${fmtDay(u)}`);
+  const ms = a.scopes.filter((x) => a.memberships[x.id]);
   const memberLine = a.free_mode ? '试用期间所有内容免费开放。'
-    : a.member ? (a.member_until === 'forever' ? '永久会员' : `会员有效期到 <b>${fmtDay(a.member_until)}</b>`) : '还不是会员';
+    : ms.length ? ms.map((x) => `<span class="mtag">${esc(x.name)}会员</span> ${untilText(a.memberships[x.id])}`).join('<br>') : '还不是会员';
+  const groups = a.scopes.map((sc) => ({ ...sc, plans: a.plans.filter((p) => p.scope === sc.id) })).filter((g) => g.plans.length);
   $app.innerHTML = `${topnav()}<div class="page">
     <h1>账号</h1>
     <div class="card"><h2>会员</h2>
       <p>${memberLine}</p>
-      ${a.member || a.free_mode ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
-      <div class="plans">${a.plans.map((p) => `<div class="plan"><div class="pname">${p.name}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
-        ${a.pay_ready ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : ''}</div>`).join('')}</div>
+      ${a.free_mode ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
+      ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
+        <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
+        ${a.pay_ready && p.price ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : ''}</div>`).join('')}</div>`).join('')}
       
       ${a.pay_ready ? '' : `<p class="small">在线支付即将开通。现在可以${a.contact ? `联系 ${esc(a.contact)} ` : ''}购买激活码，在下面输入开通。</p>`}
     </div>
@@ -232,16 +238,16 @@ async function renderAccount() {
     try { const r = await api(path, { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); if (r.status === 402) throw new Error(r.error); await done(r); }
     catch (err) { document.getElementById(errId).textContent = err.message; }
   });
-  form('redeem', '/math/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
+  form('redeem', '/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `${esc(r.tier_name || '')}会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
   $app.querySelectorAll('[data-plan]').forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     try {
-      const r = await api('/math/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, mobile: /Mobi|Android|iPhone/i.test(navigator.userAgent) } });
+      const r = await api('/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, from: 'math', mobile: /Mobi|Android|iPhone/i.test(navigator.userAgent) } });
       location.href = r.url;
     } catch (err) { b.disabled = false; modal(`<h2>没能发起支付</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
   }));
-  form('bind', '/math/api/account/bind', 'berr', () => renderAccount());
-  form('pw', '/math/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
+  form('bind', '/api/account/bind', 'berr', () => renderAccount());
+  form('pw', '/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
   document.getElementById('logout').onclick = () => {
     if (!a.phone) return modal(`<h2>先绑定手机号？</h2><p>这个账号还没绑定手机号，退出后就找不回来了。</p><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="lo">仍然退出</button></div>`,
       (m) => (m.querySelector('#lo').onclick = () => { auth.clear(); location.hash = '#/'; router(); }));
@@ -254,10 +260,9 @@ async function renderPaid(orderId) {
   const box = (html) => { $app.innerHTML = `${topnav()}<div class="page"><div class="card" style="max-width:480px;margin:40px auto;text-align:center">${html}</div></div>`; };
   box('<h2>正在确认付款…</h2>');
   for (let i = 0; i < 8; i++) {
-    const o = await api(`/math/api/pay/orders/${enc(orderId)}`);
+    const o = await api(`/api/pay/orders/${enc(orderId)}`);
     if (o.status === 'paid') {
-      return box(`<div style="font-size:40px">🎉</div><h2>会员已开通</h2><p>${o.member_until === 'forever' ? '永久会员' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p>
-        <p class="small muted">所有互动解析和知识项突击不限次数。</p><p><a class="btn primary" href="#/">开始练习</a> <a class="btn" href="#/account">账号</a></p>`);
+      return box(`<div style="font-size:40px">🎉</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><p><a class="btn primary" href="#/">开始练习</a> <a class="btn" href="#/account">账号</a></p>`);
     }
     if (o.status === 'closed') break;
     await new Promise((r) => setTimeout(r, 2500));
@@ -274,7 +279,7 @@ function askUnlock(item, what, credits, then) {
     <div class="actions"><a class="btn" href="#/account" data-close>看看会员</a><button class="btn primary" id="unl">用 1 次解锁</button></div>`, (m, close) => {
     m.querySelector('#unl').onclick = async (e) => {
       e.target.disabled = true;
-      const r = await api('/math/api/unlock', { method: 'POST', body: { item } });
+      const r = await api('/api/unlock', { method: 'POST', body: { item } });
       close();
       if (r.status === 402) return askUnlock(item, what, 0, then);
       then();

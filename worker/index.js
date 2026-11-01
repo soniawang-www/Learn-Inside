@@ -49,15 +49,10 @@ async function requireStudent(env, account, studentId) {
   return s;
 }
 
-/** 唯一的付费判断入口。试用期 FREE_MODE=true 时全部放开；以后接支付只需往 entitlement 写记录 */
+/** 知识项讲解等只认会员的内容（数学会员或全科会员；试用期全部放开） */
 async function hasTier(env, account, tier) {
-  if (tier === 'free' || env.FREE_MODE === 'true') return true;
-  const t = now();
-  const e = await env.DB
-    .prepare('SELECT 1 FROM entitlement WHERE account_id = ? AND tier = ? AND starts_at <= ? AND (expires_at IS NULL OR expires_at > ?)')
-    .bind(account.id, tier, t, t)
-    .first();
-  return !!e;
+  if (tier === 'free') return true;
+  return (await billing.accessCtx(env, account, 'math')).member;
 }
 
 // ───────── 路由 ─────────
@@ -744,8 +739,9 @@ route('POST', '/api/admin/import', async (req, env) => {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    const base = [PREFIX, OLD_PREFIX].find((p) => url.pathname.startsWith(p + '/api/'));
-    if (!base) {
+    // 全站接口（账号、会员、支付）在 /api/，数学的在 /math/api/；两边路由表相同，旧地址 /amc8/api/ 也照常处理
+    const base = [PREFIX, OLD_PREFIX, ''].find((p) => url.pathname.startsWith(p + '/api/'));
+    if (base === undefined) {
       if (url.pathname === OLD_PREFIX || url.pathname.startsWith(OLD_PREFIX + '/')) {
         return Response.redirect(new URL(PREFIX + url.pathname.slice(OLD_PREFIX.length) + url.search, url).toString(), 301);
       }

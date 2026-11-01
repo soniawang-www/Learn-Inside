@@ -19,7 +19,8 @@ const login = await call('/math/api/auth/login', 'POST', { phone, password: 'sec
 ok(login.status === 200 && login.data.token === reg.data.token && login.data.student.nickname === '小测', '手机号登录拿到同一个账号');
 const T = reg.data.token, sid = reg.data.student.id;
 let acc = await call('/math/api/account', 'GET', null, T);
-ok(acc.data.member === false && acc.data.credits === 10 && acc.data.plans.length === 3, '新账号：非会员、10 次、三档套餐');
+ok(Object.keys(acc.data.memberships).length === 0 && acc.data.credits === 10 && acc.data.plans.length === 6 && acc.data.plans.every((p) => ['math', 'all'].includes(p.scope)), '新账号：非会员、10 次、数学和全科各三档');
+ok((await call('/api/account', 'GET', null, T)).status === 200, '全站接口 /api/account');
 
 // 做一道题才能看互动解析
 const pid = 'amc8-2025-p05';
@@ -56,17 +57,17 @@ ok(u3.status === 402 && u3.data.need === 'member', '次数用完：引导开通�
 
 // 后台手动加会员（分享活动）
 const g = await call(`/math/api/admin/accounts/${aid}`, 'POST', { action: 'add_days', value: 31, reason: '分享活动' }, null, true);
-ok(g.data.account.member_until > Date.now() + 30 * 86400000, '后台加 31 天会员');
+ok(g.data.account.memberships.math > Date.now() + 30 * 86400000, '后台加 31 天数学会员');
 ok((await call('/math/api/sessions', 'POST', { kp_id: 'cnt.perm', student_id: sid }, T)).status === 200, '会员可以直接突击');
 ok((await call('/math/api/me', 'GET', null, T)).data.premium === true, '/me 显示会员');
 
 // 激活码：续在原到期日之后
 const codes = await call('/math/api/admin/codes', 'POST', { kind: 'days', amount: 92, count: 2, note: '测试' }, null, true);
 ok(codes.data.codes.length === 2, '生成 2 个季卡激活码');
-const before = (await call('/math/api/account', 'GET', null, T)).data.member_until;
+const before = (await call('/math/api/account', 'GET', null, T)).data.memberships.math;
 const r1 = await call('/math/api/redeem', 'POST', { code: codes.data.codes[0].toLowerCase() }, T);
 ok(r1.status === 200, '兑换激活码（不区分大小写）');
-const after = (await call('/math/api/account', 'GET', null, T)).data.member_until;
+const after = (await call('/math/api/account', 'GET', null, T)).data.memberships.math;
 ok(Math.round((after - before) / 86400000) === 92, '季卡接在原到期日后 92 天');
 ok((await call('/math/api/redeem', 'POST', { code: codes.data.codes[0] }, T)).status === 409, '激活码不能重复用');
 const cc = await call('/math/api/admin/codes', 'POST', { kind: 'credits', amount: 5 }, null, true);
@@ -75,10 +76,24 @@ ok((await call('/math/api/account', 'GET', null, T)).data.credits === 5, '次数
 
 // 改到期日 / 取消
 await call(`/math/api/admin/accounts/${aid}`, 'POST', { action: 'set_expiry', value: '2030-06-30' }, null, true);
-const e2 = (await call('/math/api/account', 'GET', null, T)).data.member_until;
+const e2 = (await call('/math/api/account', 'GET', null, T)).data.memberships.math;
 ok(new Date(e2 - 1).toISOString().startsWith('2030-06-30'), '改到期日到 2030-06-30');
 await call(`/math/api/admin/accounts/${aid}`, 'POST', { action: 'revoke' }, null, true);
-ok((await call('/math/api/account', 'GET', null, T)).data.member === false, '取消会员');
+ok(!(await call('/math/api/account', 'GET', null, T)).data.memberships.math, '取消会员');
+
+// 分科目会员：语文会员不能用数学内容，全科会员可以
+await call(`/math/api/admin/accounts/${aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese' }, null, true);
+ok((await call('/math/api/sessions', 'POST', { kp_id: 'nt.mod', student_id: sid }, T)).status === 402, '语文会员不能突击数学知识项');
+const cAll = await call('/math/api/admin/codes', 'POST', { kind: 'days', amount: 92, tier: 'all' }, null, true);
+const rAll = await call('/api/redeem', 'POST', { code: cAll.data.codes[0] }, T);
+ok(rAll.data.tier === 'all' && rAll.data.tier_name === '全科', '兑换全科会员激活码');
+ok((await call('/math/api/sessions', 'POST', { kp_id: 'nt.mod', student_id: sid }, T)).status === 200, '全科会员可以用数学内容');
+const ms = (await call('/api/account', 'GET', null, T)).data.memberships;
+ok(ms.all && ms.chinese && !ms.math, '账号页分别显示全科、语文会员');
+await call(`/math/api/admin/accounts/${aid}`, 'POST', { action: 'add_days', value: 31, tier: 'math' }, null, true);
+const ms2 = (await call('/api/account', 'GET', null, T)).data.memberships;
+ok(Math.round((ms2.math - ms2.all) / 86400000) === 31, '数学会员接在全科会员后面续');
+ok((await call(`/math/api/admin/accounts/${aid}`, 'POST', { action: 'add_days', value: 31, tier: 'x' }, null, true)).status === 400, '会员种类校验');
 ok((await call(`/math/api/problems/${pid}/advanced`, 'GET', null, T)).status === 200, '取消会员后，次数解锁过的仍可看');
 
 // 老账号绑定手机号 + 重置密码
