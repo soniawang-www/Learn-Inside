@@ -83,6 +83,8 @@ const kp = await call(`/amc8/api/kp/cnt.perm?student=${sid}`);
 ok(!kp.data.locked && kp.data.problems.length > 0 && kp.data.prerequisites.some((p) => p.id === 'cnt.enum') && kp.data.types.length > 0, '知识项页：前置、题型、相关真题');
 ok(Array.isArray(after.data.edges) && after.data.edges.some((e) => e.pre === 'cnt.enum' && e.kp === 'cnt.perm'), '画像带知识项前置关系');
 ok(after.data.points.every((p) => !p.id.includes('.') || p.id.split('.').length === 2), '画像按知识项统计');
+const kg = await call(`/amc8/api/students/${sid}/graph`);
+ok(kg.data.nodes.length === 30 && kg.data.edges.length > 20 && kg.data.nodes.some((n) => n.mastery) && kg.data.nodes.some((n) => n.wrong?.todo), '个人知识图谱：30 个知识项、前置关系、掌握度、错题');
 
 console.log('\n画像（薄弱 → 擅长）：');
 for (const p of after.data.points) console.log(`  ${p.label.padEnd(5, '　')} ${String(p.score).padStart(3)}  ${p.name}  (证据 ${p.evidence})`);

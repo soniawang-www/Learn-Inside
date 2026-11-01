@@ -1,6 +1,7 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
-// 路由：#/  #/exam/:sid  #/review/:sid  #/kp/:id  #/profile
+// 路由：#/  #/exam/:sid  #/review/:sid  #/kp/:id  #/profile  #/graph[/:kp]
 import { mountPlayer } from './player.js';
+import { mountGraph } from './graph.js';
 
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
@@ -105,7 +106,7 @@ const BRAND = `<a class="brandbar" href="../" aria-label="回到 learn-inside �
 function topnav() {
   const s = auth.student;
   return `<nav class="topnav">${BRAND}<span class="spacer"></span>
-    ${s ? `<a class="navlink" href="#/">试卷</a><a class="navlink" href="#/profile">${esc(s.nickname)} 的画像</a>` : ''}</nav>`;
+    ${s ? `<a class="navlink" href="#/">试卷</a><a class="navlink" href="#/graph">知识图谱</a><a class="navlink" href="#/profile">${esc(s.nickname)} 的画像</a>` : ''}</nav>`;
 }
 
 // ───────── 路由 ─────────
@@ -123,6 +124,7 @@ async function router() {
     if (page === 'kp') return await renderKp(id);
     if (page === 'problem') return await renderProblem(id);
     if (page === 'profile') return await renderProfile();
+    if (page === 'graph') return await renderGraphPage(id);
     return await renderHome();
   } catch (e) {
     $app.innerHTML = `${topnav()}<div class="page"><div class="card"><p class="error-msg">${esc(e.message)}</p><a href="#/">返回首页</a></div></div>`;
@@ -473,6 +475,36 @@ function statCard(st, years) {
   </div>`;
 }
 
+// ───────── 个人知识图谱 ─────────
+async function renderGraphPage(focusId) {
+  const d = await api(`/amc8/api/students/${auth.student.id}/graph`);
+  const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
+  $app.innerHTML = `${topnav()}<div class="page wide">
+    <h1>${esc(d.student.nickname)} 的知识图谱</h1>
+    <p class="small muted">奥数的 ${d.nodes.length} 个知识项，箭头从前置指向后续，颜色是掌握程度（由做过的真题算出，做得越多越准）。点一个知识项看它的上下游，滚轮或双指缩放、拖动平移，缩小可以看全局。</p>
+    <div id="kg"></div></div>`;
+  const chip = (n, LEVEL, lv) => `<button class="kg-chip lv-${lv(n)}" data-focus="${n.id}">${esc(n.name)}<small>${LEVEL[lv(n)]}</small></button>`;
+  const g = mountGraph(document.getElementById('kg'), d, {
+    focus: focusId ? decodeURIComponent(focusId) : null,
+    onFocus: (id) => history.replaceState(null, '', `#/graph/${encodeURIComponent(id)}`),
+    empty: '<h2>点一个知识项</h2><p class="small muted">会放大到它和它的前置、后续。灰色的是薄弱项；如果一个知识项薄弱，先看它的前置是不是也偏灰。</p>',
+    panel: (n, c) => {
+      const s = n.exams[c.exam], m = n.mastery;
+      const weakPre = c.pre.map((id) => c.byId[id]).filter((x) => x.mastery?.level === 'weak');
+      return `<div class="small muted">${esc(MODN[n.module] || '')}${n.ext ? ' · 超出小奥' : ''}</div>
+        <h2>${esc(n.name)}</h2>
+        <div class="kg-stat"><span class="kg-sw lv-${c.lv(n)}"></span><b>${c.LEVEL[c.lv(n)]}</b>${m ? ` <span class="muted small">${m.score} 分 · 证据 ${m.evidence}</span>` : ''}</div>
+        ${s ? `<p class="small">AMC 8：${s.rate}% 的年份考过，每届约 ${s.per_exam} 题，多在第 ${s.from === s.to ? s.from : `${s.from}–${s.to}`} 题。</p>` : '<p class="small muted">AMC 8 历年没有以它为主考过。</p>'}
+        ${n.wrong ? `<p class="small">错题 ${n.wrong.total} 道${n.wrong.todo ? `，<b style="color:var(--bad)">${n.wrong.todo} 道要订正或复习</b>` : '，都订正了'}。</p>` : ''}
+        ${weakPre.length ? `<p class="kg-warn">它的前置里 ${weakPre.map((x) => `<b>${esc(x.name)}</b>`).join('、')} 也薄弱，建议先补前置。</p>` : ''}
+        <div class="label">上游（前置）</div><div class="kg-chips">${c.pre.map((id) => chip(c.byId[id], c.LEVEL, c.lv)).join('') || '<span class="small muted">无，是入门知识项</span>'}</div>
+        <div class="label">下游（后续）</div><div class="kg-chips">${c.next.map((id) => chip(c.byId[id], c.LEVEL, c.lv)).join('') || '<span class="small muted">无</span>'}</div>
+        <div class="kg-actions"><a class="btn primary" href="#/kp/${encodeURIComponent(n.id)}">看知识项详情</a>${n.wrong?.todo ? '<a class="btn" href="#/profile">去画像订正错题</a>' : ''}</div>`;
+    },
+  });
+  cleanup = () => g.destroy();
+}
+
 // ───────── 知识项 ─────────
 async function renderKp(id) {
   const k = await api(`/amc8/api/kp/${enc(id)}?student=${auth.student.id}`);
@@ -483,8 +515,7 @@ async function renderKp(id) {
     <div class="card">
       <p>${rich(k.summary || '')}</p>
       ${k.mastery ? `<p class="small muted">当前掌握度：<b>${k.mastery.label}</b>（${k.mastery.score}）</p>` : ''}
-      ${k.prerequisites.length ? `<p class="small muted">前置知识项：${k.prerequisites.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
-      ${k.dependents?.length ? `<p class="small muted">后续知识项：${k.dependents.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
+      <p><a class="btn" href="#/graph/${enc(k.id)}">在知识图谱里看它的上下游 ›</a></p>
     </div>
     ${statCard(k.stats, k.exam_years || [])}
     ${k.types?.length ? `<div class="card"><h2>题型</h2><p class="small muted">这个知识项包含的题型，右边是 AMC 8 历年考过的次数。</p><div class="plist">${k.types.map((t) => { const s = k.type_stats?.[t.id];
@@ -595,7 +626,7 @@ function kpCard(points, mistakes, reasonName, edges) {
       return `<div class="kpblock" data-kp="${esc(p.id)}"><div class="kprow lv-${p.level}">
         <div><a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="small muted">${esc(p.group || '')} · 证据 ${p.evidence}</span>${priority(p, todo) ? '<span class="tag hot">高频 · 优先补</span>' : ''}
           ${p.stats ? `<div class="kp-stat">${statLine(p.stats)}</div>` : ''}
-          ${rs.length ? `<div class="kp-root">先补前置：${rs.map((e) => `<a href="#/kp/${encodeURIComponent(e.pre)}">${esc(e.pre_name)}</a>`).join('、')}</div>` : ''}
+          ${rs.length ? `<a class="kp-root" href="#/graph/${encodeURIComponent(p.id)}">前置也薄弱：${rs.map((e) => esc(e.pre_name)).join('、')} · 在知识图谱里看 ›</a>` : `<a class="kp-graph" href="#/graph/${encodeURIComponent(p.id)}">知识图谱 ›</a>`}
           ${ms.length ? `<button class="kp-ms ${todo.length ? 'hot' : ''}" data-kp-open aria-expanded="false">错题 ${ms.length}${todo.length ? ` · 要做 ${todo.length}` : ' · 都订正了'} <span class="caret">▾</span></button>` : ''}</div>
         <div class="bar"><div style="width:${p.score}%"></div></div>
         <div class="lv-label">${p.label}</div></div>

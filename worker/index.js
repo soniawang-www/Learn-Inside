@@ -536,6 +536,34 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
   return json({ student: { id: st.id, nickname: st.nickname }, points, edges, sessions, error_reasons: reasons, mistakes: await mistakeBook(env, st.id) });
 });
 
+// 个人知识图谱：全部知识项 + 前置关系 + 这个学生的掌握度、错题，叠加各考试的考情
+route('GET', '/api/students/:id/graph', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  const st = await requireStudent(env, acc, p.id);
+  const { results: kps } = await env.DB.prepare('SELECT id, parent_id, name, sort, amc_ext FROM knowledge_point ORDER BY sort, id').all();
+  const { results: edges } = await env.DB.prepare('SELECT from_kp, to_kp FROM kp_edge').all();
+  const { results: m } = await env.DB.prepare('SELECT kp_id, rating, evidence FROM mastery WHERE student_id = ?').bind(st.id).all();
+  const mas = Object.fromEntries(m.map((r) => [r.kp_id, { ...displayMastery(r.rating, r.evidence), evidence: Math.round(r.evidence * 10) / 10 }]));
+  const stats = await kpStats(env);
+  const book = await mistakeBook(env, st.id);
+  const wrong = {};
+  for (const x of book) for (const k of x.kps) {
+    const w = (wrong[k.id] ||= { total: 0, todo: 0 }); w.total++; if (x.status === 'pending' || x.status === 'due') w.todo++;
+  }
+  const units = kps.filter((k) => k.parent_id);
+  return json({
+    student: { id: st.id, nickname: st.nickname },
+    modules: kps.filter((k) => !k.parent_id).map((k) => ({ id: k.id, name: k.name })),
+    nodes: units.map((k) => ({
+      id: k.id, name: k.name, module: k.parent_id, ext: !!k.amc_ext,
+      mastery: mas[k.id] || null, wrong: wrong[k.id] || null,
+      exams: { amc8: stats.kps[k.id] ? { rate: stats.kps[k.id].rate, per_exam: stats.kps[k.id].per_exam, from: stats.kps[k.id].from, to: stats.kps[k.id].to } : null },
+    })),
+    edges: edges.map((e) => [e.from_kp, e.to_kp]),
+    exams: [{ id: 'amc8', name: 'AMC 8', years: stats.exams }, { id: 'swb100', name: '思维 100', years: 0 }],
+  });
+});
+
 // 错题本：做错过（含未作答）的题，按最近一次错误后的表现分阶段
 //   pending  待订正：最近一次还是错的
 //   due      该复习：订正对了一次，已过 REVIEW_DAYS 天，再做一次巩固
