@@ -741,6 +741,9 @@ export default {
     const url = new URL(req.url);
     // 全站接口（账号、会员、支付）在 /api/，数学的在 /math/api/；两边路由表相同，旧地址 /amc8/api/ 也照常处理
     const base = [PREFIX, OLD_PREFIX, ''].find((p) => url.pathname.startsWith(p + '/api/'));
+    // 管理页面挪到了 /admin/
+    const MOVED = { '/math/admin.html': '/admin/import.html', '/math/members.html': '/admin/members.html' };
+    if (MOVED[url.pathname]) return Response.redirect(new URL(MOVED[url.pathname], url).toString(), 301);
     if (base === undefined) {
       if (url.pathname === OLD_PREFIX || url.pathname.startsWith(OLD_PREFIX + '/')) {
         return Response.redirect(new URL(PREFIX + url.pathname.slice(OLD_PREFIX.length) + url.search, url).toString(), 301);

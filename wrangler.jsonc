@@ -6,7 +6,7 @@
     "directory": "./",
     "binding": "ASSETS",
     // 全站接口 /api（账号、会员、支付）、数学 /math/api 和旧地址 /amc8 经过 Worker，其他请求直接出静态文件
-    "run_worker_first": ["/api/*", "/math/api/*", "/amc8", "/amc8/*"]
+    "run_worker_first": ["/api/*", "/math/api/*", "/math/admin.html", "/math/members.html", "/amc8", "/amc8/*"]
   },
   "d1_databases": [
     {
@@ -22,6 +22,6 @@
     "PRICE_MATH_MONTH": "", "PRICE_MATH_QUARTER": "", "PRICE_MATH_YEAR": "",
     "PRICE_ALL_MONTH": "", "PRICE_ALL_QUARTER": "", "PRICE_ALL_YEAR": "",
     "PAY_CONTACT": ""          // 在线支付开通前，账号页显示的购买激活码联系方式，比如“微信 xxx”
-    // 支付宝：ALIPAY_APP_ID 在控制台加变量；ALIPAY_PRIVATE_KEY、ALIPAY_PUBLIC_KEY 必须用 Secret，不要写进这里（见 amc8-src/README.md）
+    // 支付宝：ALIPAY_APP_ID 在控制台加变量；ALIPAY_PRIVATE_KEY、ALIPAY_PUBLIC_KEY 必须用 Secret，不要写进这里（见 backend/README.md）
   }
 }

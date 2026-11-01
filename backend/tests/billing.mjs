@@ -1,6 +1,6 @@
 // 会员与免费次数测试：需要 FREE_MODE=false 的本地服务
 //   wrangler dev --local --port 8788 --var ADMIN_KEY:localtest --var FREE_MODE:false
-//   node amc8-src/tests/billing.mjs http://127.0.0.1:8788
+//   node backend/tests/billing.mjs http://127.0.0.1:8788
 const BASE = process.argv[2] || 'http://127.0.0.1:8788';
 const KEY = process.env.ADMIN_KEY || 'localtest';
 const call = async (path, method = 'GET', body, token, admin) => {

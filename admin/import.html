@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>题库导入</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/math/style.css">
 </head>
 <body>
   <div class="page" style="max-width:640px">
@@ -18,7 +18,7 @@
       <div class="row" style="margin-top:12px"><button class="btn primary" id="go" disabled>导入</button></div>
       <pre id="out" class="small" style="white-space:pre-wrap;margin-top:14px"></pre>
     </div>
-    <p class="small muted"><a href="./">← 返回模拟考</a></p>
+    <p class="small muted"><a href="/admin/">← 管理后台</a> · <a href="/math/">奥数</a></p>
   </div>
 <script>
   const $ = (id) => document.getElementById(id);
@@ -48,7 +48,7 @@
     try { sessionStorage.setItem('amc8.adminKey', key); } catch {}
     $('go').disabled = true; $('out').textContent = '导入中…';
     try {
-      const r = await fetch('api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ exams, knowledge: { points, edges, prune: !!edges } }) });
+      const r = await fetch('/math/api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ exams, knowledge: { points, edges, prune: !!edges } }) });
       const d = await r.json();
       $('out').textContent = r.ok ? `导入成功：${[d.points ? `知识点 ${d.points} 个` : '', d.pruned ? `删除旧知识点 ${d.pruned} 个` : '', ...d.exams, d.recomputed ? `重算了 ${d.recomputed} 个学生的画像` : ''].filter(Boolean).join('、')}。` : `导入失败：${d.error}`;
     } catch (e) { $('out').textContent = '导入失败：' + e.message; }

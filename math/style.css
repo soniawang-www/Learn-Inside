@@ -833,3 +833,20 @@ details summary { cursor: pointer; color: var(--accent); }
 }
 #bind, #pw, #redeem { max-width: 480px; }
 .mtag { display: inline-block; font-weight: 600; color: var(--accent); }
+
+/* ───────── 不同屏幕 ───────── */
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.stem, .choice, .solution { overflow-wrap: anywhere; }
+@media (min-width: 1600px) {
+  .page { max-width: 1320px; }
+  .page.wide { max-width: 1600px; }
+  .auth-wrap { max-width: 1120px; grid-template-columns: 1fr 440px; }
+  .auth-intro h1 { font-size: 38px; }
+}
+@media (max-width: 520px) {
+  .plans { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .plan { padding: 10px 8px; }
+  .plan .price { font-size: 17px; }
+  .plan .btn { padding: 6px 4px; font-size: 13px; }
+  .katex-display { font-size: .88em; }
+}

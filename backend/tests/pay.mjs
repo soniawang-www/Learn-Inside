@@ -1,7 +1,7 @@
 // 在线支付测试：用自己生成的两对密钥模拟“应用”和“支付宝”，外加一个假的支付宝网关（只回答订单查询）
 // 准备：node keys.mjs 生成 keys.json；node mockgw.mjs 起假网关（8799）；wrangler dev 带上
 //   ALIPAY_APP_ID / ALIPAY_PRIVATE_KEY（应用私钥）/ ALIPAY_PUBLIC_KEY（“支付宝”公钥）/ ALIPAY_GATEWAY / PRICE_*
-//   node amc8-src/tests/pay.mjs http://127.0.0.1:8788 /tmp/paytest
+//   node backend/tests/pay.mjs http://127.0.0.1:8788 /tmp/paytest
 import { createSign, createVerify } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 const BASE = process.argv[2] || 'http://127.0.0.1:8788';

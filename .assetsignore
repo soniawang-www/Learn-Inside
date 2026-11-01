@@ -5,4 +5,4 @@
 node_modules
 wrangler.jsonc
 worker
-amc8-src
+backend

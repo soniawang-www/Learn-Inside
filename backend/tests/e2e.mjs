@@ -1,4 +1,4 @@
-// 端到端冒烟测试：先 wrangler dev 并打开 /math/api/admin/seed，再 node amc8-src/tests/e2e.mjs [baseURL]
+// 端到端冒烟测试：先 wrangler dev 并打开 /math/api/admin/seed，再 node backend/tests/e2e.mjs [baseURL]
 const BASE = process.argv[2] || "http://127.0.0.1:8787";
 let token = null;
 const call = async (path, method = 'GET', body) => {

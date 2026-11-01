@@ -14,30 +14,39 @@
 ## 目录
 
 ```
-math/                    前端（公开，访问路径 /math/）
-worker/index.js          API，只处理 /math/api/*（兼容 /amc8/api/*）（见 wrangler.jsonc 的 run_worker_first）
-worker/mastery.js        画像算法（简化 Elo，可整体替换）
-worker/seed.js           题库 → 数据库行（Worker 和脚本共用）
-worker/content.generated.js  内置题库，由脚本生成，不要手改
-amc8-src/schema.sql      建表
-amc8-src/data/           知识图谱 + 试卷 JSON
-amc8-src/scripts/build-seed.mjs  生成 content.generated.js 和 seed.sql
-amc8-src/tests/e2e.mjs   端到端测试
+index.html               网站首页（静态）
+assets/                  logo 等共用资源
+chinese/  english/       学习页（静态）
+math/                    奥数前端（/math/）：app.js 页面、graph.js 知识图谱、player.js 互动课播放器、sims*.js 互动组件、style.css
+admin/                   管理后台（/admin/）：index.html 入口、members.html 会员管理、import.html 题库导入（都要 ADMIN_KEY）
+worker/                  Cloudflare Worker（不公开）
+  index.js               路由；数学接口 /math/api/*（兼容 /amc8/api/*），全站接口 /api/*
+  billing.js             账号、会员、免费次数、激活码、会员管理接口
+  alipay.js              支付宝加签验签、下单、查询
+  mastery.js             掌握度算法
+  seed.js                题库 → 数据库行
+  content.generated.js   内置题库，由脚本生成，不要手改
+backend/                 开发用（不公开）
+  schema.sql             建表
+  data/                  知识图谱 + 示例试卷
+  scripts/build-seed.mjs 生成 content.generated.js
+  tests/                 e2e.mjs 功能、billing.mjs 会员、pay.mjs 支付
 ```
 
-`worker/`、`amc8-src/`、`wrangler.jsonc` 已写进 `.assetsignore`，不会作为静态文件公开。
+`worker/`、`backend/`、`wrangler.jsonc` 写在 `.assetsignore` 里，不会作为静态文件公开。
+旧地址 `/math/admin.html`、`/math/members.html` 会跳到 `/admin/` 下。
 
 ## 首次上线
 
 1. 推送到 main，Cloudflare 自动部署。
 2. 浏览器打开一次 `https://learn-inside.com/math/api/admin/seed`，看到 `{"ok":true,...}` 即建表和导入题库完成。
-3. 打开 `https://learn-inside.com/math/`，邀请码 `AMC2026`。
+3. 打开 `https://learn-inside.com/math/`，用手机号注册。
 
 ## 导入真题（推荐方式）
 
 真题放在私有仓库 `soniawang-www/amc8-data`，**不要放进这个公开仓库**。
 
-1. 打开 `https://learn-inside.com/math/admin.html`
+1. 打开 `https://learn-inside.com/admin/import.html`
 2. 填管理员密钥（Cloudflare 里设置的 Secret `ADMIN_KEY`）
 3. 选择 `amc8-data/exams/` 下的试卷 JSON（可多选），页面会先显示题数和答案串，确认后点「导入」
 
@@ -45,8 +54,8 @@ amc8-src/tests/e2e.mjs   端到端测试
 
 ## 更新内置示例卷
 
-1. 修改 `amc8-src/data/` 下的 JSON（试卷一套一个文件，格式见 `sample-2026.json`）。
-2. 在仓库根目录运行 `node amc8-src/scripts/build-seed.mjs > amc8-src/seed.sql`（会校验答案和知识点）。
+1. 修改 `backend/data/` 下的 JSON（试卷一套一个文件，格式见 `sample-2026.json`）。
+2. 在仓库根目录运行 `node backend/scripts/build-seed.mjs > backend/seed.sql`（会校验答案和知识点）。
 3. 提交并推送，等部署完成。
 4. 题库已初始化后，再次导入需要管理员密钥：在 Cloudflare 控制台 → learn-inside → Settings → Variables and Secrets 添加 **Secret** `ADMIN_KEY`（不要写进仓库），然后打开 `https://learn-inside.com/math/api/admin/seed?key=你的密钥`。
 
@@ -69,7 +78,7 @@ amc8-src/tests/e2e.mjs   端到端测试
 
 真题设 `"duration_sec": 2400`（40 分钟）。
 
-⚠️ 这个仓库是公开的，`amc8-src/data/` 里的内容任何人都能在 GitHub 上看到。真题数据建议放在私有仓库，或者只在本地生成 `content.generated.js`。
+⚠️ 这个仓库是公开的，`backend/data/` 里的内容任何人都能在 GitHub 上看到。真题数据建议放在私有仓库，或者只在本地生成 `content.generated.js`。
 
 ## 互动课步骤类型（互动解析和知识点课共用）
 
@@ -110,7 +119,7 @@ amc8-src/tests/e2e.mjs   端到端测试
 npm i -g wrangler        # 或 npx wrangler
 wrangler dev             # 仓库根目录；本地 D1 存在 .wrangler/
 # 打开 http://127.0.0.1:8787/math/api/admin/seed 初始化，再访问 /math/
-node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
+node backend/tests/e2e.mjs http://127.0.0.1:8787
 ```
 
 
@@ -124,10 +133,10 @@ node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 - 每种会员有月卡 31 天、季卡 92 天、年卡 366 天，价格在 `wrangler.jsonc` 填（元）：`PRICE_MATH_MONTH`、`PRICE_ALL_YEAR` 这样的 `PRICE_<科目>_<周期>`，留空显示“价格待定”、不能在线买。会员期间本科目互动解析和突击不限次数。
 - **免费次数全站共用** 10 次。
 - 答案、基础解题思路、知识图谱、错题本始终免费。
-- **会员管理后台**：`/math/members.html`（需要 ADMIN_KEY）：按手机号或昵称搜账号，加会员天数、改到期日、取消会员、加减次数、重置密码、备注；生成激活码（会员天数或次数）；所有操作有记录。分享活动的奖励在这里手动发。
+- **会员管理后台**：`/admin/members.html`（需要 ADMIN_KEY）：按手机号或昵称搜账号，加会员天数、改到期日、取消会员、加减次数、重置密码、备注；生成激活码（会员天数或次数）；所有操作有记录。分享活动的奖励在这里手动发。
 - **开始收费**：把 `FREE_MODE` 改成 `"false"`。之前的账号都有 10 次免费次数。
 - 在线支付见下一节。没配好之前，账号页显示 `PAY_CONTACT`（购买激活码的联系方式）。
-- 测试：`wrangler dev --local --port 8788 --var ADMIN_KEY:localtest --var FREE_MODE:false`，然后 `node amc8-src/tests/billing.mjs http://127.0.0.1:8788`。
+- 测试：`wrangler dev --local --port 8788 --var ADMIN_KEY:localtest --var FREE_MODE:false`，然后 `node backend/tests/billing.mjs http://127.0.0.1:8788`。
 
 ## 在线支付（支付宝）
 
@@ -148,6 +157,6 @@ node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 
 开放平台里：接口加签方式选**公钥**（不是证书），通知地址是 `https://learn-inside.com/api/pay/notify`（全站共用，下单时自动带上）；申请收款产品时网站链接填 `https://learn-inside.com/`。
 
-测试（模拟支付宝，不连真网关）：`node amc8-src/tests/pay/keys.mjs` 生成两对测试密钥，`node amc8-src/tests/pay/mockgw.mjs` 起假网关，
-再按 `amc8-src/tests/pay.mjs` 开头的说明启动 wrangler，运行 `node amc8-src/tests/pay.mjs http://127.0.0.1:8788 <keys 所在目录>`。
-后台 `/math/members.html` 的「支付订单」标签能看到所有订单和已收款合计。
+测试（模拟支付宝，不连真网关）：`node backend/tests/pay/keys.mjs` 生成两对测试密钥，`node backend/tests/pay/mockgw.mjs` 起假网关，
+再按 `backend/tests/pay.mjs` 开头的说明启动 wrangler，运行 `node backend/tests/pay.mjs http://127.0.0.1:8788 <keys 所在目录>`。
+后台 `/admin/members.html` 的「支付订单」标签能看到所有订单和已收款合计。

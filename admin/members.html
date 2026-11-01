@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>会员管理</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/math/style.css">
   <style>
     .acc { border-top: 1px solid var(--border); padding: 12px 0; display: grid; gap: 6px; }
     .acc .head { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
@@ -55,7 +55,7 @@
 
     <div id="tab-orders" hidden><div class="card"><p class="small muted">只有状态是“已付款”的订单开通了会员。待付款 = 跳去支付宝后没付或还没收到通知。</p><div id="orders"></div></div></div>
     <div id="tab-log" hidden><div class="card"><div id="log"></div></div></div>
-    <p class="small muted"><a href="./">← 返回网站</a> · <a href="admin.html">题库导入</a></p>
+    <p class="small muted"><a href="/admin/">← 管理后台</a> · <a href="/admin/import.html">题库导入</a></p>
   </div>
 <script>
   const $ = (id) => document.getElementById(id);
