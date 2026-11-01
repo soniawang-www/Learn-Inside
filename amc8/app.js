@@ -442,6 +442,33 @@ async function openAdvanced(problemId) {
 const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">🔒</div><p><b>${esc(title)}</b></p>
   <p class="small">开通会员后可以查看。</p><div class="actions" style="justify-content:center"><button class="btn" data-close>知道了</button></div></div>`;
 
+
+// ───────── 考情：历年真题里的出现率、题量、题号 ─────────
+const bandName = (st) => { const b = st.bands; const m = Math.max(b.easy, b.mid, b.hard); return m === b.easy ? '前段基础题' : m === b.mid ? '中段' : '后段难题'; };
+const statLine = (st) => `考频 <b>${st.rate}%</b> · 每届约 ${st.per_exam} 题 · 多在第 ${st.from === st.to ? st.from : `${st.from}–${st.to}`} 题`;
+/** 高频（≥ 70% 的年份都考）而且薄弱或有没订正的错题 → 优先补 */
+const priority = (p, todo) => p.stats && p.stats.rate >= 70 && (p.level === 'weak' || todo.length > 0);
+function statCard(st, years) {
+  if (!st) return '';
+  const max = Math.max(...st.per_num, 1);
+  const cell = (n, i) => `<i style="--a:${n ? 0.18 + 0.82 * n / max : 0}" title="第 ${i + 1} 题：${n} 次"></i>`;
+  return `<div class="card"><h2>考情分析</h2>
+    <p class="small muted">统计已收录的 ${years.length} 届 AMC 8 真题（${years[0]}–${years[years.length - 1]}），主考点和占比较重的辅助考点都算。</p>
+    <div class="st-tiles">
+      <div><span class="big">${st.rate}%</span><span class="small muted">出现率<br>${st.years_hit}/${years.length} 届考过 · 近 ${st.recent_n} 届 ${st.recent_hit} 届</span></div>
+      <div><span class="big">${st.per_exam}</span><span class="small muted">平均每届几题<br>累计 ${st.total} 题</span></div>
+      <div><span class="big">${st.from === st.to ? st.from : `${st.from}–${st.to}`}</span><span class="small muted">一般是第几题<br>一半落在这里 · 中位第 ${st.median} 题</span></div>
+    </div>
+    <div class="section-label">题号分布（颜色越深考得越多）</div>
+    <div class="st-strip">${st.per_num.map(cell).join('')}</div>
+    <div class="st-axis"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span></div>
+    <div class="st-bands small"><span>第 1–10 题（基础）<b>${st.bands.easy}%</b></span><span>11–20（中档）<b>${st.bands.mid}%</b></span><span>21–25（难题）<b>${st.bands.hard}%</b></span></div>
+    <div class="section-label">每年考了几题${years.includes(2020) && years.includes(2022) && !years.includes(2021) ? '<span class="small muted">（2021 年停办）</span>' : ''}</div>
+    <div class="st-years">${years.map((y) => `<span class="${st.per_year[y] ? 'on' : ''}" title="${y}：${st.per_year[y] || 0} 题"><b>${st.per_year[y] || ''}</b><small>${String(y).slice(2)}</small></span>`).join('')}</div>
+    <p class="small muted" style="margin-top:10px">${st.rate >= 80 ? '几乎每年必考，' : st.rate >= 50 ? '经常考，' : '不是每年都考，'}多出现在${bandName(st)}。</p>
+  </div>`;
+}
+
 // ───────── 知识点 ─────────
 async function renderKp(id) {
   const k = await api(`/amc8/api/kp/${enc(id)}?student=${auth.student.id}`);
@@ -454,6 +481,7 @@ async function renderKp(id) {
       ${k.mastery ? `<p class="small muted">当前掌握度：<b>${k.mastery.label}</b>（${k.mastery.score}）</p>` : ''}
       ${k.prerequisites.length ? `<p class="small muted">前置知识：${k.prerequisites.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
     </div>
+    ${statCard(k.stats, k.exam_years || [])}
     ${k.signals.length ? `<div class="card"><h2>怎么认出这个考点</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
     <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
       <p class="small muted">${k.drill.count ? `把考这个知识点的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识点的真题。'}</p></div>
@@ -549,11 +577,12 @@ function kpCard(points, mistakes, reasonName) {
   if (!points.length) return '<div class="card"><h2>知识点掌握度</h2><p class="muted">还没有数据，先做一套卷子吧。</p></div>';
   const of = (id) => mistakes.filter((m) => m.kps.some((k) => k.id === id));
   return `<div class="card" id="kpcard"><h2>知识点掌握度</h2>
-    <p class="small muted">从薄弱到擅长排序。证据量 = 做过的相关题目（按考点权重累加），少于 1.5 时显示“数据不足”。点「错题」看是哪些题拉低了这个知识点。</p>
+    <p class="small muted">从薄弱到擅长排序。证据量 = 做过的相关题目（按考点权重累加），少于 1.5 时显示“数据不足”。每行下面是这个知识点在历年真题里的考情；点「错题」看是哪些题拉低了它。</p>
     ${points.map((p) => {
       const ms = of(p.id), todo = ms.filter(isTodo);
       return `<div class="kpblock" data-kp="${esc(p.id)}"><div class="kprow lv-${p.level}">
-        <div><a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="small muted">${esc(p.group || '')} · 证据 ${p.evidence}</span>
+        <div><a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="small muted">${esc(p.group || '')} · 证据 ${p.evidence}</span>${priority(p, todo) ? '<span class="tag hot">高频 · 优先补</span>' : ''}
+          ${p.stats ? `<div class="kp-stat">${statLine(p.stats)}</div>` : ''}
           ${ms.length ? `<button class="kp-ms ${todo.length ? 'hot' : ''}" data-kp-open aria-expanded="false">错题 ${ms.length}${todo.length ? ` · 要做 ${todo.length}` : ' · 都订正了'} <span class="caret">▾</span></button>` : ''}</div>
         <div class="bar"><div style="width:${p.score}%"></div></div>
         <div class="lv-label">${p.label}</div></div>

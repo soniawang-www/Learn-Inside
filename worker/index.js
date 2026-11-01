@@ -438,8 +438,47 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     prerequisites: prereq,
     problems: problems.map((x) => ({ ...x, label: `${x.exam_title} 第 ${x.number} 题`, status: x.last_correct === null ? 'todo' : x.last_correct ? 'right' : 'wrong' })),
     mastery,
+    stats: (await kpStats(env)).kps[kp.id] || null, exam_years: (await kpStats(env)).years,
   });
 });
+
+// 考情：每个知识点在历年真题里的出现率和题号分布（只算正式真题、权重 ≥ 0.5 的考点）
+// 题库导入后才变，按 isolate 缓存 10 分钟
+let statsCache = null;
+async function kpStats(env) {
+  if (statsCache && now() - statsCache.at < 600000) return statsCache.data;
+  const { results: exams } = await env.DB.prepare("SELECT year FROM exam WHERE published = 1 AND source = 'official' AND year IS NOT NULL ORDER BY year").all();
+  const years = exams.map((e) => e.year);
+  const recent = new Set(years.slice(-10));
+  const { results } = await env.DB
+    .prepare(`SELECT pk.kp_id, p.number, e.year FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
+               WHERE e.published = 1 AND e.source = 'official' AND e.year IS NOT NULL AND pk.weight >= 0.5`)
+    .all();
+  const by = {};
+  for (const r of results) (by[r.kp_id] ||= []).push(r);
+  const data = { exams: years.length, years, kps: {} };
+  for (const [kp, rows] of Object.entries(by)) {
+    const nums = rows.map((r) => r.number).sort((a, b) => a - b);
+    const at = (f) => nums[Math.round(f * (nums.length - 1))];
+    const ys = new Set(rows.map((r) => r.year));
+    const perYear = {}, perNum = Array(25).fill(0);
+    for (const r of rows) { perYear[r.year] = (perYear[r.year] || 0) + 1; if (r.number >= 1 && r.number <= 25) perNum[r.number - 1]++; }
+    const band = (a, b) => Math.round((nums.filter((n) => n >= a && n <= b).length / nums.length) * 100);
+    data.kps[kp] = {
+      rate: Math.round((ys.size / years.length) * 100),           // 出现过的届数 / 总届数
+      years_hit: ys.size,
+      recent_hit: [...ys].filter((y) => recent.has(y)).length,   // 近 10 届里出现几届
+      recent_n: recent.size,
+      per_exam: Math.round((rows.length / years.length) * 10) / 10, // 平均每届几题
+      total: rows.length,
+      from: at(0.25), to: at(0.75), median: at(0.5),             // 一半的题落在 from–to
+      bands: { easy: band(1, 10), mid: band(11, 20), hard: band(21, 25) },
+      per_year: perYear, per_num: perNum,
+    };
+  }
+  statsCache = { at: now(), data };
+  return data;
+}
 
 // 学生画像
 route('GET', '/api/students/:id/profile', async (req, env, p) => {
@@ -467,8 +506,9 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
     .prepare("SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 GROUP BY error_reason")
     .bind(st.id)
     .all();
+  const stats = await kpStats(env);
   const points = m
-    .map((r) => ({ id: r.kp_id, name: r.name, group: r.parent_name, evidence: Math.round(r.evidence * 10) / 10, ...displayMastery(r.rating, r.evidence) }))
+    .map((r) => ({ id: r.kp_id, name: r.name, group: r.parent_name, evidence: Math.round(r.evidence * 10) / 10, ...displayMastery(r.rating, r.evidence), stats: stats.kps[r.kp_id] || null }))
     .sort((a, b) => a.score - b.score);
   return json({ student: { id: st.id, nickname: st.nickname }, points, sessions, error_reasons: reasons, mistakes: await mistakeBook(env, st.id) });
 });
@@ -531,6 +571,7 @@ async function seedHandler(req, env, _p, url) {
     if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '题库已初始化；更新需要管理员密钥');
   }
   const result = await seedDatabase(env.DB, { schema: SCHEMA, knowledge: KNOWLEDGE, exams: EXAMS });
+  statsCache = null;
   return json({ ok: true, ...result });
 }
 route('GET', '/api/admin/seed', seedHandler);
@@ -552,6 +593,7 @@ route('POST', '/api/admin/import', async (req, env) => {
   }
   try {
     const result = await importContent(env.DB, { schema: SCHEMA, exams, points });
+    statsCache = null;
     return json({ ok: true, ...result });
   } catch (e) {
     throw new HttpError(400, e.message);
