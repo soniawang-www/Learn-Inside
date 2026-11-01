@@ -204,10 +204,10 @@ async function renderAccount() {
     <h1>账号</h1>
     <div class="card"><h2>会员</h2>
       <p>${memberLine}</p>
-      ${a.member || a.free_mode ? '' : `<p class="small muted">剩余免费次数 <b>${a.credits}</b> 次（已解锁 ${a.unlocked} 项）。1 次可以解锁一道题的互动解析（之后随时看），或一个知识项的真题突击。</p>`}
-      <div class="plans">${a.plans.map((p) => `<div class="plan"><div class="pname">${p.name}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天，续费接在原到期日后</div>
+      ${a.member || a.free_mode ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
+      <div class="plans">${a.plans.map((p) => `<div class="plan"><div class="pname">${p.name}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
         ${a.pay_ready ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : ''}</div>`).join('')}</div>
-      <p class="small muted">会员期间：所有互动解析、知识项真题突击不限次数。答案、解题思路、知识图谱、错题本一直免费。</p>
+      
       ${a.pay_ready ? '' : `<p class="small">在线支付即将开通。现在可以${a.contact ? `联系 ${esc(a.contact)} ` : ''}购买激活码，在下面输入开通。</p>`}
     </div>
     <div class="card"><h2>激活码</h2>
@@ -252,7 +252,7 @@ async function renderAccount() {
 // 支付宝付完跳回：查订单，没到账就隔几秒再查（服务端会主动问支付宝）
 async function renderPaid(orderId) {
   const box = (html) => { $app.innerHTML = `${topnav()}<div class="page"><div class="card" style="max-width:480px;margin:40px auto;text-align:center">${html}</div></div>`; };
-  box('<h2>正在确认付款…</h2><p class="small muted">支付宝通知可能有几秒延迟。</p>');
+  box('<h2>正在确认付款…</h2>');
   for (let i = 0; i < 8; i++) {
     const o = await api(`/math/api/pay/orders/${enc(orderId)}`);
     if (o.status === 'paid') {
@@ -300,7 +300,7 @@ async function renderHome() {
         <div><h2>${esc(f.name)}</h2><p class="small muted">${esc(f.desc)}</p></div>
         <div class="fam-meta">${f.exams ? `<span><b>${f.exams}</b> 套真题</span>` : '<span class="muted">真题待录入</span>'}
           ${f.sessions ? `<span>做过 <b>${f.sessions}</b> 次 · 最近 ${f.last.score} 分</span>` : ''}<span class="go">进入 ›</span></div></a>`).join('')}</div>
-    <p class="small muted">不管做哪种考试的题，结果都汇总到同一张<a href="#/graph">知识图谱</a>和同一个<a href="#/mistakes">错题本</a>。</p>
+    
   </div>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
 }
@@ -325,7 +325,7 @@ async function renderContest(fid, tab = 'exams') {
           <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
         </div></div>`).join('') || '<p class="muted">这种考试的真题还没有录入。</p>'}
     </div>
-    <p class="small muted">模考：完全按正式考试计时，不提供提示。练习：同样计时，可以逐级查看提示，用了提示的题在掌握度里会打折计算。</p>`;
+    `;
     setTimeout(() => $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode))));
   } else if (tab === 'stats') {
     const S = d.stats;
@@ -334,10 +334,10 @@ async function renderContest(fid, tab = 'exams') {
       const maxM = Math.max(...S.modules.map((m) => m.share), 1);
       const units = S.units.filter((u) => u.rate).sort((a, b) => b.share - a.share);
       body = `<div class="card"><h2>各大类占比</h2>
-        <p class="small muted">统计 ${S.exams} 届 ${esc(f.name)} 真题（${S.years[0]}–${S.years.at(-1)}），每题按主考点分 1 份。</p>
+        
         <div class="mods">${S.modules.map((m) => `<div class="mrow"><span>${esc(m.name)}</span><span class="mbar"><i style="width:${(m.share / maxM) * 100}%"></i></span><span class="num">${m.share.toFixed(1)}%</span></div>`).join('')}</div></div>
       <div class="card"><h2>各知识项考情</h2>
-        <p class="small muted">按占比从高到低。考过的年份比例 · 平均每届题数 · 一般出在第几题（一半的题落在这个范围）。点知识项看详细考情。</p>
+        
         <table class="utable"><tr><th>知识项</th><th>占比</th><th>考过的年份</th><th>每届</th><th>常见题号</th></tr>
         ${units.map((u) => `<tr><td><a href="#/kp/${enc(u.id)}?family=${enc(fid)}">${esc(u.name)}</a></td><td class="num">${u.share}%</td><td class="num">${u.rate}%</td><td class="num">${u.per_exam} 题</td><td class="num">${u.from === u.to ? u.from : `${u.from}–${u.to}`}</td></tr>`).join('')}</table>
         ${S.units.some((u) => !u.rate) ? `<p class="small muted">没考过：${S.units.filter((u) => !u.rate).map((u) => esc(u.name)).join('、')}</p>` : ''}</div>`;
@@ -533,7 +533,7 @@ async function renderReview(sid) {
       <div><div class="muted small">模式</div><b>${r.session.mode === 'exam' ? '模考' : '练习'}</b></div>
       <div style="margin-left:auto" class="row"><button class="btn" id="lang">🌐 ${LANGS[lang.get()]}</button><a class="btn" href="#/mistakes">错题本</a><a class="btn" href="#/graph">知识图谱</a></div>
     </div>
-    ${wrong.length ? `<p class="small muted" style="margin:12px 0 0">做错 / 没做的 ${wrong.length} 题，请让孩子在每道题下面点一下“错因”。这能让掌握度区分“不会”和“粗心”，准确很多。</p>` : ''}
+    ${wrong.length ? `<p class="small muted" style="margin:12px 0 0">错了 ${wrong.length} 题，记得给每道错题标上错因。</p>` : ''}
     </div>
     <h2>${esc(r.exam.title)}</h2>
     ${r.items.map(itemView).join('')}
@@ -630,7 +630,7 @@ function statCard(st, years, famName = 'AMC 8') {
   const max = Math.max(...st.per_num, 1);
   const cell = (n, i) => `<i style="--a:${n ? 0.18 + 0.82 * n / max : 0}" title="第 ${i + 1} 题：${n} 次"></i>`;
   return `<div class="card"><h2>考情分析</h2>
-    <p class="small muted">统计已收录的 ${years.length} 届 ${esc(famName)} 真题（${years[0]}–${years[years.length - 1]}），主考点和占比较重的辅助考点都算。</p>
+    
     <div class="st-tiles">
       <div><span class="big">${st.rate}%</span><span class="small muted">出现率<br>${st.years_hit}/${years.length} 届考过 · 近 ${st.recent_n} 届 ${st.recent_hit} 届</span></div>
       <div><span class="big">${st.per_exam}</span><span class="small muted">平均每届几题<br>累计 ${st.total} 题</span></div>
@@ -671,7 +671,6 @@ async function renderGraphPage(focusId) {
   const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
   $app.innerHTML = `${topnav()}<div class="page wide">
     <h1>${esc(d.student.nickname)} 的知识图谱</h1>
-    <p class="small muted">${graphView === 'list' ? `奥数的 ${d.nodes.length} 个知识项按掌握程度排序，薄弱的在前。掌握度由所有考试做过的题算出，做得越多越准。点一个知识项回到图里看它的上下游和错过的题。</p>` : `奥数的 ${d.nodes.length} 个知识项，每一行是一个大类，从左到右是学习顺序，箭头从前置指向后续。颜色是掌握程度（由做过的题算出，做得越多越准）。点一个知识项看它的上下游和错过的题；滚轮或双指缩放、拖动平移，缩小可以看全局。`}</p>
     <div class="ctabs"><a class="${graphView === 'map' ? 'on' : ''}" data-view="map">图</a><a class="${graphView === 'list' ? 'on' : ''}" data-view="list">列表（薄弱在前）</a></div>
     <div id="kg"></div></div>`;
   $app.querySelectorAll('[data-view]').forEach((a) => (a.onclick = () => { graphView = a.dataset.view; renderGraphPage(focusId); }));
@@ -680,7 +679,7 @@ async function renderGraphPage(focusId) {
   const g = mountGraph(document.getElementById('kg'), d, {
     focus: focusId ? decodeURIComponent(focusId) : null,
     onFocus: (id) => history.replaceState(null, '', `#/graph/${encodeURIComponent(id)}`),
-    empty: '<h2>点一个知识项</h2><p class="small muted">会放大到它和它的前置、后续。灰色的是薄弱项；如果一个知识项薄弱，先看它的前置是不是也偏灰。</p>',
+    empty: '<h2>点一个知识项</h2>',
     panel: (n, c) => {
       const m = n.mastery;
       const weakPre = c.pre.map((id) => c.byId[id]).filter((x) => x.mastery?.level === 'weak');
@@ -727,11 +726,11 @@ async function renderKp(id) {
       ${(k.my_mistakes || []).some(isTodo) ? `<p style="margin-top:10px"><a class="btn" href="#/mistakes" data-mskp="${esc(k.id)}">去错题本订正</a></p>` : ''}</div>` : ''}
     <div class="ctabs">${k.families.map((f) => `<a class="${f.id === k.family ? 'on' : ''}" href="#/kp/${enc(k.id)}?family=${f.id}">${esc(f.name)} 考情</a>`).join('')}</div>
     ${k.stats ? statCard(k.stats, k.exam_years || [], fam.name) : `<div class="card"><p class="muted small">${(k.exam_years || []).length ? `已收录的 ${k.exam_years.length} 届 ${esc(fam.name)} 真题里没有考过这个知识项。` : `${esc(fam.name)} 的真题还没有录入，暂时没有考情。`}</p></div>`}
-    ${k.types?.length ? `<div class="card"><h2>题型</h2><p class="small muted">这个知识项包含的题型${k.stats ? `，右边是 ${esc(fam.name)} 历年考过的次数` : ''}。</p><div class="plist">${k.types.map((t) => { const s = k.type_stats?.[t.id];
+    ${k.types?.length ? `<div class="card"><h2>题型</h2><div class="plist">${k.types.map((t) => { const s = k.type_stats?.[t.id];
         return `<div class="prow"><span>${esc(t.name)}</span><span class="tmeta num">${s ? `${s.total} 次 · ${s.rate}% 年份` : '未考'}</span></div>`; }).join('')}</div></div>` : ''}
     ${k.signals.length ? `<div class="card"><h2>怎么认出这个知识项</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
     <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
-      <p class="small muted">${k.drill.count ? `把考这个知识项的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识项的真题。'}</p></div>
+      <p class="small muted">${k.drill.count ? `${k.drill.count} 道真题` : '还没有考这个知识项的真题。'}</p></div>
       ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>${k.drill.sample ? '<span class="small muted">免费体验</span>' : ''}` : ''}</div>
     ${k.problems.length ? `<div class="card"><h2>相关真题 <span class="small muted">${k.problems.length} 题</span></h2><div class="plist kp-plist">${k.problems.map((p, i) => `<a class="prow st-${p.status}" href="#/problem/${enc(p.id)}">
         <span class="pst" title="${ST[p.status][1]}">${ST[p.status][0]}</span><span>${esc(p.label)}</span>${p.weight >= 1 ? '<span class="tag">主考点</span>' : ''}<span class="go">›</span></a>`).join('')}</div>${k.problems.length > 12 ? `<button class="btn" style="margin-top:8px" id="kp-more">显示全部 ${k.problems.length} 题</button>` : ''}</div>` : ''}
@@ -759,7 +758,7 @@ async function renderProblem(id) {
         ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">▶ 互动解析${p.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
         <div class="section-label">考点</div>${typeChips(p.types)}${kpCards(p.kps)}
         <div class="row" style="margin-top:14px"><button class="btn" id="try">再做一次</button></div>
-      </div>` : `<div class="card feature"><div><h2>还没做过这道题</h2><p class="small muted">先自己做，做完再看答案、解题思路和互动解析。</p></div><button class="btn primary" id="try">做这道题</button></div>`}
+      </div>` : `<div class="card feature"><div><h2>还没做过这道题</h2></div><button class="btn primary" id="try">做这道题</button></div>`}
   </div>`;
   typeset($app);
   bindKpCards($app);
@@ -816,14 +815,14 @@ async function renderMistakes() {
     const rsum = rs.reduce((a, r) => a + r.n, 0);
     $app.innerHTML = `${topnav()}<div class="page">
       <h1>${esc(d.student.nickname)} 的错题本</h1>
-      <p class="small muted">所有考试里做错或没做的题都收在这里，不分考试。每道题挂在它考的知识项上，错题越多的知识项在<a href="#/graph">知识图谱</a>里越偏灰。</p>
+      
       ${all.length ? `<div class="card row ms-filters">
         <label>考试 <select id="f-fam"><option value="">全部</option>${fams.filter((f) => all.some((m) => famOf(m.problem_id) === f)).map((f) => `<option value="${f.id}" ${msFam === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
         <label>知识项 <select id="f-kp"><option value="">全部</option>${Object.values(kps).sort((a, b) => b.n - a.n).map((k) => `<option value="${k.id}" ${msKp === k.id ? 'selected' : ''}>${esc(k.name)}（${k.n}）</option>`).join('')}</select></label>
         ${msKp ? `<a class="small" href="#/graph/${enc(msKp)}">在图谱里看这个知识项 ›</a>` : ''}
       </div>` : ''}
       ${mistakeCard(list, RN)}
-      ${rsum ? `<div class="card"><h2>错因</h2><p class="small muted">交卷后在复盘页标的错因。“不会”多说明要回到知识项补，“粗心”多说明要练审题和验算。</p>
+      ${rsum ? `<div class="card"><h2>错因</h2>
         <div class="mods">${rs.sort((a, b) => b.n - a.n).map((r) => `<div class="mrow"><span>${r.error_reason ? RN[r.error_reason] : '没标'}</span><span class="mbar"><i style="width:${(r.n / rsum) * 100}%"></i></span><span class="num">${r.n} 题</span></div>`).join('')}</div></div>` : ''}
     </div>`;
     bindMistakes(list);
@@ -840,7 +839,7 @@ function mistakeCard(list, reasonName) {
   const tabs = [['todo', `要做的 ${todo.length}`], ['pending', `待订正 ${n('pending')}`], ['due', `该复习 ${n('due')}`], ['fixed', `已订正 ${n('fixed')}`], ['mastered', `已掌握 ${n('mastered')}`], ['all', `全部 ${list.length}`]];
   const shown = msFilter === 'all' ? list : msFilter === 'todo' ? todo : list.filter((m) => m.status === msFilter);
   return `<div class="card" id="mistakes">
-    <p class="small muted">回顾分三步：先<b>订正</b>（看解析后重做对），一周后再<b>复习</b>一次，又做对就算<b>掌握</b>。</p>
+    
     <div class="ms-actions">
       ${n('pending') ? `<button class="btn primary" data-ms-go="pending">订正错题（${Math.min(n('pending'), BATCH)} 题）</button>` : ''}
       ${n('due') ? `<button class="btn primary" data-ms-go="due">复习到期的错题（${Math.min(n('due'), BATCH)} 题）</button>` : ''}
