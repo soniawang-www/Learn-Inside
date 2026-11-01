@@ -144,10 +144,14 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   const log = (env, accountId, action, detail) =>
     env.DB.prepare('INSERT INTO admin_log (account_id, action, detail, created_at) VALUES (?, ?, ?, ?)')
       .bind(accountId, action, typeof detail === 'string' ? detail : JSON.stringify(detail ?? null), now()).run();
+  // 在线支付单笔上限（元），超过的套餐先不开放在线支付；PAY_MAX_AMOUNT 可改，默认 50
+  const payMax = (env) => (env.PAY_MAX_AMOUNT && Number(env.PAY_MAX_AMOUNT) > 0 ? Number(env.PAY_MAX_AMOUNT) : 50);
   // 价格：PRICE_<科目>_<周期>，比如 PRICE_MATH_MONTH、PRICE_ALL_YEAR（元）
   const plansOf = (env) => SCOPES.filter((sc) => sc.live).flatMap((sc) => PERIODS.map((p) => {
     const v = env[`PRICE_${sc.id.toUpperCase()}_${p.id.toUpperCase()}`];
-    return { id: `${sc.id}.${p.id}`, scope: sc.id, scope_name: sc.name, name: `${sc.name}${p.name}`, period: p.name, days: p.days, price: v ? Number(v) : null };
+    const price = v ? Number(v) : null;
+    return { id: `${sc.id}.${p.id}`, scope: sc.id, scope_name: sc.name, name: `${sc.name}${p.name}`, period: p.name, days: p.days, price,
+      online: price !== null && price <= payMax(env) }; // 超过上限的套餐暂不支持在线支付（可用激活码）
   }));
 
   // ───────── 登录 ─────────
@@ -284,6 +288,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const { plan, from = 'math' } = await body(req);
     const pl = plansOf(env).find((x) => x.id === plan);
     if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');
+    if (!pl.online) throw new HttpError(400, '这个套餐暂不支持在线支付，请联系客服购买激活码');
     const back = SUBJECTS.includes(from) ? from : 'math'; // 付完回到哪个科目的页面
     const id = 'M' + new Date(now() + 8 * 3600000).toISOString().slice(0, 10).replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     const order = { id, plan: pl.id, tier: pl.scope, days: pl.days, amount: money(pl.price) };

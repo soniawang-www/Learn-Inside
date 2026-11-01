@@ -256,7 +256,7 @@ async function renderAccount() {
       ${a.free_mode ? '' : a.guest ? '<p>注册账号就送 <b>10</b> 次免费次数。</p>' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
         <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
-        ${a.pay_ready && p.price ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : ''}</div>`).join('')}</div>`).join('')}
+        ${a.pay_ready && p.price ? (p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付">暂不支持 · 找客服</button>') : ''}</div>`).join('')}</div>`).join('')}
       
       ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
     </div>

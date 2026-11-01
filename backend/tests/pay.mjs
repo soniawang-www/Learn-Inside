@@ -1,6 +1,6 @@
 // 在线支付测试：用自己生成的两对密钥模拟“应用”和“支付宝”，外加一个假的支付宝网关（只回答订单查询）
 // 准备：node keys.mjs 生成 keys.json；node mockgw.mjs 起假网关（8799）；wrangler dev 带上
-//   ALIPAY_APP_ID / ALIPAY_PRIVATE_KEY（应用私钥）/ ALIPAY_PUBLIC_KEY（“支付宝”公钥）/ ALIPAY_GATEWAY / PRICE_*
+//   PAY_MAX_AMOUNT:100、ALIPAY_APP_ID / ALIPAY_PRIVATE_KEY（应用私钥）/ ALIPAY_PUBLIC_KEY（“支付宝”公钥）/ ALIPAY_GATEWAY / PRICE_*
 //   node backend/tests/pay.mjs http://127.0.0.1:8788 /tmp/paytest
 import { createSign, createVerify } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -33,7 +33,7 @@ ok(v.verify(K.appPub, q.sign, 'base64'), '收银台地址用应用私钥 RSA2 �
 const biz = JSON.parse(q.biz_content);
 ok(q.method === 'alipay.trade.page.pay' && biz.total_amount === '39.00' && biz.product_code === 'FAST_INSTANT_TRADE_PAY' && biz.out_trade_no === c1.data.order_id, '电脑：page.pay，金额 39.00');
 ok(!('notify_url' in q) && q.return_url.includes('/api/pay/return?o=') && q.return_url.endsWith('&f=math'), '本地 http 不传 notify_url（上线是 https 才传），跳回地址是全站的');
-const m = await call('/math/api/pay/create', 'POST', { plan: 'math.year', mobile: true }, T);
+const m = await call('/math/api/pay/create', 'POST', { plan: 'math.quarter', mobile: true }, T);
 const mq = Object.fromEntries(new URL(m.data.url).searchParams);
 ok(mq.method === 'alipay.trade.page.pay' && JSON.parse(mq.biz_content).product_code === 'FAST_INSTANT_TRADE_PAY', '手机浏览器也用 page.pay（AI 网页应用收款只签了这个接口）');
 ok((await call('/math/api/pay/create', 'POST', { plan: 'nope' }, T)).status === 400, '不存在的套餐被拒');
@@ -69,7 +69,8 @@ ok((await call(`/math/api/pay/orders/${c3.data.order_id}`, 'GET', null, T)).data
 const ret = await call(`/math/api/pay/return?o=${c1.data.order_id}&trade_no=T001`);
 ok(ret.status === 302 && ret.headers.get('location').endsWith(`/math/#/account/paid/${c1.data.order_id}`), '付完跳回网页结果页');
 const ca = await call('/api/pay/create', 'POST', { plan: 'all.year' }, T);
-ok(ca.status === 200 && JSON.parse(new URL(ca.data.url).searchParams.get('biz_content')).total_amount === '599.00', '全科年卡 599');
+ok(ca.status === 400 && acc.data.plans.find((p) => p.id === 'all.year').online === false, '超过上限（测试设 PAY_MAX_AMOUNT=100）的全科年卡 599 暂不支持在线支付');
+ok(acc.data.plans.find((p) => p.id === 'math.month').online === true, '上限以内的数学月卡 39 可以在线支付');
 const other = await call('/math/api/auth/register', 'POST', { phone: '136' + String(Date.now()).slice(-8), password: 'pay123', nickname: '别人' });
 ok((await call(`/math/api/pay/orders/${c1.data.order_id}`, 'GET', null, other.data.token)).status === 404, '看不到别人的订单');
 const orders = await call('/math/api/admin/orders', 'GET', null, null, true);

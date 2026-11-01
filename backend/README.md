@@ -156,6 +156,7 @@ AI 网页应用收款只签约 `alipay.trade.page.pay`，电脑和手机浏览�
 | `ALIPAY_SELLER_ID` | 变量，可选 | 收款支付宝账号的 2088 开头 PID，用来多核对一项 |
 | `ALIPAY_GATEWAY` | 变量，可选 | 默认正式环境 `https://openapi.alipay.com/gateway.do`；沙箱填 `https://openapi-sandbox.dl.alipaydev.com/gateway.do` |
 | `PRICE_<MATH/ALL/CHINESE>_<MONTH/QUARTER/YEAR>` | 变量 | 价格（元），没设的显示“价格待定” |
+| `PAY_MAX_AMOUNT` | 变量，可选 | 在线支付单笔上限（元），默认 50；超过的套餐显示「暂不支持 · 找客服」，只能用激活码 |
 
 （旧写法 `ALIPAY_APP_ID` / `ALIPAY_PRIVATE_KEY` / `ALIPAY_PUBLIC_KEY`（支付宝公钥）也认。）
 `wrangler.jsonc` 里有 `keep_vars: true`，推送部署不会冲掉控制台里加的变量。
