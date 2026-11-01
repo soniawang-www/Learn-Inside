@@ -51,7 +51,8 @@ amc8-src/tests/e2e.mjs   端到端测试
 | `stem_zh` / `choices_zh` | 中文题干 / 选项（可选），考试页可切换 English / 中文 / 双语 |
 | `figure` | 内联 SVG（用 `currentColor` 适配深色模式），或图片 URL |
 | `answer` | A–E |
-| `kps` | `{知识点id: 权重}`，主考点 1.0，辅助 0.3~0.5 |
+| `kps` | `{知识项id: 权重}`，主考点 1.0，辅助 0.5；画像、考情、错题都按知识项统计 |
+| `types` | 题型 `[{id, name, w}]`（可选），复盘页和错题本显示 |
 | `hints` | 最多 3 级，由浅到深 |
 | `basic` | 解题思路（免费） |
 | `advanced` | 互动解析（付费）：`{title, steps}`，步骤类型见下；或用 `advanced_url` 指向独立互动页 |
@@ -76,9 +77,15 @@ amc8-src/tests/e2e.mjs   端到端测试
 | `grid` | 方格路线：看路线 / `mode: 'draw'` 自己画 |
 | `sim` | 动手组件：`sim: 名字` + 参数，`goal: true` 时等孩子完成；组件列表见 `sims.js` 末尾的 `SIMS` |
 
-## 知识点内容
+## 知识体系
 
-知识点课（`lesson`）和识别信号（`signals`）放在私有仓库 `amc8-data/knowledge/points.json`，在 admin.html 和试卷一起导入（先导入知识点）。公开仓库的 `knowledge.json` 只放名称、一句话说明和识别信号。
+模块（8 个）→ 知识项（30 个，备考和统计的单位）→ 题型。知识项之间的前置关系在 `kp_edge`，画像里知识项薄弱且它的前置也薄弱时，提示先补前置。
+
+私有仓库 `amc8-data/knowledge/units.json` 是完整的知识项体系（由 `build_units.py` 生成），在 admin.html 导入时会整体替换前置关系、删除不在里面的旧知识点，并重算所有学生的画像。试卷的 `kps`/`types` 由 `amc8-data/tools/retag.py` 按 `knowledge/tags_amc8.txt` 生成。
+
+### 知识项内容
+
+识别信号（`signals`）和以后的知识项课（`lesson`）放在 `units.json` 里。公开仓库的 `knowledge.json` 是同一套体系的副本，供本地建库和示例卷用。
 
 ## 设计要点
 

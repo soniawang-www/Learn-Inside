@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS problem (
   answer       TEXT NOT NULL,                 -- 'A'..'E'
   difficulty   REAL,                          -- 校准后难度；NULL 时按题号推算
   reviewed     INTEGER NOT NULL DEFAULT 0,    -- 人工审核过才上线
+  types        TEXT,                          -- 题型 JSON [{id, name, w}]（考点 problem_kp 记到知识项一级）
   UNIQUE (exam_id, number)
 );
 
@@ -84,7 +85,8 @@ CREATE TABLE IF NOT EXISTS knowledge_point (
   summary     TEXT,                           -- 一句话说明（免费可见）
   content     TEXT,                           -- 讲解正文 Markdown（受 tier 保护）
   signals     TEXT,                           -- 识别信号 JSON [{see, think}]：看到什么 → 想到这个考点（免费可见）
-  lesson      TEXT                            -- 知识点互动课 JSON（播放器步骤，受 tier 保护）
+  lesson      TEXT,                           -- 知识点互动课 JSON（播放器步骤，受 tier 保护）
+  types       TEXT                            -- 知识项下的题型 JSON [{id, name}]
 );
 
 CREATE TABLE IF NOT EXISTS kp_edge (           -- from 是 to 的前置

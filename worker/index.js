@@ -1,6 +1,7 @@
 // AMC 8 模拟考 · Cloudflare Worker API（挂在 Learn-Inside 站点的 /amc8/ 下）
 // wrangler.jsonc 里 run_worker_first 只包含 /amc8/api/*，其余请求不经过这里，直接出静态文件。
 import { recomputeMastery, displayMastery } from './mastery.js';
+const parseJ = (v, d = null) => { try { return v ? JSON.parse(v) : d; } catch { return d; } };
 import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 
@@ -124,10 +125,10 @@ route('POST', '/api/sessions', async (req, env) => {
     let ids, title;
     if (kp_id) {
       const kp = await env.DB.prepare('SELECT id, name FROM knowledge_point WHERE id = ?').bind(kp_id).first();
-      if (!kp) throw new HttpError(404, '知识点不存在');
-      if (!(await hasTier(env, acc, 'premium'))) throw new HttpError(402, '知识点突击是会员功能');
+      if (!kp) throw new HttpError(404, '知识项不存在');
+      if (!(await hasTier(env, acc, 'premium'))) throw new HttpError(402, '知识项突击是会员功能');
       ids = await drillProblemIds(env, kp_id);
-      title = `知识点突击 · ${kp.name}`;
+      title = `知识项突击 · ${kp.name}`;
     } else {
       if (!Array.isArray(problem_ids) || !problem_ids.length || problem_ids.length > 30) throw new HttpError(400, 'problem_ids 不合法');
       const { results } = await env.DB
@@ -299,7 +300,7 @@ async function reviewPayload(env, acc, sessionId) {
   const premium = await hasTier(env, acc, 'premium');
   const { results: rows } = await env.DB
     .prepare(
-      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer,
+      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types,
               ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason,
               sb.content AS basic,
               sa.tier AS adv_tier, e.title AS exam_title
@@ -325,6 +326,7 @@ async function reviewPayload(env, acc, sessionId) {
       basic: r.basic,
       advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || premium) } : null,
       kps: kpByProblem[r.id] || [],
+      types: parseJ(r.types, []),
     })),
   };
 }
@@ -385,6 +387,7 @@ route('GET', '/api/problems/:id', async (req, env, p, url) => {
     problem_id: pr.id, number: pr.number, label: `${pr.exam_title} 第 ${pr.number} 题`, exam_title: pr.exam_title,
     stem: pr.stem, stem_zh: pr.stem_zh, figure: pr.figure, choices: JSON.parse(pr.choices), choices_zh: pr.choices_zh ? JSON.parse(pr.choices_zh) : null,
     kps: (await kpTags(env, acc, [pr.id]))[pr.id] || [],
+    types: parseJ(pr.types, []),
     attempted: !!last, last,
   };
   if (last) {
@@ -406,10 +409,14 @@ route('GET', '/api/kp', async (req, env) => {
 route('GET', '/api/kp/:id', async (req, env, p, url) => {
   const acc = await requireAccount(req, env);
   const kp = await env.DB.prepare('SELECT * FROM knowledge_point WHERE id = ?').bind(p.id).first();
-  if (!kp) throw new HttpError(404, '知识点不存在');
+  if (!kp) throw new HttpError(404, '知识项不存在');
   const unlocked = await hasTier(env, acc, kp.tier);
   const { results: prereq } = await env.DB
     .prepare('SELECT k.id, k.name FROM kp_edge e JOIN knowledge_point k ON k.id = e.from_kp WHERE e.to_kp = ?')
+    .bind(kp.id)
+    .all();
+  const { results: nexts } = await env.DB
+    .prepare('SELECT k.id, k.name FROM kp_edge e JOIN knowledge_point k ON k.id = e.to_kp WHERE e.from_kp = ?')
     .bind(kp.id)
     .all();
   const studentId = url.searchParams.get('student');
@@ -435,10 +442,11 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     has_lesson: !!(kp.lesson || kp.content),
     locked: !unlocked, content: unlocked ? kp.content : null, lesson: unlocked && kp.lesson ? JSON.parse(kp.lesson) : null,
     drill: { count: problems.filter((x) => x.weight >= 0.5).length, locked: !premium },
-    prerequisites: prereq,
+    prerequisites: prereq, dependents: nexts, types: parseJ(kp.types, []),
     problems: problems.map((x) => ({ ...x, label: `${x.exam_title} 第 ${x.number} 题`, status: x.last_correct === null ? 'todo' : x.last_correct ? 'right' : 'wrong' })),
     mastery,
     stats: (await kpStats(env)).kps[kp.id] || null, exam_years: (await kpStats(env)).years,
+    type_stats: (await kpStats(env)).types,
   });
 });
 
@@ -476,6 +484,18 @@ async function kpStats(env) {
       per_year: perYear, per_num: perNum,
     };
   }
+  // 题型：每个题型考过几届、平均每届几题
+  const { results: tp } = await env.DB
+    .prepare(`SELECT p.types, e.year FROM problem p JOIN exam e ON e.id = p.exam_id
+               WHERE e.published = 1 AND e.source = 'official' AND e.year IS NOT NULL AND p.types IS NOT NULL`)
+    .all();
+  const tacc = {};
+  for (const r of tp) for (const t of parseJ(r.types, [])) {
+    if (t.w < 0.5) continue;
+    const a = (tacc[t.id] ||= { n: 0, ys: new Set() }); a.n++; a.ys.add(r.year);
+  }
+  data.types = Object.fromEntries(Object.entries(tacc).map(([k, a]) => [k, {
+    total: a.n, per_exam: Math.round((a.n / years.length) * 100) / 100, rate: Math.round((a.ys.size / years.length) * 100) }]));
   statsCache = { at: now(), data };
   return data;
 }
@@ -510,7 +530,10 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
   const points = m
     .map((r) => ({ id: r.kp_id, name: r.name, group: r.parent_name, evidence: Math.round(r.evidence * 10) / 10, ...displayMastery(r.rating, r.evidence), stats: stats.kps[r.kp_id] || null }))
     .sort((a, b) => a.score - b.score);
-  return json({ student: { id: st.id, nickname: st.nickname }, points, sessions, error_reasons: reasons, mistakes: await mistakeBook(env, st.id) });
+  const { results: edges } = await env.DB
+    .prepare('SELECT e.from_kp AS pre, e.to_kp AS kp, k.name AS pre_name FROM kp_edge e JOIN knowledge_point k ON k.id = e.from_kp')
+    .all();
+  return json({ student: { id: st.id, nickname: st.nickname }, points, edges, sessions, error_reasons: reasons, mistakes: await mistakeBook(env, st.id) });
 });
 
 // 错题本：做错过（含未作答）的题，按最近一次错误后的表现分阶段
@@ -522,7 +545,7 @@ const REVIEW_DAYS = 7;
 async function mistakeBook(env, studentId) {
   const { results: rows } = await env.DB
     .prepare(
-      `SELECT ae.problem_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, e.title AS exam_title, e.year
+      `SELECT ae.problem_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, p.types, e.title AS exam_title, e.year
          FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id JOIN exam e ON e.id = p.exam_id
         WHERE ae.student_id = ? AND ae.problem_id IN (SELECT problem_id FROM attempt_event WHERE student_id = ? AND correct = 0)
         ORDER BY ae.created_at, ae.id`
@@ -531,7 +554,8 @@ async function mistakeBook(env, studentId) {
     .all();
   const by = new Map();
   for (const r of rows) {
-    const m = by.get(r.problem_id) || { problem_id: r.problem_id, label: labelOf(r), year: r.year, number: r.number, wrong_n: 0, right_since: 0 };
+    const m = by.get(r.problem_id) || { problem_id: r.problem_id, label: labelOf(r), year: r.year, number: r.number, wrong_n: 0, right_since: 0,
+      types: parseJ(r.types, []).filter((t) => t.w >= 1).map((t) => t.name) };
     if (r.correct) m.right_since++;
     else { m.wrong_n++; m.right_since = 0; m.last_wrong_at = r.created_at; m.last_choice = r.choice; if (r.error_reason) m.reason = r.error_reason; }
     m.last_at = r.created_at;
@@ -583,17 +607,25 @@ route('POST', '/api/admin/import', async (req, env) => {
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
   const payload = await body(req);
   // 支持：{ exams: [...], knowledge: { points: [...] } }，也支持直接传一套试卷或一个知识点文件
-  let exams = [], points = [];
+  let exams = [], points = [], edges = null, prune = false;
   if (Array.isArray(payload)) exams = payload;
   else {
     if (payload.exams) exams = payload.exams;
     else if (payload.problems) exams = [payload];
     if (payload.knowledge?.points) points = payload.knowledge.points;
     else if (payload.points) points = payload.points;
+    edges = payload.knowledge?.edges ?? payload.edges ?? null;
+    prune = !!(payload.knowledge?.prune ?? payload.prune);
   }
   try {
-    const result = await importContent(env.DB, { schema: SCHEMA, exams, points });
+    const result = await importContent(env.DB, { schema: SCHEMA, exams, points, edges, prune });
     statsCache = null;
+    // 考点或知识体系变了：所有学生的画像按新的考点重算
+    if (points.length || exams.length) {
+      const { results: sts } = await env.DB.prepare('SELECT DISTINCT student_id AS id FROM attempt_event').all();
+      for (const st of sts) await recomputeMastery(env.DB, st.id);
+      result.recomputed = sts.length;
+    }
     return json({ ok: true, ...result });
   } catch (e) {
     throw new HttpError(400, e.message);

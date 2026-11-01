@@ -11,6 +11,7 @@ export function buildRows(knowledge, exams) {
       amc_ext: p.amc_ext ? 1 : 0, sort: p.sort ?? i,
       tier: p.tier ?? 'premium', summary: p.summary ?? null, content: p.content ?? null,
       signals: p.signals ? JSON.stringify(p.signals) : null, lesson: p.lesson ? JSON.stringify(p.lesson) : null,
+      types: p.types ? JSON.stringify(p.types) : null,
     }]);
   });
   for (const [from, to] of knowledge.edges) rows.push(['kp_edge', { from_kp: from, to_kp: to }]);
@@ -23,7 +24,7 @@ export function buildRows(knowledge, exams) {
       rows.push(['problem', {
         id: pid, exam_id: ex.id, number: p.number, stem: p.stem, stem_zh: p.stem_zh ?? null, figure: p.figure ?? null,
         choices: JSON.stringify(p.choices), choices_zh: p.choices_zh ? JSON.stringify(p.choices_zh) : null, answer: p.answer, difficulty: p.difficulty ?? null,
-        reviewed: p.reviewed === false ? 0 : 1,
+        reviewed: p.reviewed === false ? 0 : 1, types: p.types ? JSON.stringify(p.types) : null,
       }]);
       (p.hints ?? []).forEach((h, i) => rows.push(['hint', { problem_id: pid, level: i + 1, content: h }]));
       if (p.basic) rows.push(['solution', { id: `${pid}-basic`, problem_id: pid, kind: 'basic', tier: 'free', content: p.basic, url: null }]);
@@ -66,6 +67,7 @@ function upsertSql(table, obj) {
 const MIGRATIONS = [
   'ALTER TABLE problem ADD COLUMN stem_zh TEXT', 'ALTER TABLE problem ADD COLUMN choices_zh TEXT',
   'ALTER TABLE knowledge_point ADD COLUMN signals TEXT', 'ALTER TABLE knowledge_point ADD COLUMN lesson TEXT',
+  'ALTER TABLE knowledge_point ADD COLUMN types TEXT', 'ALTER TABLE problem ADD COLUMN types TEXT',
   'ALTER TABLE exam_session ADD COLUMN title TEXT', 'ALTER TABLE exam_session ADD COLUMN kp_id TEXT',
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
@@ -96,7 +98,7 @@ async function writeRows(db, rows) {
   for (let i = 0; i < stmts.length; i += 80) await db.batch(stmts.slice(i, i + 80));
 }
 
-const KP_FIELDS = ['parent_id', 'name', 'amc_ext', 'sort', 'tier', 'summary', 'content', 'signals', 'lesson'];
+const KP_FIELDS = ['parent_id', 'name', 'amc_ext', 'sort', 'tier', 'summary', 'content', 'signals', 'lesson', 'types'];
 
 /** 知识点部分更新：只改 JSON 里出现的字段；不存在的知识点会新建（需要 name） */
 async function upsertPoints(db, points) {
@@ -107,7 +109,7 @@ async function upsertPoints(db, points) {
     if ('parent' in p) row.parent_id = p.parent;
     for (const f of KP_FIELDS) if (f in p && f !== 'parent_id') row[f] = p[f];
     if ('amc_ext' in row) row.amc_ext = row.amc_ext ? 1 : 0;
-    for (const f of ['signals', 'lesson']) if (f in row && row[f] !== null && typeof row[f] !== 'string') row[f] = JSON.stringify(row[f]);
+    for (const f of ['signals', 'lesson', 'types']) if (f in row && row[f] !== null && typeof row[f] !== 'string') row[f] = JSON.stringify(row[f]);
     const ins = { name: p.name ?? p.id, ...row };
     const cols = Object.keys(ins);
     const upd = Object.keys(row).filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`);
@@ -119,9 +121,31 @@ async function upsertPoints(db, points) {
 }
 
 /** 导入试卷和 / 或知识点（知识点课程等付费内容放私有仓库，从这里导入） */
-export async function importContent(db, { schema, exams = [], points = [] }) {
+export async function importContent(db, { schema, exams = [], points = [], edges = null, prune = false }) {
   await ensureSchema(db, schema);
   if (points.length) await upsertPoints(db, points);
+  // 前置关系：给了 edges 就整体替换
+  if (Array.isArray(edges)) {
+    await db.prepare('DELETE FROM kp_edge').run();
+    const st = edges.map(([a, b]) => db.prepare('INSERT OR IGNORE INTO kp_edge (from_kp, to_kp) VALUES (?, ?)').bind(a, b));
+    for (let i = 0; i < st.length; i += 80) await db.batch(st.slice(i, i + 80));
+  }
+  // 换知识体系时删掉不在新图谱里的旧知识点（连同引用它们的考点、前置、掌握度；作答记录不受影响）
+  let pruned = 0;
+  if (prune && points.length) {
+    const keep = points.map((p) => p.id);
+    const notIn = `NOT IN (${keep.map(() => '?').join(',')})`;
+    await db.batch([
+      db.prepare(`DELETE FROM problem_kp WHERE kp_id ${notIn}`).bind(...keep),
+      db.prepare(`DELETE FROM mastery WHERE kp_id ${notIn}`).bind(...keep),
+      db.prepare(`DELETE FROM kp_edge WHERE from_kp ${notIn} OR to_kp ${notIn}`).bind(...keep, ...keep),
+    ]);
+    for (let round = 0; round < 5; round++) { // 先删叶子再删父节点
+      const r = await db.prepare(`DELETE FROM knowledge_point WHERE id ${notIn} AND id NOT IN (SELECT parent_id FROM knowledge_point WHERE parent_id IS NOT NULL)`).bind(...keep).run();
+      pruned += r.meta?.changes ?? 0;
+      if (!(r.meta?.changes)) break;
+    }
+  }
   const { results } = await db.prepare('SELECT id FROM knowledge_point').all();
   const knowledge = { points: results.map((r) => ({ id: r.id, name: r.id })), edges: [] }; // 只用来校验题目的考点 id
   const rows = buildRows(knowledge, exams).filter(([t]) => t !== 'knowledge_point' && t !== 'kp_edge');
@@ -131,7 +155,7 @@ export async function importContent(db, { schema, exams = [], points = [] }) {
       db.prepare(`DELETE FROM ${t} WHERE problem_id IN (SELECT id FROM problem WHERE exam_id = ?)`).bind(ex.id)));
   }
   await writeRows(db, rows);
-  return { rows: rows.length, points: points.length, exams: exams.map((e) => `${e.id}（${e.problems.length} 题）`) };
+  return { rows: rows.length, points: points.length, edges: Array.isArray(edges) ? edges.length : undefined, pruned, exams: exams.map((e) => `${e.id}（${e.problems.length} 题）`) };
 }
 
 /** 在 D1 上建表并写入题库（可重复执行） */

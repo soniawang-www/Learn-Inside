@@ -379,6 +379,7 @@ async function renderReview(sid) {
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
         ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button> <span class="small muted">会员 · 一步步跟着做</span></div>` : ''}
         <div class="section-label">考点</div>
+        ${typeChips(it.types)}
         ${kpCards(it.kps)}
       </div></details>`;
   }
@@ -394,7 +395,10 @@ async function renderReview(sid) {
   $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
 }
 
-// ───────── 考点卡：识别信号（免费）+ 学知识点 / 真题突击（会员） ─────────
+// 题型：一道题属于哪几个题型（主题型加粗）
+const typeChips = (types) => (types?.length ? `<div class="type-chips"><span class="small muted">题型：</span>${types.map((t) => `<span class="tag ${t.w >= 1 ? 'main' : ''}">${esc(t.name)}</span>`).join('')}</div>` : '');
+
+// ───────── 考点卡：识别信号（免费）+ 知识项 / 真题突击（会员） ─────────
 const enc = encodeURIComponent;
 function kpCards(kps) {
   if (!kps?.length) return '';
@@ -413,7 +417,7 @@ function bindKpCards(root) {
 }
 async function startDrill(kpId) {
   const r = await api('/amc8/api/sessions', { method: 'POST', body: { kp_id: kpId, student_id: auth.student.id } });
-  if (r.status === 402) return modal(lockedPanel('知识点突击是会员功能'));
+  if (r.status === 402) return modal(lockedPanel('知识项突击是会员功能'));
   location.hash = `#/exam/${r.session.id}`;
 }
 
@@ -469,7 +473,7 @@ function statCard(st, years) {
   </div>`;
 }
 
-// ───────── 知识点 ─────────
+// ───────── 知识项 ─────────
 async function renderKp(id) {
   const k = await api(`/amc8/api/kp/${enc(id)}?student=${auth.student.id}`);
   const ST = { right: ['✓', '做对了'], wrong: ['✗', '做错了'], todo: ['○', '还没做'] };
@@ -479,12 +483,15 @@ async function renderKp(id) {
     <div class="card">
       <p>${rich(k.summary || '')}</p>
       ${k.mastery ? `<p class="small muted">当前掌握度：<b>${k.mastery.label}</b>（${k.mastery.score}）</p>` : ''}
-      ${k.prerequisites.length ? `<p class="small muted">前置知识：${k.prerequisites.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
+      ${k.prerequisites.length ? `<p class="small muted">前置知识项：${k.prerequisites.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
+      ${k.dependents?.length ? `<p class="small muted">后续知识项：${k.dependents.map((p) => `<a href="#/kp/${enc(p.id)}">${esc(p.name)}</a>`).join('、')}</p>` : ''}
     </div>
     ${statCard(k.stats, k.exam_years || [])}
-    ${k.signals.length ? `<div class="card"><h2>怎么认出这个考点</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
+    ${k.types?.length ? `<div class="card"><h2>题型</h2><p class="small muted">这个知识项包含的题型，右边是 AMC 8 历年考过的次数。</p><div class="plist">${k.types.map((t) => { const s = k.type_stats?.[t.id];
+        return `<div class="prow"><span>${esc(t.name)}</span><span class="tmeta num">${s ? `${s.total} 次 · ${s.rate}% 年份` : '未考'}</span></div>`; }).join('')}</div></div>` : ''}
+    ${k.signals.length ? `<div class="card"><h2>怎么认出这个知识项</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
     <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
-      <p class="small muted">${k.drill.count ? `把考这个知识点的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识点的真题。'}</p></div>
+      <p class="small muted">${k.drill.count ? `把考这个知识项的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识项的真题。'}</p></div>
       ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>` : ''}</div>
     ${k.problems.length ? `<div class="card"><h2>相关真题</h2><div class="plist">${k.problems.map((p) => `<a class="prow st-${p.status}" href="#/problem/${enc(p.id)}">
         <span class="pst" title="${ST[p.status][1]}">${ST[p.status][0]}</span><span>${esc(p.label)}</span>${p.weight >= 1 ? '<span class="tag">主考点</span>' : ''}<span class="go">›</span></a>`).join('')}</div></div>` : ''}
@@ -493,7 +500,7 @@ async function renderKp(id) {
   bindKpCards($app);
 }
 
-// ───────── 单题页（从知识点页「相关真题」进入） ─────────
+// ───────── 单题页（从知识项页「相关真题」进入） ─────────
 async function renderProblem(id) {
   const p = await api(`/amc8/api/problems/${enc(id)}?student=${auth.student.id}`);
   const done = p.attempted;
@@ -508,7 +515,7 @@ async function renderProblem(id) {
         <p>${p.last.correct ? '✓ 上次做对了' : `✗ 上次${p.last.choice ? `选了 ${p.last.choice}` : '没作答'}，正确答案 <b>${p.answer}</b>`}</p>
         ${p.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(p.basic)}</div>` : ''}
         ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">▶ 互动解析${p.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
-        <div class="section-label">考点</div>${kpCards(p.kps)}
+        <div class="section-label">考点</div>${typeChips(p.types)}${kpCards(p.kps)}
         <div class="row" style="margin-top:14px"><button class="btn" id="try">再做一次</button></div>
       </div>` : `<div class="card feature"><div><h2>还没做过这道题</h2><p class="small muted">先自己做，做完再看答案、解题思路和互动解析。</p></div><button class="btn primary" id="try">做这道题</button></div>`}
   </div>`;
@@ -529,7 +536,7 @@ async function renderProfile() {
   const totalWrong = r.error_reasons.reduce((a, x) => a + x.n, 0);
   $app.innerHTML = `${topnav()}<div class="page">
     <h1>${esc(r.student.nickname)} 的学习画像</h1>
-    ${kpCard(r.points, r.mistakes || [], reasonName)}
+    ${kpCard(r.points, r.mistakes || [], reasonName, r.edges || [])}
     ${mistakeCard(r.mistakes || [], reasonName)}
     ${totalWrong ? `<div class="card"><h2>错因分布</h2><div class="chips">${r.error_reasons.map((x) => `<span class="chip">${x.error_reason ? reasonName[x.error_reason] : '未标注'} ${x.n}</span>`).join('')}</div></div>` : ''}
     <div class="card"><h2>考试记录</h2>
@@ -557,7 +564,7 @@ function msRow(m, reasonName) {
   return `<a class="prow ms-row ms-${m.status}" href="#/problem/${encodeURIComponent(m.problem_id)}">
         <span class="ms-dot" title="${MS[m.status][1]}"></span>
         <span class="ms-main"><span>${esc(m.label)}</span>
-          <span class="small muted">${prim(m).map((k) => esc(k.name)).join('、')}${prim(m).length ? ' · ' : ''}错 ${m.wrong_n} 次 · ${fmtDate(m.last_wrong_at)}</span></span>
+          <span class="small muted">${(m.types?.length ? m.types : prim(m).map((k) => k.name)).map(esc).join('、')} · 错 ${m.wrong_n} 次 · ${fmtDate(m.last_wrong_at)}</span></span>
         <span class="ms-tags">${m.reason ? `<span class="tag">${reasonName[m.reason]}</span>` : m.last_choice === null ? '<span class="tag">未作答</span>' : ''}
           <span class="tag ms-st">${MS[m.status][0]}${m.status === 'fixed' ? ` · ${days(m.review_at)} 天后复习` : ''}</span></span>
         <span class="go">›</span></a>`;
@@ -572,23 +579,29 @@ async function startMistakes(items, purpose, btn) {
   } catch (e) { btn.disabled = false; modal(`<h2>没能开始</h2><p>${esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
 }
 
-// ───────── 知识点掌握度：每个知识点挂上对应的错题，薄弱的原因一眼看到 ─────────
-function kpCard(points, mistakes, reasonName) {
-  if (!points.length) return '<div class="card"><h2>知识点掌握度</h2><p class="muted">还没有数据，先做一套卷子吧。</p></div>';
+// ───────── 知识项掌握度：挂上错题和前置，薄弱的原因一眼看到 ─────────
+function kpCard(points, mistakes, reasonName, edges) {
+  if (!points.length) return '<div class="card"><h2>知识项掌握度</h2><p class="muted">还没有数据，先做一套卷子吧。</p></div>';
   const of = (id) => mistakes.filter((m) => m.kps.some((k) => k.id === id));
-  return `<div class="card" id="kpcard"><h2>知识点掌握度</h2>
-    <p class="small muted">从薄弱到擅长排序。证据量 = 做过的相关题目（按考点权重累加），少于 1.5 时显示“数据不足”。每行下面是这个知识点在历年真题里的考情；点「错题」看是哪些题拉低了它。</p>
+  const byId = Object.fromEntries(points.map((p) => [p.id, p]));
+  // 前置也薄弱 → 先补前置（数据不足的前置不算，避免一道错题就把整条链标红）
+  const shaky = (id) => byId[id]?.level === 'weak';
+  const roots = (id) => edges.filter((e) => e.kp === id && shaky(e.pre));
+  return `<div class="card" id="kpcard"><h2>知识项掌握度</h2>
+    <p class="small muted">从薄弱到擅长排序。证据量 = 做过的相关题目（按考点权重累加），少于 1.5 时显示“数据不足”。每行下面是这个知识项在历年真题里的考情；点「错题」看是哪些题拉低了它。如果它的前置也薄弱，会提示先补前置。</p>
     ${points.map((p) => {
       const ms = of(p.id), todo = ms.filter(isTodo);
+      const rs = (p.level === 'weak' || todo.length) ? roots(p.id) : [];
       return `<div class="kpblock" data-kp="${esc(p.id)}"><div class="kprow lv-${p.level}">
         <div><a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="small muted">${esc(p.group || '')} · 证据 ${p.evidence}</span>${priority(p, todo) ? '<span class="tag hot">高频 · 优先补</span>' : ''}
           ${p.stats ? `<div class="kp-stat">${statLine(p.stats)}</div>` : ''}
+          ${rs.length ? `<div class="kp-root">先补前置：${rs.map((e) => `<a href="#/kp/${encodeURIComponent(e.pre)}">${esc(e.pre_name)}</a>`).join('、')}</div>` : ''}
           ${ms.length ? `<button class="kp-ms ${todo.length ? 'hot' : ''}" data-kp-open aria-expanded="false">错题 ${ms.length}${todo.length ? ` · 要做 ${todo.length}` : ' · 都订正了'} <span class="caret">▾</span></button>` : ''}</div>
         <div class="bar"><div style="width:${p.score}%"></div></div>
         <div class="lv-label">${p.label}</div></div>
         ${ms.length ? `<div class="kp-ms-list" hidden>
           <div class="plist">${ms.map((m) => msRow(m, reasonName)).join('')}</div>
-          ${todo.length ? `<div class="ms-actions"><button class="btn primary" data-kp-go>订正这个知识点的错题（${Math.min(todo.length, BATCH)} 题）</button><a class="btn" href="#/kp/${encodeURIComponent(p.id)}">看知识点和相关真题</a></div>` : ''}
+          ${todo.length ? `<div class="ms-actions"><button class="btn primary" data-kp-go>订正这个知识项的错题（${Math.min(todo.length, BATCH)} 题）</button><a class="btn" href="#/kp/${encodeURIComponent(p.id)}">看知识项和相关真题</a></div>` : ''}
         </div>` : ''}</div>`;
     }).join('')}
   </div>`;
