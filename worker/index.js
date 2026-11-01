@@ -85,7 +85,7 @@ route('GET', '/api/me', async (req, env) => {
   const acc = await requireAccount(req, env);
   const { results: students } = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ? ORDER BY created_at').bind(acc.id).all();
   const ctx = await billing.accessCtx(env, acc);
-  return json({ account_id: acc.id, students, premium: ctx.member, free_mode: ctx.free, credits: ctx.credits, has_phone: !!acc.phone });
+  return json({ account_id: acc.id, students, premium: ctx.member, free_mode: ctx.free, credits: ctx.credits, has_phone: !!acc.phone, guest: !!acc.guest });
 });
 
 route('POST', '/api/students', async (req, env) => {

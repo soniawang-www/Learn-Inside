@@ -52,6 +52,7 @@ export const BILLING_MIGRATIONS = [
   'ALTER TABLE redeem_code ADD COLUMN tier TEXT',
   "UPDATE entitlement SET tier = 'math' WHERE tier = 'premium'", // 只有数学时开的会员算数学会员
   'CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)',
+  'ALTER TABLE account ADD COLUMN guest INTEGER NOT NULL DEFAULT 0',
 ];
 
 export function registerBilling({ route, json, HttpError, body, requireAccount, uid, now }) {
@@ -177,16 +178,32 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     return json({ token: acc.token, student });
   });
 
-  // 试用期的老账号（只存在浏览器里）绑定手机号，换设备也能登录
+  // 游客：不注册直接用，只存在当前浏览器；没有免费次数（注册时再送），免费样板照常能看
+  route('POST', '/api/auth/guest', async (req, env) => {
+    const { nickname = '' } = await body(req).catch(() => ({}));
+    const name = String(nickname).trim().slice(0, 20) || '同学';
+    const acc = { id: uid(), token: uid() + uid().slice(0, 8) };
+    const student = { id: uid(), nickname: name };
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO account (id, token, invite_code, created_at, credits, guest) VALUES (?, ?, NULL, ?, 0, 1)').bind(acc.id, acc.token, now()),
+      env.DB.prepare('INSERT INTO student (id, account_id, nickname, created_at) VALUES (?, ?, ?, ?)').bind(student.id, acc.id, name, now()),
+    ]);
+    return json({ token: acc.token, student, guest: true });
+  });
+
+  // 游客或试用期的老账号（只存在浏览器里）绑定手机号 = 注册，记录都保留；游客这时送免费次数
   route('POST', '/api/account/bind', async (req, env) => {
     const acc = await requireAccount(req, env);
     if (acc.phone) throw new HttpError(409, '这个账号已经绑定过手机号');
-    const { phone: p, password } = await body(req);
+    const { phone: p, password, nickname } = await body(req);
     const phone = normPhone(p);
     checkInput(phone, password);
     if (await env.DB.prepare('SELECT 1 FROM account WHERE phone = ?').bind(phone).first()) throw new HttpError(409, '这个手机号已经被别的账号用了');
-    await env.DB.prepare('UPDATE account SET phone = ?, pw_hash = ? WHERE id = ?').bind(phone, await hashPw(password), acc.id).run();
-    return json({ ok: true, phone });
+    await env.DB.prepare(`UPDATE account SET phone = ?, pw_hash = ?, guest = 0${acc.guest ? `, credits = credits + ${FREE_CREDITS}` : ''} WHERE id = ?`)
+      .bind(phone, await hashPw(password), acc.id).run();
+    const nn = String(nickname || '').trim().slice(0, 20);
+    if (nn) await env.DB.prepare('UPDATE student SET nickname = ? WHERE id = (SELECT id FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1)').bind(nn, acc.id).run();
+    return json({ ok: true, phone, credits_added: acc.guest ? FREE_CREDITS : 0 });
   });
 
   route('POST', '/api/account/password', async (req, env) => {
@@ -205,7 +222,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM unlock WHERE account_id = ?').bind(acc.id).first();
     const ms = await memberships(env, acc.id);
     return json({
-      phone: acc.phone, free_mode: ctx.free,
+      phone: acc.phone, guest: !!acc.guest, free_mode: ctx.free,
       memberships: ms, scopes: SCOPES.filter((x) => x.live || ms[x.id]).map(({ id, name }) => ({ id, name })),
       credits: ctx.credits, free_credits: FREE_CREDITS, unlocked: n.n,
       plans: plansOf(env), pay_ready: payReady(env), contact: env.PAY_CONTACT || '',

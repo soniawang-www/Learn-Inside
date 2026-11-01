@@ -904,7 +904,7 @@ body:not(.exam-mode) { background: var(--paper); }
 .mm-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 12px; align-items: start; }
 .mm-mod { font-size: 13px; color: var(--muted); padding-top: 7px; }
 .mm-tiles { display: flex; flex-wrap: wrap; gap: 6px; }
-.mm-tile { position: relative; font-size: 13px; padding: 6px 12px; border-radius: 8px; text-decoration: none; color: var(--text); border: 1px solid var(--border); background: #fff; }
+.mm-tile { position: relative; font-size: 13px; padding: 6px 12px; border-radius: 8px; text-decoration: none; color: var(--text); border: 1px solid var(--border); background: var(--surface); }
 .mm-tile.lv-strong { background: var(--accent); border-color: var(--accent); color: #fff; }
 .mm-tile.lv-ok { background: var(--kg-ok, #D7EBE2); border-color: #9CCBB8; }
 .mm-tile.lv-weak { background: var(--kg-weak, #CDD1CD); border-color: #B5BAB5; color: var(--kg-weak-ink, #3B4743); }
@@ -1006,3 +1006,19 @@ body:not(.exam-mode) { background: var(--paper); }
 .col-side .st-tiles { grid-template-columns: 1fr; }
 .col-side .st-tiles > div { display: grid; grid-template-columns: 5.2em 1fr; align-items: center; gap: 10px; }
 .mtop .bdiv { margin: 0 2px; }
+.auth-or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; margin: 16px 0 10px; }
+.auth-or::before, .auth-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+@media (max-width: 860px) { .side .side-brand, .side .side-who, .side .side-help { display: none; } }
+
+/* 深色模式：背景跟着变暗（之前固定浅色底，深色模式下标题看不清） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #111A17; --board: #0D2520; --board-2: #17362E; --chalk: #DDEBE4; --chalk-dim: #8FAEA2; }
+  :root:not([data-theme="light"]) .mm-tile.lv-strong { color: #0D2520; }
+  :root:not([data-theme="light"]) .side-who .avatar { color: #0D2520; }
+}
+:root[data-theme="dark"] { --paper: #111A17; --board: #0D2520; --board-2: #17362E; --chalk: #DDEBE4; --chalk-dim: #8FAEA2; }
+@media (max-width: 860px) {
+  .side-nav a { white-space: nowrap; }
+  .side { border-top: 1px solid rgba(255,255,255,.08); }
+}
+.card.bind-tip b { white-space: nowrap; flex: none; }

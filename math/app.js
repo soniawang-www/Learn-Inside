@@ -138,7 +138,7 @@ function topnav() {
     ['#/mistakes', '错题本', 'mistakes', /^#\/(mistakes|problem)/],
     ['#/account', '账号', 'account', /^#\/account/],
   ];
-  const memb = lastMe ? (lastMe.free_mode ? '试用期全部免费' : lastMe.premium ? '会员' : `免费次数 ${lastMe.credits}`) : '';
+  const memb = lastMe ? (lastMe.guest ? '游客 · 点这里注册' : lastMe.free_mode ? '试用期全部免费' : lastMe.premium ? '会员' : `免费次数 ${lastMe.credits}`) : '';
   return `<aside class="side">
     <div class="side-brand">${BRAND}</div>
     <nav class="side-nav">${NAV.map(([href, n, ic, re]) => `<a class="${re.test(h) ? 'on' : ''}" href="${href}">${icon(ic)}<span>${n}</span></a>`).join('')}</nav>
@@ -205,12 +205,19 @@ function renderJoin() {
         <div class="error-msg" id="err" role="alert"></div>
         <button class="btn primary block" type="submit">${reg ? '注册' : '登录'}</button>
       </form>
+      <div class="auth-or"><span>或者</span></div>
+      <button class="btn block" id="guest">先不注册，直接试试</button>
       <div class="auth-foot small muted">${reg
         ? '注册即送 10 次互动解析。孩子的作答记录只用来生成知识图谱和错题本，不会公开。'
         : '<a href="javascript:" id="forgot">忘记密码？</a>'}</div>
     </section>
   </div>`;
   $app.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => { joinTab = t.dataset.tab; renderJoin(); }));
+  document.getElementById('guest').onclick = async (e) => {
+    e.target.disabled = true;
+    try { const r = await api('/api/auth/guest', { method: 'POST', body: {} }); auth.save(r.token, r.student); location.hash = '#/'; router(); }
+    catch (x) { document.getElementById('err').textContent = x.message; e.target.disabled = false; }
+  };
   $app.querySelector('.eye').onclick = (e) => {
     const i = e.target.previousElementSibling; const show = i.type === 'password';
     i.type = show ? 'text' : 'password'; e.target.textContent = show ? '隐藏' : '显示';
@@ -243,10 +250,10 @@ async function renderAccount() {
     : ms.length ? ms.map((x) => `<span class="mtag">${esc(x.name)}会员</span> ${untilText(a.memberships[x.id])}`).join('<br>') : '还不是会员';
   const groups = a.scopes.map((sc) => ({ ...sc, plans: a.plans.filter((p) => p.scope === sc.id) })).filter((g) => g.plans.length);
   $app.innerHTML = `${topnav()}<main class="page">
-    <header class="ph"><div><h1>账号</h1><p class="muted">${esc(a.phone || '还没绑定手机号')}</p></div></header>
+    <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客（记录只存在这台设备上）' : esc(a.phone || '还没绑定手机号')}</p></div></header>
     <div class="cols"><div class="col-main"><div class="card"><h2>会员</h2>
       <p>${memberLine}</p>
-      ${a.free_mode ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
+      ${a.free_mode ? '' : a.guest ? '<p>注册账号就送 <b>10</b> 次免费次数。</p>' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
         <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
         ${a.pay_ready && p.price ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : ''}</div>`).join('')}</div>`).join('')}
@@ -257,16 +264,18 @@ async function renderAccount() {
       <form id="redeem" class="row"><input type="text" name="code" placeholder="输入激活码" autocomplete="off" style="flex:1;min-width:160px"><button class="btn primary">兑换</button></form>
       <div class="error-msg" id="rerr"></div>
     </div>
-    <div class="card"><h2>登录方式</h2>
+    <div class="card"><h2>${a.guest ? '注册账号' : '登录方式'}</h2>
       ${a.phone ? `<p>手机号 <b>${esc(a.phone)}</b></p>
         <details><summary class="small">修改密码</summary><form id="pw" style="margin-top:10px">
           <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
           <label class="field"><span>新密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
           <button class="btn">保存</button><div class="error-msg" id="perr"></div></form></details>`
-      : `<p class="small">绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。</p>
+      : `<p class="small">${a.guest ? '现在做过的题、错题本和知识图谱都会保留到新账号里，并送 10 次免费次数。' : '绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。'}</p>
         <form id="bind"><label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
           <label class="field"><span>设置密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
-          <button class="btn primary">绑定</button><div class="error-msg" id="berr"></div></form>`}
+          ${a.guest ? `<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
+          <button class="btn primary">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
+        ${a.guest ? '<p class="small muted" style="margin-top:10px">已经有账号？退出游客后用手机号登录（游客的记录不会合并）。</p>' : ''}`}
       <p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>
     </div>
   </aside></div></main>`;
@@ -283,10 +292,15 @@ async function renderAccount() {
       location.href = r.url;
     } catch (err) { b.disabled = false; modal(`<h2>没能发起支付</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
   }));
-  form('bind', '/api/account/bind', 'berr', () => renderAccount());
+  form('bind', '/api/account/bind', 'berr', async (r) => {
+    const me = await api('/math/api/me'); lastMe = me;
+    const s = me.students.find((x) => x.id === auth.student?.id) || me.students[0]; if (s) auth.setStudent(s);
+    if (r.credits_added) modal(`<h2>注册成功</h2><p>送你 ${r.credits_added} 次免费次数，可以解锁互动解析或知识项突击。以后用手机号登录就能接着用。</p><div class="actions"><button class="btn primary" data-close>好的</button></div>`);
+    renderAccount();
+  });
   form('pw', '/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
   document.getElementById('logout').onclick = () => {
-    if (!a.phone) return modal(`<h2>先绑定手机号？</h2><p>这个账号还没绑定手机号，退出后就找不回来了。</p><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="lo">仍然退出</button></div>`,
+    if (!a.phone) return modal(`<h2>${a.guest ? '先注册？' : '先绑定手机号？'}</h2><p>${a.guest ? '游客的做题记录只存在这台设备上，退出后就找不回来了。' : '这个账号还没绑定手机号，退出后就找不回来了。'}</p><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="lo">仍然退出</button></div>`,
       (m) => (m.querySelector('#lo').onclick = () => { auth.clear(); location.hash = '#/'; router(); }));
     auth.clear(); location.hash = '#/'; router();
   };
@@ -309,7 +323,8 @@ async function renderPaid(orderId) {
 }
 
 /** 内容没解锁：有免费次数就问要不要用 1 次，没有就引导开通会员。解锁成功后执行 then() */
-function askUnlock(item, what, credits, then) {
+async function askUnlock(item, what, credits, then) {
+  if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {}
   if (credits > 0) return modal(`<h2>解锁${esc(what)}</h2>
     <p>用 1 次免费次数解锁，${item.startsWith('adv:') ? '之后这道题的互动解析可以随时反复看' : '之后这个知识项的突击可以随时再做'}。</p>
     <p class="small muted">剩余 ${credits} 次。开通会员后不限次数。</p>
@@ -322,6 +337,9 @@ function askUnlock(item, what, credits, then) {
       then();
     };
   });
+  if (lastMe?.guest) return modal(`<div class="locked-panel"><div class="icon">🎁</div><p><b>注册就送 10 次</b></p>
+    <p class="small">互动解析和知识项突击要用免费次数。注册账号送 10 次，现在的做题记录也会保留。2026 年真题的互动解析不用注册也能看。</p>
+    <div class="actions" style="justify-content:center"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>去注册</a></div></div>`);
   modal(`<div class="locked-panel"><div class="icon">🔒</div><p><b>免费次数用完了</b></p>
     <p class="small">开通会员后，所有互动解析和知识项突击不限次数；也可以用激活码兑换。</p>
     <div class="actions" style="justify-content:center"><button class="btn" data-support="购买激活码">联系客服</button><a class="btn primary" href="#/account" data-close>开通会员</a></div></div>`);
@@ -368,7 +386,7 @@ async function renderDashboard() {
     <header class="ph"><div><h1>${esc(st.nickname)}的数学</h1>
       <p class="muted">做过 ${done} 套真题 · ${count('weak')} 个薄弱知识项 · ${pending + due} 道错题要处理</p></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
-    ${me.has_phone ? '' : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
+    ${me.has_phone ? '' : me.guest ? '<a class="card bind-tip" href="#/account"><span>现在是游客，做题记录只存在这台设备上。注册账号送 10 次互动解析，换设备也能接着用。</span><b>去注册 ›</b></a>' : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     <div class="dash-grid">
       <section class="card mm">
         <div class="card-h"><h2>掌握地图</h2><a href="#/graph">看知识图谱 ›</a></div>
@@ -400,12 +418,13 @@ async function renderDashboard() {
 // ───────── 考试列表 ─────────
 async function renderHome() {
   const me = await api('/math/api/me');
+  lastMe = me;
   if (!auth.student || !me.students.find((s) => s.id === auth.student.id)) auth.setStudent(me.students[0]);
   const st = auth.student;
   const fams = await apiList(`/math/api/families?student=${st.id}`);
   $app.innerHTML = `${topnav()}<div class="page">
     <header class="ph"><div><h1>考试</h1><p class="muted">选一种考试，做真题、看考情</p></div></header>
-    ${me.has_phone ? '' : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
+    ${me.has_phone ? '' : me.guest ? '<a class="card bind-tip" href="#/account"><span>现在是游客，做题记录只存在这台设备上。注册账号送 10 次互动解析，换设备也能接着用。</span><b>去注册 ›</b></a>' : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     ${me.students.length > 1 ? `<div class="card row"><span class="muted">当前学生</span>
       <select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select></div>` : ''}
     <div class="fam-list">${fams.map((f) => `<a class="card fam" href="#/contest/${f.id}">
