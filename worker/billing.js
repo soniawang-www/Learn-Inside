@@ -49,6 +49,7 @@ export const BILLING_MIGRATIONS = [
   'ALTER TABLE pay_order ADD COLUMN tier TEXT',
   'ALTER TABLE redeem_code ADD COLUMN tier TEXT',
   "UPDATE entitlement SET tier = 'math' WHERE tier = 'premium'", // 只有数学时开的会员算数学会员
+  'CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)',
 ];
 
 export function registerBilling({ route, json, HttpError, body, requireAccount, uid, now }) {
@@ -453,6 +454,27 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const { results } = await env.DB.prepare(
       'SELECT c.*, a.phone AS used_phone FROM redeem_code c LEFT JOIN account a ON a.id = c.used_by ORDER BY c.created_at DESC LIMIT 300').all();
     return json(results);
+  });
+
+  // ───────── 客服（微信二维码 + 一句说明），所有人都能看 ─────────
+  route('GET', '/api/support', async (_req, env) => {
+    const { results } = await env.DB.prepare("SELECT key, value FROM setting WHERE key IN ('support_qr', 'support_text')").all();
+    const m = Object.fromEntries(results.map((r) => [r.key, r.value]));
+    return json({ qr: m.support_qr || null, text: m.support_text || env.PAY_CONTACT || '' });
+  });
+  route('POST', '/api/admin/support', async (req, env) => {
+    requireAdmin(req, env);
+    const { qr, text } = await body(req);
+    const ops = [];
+    if (qr !== undefined) {
+      if (qr && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(qr)) throw new HttpError(400, '二维码要是 PNG / JPG 图片');
+      if (qr && qr.length > 400000) throw new HttpError(400, '图片太大，换一张小一点的');
+      ops.push(env.DB.prepare('INSERT INTO setting (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').bind('support_qr', qr || null, now()));
+    }
+    if (text !== undefined) ops.push(env.DB.prepare('INSERT INTO setting (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').bind('support_text', String(text).slice(0, 200), now()));
+    if (ops.length) await env.DB.batch(ops);
+    await log(env, null, 'support', { qr: qr === undefined ? undefined : !!qr, text });
+    return json({ ok: true });
   });
 
   // 后台用：会员种类

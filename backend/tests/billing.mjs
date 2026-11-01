@@ -116,3 +116,11 @@ ok((await call(`/math/api/admin/accounts/${aid}`, 'DELETE')).status === 403, '�
 const del2 = await call(`/math/api/admin/accounts/${aid}`, 'DELETE', null, null, true);
 ok(del2.status === 200, '有做题记录、解锁、会员记录的账号也能删');
 ok((await call('/math/api/admin/accounts?q=' + phone, 'GET', null, null, true)).data.accounts.length === 0, '后台搜不到了');
+
+// 客服二维码
+ok((await call('/api/admin/support', 'POST', { text: 'x' })).status === 403, '改客服需要管理员密钥');
+const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+ok((await call('/api/admin/support', 'POST', { qr: png, text: '微信扫码添加客服' }, null, true)).status === 200, '后台保存客服二维码');
+const sup = await call('/api/support');
+ok(sup.data.qr === png && sup.data.text === '微信扫码添加客服', '不登录也能看到客服二维码');
+ok((await call('/api/admin/support', 'POST', { qr: 'data:text/html;base64,PHNjcmlwdD4=' }, null, true)).status === 400, '只接受图片');
