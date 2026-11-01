@@ -500,12 +500,12 @@ async function mistakeBook(env, studentId) {
   const list = [...by.values()];
   if (!list.length) return [];
   const { results: kps } = await env.DB
-    .prepare(`SELECT pk.problem_id, k.id, k.name FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
-               WHERE pk.weight >= 1 AND pk.problem_id IN (${list.map(() => '?').join(',')})`)
+    .prepare(`SELECT pk.problem_id, pk.weight, k.id, k.name FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
+               WHERE pk.weight >= 0.5 AND pk.problem_id IN (${list.map(() => '?').join(',')}) ORDER BY pk.weight DESC`)
     .bind(...list.map((x) => x.problem_id))
     .all();
   const kpOf = {};
-  for (const k of kps) (kpOf[k.problem_id] ||= []).push({ id: k.id, name: k.name });
+  for (const k of kps) (kpOf[k.problem_id] ||= []).push({ id: k.id, name: k.name, primary: k.weight >= 1 });
   const t = now();
   return list
     .map((m) => {

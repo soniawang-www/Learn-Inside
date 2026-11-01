@@ -638,3 +638,13 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
   .ms-row .ms-tags { grid-row:2; grid-column:2; justify-content:flex-start; margin-left:0; }
   .ms-row .go { grid-row:1 / span 2; grid-column:3; align-self:center; }
 }
+.kp-ms { margin-left:6px; border:1px solid var(--border); background:var(--surface); color:var(--muted); border-radius:999px; padding:1px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
+.kp-ms.hot { border-color:var(--bad); color:var(--bad); }
+.kp-ms .caret { display:inline-block; transition:transform .15s; }
+.kpblock.open .kp-ms .caret { transform:rotate(180deg); }
+.kpblock { border-top:1px solid var(--border); }
+.kpblock:first-of-type { border-top:0; }
+.kpblock .kprow { border-top:0; }
+.kp-ms-list { padding:4px 0 12px 12px; border-left:3px solid var(--bad-soft); margin:0 0 6px 4px; }
+.kp-ms-list .ms-actions { margin:8px 0 0; }
+@media (max-width: 560px) { .kp-ms { display:table; margin:4px 0 0; } .kp-ms-list { padding-left:8px; margin-left:0; } }

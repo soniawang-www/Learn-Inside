@@ -501,14 +501,7 @@ async function renderProfile() {
   const totalWrong = r.error_reasons.reduce((a, x) => a + x.n, 0);
   $app.innerHTML = `${topnav()}<div class="page">
     <h1>${esc(r.student.nickname)} 的学习画像</h1>
-    <div class="card"><h2>知识点掌握度</h2>
-      ${r.points.length ? `<p class="small muted">从薄弱到擅长排序。证据量 = 做过的相关题目（按考点权重累加），少于 1.5 时显示“数据不足”。</p>
-        ${r.points.map((p) => `<div class="kprow lv-${p.level}">
-          <div><a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="small muted">${esc(p.group || '')} · 证据 ${p.evidence}</span></div>
-          <div class="bar"><div style="width:${p.score}%"></div></div>
-          <div class="lv-label">${p.label}</div></div>`).join('')}`
-      : '<p class="muted">还没有数据，先做一套卷子吧。</p>'}
-    </div>
+    ${kpCard(r.points, r.mistakes || [], reasonName)}
     ${mistakeCard(r.mistakes || [], reasonName)}
     ${totalWrong ? `<div class="card"><h2>错因分布</h2><div class="chips">${r.error_reasons.map((x) => `<span class="chip">${x.error_reason ? reasonName[x.error_reason] : '未标注'} ${x.n}</span>`).join('')}</div></div>` : ''}
     <div class="card"><h2>考试记录</h2>
@@ -518,6 +511,7 @@ async function renderProfile() {
     </div>
   </div>`;
   bindMistakes(r.mistakes || []);
+  bindKpMistakes(r.points, r.mistakes || []);
 }
 
 // ───────── 错题本：收集做错的题，订正 → 隔一周再做一次 → 掌握 ─────────
@@ -528,15 +522,69 @@ const MS = {
   mastered: ['已掌握', '错过之后又连续做对两次'],
 };
 const BATCH = 10;
+const days = (t) => Math.max(1, Math.ceil((t - Date.now()) / 86400000));
+const prim = (m) => (m.kps.some((k) => k.primary) ? m.kps.filter((k) => k.primary) : m.kps.slice(0, 1));
+const isTodo = (m) => m.status === 'pending' || m.status === 'due';
+function msRow(m, reasonName) {
+  return `<a class="prow ms-row ms-${m.status}" href="#/problem/${encodeURIComponent(m.problem_id)}">
+        <span class="ms-dot" title="${MS[m.status][1]}"></span>
+        <span class="ms-main"><span>${esc(m.label)}</span>
+          <span class="small muted">${prim(m).map((k) => esc(k.name)).join('、')}${prim(m).length ? ' · ' : ''}错 ${m.wrong_n} 次 · ${fmtDate(m.last_wrong_at)}</span></span>
+        <span class="ms-tags">${m.reason ? `<span class="tag">${reasonName[m.reason]}</span>` : m.last_choice === null ? '<span class="tag">未作答</span>' : ''}
+          <span class="tag ms-st">${MS[m.status][0]}${m.status === 'fixed' ? ` · ${days(m.review_at)} 天后复习` : ''}</span></span>
+        <span class="go">›</span></a>`;
+}
+/** 开一场错题练习：从最早错的开始，每次最多 BATCH 题 */
+async function startMistakes(items, purpose, btn) {
+  const ids = [...items].sort((a, c) => a.last_wrong_at - c.last_wrong_at).slice(0, BATCH).map((m) => m.problem_id);
+  btn.disabled = true;
+  try {
+    const r = await api('/amc8/api/sessions', { method: 'POST', body: { problem_ids: ids, student_id: auth.student.id, purpose } });
+    location.hash = `#/exam/${r.session.id}`;
+  } catch (e) { btn.disabled = false; modal(`<h2>没能开始</h2><p>${esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+}
+
+// ───────── 知识点掌握度：每个知识点挂上对应的错题，薄弱的原因一眼看到 ─────────
+function kpCard(points, mistakes, reasonName) {
+  if (!points.length) return '<div class="card"><h2>知识点掌握度</h2><p class="muted">还没有数据，先做一套卷子吧。</p></div>';
+  const of = (id) => mistakes.filter((m) => m.kps.some((k) => k.id === id));
+  return `<div class="card" id="kpcard"><h2>知识点掌握度</h2>
+    <p class="small muted">从薄弱到擅长排序。证据量 = 做过的相关题目（按考点权重累加），少于 1.5 时显示“数据不足”。点「错题」看是哪些题拉低了这个知识点。</p>
+    ${points.map((p) => {
+      const ms = of(p.id), todo = ms.filter(isTodo);
+      return `<div class="kpblock" data-kp="${esc(p.id)}"><div class="kprow lv-${p.level}">
+        <div><a href="#/kp/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="small muted">${esc(p.group || '')} · 证据 ${p.evidence}</span>
+          ${ms.length ? `<button class="kp-ms ${todo.length ? 'hot' : ''}" data-kp-open aria-expanded="false">错题 ${ms.length}${todo.length ? ` · 要做 ${todo.length}` : ' · 都订正了'} <span class="caret">▾</span></button>` : ''}</div>
+        <div class="bar"><div style="width:${p.score}%"></div></div>
+        <div class="lv-label">${p.label}</div></div>
+        ${ms.length ? `<div class="kp-ms-list" hidden>
+          <div class="plist">${ms.map((m) => msRow(m, reasonName)).join('')}</div>
+          ${todo.length ? `<div class="ms-actions"><button class="btn primary" data-kp-go>订正这个知识点的错题（${Math.min(todo.length, BATCH)} 题）</button><a class="btn" href="#/kp/${encodeURIComponent(p.id)}">看知识点和相关真题</a></div>` : ''}
+        </div>` : ''}</div>`;
+    }).join('')}
+  </div>`;
+}
+function bindKpMistakes(points, mistakes) {
+  $app.querySelectorAll('#kpcard .kpblock').forEach((blk) => {
+    const id = blk.dataset.kp;
+    const btn = blk.querySelector('[data-kp-open]'), list = blk.querySelector('.kp-ms-list');
+    if (!btn) return;
+    btn.onclick = () => { const open = list.hidden; list.hidden = !open; btn.setAttribute('aria-expanded', open); blk.classList.toggle('open', open); };
+    const go = blk.querySelector('[data-kp-go]');
+    if (go) go.onclick = () => {
+      const todo = mistakes.filter((m) => isTodo(m) && m.kps.some((k) => k.id === id));
+      startMistakes(todo, todo.some((m) => m.status === 'pending') ? 'pending' : 'due', go);
+    };
+  });
+}
 let msFilter = 'todo', msMore = false;
 const SHOW = 15;
 function mistakeCard(list, reasonName) {
   if (!list.length) return `<div class="card"><h2>错题本</h2><p class="muted small">做错或没做的题会自动收集到这里。交卷后在复盘页给错题标上错因，回顾时更有针对性。</p></div>`;
   const n = (st) => list.filter((m) => m.status === st).length;
-  const todo = list.filter((m) => m.status === 'pending' || m.status === 'due');
+  const todo = list.filter(isTodo);
   const tabs = [['todo', `要做的 ${todo.length}`], ['pending', `待订正 ${n('pending')}`], ['due', `该复习 ${n('due')}`], ['fixed', `已订正 ${n('fixed')}`], ['mastered', `已掌握 ${n('mastered')}`], ['all', `全部 ${list.length}`]];
   const shown = msFilter === 'all' ? list : msFilter === 'todo' ? todo : list.filter((m) => m.status === msFilter);
-  const days = (t) => Math.max(1, Math.ceil((t - Date.now()) / 86400000));
   return `<div class="card" id="mistakes"><h2>错题本</h2>
     <p class="small muted">做错或没做的题自动收进来。回顾分三步：先<b>订正</b>（看解析后重做对），一周后再<b>复习</b>一次，又做对就算<b>掌握</b>。</p>
     <div class="ms-actions">
@@ -545,13 +593,7 @@ function mistakeCard(list, reasonName) {
       ${!todo.length ? '<span class="small muted">现在没有要做的错题 👍</span>' : `<span class="small muted">${todo.length > BATCH ? `每次最多 ${BATCH} 题，从最早错的开始；` : ''}可以看提示，做完自动更新状态</span>`}
     </div>
     <div class="ms-tabs">${tabs.map(([k, label]) => `<button class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label}</button>`).join('')}</div>
-    <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => `<a class="prow ms-row ms-${m.status}" href="#/problem/${encodeURIComponent(m.problem_id)}">
-        <span class="ms-dot" title="${MS[m.status][1]}"></span>
-        <span class="ms-main"><span>${esc(m.label)}</span>
-          <span class="small muted">${m.kps.map((k) => esc(k.name)).join('、')}${m.kps.length ? ' · ' : ''}错 ${m.wrong_n} 次 · ${fmtDate(m.last_wrong_at)}</span></span>
-        <span class="ms-tags">${m.reason ? `<span class="tag">${reasonName[m.reason]}</span>` : m.last_choice === null ? '<span class="tag">未作答</span>' : ''}
-          <span class="tag ms-st">${MS[m.status][0]}${m.status === 'fixed' ? ` · ${days(m.review_at)} 天后复习` : ''}</span></span>
-        <span class="go">›</span></a>`).join('') || '<p class="muted small">这一类没有题。</p>'}</div>
+    <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || '<p class="muted small">这一类没有题。</p>'}</div>
     ${!msMore && shown.length > SHOW ? `<button class="btn" style="margin-top:8px" data-ms-more>再显示 ${shown.length - SHOW} 题</button>` : ''}
   </div>`;
 }
@@ -561,15 +603,7 @@ function bindMistakes(list) {
   const redraw = () => { box.outerHTML = mistakeCard(list, Object.fromEntries(REASONS)); bindMistakes(list); };
   box.querySelectorAll('[data-ms-tab]').forEach((b) => (b.onclick = () => { msFilter = b.dataset.msTab; msMore = false; redraw(); }));
   box.querySelector('[data-ms-more]')?.addEventListener('click', () => { msMore = true; redraw(); });
-  box.querySelectorAll('[data-ms-go]').forEach((b) => (b.onclick = async () => {
-    // 从最早错的开始，每次最多 BATCH 题
-    const ids = list.filter((m) => m.status === b.dataset.msGo).sort((a, c) => a.last_wrong_at - c.last_wrong_at).slice(0, BATCH).map((m) => m.problem_id);
-    b.disabled = true;
-    try {
-      const r = await api('/amc8/api/sessions', { method: 'POST', body: { problem_ids: ids, student_id: auth.student.id, purpose: b.dataset.msGo } });
-      location.hash = `#/exam/${r.session.id}`;
-    } catch (e) { b.disabled = false; modal(`<h2>没能开始</h2><p>${esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
-  }));
+  box.querySelectorAll('[data-ms-go]').forEach((b) => (b.onclick = () => startMistakes(list.filter((m) => m.status === b.dataset.msGo), b.dataset.msGo, b)));
 }
 
 router();
