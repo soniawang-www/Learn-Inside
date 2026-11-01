@@ -56,7 +56,7 @@
       <div class="card"><h2>最近的激活码</h2><div id="codes"></div></div>
     </div>
 
-    <div id="tab-orders" hidden><div class="card"><p class="small muted">只有状态是“已付款”的订单开通了会员。待付款 = 跳去支付宝后没付或还没收到通知。</p><div id="orders"></div></div></div>
+    <div id="tab-orders" hidden><div class="card" id="paystatus"></div><div class="card"><p class="small muted">只有状态是“已付款”的订单开通了会员。待付款 = 跳去支付宝后没付或还没收到通知。</p><div id="orders"></div></div></div>
     <div id="tab-support" hidden><div class="card">
       <h2>客服微信</h2>
       <p class="small muted">家长在网站侧栏「联系客服」、账号页、次数用完的提示里会看到这个二维码，扫码加你微信（买激活码、问问题、重置密码）。</p>
@@ -157,7 +157,26 @@
         <td>${day(c.created_at)}</td><td>${c.used_by ? `${esc(c.used_phone || '未绑定手机号')} · ${day(c.used_at)}` : '<span class="muted">未使用</span>'}</td></tr>`).join('')}</table>`;
     } catch (e) { $('codes').textContent = e.message; }
   }
+  async function loadPayStatus() {
+    try {
+      const d = await api('pay-status');
+      const K = { ok: '✓ 正常', missing: '✗ 没设置', invalid: '✗ 格式不对（复制时可能少了字符或多了空格）' };
+      const priced = d.plans.filter((p) => p.price);
+      $('paystatus').innerHTML = `<h2>在线支付配置 ${d.pay_ready && priced.length ? '<span class="member">已就绪</span>' : '<span style="color:var(--bad)">未就绪</span>'}</h2>
+        <table class="codes">
+        <tr><td>APPID（AIPAY_APP_ID）</td><td>${d.app_id ? `✓ ${d.app_id}` : '✗ 没设置'}</td></tr>
+        <tr><td>应用私钥（AIPAY_PRIVATE_KEY，Secret）</td><td>${K[d.private_key]}</td></tr>
+        <tr><td>支付宝公钥（AIPAY_ALIPAY_PUBLIC_KEY，Secret）</td><td>${K[d.public_key]}</td></tr>
+        <tr><td>网关</td><td>${esc(d.gateway)}${d.gateway.includes('sandbox') ? '（沙箱）' : ''}</td></tr>
+        <tr><td>已定价的套餐</td><td>${priced.length ? priced.map((p) => `${p.name} ¥${p.price}`).join('、') : '✗ 一个都没有（加 PRICE_MATH_MONTH 等变量）'}</td></tr>
+        <tr><td>试用模式（FREE_MODE）</td><td>${d.free_mode ? '开着：内容全部免费，但会员仍可购买' : '关闭：正式收费'}</td></tr>
+        </table>
+        ${d.wrong_names.length ? `<p class="small" style="color:var(--bad)">这些变量名不会被使用：${d.wrong_names.join('、')}。支付宝公钥要用 AIPAY_ALIPAY_PUBLIC_KEY；价格要用 PRICE_MATH_MONTH 这种带科目的名字。</p>` : ''}
+        <p class="small muted">改完 Cloudflare 的变量后点「Deploy」，等一两分钟刷新这里。</p>`;
+    } catch (e) { $('paystatus').textContent = e.message; }
+  }
   async function loadOrders() {
+    loadPayStatus();
     try {
       const d = await api('orders');
       const ST = { pending: '待付款', paid: '<span class="member">已付款</span>', closed: '已关闭', refunding: '退款中', refunded: '已退款' };

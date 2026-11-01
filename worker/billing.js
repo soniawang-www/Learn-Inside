@@ -11,7 +11,7 @@
 // 全站一套账号；会员分科目（entitlement.tier = math / chinese）和全科（all），全科包含所有科目。
 // 免费次数全站共用。接口在 /api/ 下（/math/api/ 也能访问，兼容旧页面）。
 
-import { payUrl, verifyNotify, queryTrade, refundTrade, refundQuery, closeTrade } from './alipay.js';
+import { payUrl, verifyNotify, queryTrade, refundTrade, refundQuery, closeTrade, keyStatus } from './alipay.js';
 
 export const FREE_CREDITS = 10;
 export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio'] };
@@ -491,6 +491,20 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     }
     await env.DB.prepare("UPDATE pay_order SET status = 'closed' WHERE id = ? AND status = 'pending'").bind(o.id).run();
     return json({ ok: true, status: 'closed' });
+  });
+
+  // 支付配置自检：哪些变量设了、密钥能不能解析、哪些套餐有价格（不返回密钥内容）
+  route('GET', '/api/admin/pay-status', async (req, env) => {
+    requireAdmin(req, env);
+    const ks = await keyStatus(env);
+    return json({
+      app_id: env.ALIPAY_APP_ID ? `…${String(env.ALIPAY_APP_ID).slice(-4)}` : null,
+      private_key: ks.private_key, public_key: ks.public_key,
+      gateway: env.ALIPAY_GATEWAY || 'https://openapi.alipay.com/gateway.do',
+      free_mode: env.FREE_MODE === 'true', pay_ready: payReady(env),
+      plans: plansOf(env).map((p) => ({ id: p.id, name: p.name, price: p.price })),
+      wrong_names: ['AIPAY_PUBLIC_KEY', 'ALIPAY_ALIPAY_PUBLIC_KEY', 'PRICE_MONTH', 'PRICE_QUARTER', 'PRICE_YEAR'].filter((k) => env[k] !== undefined && env[k] !== ''),
+    });
   });
 
   route('GET', '/api/admin/orders', async (req, env) => {

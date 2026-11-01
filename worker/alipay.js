@@ -52,6 +52,14 @@ export const verifyNotify = (params, pubPem) => rsaVerify(signContent(params, ['
 const beijing = (t = Date.now()) => new Date(t + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
 export const GATEWAY = 'https://openapi.alipay.com/gateway.do';
 
+/** 后台自检：密钥能不能被解析（不输出密钥内容） */
+export async function keyStatus(env) {
+  const out = {};
+  try { await privateKey(env.ALIPAY_PRIVATE_KEY); out.private_key = 'ok'; } catch { out.private_key = env.ALIPAY_PRIVATE_KEY ? 'invalid' : 'missing'; }
+  try { await publicKey(env.ALIPAY_PUBLIC_KEY); out.public_key = 'ok'; } catch { out.public_key = env.ALIPAY_PUBLIC_KEY ? 'invalid' : 'missing'; }
+  return out;
+}
+
 async function signedParams(env, method, biz, extra = {}) {
   const p = {
     app_id: env.ALIPAY_APP_ID, method, format: 'JSON', charset: 'utf-8', sign_type: 'RSA2',
