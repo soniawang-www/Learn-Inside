@@ -1,11 +1,18 @@
-// AMC 8 模拟考 · Cloudflare Worker API（挂在 Learn-Inside 站点的 /amc8/ 下）
-// wrangler.jsonc 里 run_worker_first 只包含 /amc8/api/*，其余请求不经过这里，直接出静态文件。
+// 奥数（learn-inside.com/math/）· Cloudflare Worker API
+// wrangler.jsonc 里 run_worker_first 只包含 /math/api/* 和旧地址 /amc8/*，其余请求直接出静态文件。
+// 旧地址：/amc8/api/* 照常处理（旧页面缓存还在用），/amc8/ 下的页面 301 到 /math/。
 import { recomputeMastery, displayMastery } from './mastery.js';
 const parseJ = (v, d = null) => { try { return v ? JSON.parse(v) : d; } catch { return d; } };
 import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 
-const PREFIX = '/amc8';
+const PREFIX = '/math', OLD_PREFIX = '/amc8';
+// 考试系列：试卷 id 以前缀区分。画像、知识图谱、错题本不分考试；考情、试卷、成绩按考试分开。
+const FAMILIES = [
+  { id: 'amc8', name: 'AMC 8', prefix: 'amc8-', desc: '美国数学竞赛 8 年级组：25 道选择题，40 分钟' },
+  { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 数学竞赛' },
+];
+const familyOf = (examOrProblemId) => FAMILIES.find((f) => String(examOrProblemId).startsWith(f.prefix)) || null;
 let migrated = null;
 
 const DEADLINE_GRACE_MS = 30_000; // 交卷允许的网络延迟
@@ -106,7 +113,8 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
     )
     .bind(studentId, studentId)
     .all();
-  return json(results);
+  const fam = url.searchParams.get('family');
+  return json(fam ? results.filter((e) => familyOf(e.id)?.id === fam) : results);
 });
 
 // 开始考试：服务端定 deadline，下发题目（不含答案）
@@ -436,6 +444,8 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     if (m) mastery = displayMastery(m.rating, m.evidence);
   }
   const premium = await hasTier(env, acc, 'premium');
+  const fam = FAMILIES.some((f) => f.id === url.searchParams.get('family')) ? url.searchParams.get('family') : 'amc8';
+  const st = await kpStats(env, fam);
   return json({
     id: kp.id, name: kp.name, summary: kp.summary, amc_ext: !!kp.amc_ext,
     signals: kp.signals ? JSON.parse(kp.signals) : [],
@@ -445,26 +455,46 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     prerequisites: prereq, dependents: nexts, types: parseJ(kp.types, []),
     problems: problems.map((x) => ({ ...x, label: `${x.exam_title} 第 ${x.number} 题`, status: x.last_correct === null ? 'todo' : x.last_correct ? 'right' : 'wrong' })),
     mastery,
-    stats: (await kpStats(env)).kps[kp.id] || null, exam_years: (await kpStats(env)).years,
-    type_stats: (await kpStats(env)).types,
+    family: fam, families: FAMILIES.map((f) => ({ id: f.id, name: f.name })),
+    stats: st.exams ? st.kps[kp.id] || null : null, exam_years: st.years, type_stats: st.types,
+    my_mistakes: studentId ? (await mistakeBook(env, studentId)).filter((m) => m.kps.some((k) => k.id === kp.id))
+      .map((m) => ({ problem_id: m.problem_id, label: m.label, family: familyOf(m.problem_id)?.name || '其他', status: m.status, types: m.types })) : [],
   });
 });
 
 // 考情：每个知识点在历年真题里的出现率和题号分布（只算正式真题、权重 ≥ 0.5 的考点）
 // 题库导入后才变，按 isolate 缓存 10 分钟
-let statsCache = null;
-async function kpStats(env) {
-  if (statsCache && now() - statsCache.at < 600000) return statsCache.data;
-  const { results: exams } = await env.DB.prepare("SELECT year FROM exam WHERE published = 1 AND source = 'official' AND year IS NOT NULL ORDER BY year").all();
+let statsCache = {};
+async function kpStats(env, family = 'amc8') {
+  const fam = FAMILIES.find((f) => f.id === family) || FAMILIES[0];
+  const hit = statsCache[fam.id];
+  if (hit && now() - hit.at < 600000) return hit.data;
+  const like = fam.prefix + '%';
+  const { results: exams } = await env.DB.prepare("SELECT year FROM exam WHERE published = 1 AND source = 'official' AND year IS NOT NULL AND id LIKE ? ORDER BY year").bind(like).all();
   const years = exams.map((e) => e.year);
   const recent = new Set(years.slice(-10));
   const { results } = await env.DB
-    .prepare(`SELECT pk.kp_id, p.number, e.year FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
-               WHERE e.published = 1 AND e.source = 'official' AND e.year IS NOT NULL AND pk.weight >= 0.5`)
-    .all();
+    .prepare(`SELECT pk.kp_id, pk.weight, p.number, e.year FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
+               WHERE e.published = 1 AND e.source = 'official' AND e.year IS NOT NULL AND e.id LIKE ? AND pk.weight >= 0.5`)
+    .bind(like).all();
   const by = {};
   for (const r of results) (by[r.kp_id] ||= []).push(r);
-  const data = { exams: years.length, years, kps: {} };
+  const data = { family: fam.id, exams: years.length, years, kps: {} };
+  // 各模块占比：每题按主考点分 1 份
+  const { results: parents } = await env.DB.prepare('SELECT id, parent_id FROM knowledge_point WHERE parent_id IS NOT NULL').all();
+  const parentOf = Object.fromEntries(parents.map((r) => [r.id, r.parent_id]));
+  const { results: prim } = await env.DB
+    .prepare(`SELECT pk.problem_id, pk.kp_id FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
+               WHERE e.published = 1 AND e.source = 'official' AND e.id LIKE ? AND pk.weight >= 1`)
+    .bind(like).all();
+  const perProb = {};
+  for (const r of prim) (perProb[r.problem_id] ||= []).push(r.kp_id);
+  const share = {}, unitShare = {};
+  for (const ks of Object.values(perProb)) for (const k of ks) {
+    share[parentOf[k]] = (share[parentOf[k]] || 0) + 1 / ks.length; unitShare[k] = (unitShare[k] || 0) + 1 / ks.length;
+  }
+  const nProb = Object.keys(perProb).length || 1;
+  data.modules = Object.fromEntries(Object.entries(share).map(([m, v]) => [m, Math.round((v / nProb) * 1000) / 10]));
   for (const [kp, rows] of Object.entries(by)) {
     const nums = rows.map((r) => r.number).sort((a, b) => a - b);
     const at = (f) => nums[Math.round(f * (nums.length - 1))];
@@ -482,13 +512,14 @@ async function kpStats(env) {
       from: at(0.25), to: at(0.75), median: at(0.5),             // 一半的题落在 from–to
       bands: { easy: band(1, 10), mid: band(11, 20), hard: band(21, 25) },
       per_year: perYear, per_num: perNum,
+      share: Math.round(((unitShare[kp] || 0) / nProb) * 1000) / 10, // 主考点份额
     };
   }
   // 题型：每个题型考过几届、平均每届几题
   const { results: tp } = await env.DB
     .prepare(`SELECT p.types, e.year FROM problem p JOIN exam e ON e.id = p.exam_id
-               WHERE e.published = 1 AND e.source = 'official' AND e.year IS NOT NULL AND p.types IS NOT NULL`)
-    .all();
+               WHERE e.published = 1 AND e.source = 'official' AND e.year IS NOT NULL AND p.types IS NOT NULL AND e.id LIKE ?`)
+    .bind(like).all();
   const tacc = {};
   for (const r of tp) for (const t of parseJ(r.types, [])) {
     if (t.w < 0.5) continue;
@@ -496,11 +527,50 @@ async function kpStats(env) {
   }
   data.types = Object.fromEntries(Object.entries(tacc).map(([k, a]) => [k, {
     total: a.n, per_exam: Math.round((a.n / years.length) * 100) / 100, rate: Math.round((a.ys.size / years.length) * 100) }]));
-  statsCache = { at: now(), data };
+  statsCache[fam.id] = { at: now(), data };
   return data;
 }
 
-// 学生画像
+// 考试列表（首页）
+route('GET', '/api/families', async (req, env, _p, url) => {
+  const acc = await requireAccount(req, env);
+  const studentId = url.searchParams.get('student');
+  if (studentId) await requireStudent(env, acc, studentId);
+  const { results: ex } = await env.DB.prepare('SELECT id FROM exam WHERE published = 1').all();
+  const { results: ss } = studentId ? await env.DB
+    .prepare('SELECT exam_id, score, submitted_at FROM exam_session WHERE student_id = ? AND submitted_at IS NOT NULL ORDER BY submitted_at DESC').bind(studentId).all() : { results: [] };
+  return json(FAMILIES.map((f) => {
+    const mine = ss.filter((s) => s.exam_id.startsWith(f.prefix));
+    return { id: f.id, name: f.name, desc: f.desc, exams: ex.filter((e) => e.id.startsWith(f.prefix)).length, sessions: mine.length, last: mine[0] || null };
+  }));
+});
+
+// 一种考试：试卷、考情、这个学生的成绩记录
+route('GET', '/api/families/:id', async (req, env, p, url) => {
+  const acc = await requireAccount(req, env);
+  const fam = FAMILIES.find((f) => f.id === p.id);
+  if (!fam) throw new HttpError(404, '没有这种考试');
+  const studentId = url.searchParams.get('student');
+  if (studentId) await requireStudent(env, acc, studentId);
+  const stats = await kpStats(env, fam.id);
+  const { results: kps } = await env.DB.prepare('SELECT id, parent_id, name FROM knowledge_point ORDER BY sort, id').all();
+  const { results: sessions } = studentId ? await env.DB
+    .prepare(`SELECT s.id, s.mode, s.score, s.submitted_at, e.title, (SELECT COUNT(*) FROM attempt_event a WHERE a.session_id = s.id) AS total
+                FROM exam_session s JOIN exam e ON e.id = s.exam_id
+               WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND s.exam_id LIKE ? ORDER BY s.submitted_at DESC LIMIT 50`)
+    .bind(studentId, fam.prefix + '%').all() : { results: [] };
+  return json({
+    family: { id: fam.id, name: fam.name, desc: fam.desc },
+    stats: {
+      exams: stats.exams, years: stats.years,
+      modules: kps.filter((k) => !k.parent_id).map((m) => ({ id: m.id, name: m.name, share: stats.modules?.[m.id] || 0 })),
+      units: kps.filter((k) => k.parent_id).map((k) => ({ id: k.id, name: k.name, module: k.parent_id, ...(stats.kps[k.id] || {}) })),
+    },
+    sessions,
+  });
+});
+
+// 学生画像（错题本、复盘页用）
 route('GET', '/api/students/:id/profile', async (req, env, p) => {
   const acc = await requireAccount(req, env);
   const st = await requireStudent(env, acc, p.id);
@@ -624,7 +694,7 @@ async function seedHandler(req, env, _p, url) {
     if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '题库已初始化；更新需要管理员密钥');
   }
   const result = await seedDatabase(env.DB, { schema: SCHEMA, knowledge: KNOWLEDGE, exams: EXAMS });
-  statsCache = null;
+  statsCache = {};
   return json({ ok: true, ...result });
 }
 route('GET', '/api/admin/seed', seedHandler);
@@ -648,7 +718,7 @@ route('POST', '/api/admin/import', async (req, env) => {
   }
   try {
     const result = await importContent(env.DB, { schema: SCHEMA, exams, points, edges, prune });
-    statsCache = null;
+    statsCache = {};
     // 考点或知识体系变了：所有学生的画像按新的考点重算
     if (points.length || exams.length) {
       const { results: sts } = await env.DB.prepare('SELECT DISTINCT student_id AS id FROM attempt_event').all();
@@ -665,8 +735,14 @@ route('POST', '/api/admin/import', async (req, env) => {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (!url.pathname.startsWith(PREFIX + '/api/')) return env.ASSETS.fetch(req);
-    const path = url.pathname.slice(PREFIX.length);
+    const base = [PREFIX, OLD_PREFIX].find((p) => url.pathname.startsWith(p + '/api/'));
+    if (!base) {
+      if (url.pathname === OLD_PREFIX || url.pathname.startsWith(OLD_PREFIX + '/')) {
+        return Response.redirect(new URL(PREFIX + url.pathname.slice(OLD_PREFIX.length) + url.search, url).toString(), 301);
+      }
+      return env.ASSETS.fetch(req);
+    }
+    const path = url.pathname.slice(base.length);
     // 每个 Worker 实例启动后先补一次列（旧库升级用，之后直接跳过）
     migrated ??= migrate(env.DB).catch((e) => { migrated = null; throw e; });
     try { await migrated; } catch (e) { console.error('migrate failed', e); }

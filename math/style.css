@@ -747,3 +747,40 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .kg-fam { display: grid; gap: 6px; }
 .kg-panel .plist .prow { padding: 6px 10px; }
 .kg-panel { max-height: calc(100vh - 32px); overflow: auto; }
+
+/* ───────── 结构：考试 / 知识图谱 / 错题本 ───────── */
+.topnav .navlink.on { background: var(--accent-soft); font-weight: 600; }
+.topnav .navwho { font-size: 13px; color: var(--muted); padding: 4px 6px; }
+.fam-list { display: grid; gap: 12px; margin-bottom: 12px; }
+.card.fam { display: flex; justify-content: space-between; align-items: center; gap: 16px; text-decoration: none; color: inherit; flex-wrap: wrap; }
+.card.fam:hover { border-color: var(--accent); }
+.card.fam h2 { margin: 0 0 4px; }
+.card.fam p { margin: 0; }
+.fam-meta { display: flex; gap: 14px; align-items: center; font-size: 14px; flex-wrap: wrap; }
+.fam-meta .go { color: var(--accent); }
+.ctabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 14px 0 12px; overflow-x: auto; }
+.ctabs a { padding: 8px 14px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; cursor: pointer; }
+.ctabs a.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.mods { display: grid; gap: 6px; }
+.mrow { display: grid; grid-template-columns: 7em 1fr 4.5em; gap: 10px; align-items: center; font-size: 14px; }
+.mbar { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.mbar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.utable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.utable th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.utable th:first-child { text-align: left; }
+.utable td { padding: 7px 4px; border-bottom: 1px solid var(--border); }
+.ms-filters { gap: 16px; flex-wrap: wrap; font-size: 14px; }
+.ms-filters select { margin-left: 6px; }
+.kl-row { display: flex; align-items: center; gap: 10px; }
+.kl-row .kg-sw { flex: none; }
+.kl-warn { color: var(--bad, #b42318); }
+@media (max-width: 520px) { .utable th:nth-child(4), .utable td:nth-child(4) { display: none; } .mrow { grid-template-columns: 5.5em 1fr 4em; } }
+.kl-row .tag, .ms-tags .tag { white-space: nowrap; }
+@media (max-width: 520px) {
+  .topnav { gap: 4px; padding: 8px 12px; flex-wrap: nowrap; }
+  .topnav .navlink { padding: 4px 6px; font-size: 13px; white-space: nowrap; }
+  .topnav .navwho { display: none; }
+  .topnav .brandbar svg + svg, .topnav .brandbar .bdiv { display: none; }
+}
+.kp-plist.clip > :nth-child(n+13) { display: none; }

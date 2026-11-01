@@ -5,8 +5,8 @@
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
-    // 只有 AMC 8 模考的 API 经过 Worker，学习页等其他请求直接出静态文件
-    "run_worker_first": ["/amc8/api/*"]
+    // 只有奥数（/math）的 API 和旧地址 /amc8 经过 Worker，学习页等其他请求直接出静态文件
+    "run_worker_first": ["/math/api/*", "/amc8", "/amc8/*"]
   },
   "d1_databases": [
     {

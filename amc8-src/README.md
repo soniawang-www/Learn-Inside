@@ -1,12 +1,21 @@
-# AMC 8 模拟考（learn-inside.com/amc8/）
+# 奥数（learn-inside.com/math/）
+
+旧地址 `/amc8/` 会 301 跳到 `/math/`，`/amc8/api/*` 仍可用。
+
+页面结构：
+- **考试**（首页 `#/`）：每种考试一张卡（AMC 8、思维 100…），进去是「试卷 / 考情 / 成绩记录」三个标签。考情按考试分开统计。
+- **知识图谱**（`#/graph`）：每个账号一张，按知识项算掌握度，不分考试；可切到「列表」按薄弱排序。点知识项看上下游和在各考试错过的题。
+- **错题本**（`#/mistakes`）：所有考试的错题放在一起，可按考试、知识项筛选。
+- 知识项页（`#/kp/:id`）：识别信号、我的错题、按考试切换的考情、题型、真题突击。
+考试种类由 `worker/index.js` 的 `FAMILIES` 定义，按试卷 id 前缀区分（`amc8-`、`swb100-`）。
 
 挂在 Learn-Inside 站点下：前端是静态文件，API 是同一个 Worker，数据在 Cloudflare D1。
 
 ## 目录
 
 ```
-amc8/                    前端（公开，访问路径 /amc8/）
-worker/index.js          API，只处理 /amc8/api/*（见 wrangler.jsonc 的 run_worker_first）
+math/                    前端（公开，访问路径 /math/）
+worker/index.js          API，只处理 /math/api/*（兼容 /amc8/api/*）（见 wrangler.jsonc 的 run_worker_first）
 worker/mastery.js        画像算法（简化 Elo，可整体替换）
 worker/seed.js           题库 → 数据库行（Worker 和脚本共用）
 worker/content.generated.js  内置题库，由脚本生成，不要手改
@@ -21,14 +30,14 @@ amc8-src/tests/e2e.mjs   端到端测试
 ## 首次上线
 
 1. 推送到 main，Cloudflare 自动部署。
-2. 浏览器打开一次 `https://learn-inside.com/amc8/api/admin/seed`，看到 `{"ok":true,...}` 即建表和导入题库完成。
-3. 打开 `https://learn-inside.com/amc8/`，邀请码 `AMC2026`。
+2. 浏览器打开一次 `https://learn-inside.com/math/api/admin/seed`，看到 `{"ok":true,...}` 即建表和导入题库完成。
+3. 打开 `https://learn-inside.com/math/`，邀请码 `AMC2026`。
 
 ## 导入真题（推荐方式）
 
 真题放在私有仓库 `soniawang-www/amc8-data`，**不要放进这个公开仓库**。
 
-1. 打开 `https://learn-inside.com/amc8/admin.html`
+1. 打开 `https://learn-inside.com/math/admin.html`
 2. 填管理员密钥（Cloudflare 里设置的 Secret `ADMIN_KEY`）
 3. 选择 `amc8-data/exams/` 下的试卷 JSON（可多选），页面会先显示题数和答案串，确认后点「导入」
 
@@ -39,7 +48,7 @@ amc8-src/tests/e2e.mjs   端到端测试
 1. 修改 `amc8-src/data/` 下的 JSON（试卷一套一个文件，格式见 `sample-2026.json`）。
 2. 在仓库根目录运行 `node amc8-src/scripts/build-seed.mjs > amc8-src/seed.sql`（会校验答案和知识点）。
 3. 提交并推送，等部署完成。
-4. 题库已初始化后，再次导入需要管理员密钥：在 Cloudflare 控制台 → learn-inside → Settings → Variables and Secrets 添加 **Secret** `ADMIN_KEY`（不要写进仓库），然后打开 `https://learn-inside.com/amc8/api/admin/seed?key=你的密钥`。
+4. 题库已初始化后，再次导入需要管理员密钥：在 Cloudflare 控制台 → learn-inside → Settings → Variables and Secrets 添加 **Secret** `ADMIN_KEY`（不要写进仓库），然后打开 `https://learn-inside.com/math/api/admin/seed?key=你的密钥`。
 
 导入用 UPSERT（不会删除已有行），可重复执行，不影响作答记录。
 
@@ -64,7 +73,7 @@ amc8-src/tests/e2e.mjs   端到端测试
 
 ## 互动课步骤类型（互动解析和知识点课共用）
 
-播放器 `amc8/player.js`，组件 `amc8/sims.js`。每步都有 `say`（小助手的话），可选 `html`（屏幕内容）、`fig`（静态图，大屏放左边）。
+播放器 `math/player.js`，组件 `math/sims.js`。每步都有 `say`（小助手的话），可选 `html`（屏幕内容）、`fig`（静态图，大屏放左边）。
 
 | type | 说明 |
 |---|---|
@@ -100,6 +109,6 @@ amc8-src/tests/e2e.mjs   端到端测试
 ```bash
 npm i -g wrangler        # 或 npx wrangler
 wrangler dev             # 仓库根目录；本地 D1 存在 .wrangler/
-# 打开 http://127.0.0.1:8787/amc8/api/admin/seed 初始化，再访问 /amc8/
+# 打开 http://127.0.0.1:8787/math/api/admin/seed 初始化，再访问 /math/
 node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 ```

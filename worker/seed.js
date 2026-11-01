@@ -1,4 +1,4 @@
-// 题库 → 数据库行。Worker 的 /amc8/api/admin/seed 和命令行脚本 build-seed.mjs 共用。
+// 题库 → 数据库行。Worker 的 /math/api/admin/seed 和命令行脚本 build-seed.mjs 共用。
 
 /** 把知识图谱和试卷 JSON 展开成 [表名, 行对象] 列表，同时做基本校验 */
 export function buildRows(knowledge, exams) {
