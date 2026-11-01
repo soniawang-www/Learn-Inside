@@ -25,7 +25,7 @@
     <div class="card row">
       <label class="field" style="flex:1;margin:0"><span>管理员密钥（ADMIN_KEY）</span><input type="password" id="key" autocomplete="off"></label>
     </div>
-    <div class="tabs2"><button class="btn primary" data-tab="acc">账号</button><button class="btn" data-tab="codes">激活码</button><button class="btn" data-tab="log">操作记录</button></div>
+    <div class="tabs2"><button class="btn primary" data-tab="acc">账号</button><button class="btn" data-tab="codes">激活码</button><button class="btn" data-tab="orders">支付订单</button><button class="btn" data-tab="log">操作记录</button></div>
 
     <div id="tab-acc">
       <div class="card">
@@ -51,6 +51,7 @@
       <div class="card"><h2>最近的激活码</h2><div id="codes"></div></div>
     </div>
 
+    <div id="tab-orders" hidden><div class="card"><p class="small muted">只有状态是“已付款”的订单开通了会员。待付款 = 跳去支付宝后没付或还没收到通知。</p><div id="orders"></div></div></div>
     <div id="tab-log" hidden><div class="card"><div id="log"></div></div></div>
     <p class="small muted"><a href="./">← 返回网站</a> · <a href="admin.html">题库导入</a></p>
   </div>
@@ -84,7 +85,7 @@
         <input type="text" placeholder="备注" data-v="note" value="${esc(a.note || '')}"><button class="btn" data-op="note">存备注</button>
       </div></details><span class="small kl-warn" data-msg></span></div>`;
   }
-  const NAMES = { add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
+  const NAMES = { pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
   async function search() {
     try {
       const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()));
@@ -122,6 +123,17 @@
         <td>${day(c.created_at)}</td><td>${c.used_by ? `${esc(c.used_phone || '未绑定手机号')} · ${day(c.used_at)}` : '<span class="muted">未使用</span>'}</td></tr>`).join('')}</table>`;
     } catch (e) { $('codes').textContent = e.message; }
   }
+  async function loadOrders() {
+    try {
+      const d = await api('orders');
+      const ST = { pending: '待付款', paid: '<span class="member">已付款</span>', closed: '已关闭' };
+      const paid = d.filter((o) => o.status === 'paid');
+      $('orders').innerHTML = `<p class="small">已付款 ${paid.length} 单，合计 ¥${paid.reduce((a, o) => a + Number(o.amount), 0).toFixed(2)}</p>
+        <table class="codes"><tr><th>时间</th><th>账号</th><th>套餐</th><th>金额</th><th>状态</th><th>订单号 / 支付宝交易号</th></tr>${d.map((o) => `<tr>
+        <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${o.plan}（${o.days} 天）</td><td>¥${o.amount}</td><td>${ST[o.status] || o.status}</td>
+        <td class="small">${o.id}${o.trade_no ? `<br>${o.trade_no}` : ''}</td></tr>`).join('')}</table>`;
+    } catch (e) { $('orders').textContent = e.message; }
+  }
   async function loadLog() {
     try {
       const d = await api('log');
@@ -131,9 +143,10 @@
   }
   document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => {
     document.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('primary', x === b));
-    for (const t of ['acc', 'codes', 'log']) $('tab-' + t).hidden = t !== b.dataset.tab;
+    for (const t of ['acc', 'codes', 'orders', 'log']) $('tab-' + t).hidden = t !== b.dataset.tab;
     if (b.dataset.tab === 'codes') loadCodes();
     if (b.dataset.tab === 'log') loadLog();
+    if (b.dataset.tab === 'orders') loadOrders();
   }));
   if ($('key').value) search();
 </script>

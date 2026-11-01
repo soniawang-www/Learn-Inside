@@ -8,6 +8,8 @@
 //   其余：用 1 次免费次数解锁（新账号送 FREE_CREDITS 次），次数用完提示开通会员
 // 解锁项：adv:<题目 id> 一道题的互动解析；drill:<知识项 id> 一个知识项的真题突击
 
+import { payUrl, verifyNotify, queryTrade } from './alipay.js';
+
 export const FREE_CREDITS = 10;
 export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio'] };
 export const PLANS = [
@@ -27,6 +29,9 @@ export const BILLING_MIGRATIONS = [
      created_at INTEGER NOT NULL, PRIMARY KEY (account_id, item))`,
   `CREATE TABLE IF NOT EXISTS redeem_code (code TEXT PRIMARY KEY, kind TEXT NOT NULL, amount INTEGER NOT NULL, note TEXT,
      created_at INTEGER NOT NULL, used_by TEXT, used_at INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS pay_order (id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES account(id), plan TEXT NOT NULL,
+     days INTEGER NOT NULL, amount TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', trade_no TEXT, buyer TEXT,
+     created_at INTEGER NOT NULL, paid_at INTEGER)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id TEXT, action TEXT NOT NULL,
      detail TEXT, created_at INTEGER NOT NULL)`,
 ];
@@ -164,7 +169,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       phone: acc.phone, free_mode: ctx.free,
       member: until !== null, member_until: until === Infinity ? 'forever' : until,
       credits: ctx.credits, free_credits: FREE_CREDITS, unlocked: n.n,
-      plans: plansOf(env), pay_ready: !!env.ALIPAY_APP_ID, contact: env.PAY_CONTACT || '',
+      plans: plansOf(env), pay_ready: payReady(env), contact: env.PAY_CONTACT || '',
     });
   });
 
@@ -199,6 +204,81 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     else await env.DB.prepare('UPDATE account SET credits = credits + ? WHERE id = ?').bind(row.amount, acc.id).run();
     await log(env, acc.id, 'redeem', { code, kind: row.kind, amount: row.amount });
     return json({ ok: true, kind: row.kind, amount: row.amount });
+  });
+
+  // ───────── 在线支付（支付宝） ─────────
+  // 流程：开通 → 建内部订单 → 跳支付宝收银台 → 支付宝异步通知（验签、核对金额）→ 加会员天数
+  // 前端跳回只用来展示结果，开通以异步通知或服务端主动查询为准。
+  const payReady = (env) => !!(env.ALIPAY_APP_ID && env.ALIPAY_PRIVATE_KEY && env.ALIPAY_PUBLIC_KEY);
+  const money = (v) => Number(v).toFixed(2);
+  /** 订单付款成功 → 开通会员（幂等：同一订单只加一次） */
+  async function grantOrder(env, order, tradeNo, buyer) {
+    const r = await env.DB.prepare("UPDATE pay_order SET status = 'paid', trade_no = ?, buyer = ?, paid_at = ? WHERE id = ? AND status = 'pending'")
+      .bind(tradeNo || null, buyer || null, now(), order.id).run();
+    if (!r.meta.changes) return false;
+    await addDays(env, order.account_id, order.days, `alipay:${tradeNo || order.id}`);
+    await log(env, order.account_id, 'pay', { order: order.id, plan: order.plan, amount: order.amount, trade_no: tradeNo });
+    return true;
+  }
+  const paidOk = (st) => st === 'TRADE_SUCCESS' || st === 'TRADE_FINISHED';
+
+  route('POST', '/api/pay/create', async (req, env, _p, url) => {
+    const acc = await requireAccount(req, env);
+    if (!payReady(env)) throw new HttpError(503, '在线支付还没开通');
+    const { plan, mobile } = await body(req);
+    const pl = plansOf(env).find((x) => x.id === plan);
+    if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');
+    const id = 'M' + new Date(now() + 8 * 3600000).toISOString().slice(0, 10).replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+    const order = { id, plan: pl.id, days: pl.days, amount: money(pl.price) };
+    await env.DB.prepare('INSERT INTO pay_order (id, account_id, plan, days, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, acc.id, order.plan, order.days, order.amount, 'pending', now()).run();
+    const base = url.origin;
+    const payurl = await payUrl(env, {
+      orderId: id, amount: order.amount, subject: `奥数会员 · ${pl.name}（${pl.days} 天）`, mobile: !!mobile,
+      notifyUrl: `${base}/math/api/pay/notify`, returnUrl: `${base}/math/api/pay/return?o=${id}`, quitUrl: `${base}/math/#/account`,
+    });
+    return json({ order_id: id, url: payurl });
+  });
+
+  // 支付宝异步通知（application/x-www-form-urlencoded）。返回纯文本 success，否则支付宝会重试
+  route('POST', '/api/pay/notify', async (req, env) => {
+    const text = (s) => new Response(s, { headers: { 'content-type': 'text/plain' } });
+    const params = Object.fromEntries(new URLSearchParams(await req.text()));
+    if (!payReady(env) || !(await verifyNotify(params, env.ALIPAY_PUBLIC_KEY))) return text('fail');
+    if (params.app_id !== env.ALIPAY_APP_ID) return text('fail');
+    if (env.ALIPAY_SELLER_ID && params.seller_id !== env.ALIPAY_SELLER_ID) return text('fail');
+    const order = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ?').bind(params.out_trade_no || '').first();
+    if (!order) return text('fail');
+    if (money(params.total_amount) !== order.amount) {
+      await log(env, order.account_id, 'pay_mismatch', { order: order.id, expect: order.amount, got: params.total_amount });
+      return text('fail');
+    }
+    if (paidOk(params.trade_status)) await grantOrder(env, order, params.trade_no, params.buyer_logon_id || params.buyer_id);
+    else if (params.trade_status === 'TRADE_CLOSED' && order.status === 'pending')
+      await env.DB.prepare("UPDATE pay_order SET status = 'closed' WHERE id = ? AND status = 'pending'").bind(order.id).run();
+    return text('success');
+  });
+
+  // 付完款支付宝跳回这里 → 转到网页的结果页（参数在 hash 前面会丢，所以经服务端转一下）
+  route('GET', '/api/pay/return', async (_req, _env, _p, url) =>
+    Response.redirect(`${url.origin}/math/#/account/paid/${encodeURIComponent(url.searchParams.get('o') || '')}`, 302));
+
+  // 查订单状态；还没收到通知就主动问一次支付宝
+  route('GET', '/api/pay/orders/:id', async (req, env, p) => {
+    const acc = await requireAccount(req, env);
+    let order = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ? AND account_id = ?').bind(p.id, acc.id).first();
+    if (!order) throw new HttpError(404, '订单不存在');
+    if (order.status === 'pending' && payReady(env)) {
+      try {
+        const q = await queryTrade(env, order.id);
+        if (q.code === '10000' && paidOk(q.trade_status) && money(q.total_amount) === order.amount) {
+          await grantOrder(env, order, q.trade_no, q.buyer_logon_id);
+          order = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ?').bind(order.id).first();
+        }
+      } catch (e) { console.error('alipay query failed', e); }
+    }
+    const until = await memberUntil(env, acc.id);
+    return json({ id: order.id, status: order.status, plan: order.plan, days: order.days, amount: order.amount, member_until: until === Infinity ? 'forever' : until });
   });
 
   // ───────── 会员管理后台（x-admin-key） ─────────
@@ -292,6 +372,13 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       .bind(code, kind, n, String(note).slice(0, 100) || null, now())));
     await log(env, null, 'codes', { kind, amount: n, count: c, note });
     return json({ codes });
+  });
+
+  route('GET', '/api/admin/orders', async (req, env) => {
+    requireAdmin(req, env);
+    const { results } = await env.DB.prepare(
+      'SELECT o.*, a.phone FROM pay_order o LEFT JOIN account a ON a.id = o.account_id ORDER BY o.created_at DESC LIMIT 300').all();
+    return json(results);
   });
 
   route('GET', '/api/admin/codes', async (req, env) => {

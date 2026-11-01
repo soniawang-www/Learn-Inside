@@ -23,5 +23,6 @@
     "PRICE_QUARTER": "",
     "PRICE_YEAR": "",
     "PAY_CONTACT": ""          // 在线支付开通前，账号页显示的购买激活码联系方式，比如“微信 xxx”
+    // 支付宝：ALIPAY_APP_ID 在控制台加变量；ALIPAY_PRIVATE_KEY、ALIPAY_PUBLIC_KEY 必须用 Secret，不要写进这里（见 amc8-src/README.md）
   }
 }

@@ -123,5 +123,28 @@ node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 - 答案、基础解题思路、知识图谱、错题本始终免费。
 - **会员管理后台**：`/math/members.html`（需要 ADMIN_KEY）：按手机号或昵称搜账号，加会员天数、改到期日、取消会员、加减次数、重置密码、备注；生成激活码（会员天数或次数）；所有操作有记录。分享活动的奖励在这里手动发。
 - **开始收费**：把 `FREE_MODE` 改成 `"false"`。之前的账号都有 10 次免费次数。
-- 在线支付（支付宝 AI 网页收款）还没接：拿到应用 ID 和密钥后，设 `ALIPAY_APP_ID` 等，账号页会出现「开通」按钮。在此之前用 `PAY_CONTACT` 写购买激活码的联系方式。
+- 在线支付见下一节。没配好之前，账号页显示 `PAY_CONTACT`（购买激活码的联系方式）。
 - 测试：`wrangler dev --local --port 8788 --var ADMIN_KEY:localtest --var FREE_MODE:false`，然后 `node amc8-src/tests/billing.mjs http://127.0.0.1:8788`。
+
+## 在线支付（支付宝）
+
+代码：`worker/alipay.js`（RSA2 加签、验签、下单地址、查询），`worker/billing.js` 的「在线支付」部分。
+电脑浏览器走 `alipay.trade.page.pay`，手机浏览器走 `alipay.trade.wap.pay`；付款结果以**异步通知**为准（验签 + 核对 app_id、订单号、金额），
+没收到通知时，结果页查订单会主动调 `alipay.trade.query` 兜底。同一订单只开通一次。
+
+配置（Cloudflare 控制台 → learn-inside → Settings → Variables and Secrets）：
+
+| 名称 | 类型 | 内容 |
+|---|---|---|
+| `ALIPAY_APP_ID` | 变量 | 支付宝开放平台应用的 APPID |
+| `ALIPAY_PRIVATE_KEY` | **Secret** | 应用私钥（密钥工具生成的那串，PKCS8 或 PKCS1 都行） |
+| `ALIPAY_PUBLIC_KEY` | **Secret** | **支付宝公钥**（上传应用公钥后，平台显示的那串；不是应用公钥） |
+| `ALIPAY_SELLER_ID` | 变量，可选 | 收款支付宝账号的 2088 开头 PID，用来多核对一项 |
+| `ALIPAY_GATEWAY` | 变量，可选 | 默认正式环境；沙箱填 `https://openapi-sandbox.dl.alipaydev.com/gateway.do` |
+| `PRICE_MONTH` / `PRICE_QUARTER` / `PRICE_YEAR` | 变量 | 价格（元） |
+
+开放平台里：接口加签方式选**公钥**（不是证书），授权回调/通知地址填 `https://learn-inside.com/math/api/pay/notify`。
+
+测试（模拟支付宝，不连真网关）：`node amc8-src/tests/pay/keys.mjs` 生成两对测试密钥，`node amc8-src/tests/pay/mockgw.mjs` 起假网关，
+再按 `amc8-src/tests/pay.mjs` 开头的说明启动 wrangler，运行 `node amc8-src/tests/pay.mjs http://127.0.0.1:8788 <keys 所在目录>`。
+后台 `/math/members.html` 的「支付订单」标签能看到所有订单和已收款合计。

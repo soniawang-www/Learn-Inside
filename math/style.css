@@ -780,7 +780,7 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 @media (max-width: 520px) {
   .topnav { gap: 4px; padding: 8px 12px; flex-wrap: nowrap; }
   .topnav .navlink { padding: 4px 6px; font-size: 13px; white-space: nowrap; }
-  .topnav .navwho { display: none; }
+  .topnav .navwho { max-width: 4.5em; overflow: hidden; text-overflow: ellipsis; }
   .topnav .brandbar svg + svg, .topnav .brandbar .bdiv { display: none; }
 }
 .kp-plist.clip > :nth-child(n+13) { display: none; }

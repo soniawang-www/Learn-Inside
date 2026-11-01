@@ -126,6 +126,7 @@ async function router() {
     if (page === 'profile') { location.replace('#/graph'); return; } // 画像并进了知识图谱
     if (page === 'graph') return await renderGraphPage(id);
     if (page === 'mistakes') return await renderMistakes();
+    if (page === 'account' && id === 'paid') return await renderPaid(sub);
     if (page === 'account') return await renderAccount();
     if (page === 'contest') return await renderContest(id, sub);
     return await renderHome();
@@ -203,6 +204,13 @@ async function renderAccount() {
     catch (err) { document.getElementById(errId).textContent = err.message; }
   });
   form('redeem', '/math/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
+  $app.querySelectorAll('[data-plan]').forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const r = await api('/math/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, mobile: /Mobi|Android|iPhone/i.test(navigator.userAgent) } });
+      location.href = r.url;
+    } catch (err) { b.disabled = false; modal(`<h2>没能发起支付</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+  }));
   form('bind', '/math/api/account/bind', 'berr', () => renderAccount());
   form('pw', '/math/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
   document.getElementById('logout').onclick = () => {
@@ -210,6 +218,23 @@ async function renderAccount() {
       (m) => (m.querySelector('#lo').onclick = () => { auth.clear(); location.hash = '#/'; router(); }));
     auth.clear(); location.hash = '#/'; router();
   };
+}
+
+// 支付宝付完跳回：查订单，没到账就隔几秒再查（服务端会主动问支付宝）
+async function renderPaid(orderId) {
+  const box = (html) => { $app.innerHTML = `${topnav()}<div class="page"><div class="card" style="max-width:480px;margin:40px auto;text-align:center">${html}</div></div>`; };
+  box('<h2>正在确认付款…</h2><p class="small muted">支付宝通知可能有几秒延迟。</p>');
+  for (let i = 0; i < 8; i++) {
+    const o = await api(`/math/api/pay/orders/${enc(orderId)}`);
+    if (o.status === 'paid') {
+      return box(`<div style="font-size:40px">🎉</div><h2>会员已开通</h2><p>${o.member_until === 'forever' ? '永久会员' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p>
+        <p class="small muted">所有互动解析和知识项突击不限次数。</p><p><a class="btn primary" href="#/">开始练习</a> <a class="btn" href="#/account">账号</a></p>`);
+    }
+    if (o.status === 'closed') break;
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  box(`<h2>还没确认到付款</h2><p class="small">如果已经付款，稍等一两分钟刷新这个页面；一直没开通请联系我们，订单号 <code>${esc(orderId)}</code>。</p>
+    <p><button class="btn primary" onclick="location.reload()">刷新</button> <a class="btn" href="#/account">返回账号</a></p>`);
 }
 
 /** 内容没解锁：有免费次数就问要不要用 1 次，没有就引导开通会员。解锁成功后执行 then() */
