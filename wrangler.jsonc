@@ -17,6 +17,11 @@
   ],
   "vars": {
     "FREE_MODE": "true",       // 试用期全部内容免费；收费时改为 "false"
-    "INVITE_CODES": "AMC2026"  // 逗号分隔；留空 = 不需要邀请码
+    "INVITE_CODES": "AMC2026", // 旧的邀请码加入（现在用手机号注册）；逗号分隔，留空 = 不需要邀请码
+    // 会员价格（元），留空显示“价格待定”
+    "PRICE_MONTH": "",
+    "PRICE_QUARTER": "",
+    "PRICE_YEAR": "",
+    "PAY_CONTACT": ""          // 在线支付开通前，账号页显示的购买激活码联系方式，比如“微信 xxx”
   }
 }

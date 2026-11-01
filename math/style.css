@@ -784,3 +784,12 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
   .topnav .brandbar svg + svg, .topnav .brandbar .bdiv { display: none; }
 }
 .kp-plist.clip > :nth-child(n+13) { display: none; }
+
+/* ───────── 账号与会员 ───────── */
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; }
+.plan { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: grid; gap: 6px; }
+.plan .pname { font-weight: 600; }
+.plan .price { font-size: 22px; font-weight: 700; color: var(--accent); }
+.card.bind-tip { display: block; text-decoration: none; color: inherit; border-color: var(--flag, #f0b44c); font-size: 14px; }
+.card.bind-tip b { color: var(--accent); }
+details summary { cursor: pointer; color: var(--accent); }

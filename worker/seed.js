@@ -64,6 +64,7 @@ function upsertSql(table, obj) {
 }
 
 // 已上线的库需要补的列（CREATE TABLE IF NOT EXISTS 不会给旧表加列）
+import { BILLING_MIGRATIONS } from './billing.js';
 const MIGRATIONS = [
   'ALTER TABLE problem ADD COLUMN stem_zh TEXT', 'ALTER TABLE problem ADD COLUMN choices_zh TEXT',
   'ALTER TABLE knowledge_point ADD COLUMN signals TEXT', 'ALTER TABLE knowledge_point ADD COLUMN lesson TEXT',
@@ -71,6 +72,7 @@ const MIGRATIONS = [
   'ALTER TABLE exam_session ADD COLUMN title TEXT', 'ALTER TABLE exam_session ADD COLUMN kp_id TEXT',
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
+  ...BILLING_MIGRATIONS,
 ];
 // 每次都执行的数据修正（幂等）
 const FIXUPS = [

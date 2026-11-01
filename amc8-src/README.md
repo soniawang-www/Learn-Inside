@@ -112,3 +112,16 @@ wrangler dev             # 仓库根目录；本地 D1 存在 .wrangler/
 # 打开 http://127.0.0.1:8787/math/api/admin/seed 初始化，再访问 /math/
 node amc8-src/tests/e2e.mjs http://127.0.0.1:8787
 ```
+
+
+## 账号与会员
+
+- 家长用**手机号 + 密码**注册登录（不发短信验证码；忘记密码在会员管理后台重置）。试用期用邀请码建的老账号，可以在「账号」页绑定手机号。
+- **免费次数**：每个账号送 10 次（`worker/billing.js` 的 `FREE_CREDITS`）。1 次解锁一道题的互动解析（之后随时看）或一个知识项的真题突击。
+- **免费样板**：`SAMPLES`，目前是 2026 年整套互动解析，和「直线形面积」「分百与比例应用题」两个知识项的突击，不扣次数。
+- **会员**：月卡 31 天、季卡 92 天、年卡 366 天，价格在 `wrangler.jsonc` 的 `PRICE_MONTH` / `PRICE_QUARTER` / `PRICE_YEAR` 填（元），留空显示“价格待定”。续费接在原到期日之后。会员期间互动解析和突击不限次数。
+- 答案、基础解题思路、知识图谱、错题本始终免费。
+- **会员管理后台**：`/math/members.html`（需要 ADMIN_KEY）：按手机号或昵称搜账号，加会员天数、改到期日、取消会员、加减次数、重置密码、备注；生成激活码（会员天数或次数）；所有操作有记录。分享活动的奖励在这里手动发。
+- **开始收费**：把 `FREE_MODE` 改成 `"false"`。之前的账号都有 10 次免费次数。
+- 在线支付（支付宝 AI 网页收款）还没接：拿到应用 ID 和密钥后，设 `ALIPAY_APP_ID` 等，账号页会出现「开通」按钮。在此之前用 `PAY_CONTACT` 写购买激活码的联系方式。
+- 测试：`wrangler dev --local --port 8788 --var ADMIN_KEY:localtest --var FREE_MODE:false`，然后 `node amc8-src/tests/billing.mjs http://127.0.0.1:8788`。

@@ -1,5 +1,5 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
-// 路由：#/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
+// 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { mountGraph } from './graph.js';
 
@@ -106,7 +106,7 @@ const BRAND = `<a class="brandbar" href="../" aria-label="回到 learn-inside �
 function topnav() {
   const s = auth.student;
   return `<nav class="topnav">${BRAND}<span class="spacer"></span>
-    ${s ? [['#/', '考试', /^#\/(contest.*)?$/], ['#/graph', '知识图谱', /^#\/(graph|kp)/], ['#/mistakes', '错题本', /^#\/mistakes/]].map(([h, n, re]) => `<a class="navlink ${re.test(location.hash || '#/') ? 'on' : ''}" href="${h}">${n}</a>`).join('') + `<span class="navwho">${esc(s.nickname)}</span>` : ''}</nav>`;
+    ${s ? [['#/', '考试', /^#\/(contest.*)?$/], ['#/graph', '知识图谱', /^#\/(graph|kp)/], ['#/mistakes', '错题本', /^#\/mistakes/]].map(([h, n, re]) => `<a class="navlink ${re.test(location.hash || '#/') ? 'on' : ''}" href="${h}">${n}</a>`).join('') + `<a class="navlink navwho ${/^#\/account/.test(location.hash) ? 'on' : ''}" href="#/account">${esc(s.nickname)}</a>` : ''}</nav>`;
 }
 
 // ───────── 路由 ─────────
@@ -126,6 +126,7 @@ async function router() {
     if (page === 'profile') { location.replace('#/graph'); return; } // 画像并进了知识图谱
     if (page === 'graph') return await renderGraphPage(id);
     if (page === 'mistakes') return await renderMistakes();
+    if (page === 'account') return await renderAccount();
     if (page === 'contest') return await renderContest(id, sub);
     return await renderHome();
   } catch (e) {
@@ -136,27 +137,98 @@ window.addEventListener('hashchange', router);
 // 「去错题本订正」带上知识项筛选
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-mskp]'); if (a) { msKp = a.dataset.mskp; msFam = ''; msFilter = 'todo'; msMore = false; } });
 
-// ───────── 加入试用 ─────────
+// ───────── 登录 / 注册 ─────────
+let joinTab = 'register';
 function renderJoin() {
+  const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="page"><div class="card" style="max-width:420px;margin:40px auto">
-    <h1>加入试用</h1>
+    <div class="ctabs"><a class="${reg ? 'on' : ''}" data-tab="register">注册</a><a class="${reg ? '' : 'on'}" data-tab="login">登录</a></div>
     <form id="join">
-      <label class="field"><span>邀请码</span><input type="text" name="invite_code" autocomplete="off"></label>
-      <label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" placeholder="比如：小桐"></label>
-      <button class="btn primary" type="submit">开始</button>
+      <label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
+      <label class="field"><span>密码${reg ? '（至少 6 位）' : ''}</span><input type="password" name="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></label>
+      ${reg ? '<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" placeholder="比如：小桐"></label>' : ''}
+      <button class="btn primary" type="submit">${reg ? '注册并开始' : '登录'}</button>
       <div class="error-msg" id="err"></div>
     </form>
-    <p class="small muted">试用期间所有内容免费。孩子的作答记录只用于生成知识图谱和错题本。</p>
+    <p class="small muted">${reg ? '注册就送 10 次免费次数，可以解锁互动解析或知识项突击。孩子的作答记录只用于生成知识图谱和错题本。' : '忘记密码请联系我们重置。'}</p>
   </div></div>`;
+  $app.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => { joinTab = t.dataset.tab; renderJoin(); }));
   document.getElementById('join').onsubmit = async (e) => {
     e.preventDefault();
-    const f = new FormData(e.target);
+    const f = Object.fromEntries(new FormData(e.target));
     try {
-      const r = await api('/math/api/auth/join', { method: 'POST', body: Object.fromEntries(f) });
+      const r = await api(`/math/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
       auth.save(r.token, r.student);
       location.hash = '#/'; router();
     } catch (err) { document.getElementById('err').textContent = err.message; }
   };
+}
+
+// ───────── 账号与会员 ─────────
+const fmtDay = (ms) => new Date(ms).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+async function renderAccount() {
+  const a = await api('/math/api/account');
+  const memberLine = a.free_mode ? '试用期间所有内容免费开放。'
+    : a.member ? (a.member_until === 'forever' ? '永久会员' : `会员有效期到 <b>${fmtDay(a.member_until)}</b>`) : '还不是会员';
+  $app.innerHTML = `${topnav()}<div class="page">
+    <h1>账号</h1>
+    <div class="card"><h2>会员</h2>
+      <p>${memberLine}</p>
+      ${a.member || a.free_mode ? '' : `<p class="small muted">剩余免费次数 <b>${a.credits}</b> 次（已解锁 ${a.unlocked} 项）。1 次可以解锁一道题的互动解析（之后随时看），或一个知识项的真题突击。</p>`}
+      <div class="plans">${a.plans.map((p) => `<div class="plan"><div class="pname">${p.name}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天，续费接在原到期日后</div>
+        ${a.pay_ready ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : ''}</div>`).join('')}</div>
+      <p class="small muted">会员期间：所有互动解析、知识项真题突击不限次数。答案、解题思路、知识图谱、错题本一直免费。</p>
+      ${a.pay_ready ? '' : `<p class="small">在线支付即将开通。现在可以${a.contact ? `联系 ${esc(a.contact)} ` : ''}购买激活码，在下面输入开通。</p>`}
+    </div>
+    <div class="card"><h2>激活码</h2>
+      <form id="redeem" class="row"><input type="text" name="code" placeholder="输入激活码" autocomplete="off" style="flex:1;min-width:160px"><button class="btn primary">兑换</button></form>
+      <div class="error-msg" id="rerr"></div>
+    </div>
+    <div class="card"><h2>登录方式</h2>
+      ${a.phone ? `<p>手机号 <b>${esc(a.phone)}</b></p>
+        <details><summary class="small">修改密码</summary><form id="pw" style="margin-top:10px">
+          <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
+          <label class="field"><span>新密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
+          <button class="btn">保存</button><div class="error-msg" id="perr"></div></form></details>`
+      : `<p class="small kg-warn">这个账号只保存在当前浏览器里，换手机或清理浏览器就找不回来了。绑定手机号后可以在任何设备登录。</p>
+        <form id="bind"><label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
+          <label class="field"><span>设置密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
+          <button class="btn primary">绑定</button><div class="error-msg" id="berr"></div></form>`}
+      <p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>
+    </div>
+  </div>`;
+  const form = (id, path, errId, done) => document.getElementById(id)?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try { const r = await api(path, { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); if (r.status === 402) throw new Error(r.error); await done(r); }
+    catch (err) { document.getElementById(errId).textContent = err.message; }
+  });
+  form('redeem', '/math/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
+  form('bind', '/math/api/account/bind', 'berr', () => renderAccount());
+  form('pw', '/math/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
+  document.getElementById('logout').onclick = () => {
+    if (!a.phone) return modal(`<h2>先绑定手机号？</h2><p>这个账号还没绑定手机号，退出后就找不回来了。</p><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="lo">仍然退出</button></div>`,
+      (m) => (m.querySelector('#lo').onclick = () => { auth.clear(); location.hash = '#/'; router(); }));
+    auth.clear(); location.hash = '#/'; router();
+  };
+}
+
+/** 内容没解锁：有免费次数就问要不要用 1 次，没有就引导开通会员。解锁成功后执行 then() */
+function askUnlock(item, what, credits, then) {
+  if (credits > 0) return modal(`<h2>解锁${esc(what)}</h2>
+    <p>用 1 次免费次数解锁，${item.startsWith('adv:') ? '之后这道题的互动解析可以随时反复看' : '之后这个知识项的突击可以随时再做'}。</p>
+    <p class="small muted">剩余 ${credits} 次。开通会员后不限次数。</p>
+    <div class="actions"><a class="btn" href="#/account" data-close>看看会员</a><button class="btn primary" id="unl">用 1 次解锁</button></div>`, (m, close) => {
+    m.querySelector('#unl').onclick = async (e) => {
+      e.target.disabled = true;
+      const r = await api('/math/api/unlock', { method: 'POST', body: { item } });
+      close();
+      if (r.status === 402) return askUnlock(item, what, 0, then);
+      then();
+    };
+  });
+  modal(`<div class="locked-panel"><div class="icon">🔒</div><p><b>免费次数用完了</b></p>
+    <p class="small">开通会员后，所有互动解析和知识项突击不限次数；也可以用激活码兑换。</p>
+    <div class="actions" style="justify-content:center"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>开通会员</a></div></div>`);
 }
 
 // ───────── 首页：试卷列表 ─────────
@@ -167,6 +239,7 @@ async function renderHome() {
   const fams = await apiList(`/math/api/families?student=${st.id}`);
   $app.innerHTML = `${topnav()}<div class="page">
     <h1>考试</h1>
+    ${me.has_phone ? '' : '<a class="card bind-tip" href="#/account">这个账号还没绑定手机号，换设备就找不回记录了。<b>去绑定 ›</b></a>'}
     ${me.students.length > 1 ? `<div class="card row"><span class="muted">当前学生</span>
       <select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select></div>` : ''}
     <div class="fam-list">${fams.map((f) => `<a class="card fam" href="#/contest/${f.id}">
@@ -426,7 +499,7 @@ async function renderReview(sid) {
         ${it.correct ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
-        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button> <span class="small muted">会员 · 一步步跟着做</span></div>` : ''}
+        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button> <span class="small muted">${it.advanced.locked ? '会员或用 1 次免费次数' : ''} 一步步跟着做</span></div>` : ''}
         <div class="section-label">考点</div>
         ${typeChips(it.types)}
         ${kpCards(it.kps)}
@@ -466,7 +539,7 @@ function bindKpCards(root) {
 }
 async function startDrill(kpId) {
   const r = await api('/math/api/sessions', { method: 'POST', body: { kp_id: kpId, student_id: auth.student.id } });
-  if (r.status === 402) return modal(lockedPanel('知识项突击是会员功能'));
+  if (r.status === 402) return askUnlock(r.item, '知识项突击', r.credits, () => startDrill(kpId));
   location.hash = `#/exam/${r.session.id}`;
 }
 
@@ -487,7 +560,7 @@ function openLesson(lesson, { onDone, doneLabel } = {}) {
 
 async function openAdvanced(problemId) {
   const r = await api(`/math/api/problems/${problemId}/advanced`);
-  if (r.locked) return modal(lockedPanel('互动解析是会员内容'));
+  if (r.locked) return askUnlock(r.item, '互动解析', r.credits, () => openAdvanced(problemId));
   if (r.url) { window.open(r.url, '_blank'); return; }
   openLesson({ title: '互动解析', ...r.lesson });
 }
@@ -605,7 +678,7 @@ async function renderKp(id) {
     ${k.signals.length ? `<div class="card"><h2>怎么认出这个知识项</h2><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul></div>` : ''}
     <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
       <p class="small muted">${k.drill.count ? `把考这个知识项的 ${k.drill.count} 道真题集中做一遍，可以看提示，做完看解析。` : '还没有考这个知识项的真题。'}</p></div>
-      ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>` : ''}</div>
+      ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>${k.drill.sample ? '<span class="small muted">免费体验</span>' : ''}` : ''}</div>
     ${k.problems.length ? `<div class="card"><h2>相关真题 <span class="small muted">${k.problems.length} 题</span></h2><div class="plist kp-plist">${k.problems.map((p, i) => `<a class="prow st-${p.status}" href="#/problem/${enc(p.id)}">
         <span class="pst" title="${ST[p.status][1]}">${ST[p.status][0]}</span><span>${esc(p.label)}</span>${p.weight >= 1 ? '<span class="tag">主考点</span>' : ''}<span class="go">›</span></a>`).join('')}</div>${k.problems.length > 12 ? `<button class="btn" style="margin-top:8px" id="kp-more">显示全部 ${k.problems.length} 题</button>` : ''}</div>` : ''}
   </div>`;

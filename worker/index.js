@@ -5,6 +5,8 @@ import { recomputeMastery, displayMastery } from './mastery.js';
 const parseJ = (v, d = null) => { try { return v ? JSON.parse(v) : d; } catch { return d; } };
 import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
+import { registerBilling, SAMPLES } from './billing.js';
+const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
 // 考试系列：试卷 id 以前缀区分。画像、知识图谱、错题本不分考试；考情、试卷、成绩按考试分开。
@@ -66,6 +68,8 @@ const route = (method, pattern, handler) => {
   routes.push({ method, re, keys, handler });
 };
 
+const billing = registerBilling({ route, json, HttpError, body, requireAccount, uid, now });
+
 // 加入试用：邀请码 + 孩子昵称 → 返回 token
 route('POST', '/api/auth/join', async (req, env) => {
   const { invite_code = '', nickname = '' } = await body(req);
@@ -85,7 +89,8 @@ route('POST', '/api/auth/join', async (req, env) => {
 route('GET', '/api/me', async (req, env) => {
   const acc = await requireAccount(req, env);
   const { results: students } = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ? ORDER BY created_at').bind(acc.id).all();
-  return json({ account_id: acc.id, students, premium: await hasTier(env, acc, 'premium'), free_mode: env.FREE_MODE === 'true' });
+  const ctx = await billing.accessCtx(env, acc);
+  return json({ account_id: acc.id, students, premium: ctx.member, free_mode: ctx.free, credits: ctx.credits, has_phone: !!acc.phone });
 });
 
 route('POST', '/api/students', async (req, env) => {
@@ -134,7 +139,8 @@ route('POST', '/api/sessions', async (req, env) => {
     if (kp_id) {
       const kp = await env.DB.prepare('SELECT id, name FROM knowledge_point WHERE id = ?').bind(kp_id).first();
       if (!kp) throw new HttpError(404, '知识项不存在');
-      if (!(await hasTier(env, acc, 'premium'))) throw new HttpError(402, '知识项突击是会员功能');
+      const ctx = await billing.accessCtx(env, acc);
+      if (!ctx.can(`drill:${kp_id}`)) return json({ error: '知识项突击需要会员或用 1 次免费次数解锁', item: `drill:${kp_id}`, credits: ctx.credits }, 402);
       ids = await drillProblemIds(env, kp_id);
       title = `知识项突击 · ${kp.name}`;
     } else {
@@ -305,7 +311,7 @@ async function reviewPayload(env, acc, sessionId) {
   const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ?').bind(s.exam_id).first();
   const drill = s.exam_id === 'drill';
   if (drill) { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
-  const premium = await hasTier(env, acc, 'premium');
+  const ctx = await billing.accessCtx(env, acc);
   const { results: rows } = await env.DB
     .prepare(
       `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types,
@@ -332,7 +338,7 @@ async function reviewPayload(env, acc, sessionId) {
       answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
       basic: r.basic,
-      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || premium) } : null,
+      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)) } : null,
       kps: kpByProblem[r.id] || [],
       types: parseJ(r.types, []),
     })),
@@ -372,7 +378,10 @@ route('GET', '/api/problems/:id/advanced', async (req, env, p) => {
   if (!done) throw new HttpError(403, '做完这道题后才能看解析');
   const sol = await env.DB.prepare("SELECT * FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(p.id).first();
   if (!sol) throw new HttpError(404, '这道题还没有高级解析');
-  if (!(await hasTier(env, acc, sol.tier))) return json({ locked: true, tier: sol.tier }, 402);
+  if (sol.tier !== 'free') {
+    const ctx = await billing.accessCtx(env, acc);
+    if (!ctx.can(`adv:${p.id}`)) return json({ locked: true, item: `adv:${p.id}`, credits: ctx.credits }, 402);
+  }
   let lesson;
   try { const v = JSON.parse(sol.content); lesson = Array.isArray(v) ? { steps: v } : v; } catch { lesson = { steps: [{ title: '解析', body: sol.content }] }; }
   return json({ locked: false, lesson, steps: lesson.steps, url: sol.url });
@@ -390,7 +399,7 @@ route('GET', '/api/problems/:id', async (req, env, p, url) => {
   const last = studentId ? await env.DB
     .prepare('SELECT choice, correct, created_at, session_id FROM attempt_event WHERE problem_id = ? AND student_id = ? ORDER BY created_at DESC, id DESC LIMIT 1')
     .bind(pr.id, studentId).first() : null;
-  const premium = await hasTier(env, acc, 'premium');
+  const ctx = await billing.accessCtx(env, acc);
   const out = {
     problem_id: pr.id, number: pr.number, label: `${pr.exam_title} 第 ${pr.number} 题`, exam_title: pr.exam_title,
     stem: pr.stem, stem_zh: pr.stem_zh, figure: pr.figure, choices: JSON.parse(pr.choices), choices_zh: pr.choices_zh ? JSON.parse(pr.choices_zh) : null,
@@ -401,7 +410,7 @@ route('GET', '/api/problems/:id', async (req, env, p, url) => {
   if (last) {
     const sb = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
     const sa = await env.DB.prepare("SELECT tier FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
-    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || premium) } : null });
+    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || ctx.can(`adv:${pr.id}`)) } : null });
   }
   return json(out);
 });
@@ -443,7 +452,7 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     const m = await env.DB.prepare('SELECT rating, evidence FROM mastery WHERE student_id = ? AND kp_id = ?').bind(studentId, kp.id).first();
     if (m) mastery = displayMastery(m.rating, m.evidence);
   }
-  const premium = await hasTier(env, acc, 'premium');
+  const ctx = await billing.accessCtx(env, acc);
   const fam = FAMILIES.some((f) => f.id === url.searchParams.get('family')) ? url.searchParams.get('family') : 'amc8';
   const st = await kpStats(env, fam);
   return json({
@@ -451,7 +460,7 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     signals: kp.signals ? JSON.parse(kp.signals) : [],
     has_lesson: !!(kp.lesson || kp.content),
     locked: !unlocked, content: unlocked ? kp.content : null, lesson: unlocked && kp.lesson ? JSON.parse(kp.lesson) : null,
-    drill: { count: problems.filter((x) => x.weight >= 0.5).length, locked: !premium },
+    drill: { count: problems.filter((x) => x.weight >= 0.5).length, locked: !ctx.can(`drill:${kp.id}`), sample: SAMPLE_DRILLS.includes(kp.id), credits: ctx.credits },
     prerequisites: prereq, dependents: nexts, types: parseJ(kp.types, []),
     problems: problems.map((x) => ({ ...x, label: `${x.exam_title} 第 ${x.number} 题`, status: x.last_correct === null ? 'todo' : x.last_correct ? 'right' : 'wrong' })),
     mastery,

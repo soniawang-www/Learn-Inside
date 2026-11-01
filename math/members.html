@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>会员管理</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .acc { border-top: 1px solid var(--border); padding: 12px 0; display: grid; gap: 6px; }
+    .acc .head { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+    .acc .ops { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .acc .ops input { width: 8em; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+    .acc .ops .btn { padding: 4px 12px; font-size: 13px; }
+    .tabs2 { display: flex; gap: 6px; margin-bottom: 12px; }
+    .member { color: var(--ok, #1d7a46); font-weight: 600; }
+    table.codes { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.codes td, table.codes th { padding: 5px 4px; border-bottom: 1px solid var(--border); text-align: left; }
+    code.c { font-size: 14px; letter-spacing: .05em; }
+  </style>
+</head>
+<body>
+  <div class="page" style="max-width:860px">
+    <h1>会员管理</h1>
+    <div class="card row">
+      <label class="field" style="flex:1;margin:0"><span>管理员密钥（ADMIN_KEY）</span><input type="password" id="key" autocomplete="off"></label>
+    </div>
+    <div class="tabs2"><button class="btn primary" data-tab="acc">账号</button><button class="btn" data-tab="codes">激活码</button><button class="btn" data-tab="log">操作记录</button></div>
+
+    <div id="tab-acc">
+      <div class="card">
+        <form id="search" class="row"><input type="text" id="q" placeholder="手机号、孩子昵称或备注，留空看最新 100 个" style="flex:1;min-width:200px"><button class="btn primary">搜索</button></form>
+        <p class="small muted" id="total"></p>
+        <div id="list"></div>
+      </div>
+    </div>
+
+    <div id="tab-codes" hidden>
+      <div class="card">
+        <h2>生成激活码</h2>
+        <form id="gen" class="row" style="flex-wrap:wrap;gap:8px">
+          <select id="kind"><option value="days">会员天数</option><option value="credits">免费次数</option></select>
+          <input type="number" id="amount" value="31" min="1" style="width:6em">
+          <span class="small muted">× 个数</span><input type="number" id="count" value="1" min="1" max="200" style="width:5em">
+          <input type="text" id="cnote" placeholder="备注（比如：小红书 11 月活动）" style="flex:1;min-width:180px">
+          <button class="btn primary">生成</button>
+        </form>
+        <p class="small muted">会员天数参考：月卡 31、季卡 92、年卡 366。家长在网站「账号」页输入激活码兑换，会员接在原到期日之后。</p>
+        <pre id="newcodes" class="small" style="white-space:pre-wrap"></pre>
+      </div>
+      <div class="card"><h2>最近的激活码</h2><div id="codes"></div></div>
+    </div>
+
+    <div id="tab-log" hidden><div class="card"><div id="log"></div></div></div>
+    <p class="small muted"><a href="./">← 返回网站</a> · <a href="admin.html">题库导入</a></p>
+  </div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const day = (ms) => ms ? new Date(ms).toLocaleDateString('zh-CN') : '—';
+  const time = (ms) => ms ? new Date(ms).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
+  $('key').onchange = () => { try { sessionStorage.setItem('amc8.adminKey', $('key').value.trim()); } catch {} };
+  async function api(path, body) {
+    const r = await fetch('api/admin/' + path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', 'x-admin-key': $('key').value.trim() }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `请求失败 (${r.status})`);
+    return d;
+  }
+  const memberText = (a) => a.member_until === 'forever' ? '<span class="member">永久会员</span>'
+    : a.member_until ? `<span class="member">会员到 ${day(a.member_until)}</span>` : '<span class="muted">非会员</span>';
+  function accHtml(a) {
+    return `<div class="acc" data-id="${a.id}">
+      <div class="head"><b>${esc(a.phone || '（未绑定手机号）')}</b><span>${esc(a.students.join('、'))}</span>${memberText(a)}
+        <span class="small">剩 ${a.credits} 次 · 已解锁 ${a.unlocked}</span>
+        <span class="small muted">注册 ${day(a.created_at)} · 最近做题 ${time(a.last_active)}</span></div>
+      ${a.note ? `<div class="small">备注：${esc(a.note)}</div>` : ''}
+      <details><summary class="small">操作</summary><div class="ops" style="margin-top:8px">
+        <input type="number" placeholder="天数" data-v="add_days"><button class="btn" data-op="add_days">加会员</button>
+        <input type="date" data-v="set_expiry"><button class="btn" data-op="set_expiry">改到期日</button>
+        <button class="btn" data-op="revoke">取消会员</button>
+        <input type="number" placeholder="±次数" data-v="add_credits"><button class="btn" data-op="add_credits">加次数</button>
+        <input type="text" placeholder="新密码" data-v="reset_password"><button class="btn" data-op="reset_password">重置密码</button>
+        <input type="text" placeholder="备注" data-v="note" value="${esc(a.note || '')}"><button class="btn" data-op="note">存备注</button>
+      </div></details><span class="small kl-warn" data-msg></span></div>`;
+  }
+  const NAMES = { add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
+  async function search() {
+    try {
+      const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()));
+      $('total').textContent = `共 ${d.total} 个账号，显示 ${d.accounts.length} 个`;
+      $('list').innerHTML = d.accounts.map(accHtml).join('') || '<p class="muted small">没找到</p>';
+    } catch (e) { $('total').textContent = e.message; }
+  }
+  $('search').onsubmit = (e) => { e.preventDefault(); search(); };
+  $('list').onclick = async (e) => {
+    const b = e.target.closest('[data-op]'); if (!b) return;
+    const box = b.closest('.acc'), op = b.dataset.op, inp = box.querySelector(`[data-v="${op}"]`);
+    const value = inp ? inp.value.trim() : null;
+    if (inp && !value && op !== 'note') return (box.querySelector('[data-msg]').textContent = '先填内容');
+    const reason = ['add_days', 'set_expiry', 'add_credits'].includes(op) ? (prompt('原因（会记在操作记录里，比如：分享活动）', '') ?? null) : '';
+    if (reason === null) return;
+    if (op === 'revoke' && !confirm('确定取消这个账号的会员？')) return;
+    try {
+      const d = await api('accounts/' + box.dataset.id, { action: op, value, reason });
+      box.outerHTML = accHtml(d.account);
+    } catch (err) { box.querySelector('[data-msg]').textContent = err.message; }
+  };
+  $('gen').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const d = await api('codes', { kind: $('kind').value, amount: +$('amount').value, count: +$('count').value, note: $('cnote').value });
+      $('newcodes').textContent = `新生成 ${d.codes.length} 个（${$('kind').value === 'days' ? `会员 ${$('amount').value} 天` : `${$('amount').value} 次`}）：\n` + d.codes.join('\n');
+      loadCodes();
+    } catch (err) { $('newcodes').textContent = err.message; }
+  };
+  async function loadCodes() {
+    try {
+      const d = await api('codes');
+      $('codes').innerHTML = `<table class="codes"><tr><th>激活码</th><th>内容</th><th>备注</th><th>生成</th><th>使用</th></tr>${d.map((c) => `<tr>
+        <td><code class="c">${c.code}</code></td><td>${c.kind === 'days' ? `会员 ${c.amount} 天` : `${c.amount} 次`}</td><td>${esc(c.note || '')}</td>
+        <td>${day(c.created_at)}</td><td>${c.used_by ? `${esc(c.used_phone || '未绑定手机号')} · ${day(c.used_at)}` : '<span class="muted">未使用</span>'}</td></tr>`).join('')}</table>`;
+    } catch (e) { $('codes').textContent = e.message; }
+  }
+  async function loadLog() {
+    try {
+      const d = await api('log');
+      $('log').innerHTML = d.map((l) => { const x = JSON.parse(l.detail || 'null') || {};
+        return `<div class="small" style="padding:4px 0;border-bottom:1px solid var(--border)">${time(l.created_at)} · ${esc(l.phone || (l.account_id ? '未绑定手机号' : '—'))} · <b>${NAMES[l.action] || l.action}</b> ${esc(x.value ?? x.code ?? (x.count ? `${x.count} 个 ${x.kind === 'days' ? `${x.amount} 天` : `${x.amount} 次`}` : ''))} ${x.reason ? `（${esc(x.reason)}）` : ''}${x.note ? `（${esc(x.note)}）` : ''}</div>`; }).join('') || '<p class="muted small">还没有记录</p>';
+    } catch (e) { $('log').textContent = e.message; }
+  }
+  document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => {
+    document.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('primary', x === b));
+    for (const t of ['acc', 'codes', 'log']) $('tab-' + t).hidden = t !== b.dataset.tab;
+    if (b.dataset.tab === 'codes') loadCodes();
+    if (b.dataset.tab === 'log') loadLog();
+  }));
+  if ($('key').value) search();
+</script>
+</body>
+</html>

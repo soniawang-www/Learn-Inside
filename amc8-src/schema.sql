@@ -10,7 +10,7 @@ PRAGMA foreign_keys = ON;
 -- 家长账号（登录主体），孩子作为 student 挂在下面（未成年人信息由家长管理）
 CREATE TABLE IF NOT EXISTS account (
   id           TEXT PRIMARY KEY,
-  token        TEXT NOT NULL UNIQUE,          -- 试用期简单 token；以后换手机号/微信登录
+  token        TEXT NOT NULL UNIQUE,          -- 登录凭证；phone / pw_hash / credits / note 等列由 worker/billing.js 的迁移补上
   invite_code  TEXT,
   created_at   INTEGER NOT NULL
 );
