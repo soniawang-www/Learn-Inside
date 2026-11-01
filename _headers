@@ -1,0 +1,7 @@
+# 页面和脚本每次都向服务器确认是否有更新（有 ETag，没变化时很快），避免改版后浏览器还用旧文件
+/math/*
+  Cache-Control: no-cache
+/admin/*
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

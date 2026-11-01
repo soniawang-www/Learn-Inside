@@ -87,3 +87,5 @@ const c4 = await call('/api/pay/create', 'POST', { plan: 'math.month' }, T);
 writeFileSync(`${DIR}/amount`, '0.00');
 const cl = await call(`/api/admin/orders/${c4.data.order_id}/close`, 'POST', {}, null, true);
 ok(cl.data.status === 'closed', '关闭未付款订单');
+const gst = await call('/api/auth/guest', 'POST', {});
+ok((await call('/api/pay/create', 'POST', { plan: 'math.month' }, gst.data.token)).status === 403, '游客不能在线开通，要先注册');

@@ -135,6 +135,8 @@ const gss = await call('/math/api/sessions', 'POST', { problem_ids: ['amc8-2025-
 await call(`/math/api/sessions/${gss.data.session.id}/submit`, 'POST', { answers: {}, times: {}, flags: {} }, G);
 ok((await call('/math/api/problems/amc8-2026-p02/advanced', 'GET', null, G)).status === 200, '游客能看免费样板');
 ok((await call('/api/unlock', 'POST', { item: 'adv:amc8-2025-p02' }, G)).status === 402, '游客不能用次数解锁');
+const gc = await call('/math/api/admin/codes', 'POST', { kind: 'days', amount: 31 }, null, true);
+ok((await call('/api/redeem', 'POST', { code: gc.data.codes[0] }, G)).status === 403, '游客不能兑换激活码，要先注册');
 const gphone = '137' + String(Date.now()).slice(-8);
 const gb = await call('/api/account/bind', 'POST', { phone: gphone, password: 'guest12', nickname: '小游' }, G);
 ok(gb.status === 200 && gb.data.credits_added === 10, '游客注册送 10 次');
@@ -142,3 +144,4 @@ const gl = await call('/api/auth/login', 'POST', { phone: gphone, password: 'gue
 ok(gl.data.token === G && gl.data.student.nickname === '小游', '注册后用手机号登录回到同一账号，昵称已更新');
 const gp = await call(`/math/api/students/${gs}/profile`, 'GET', null, G);
 ok(gp.data.mistakes.length === 2 && (await call('/math/api/me', 'GET', null, G)).data.guest === false, '游客时的错题保留');
+ok((await call('/api/redeem', 'POST', { code: gc.data.codes[0] }, G)).status === 200, '注册后可以兑换');

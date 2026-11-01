@@ -254,6 +254,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   // 激活码：days = 会员天数；credits = 免费次数
   route('POST', '/api/redeem', async (req, env) => {
     const acc = await requireAccount(req, env);
+    if (!acc.phone) throw new HttpError(403, '请先注册账号再兑换激活码（游客的会员换设备就找不回来了）');
     const code = String((await body(req)).code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const row = await env.DB.prepare('SELECT * FROM redeem_code WHERE code = ?').bind(code).first();
     if (!row) throw new HttpError(404, '激活码不存在');
@@ -285,6 +286,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   route('POST', '/api/pay/create', async (req, env, _p, url) => {
     const acc = await requireAccount(req, env);
     if (!payReady(env)) throw new HttpError(503, '在线支付还没开通');
+    if (!acc.phone) throw new HttpError(403, '请先注册账号再开通会员（游客的会员换设备就找不回来了）');
     const { plan, from = 'math' } = await body(req);
     const pl = plansOf(env).find((x) => x.id === plan);
     if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');

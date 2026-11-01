@@ -256,11 +256,11 @@ async function renderAccount() {
       ${a.free_mode ? '' : a.guest ? '<p>注册账号就送 <b>10</b> 次免费次数。</p>' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
         <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
-        ${a.pay_ready && p.price ? (p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付">暂不支持 · 找客服</button>') : ''}</div>`).join('')}</div>`).join('')}
+        ${!a.pay_ready || !p.price ? '' : a.guest ? '<a class="btn" href="javascript:" data-goreg>注册后开通</a>' : p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付">暂不支持 · 找客服</button>'}</div>`).join('')}</div>`).join('')}
       
       ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
     </div>
-    </div><aside class="col-side"><div class="card"><h2>激活码</h2>
+    </div><aside class="col-side"><div class="card"><h2>激活码</h2>${a.guest ? '<p class="small muted">注册后才能兑换。</p>' : ''}
       <form id="redeem" class="row"><input type="text" name="code" placeholder="输入激活码" autocomplete="off" style="flex:1;min-width:160px"><button class="btn primary">兑换</button></form>
       <div class="error-msg" id="rerr"></div>
     </div>
@@ -285,6 +285,7 @@ async function renderAccount() {
     catch (err) { document.getElementById(errId).textContent = err.message; }
   });
   form('redeem', '/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `${esc(r.tier_name || '')}会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
+  $app.querySelectorAll('[data-goreg]').forEach((b) => (b.onclick = () => { const f = document.getElementById('bind'); f?.scrollIntoView({ behavior: 'smooth', block: 'center' }); f?.querySelector('input')?.focus(); }));
   $app.querySelectorAll('[data-plan]').forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     try {
