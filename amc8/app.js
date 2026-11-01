@@ -481,7 +481,7 @@ async function renderGraphPage(focusId) {
   const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
   $app.innerHTML = `${topnav()}<div class="page wide">
     <h1>${esc(d.student.nickname)} 的知识图谱</h1>
-    <p class="small muted">奥数的 ${d.nodes.length} 个知识项，箭头从前置指向后续，颜色是掌握程度（由做过的真题算出，做得越多越准）。点一个知识项看它的上下游，滚轮或双指缩放、拖动平移，缩小可以看全局。</p>
+    <p class="small muted">奥数的 ${d.nodes.length} 个知识项，每一行是一个大类，从左到右是学习顺序，箭头从前置指向后续。颜色是掌握程度（由做过的题算出，做得越多越准）。点一个知识项看它的上下游和错过的题；滚轮或双指缩放、拖动平移，缩小可以看全局。</p>
     <div id="kg"></div></div>`;
   const chip = (n, LEVEL, lv) => `<button class="kg-chip lv-${lv(n)}" data-focus="${n.id}">${esc(n.name)}<small>${LEVEL[lv(n)]}</small></button>`;
   const g = mountGraph(document.getElementById('kg'), d, {
@@ -489,16 +489,23 @@ async function renderGraphPage(focusId) {
     onFocus: (id) => history.replaceState(null, '', `#/graph/${encodeURIComponent(id)}`),
     empty: '<h2>点一个知识项</h2><p class="small muted">会放大到它和它的前置、后续。灰色的是薄弱项；如果一个知识项薄弱，先看它的前置是不是也偏灰。</p>',
     panel: (n, c) => {
-      const s = n.exams[c.exam], m = n.mastery;
+      const m = n.mastery;
       const weakPre = c.pre.map((id) => c.byId[id]).filter((x) => x.mastery?.level === 'weak');
+      const ST = { pending: '待订正', due: '该复习', fixed: '已订正', mastered: '已掌握' };
+      const fam = {};
+      (n.wrong?.list || []).forEach((x) => (fam[x.family] ||= []).push(x));
+      const wrongHtml = Object.keys(fam).length ? Object.entries(fam).map(([f, list]) => `<div class="kg-fam"><div class="label">${esc(f)} · 错过 ${list.length} 题</div>
+          <div class="plist">${list.map((x) => `<a class="prow ms-${x.status}" href="#/problem/${encodeURIComponent(x.problem_id)}"><span class="ms-dot"></span>
+            <span class="ms-main"><span>${esc(x.label)}</span>${x.types?.length ? `<span class="small muted">${x.types.map(esc).join('、')}</span>` : ''}</span>
+            <span class="tag ms-st">${ST[x.status]}</span></a>`).join('')}</div></div>`).join('')
+        : '<p class="small muted">这个知识项还没有错题。</p>';
       return `<div class="small muted">${esc(MODN[n.module] || '')}${n.ext ? ' · 超出小奥' : ''}</div>
         <h2>${esc(n.name)}</h2>
         <div class="kg-stat"><span class="kg-sw lv-${c.lv(n)}"></span><b>${c.LEVEL[c.lv(n)]}</b>${m ? ` <span class="muted small">${m.score} 分 · 证据 ${m.evidence}</span>` : ''}</div>
-        ${s ? `<p class="small">AMC 8：${s.rate}% 的年份考过，每届约 ${s.per_exam} 题，多在第 ${s.from === s.to ? s.from : `${s.from}–${s.to}`} 题。</p>` : '<p class="small muted">AMC 8 历年没有以它为主考过。</p>'}
-        ${n.wrong ? `<p class="small">错题 ${n.wrong.total} 道${n.wrong.todo ? `，<b style="color:var(--bad)">${n.wrong.todo} 道要订正或复习</b>` : '，都订正了'}。</p>` : ''}
         ${weakPre.length ? `<p class="kg-warn">它的前置里 ${weakPre.map((x) => `<b>${esc(x.name)}</b>`).join('、')} 也薄弱，建议先补前置。</p>` : ''}
         <div class="label">上游（前置）</div><div class="kg-chips">${c.pre.map((id) => chip(c.byId[id], c.LEVEL, c.lv)).join('') || '<span class="small muted">无，是入门知识项</span>'}</div>
         <div class="label">下游（后续）</div><div class="kg-chips">${c.next.map((id) => chip(c.byId[id], c.LEVEL, c.lv)).join('') || '<span class="small muted">无</span>'}</div>
+        <div class="label">错过的题</div>${wrongHtml}
         <div class="kg-actions"><a class="btn primary" href="#/kp/${encodeURIComponent(n.id)}">看知识项详情</a>${n.wrong?.todo ? '<a class="btn" href="#/profile">去画像订正错题</a>' : ''}</div>`;
     },
   });

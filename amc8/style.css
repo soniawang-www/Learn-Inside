@@ -741,3 +741,9 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .kp-root { color: var(--bad); font-weight: 600; }
 .kp-graph { color: var(--muted); margin-left: 6px; }
 @media (max-width: 900px) { .kg-main { grid-template-columns: 1fr; } .kg-panel { position: static; } .kg-view { height: 62vh; } }
+.kg-lane rect { fill: var(--surface); stroke: var(--border); }
+.kg-lane.alt rect { fill: var(--accent-soft); fill-opacity: .35; }
+.kg-lane text { font: 700 15px var(--display); fill: var(--muted); }
+.kg-fam { display: grid; gap: 6px; }
+.kg-panel .plist .prow { padding: 6px 10px; }
+.kg-panel { max-height: calc(100vh - 32px); overflow: auto; }

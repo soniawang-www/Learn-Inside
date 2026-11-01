@@ -5,8 +5,10 @@
 const NW = 172, NH = 54, COLGAP = 70, ROWGAP = 16, PAD = 40;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/** 分层布局：层 = 最长前置链长度；层内按前置的平均位置排序，减少交叉 */
-function layout(nodes, edges, modOrder) {
+/** 布局：每个模块（大类）一条横向泳道；横向位置 = 最长前置链长度（从左到右是学习顺序），
+ *  同一泳道、同一列的知识项上下排。 */
+const LANEPAD = 14, LABELW = 120;
+function layout(nodes, edges, modules) {
   const pre = {}, next = {};
   nodes.forEach((n) => { pre[n.id] = []; next[n.id] = []; });
   edges.forEach(([a, b]) => { if (pre[b] && next[a]) { pre[b].push(a); next[a].push(b); } });
@@ -17,24 +19,24 @@ function layout(nodes, edges, modOrder) {
     return (depth[id] = pre[id].length ? 1 + Math.max(...pre[id].map((p) => d(p, seen))) : 0);
   };
   nodes.forEach((n) => d(n.id));
-  const cols = [];
-  nodes.forEach((n) => (cols[depth[n.id]] ||= []).push(n));
-  const row = {};
-  cols.forEach((c) => c.sort((a, b) => modOrder.indexOf(a.module) - modOrder.indexOf(b.module)).forEach((n, i) => (row[n.id] = i)));
-  for (let pass = 0; pass < 4; pass++) {
-    cols.forEach((c, ci) => {
-      if (!ci) return;
-      const bc = (n) => (pre[n.id].length ? pre[n.id].reduce((s, p) => s + row[p], 0) / pre[n.id].length : row[n.id]);
-      c.sort((a, b) => bc(a) - bc(b) || modOrder.indexOf(a.module) - modOrder.indexOf(b.module)).forEach((n, i) => (row[n.id] = i));
-    });
+  const ncol = Math.max(...nodes.map((n) => depth[n.id])) + 1;
+  const pos = {}, lanes = [];
+  let y = PAD;
+  for (const m of modules) {
+    const ms = nodes.filter((n) => n.module === m.id);
+    if (!ms.length) continue;
+    const stack = {};
+    ms.forEach((n) => (stack[depth[n.id]] ||= []).push(n));
+    const rows = Math.max(...Object.values(stack).map((c) => c.length));
+    const h = LANEPAD * 2 + rows * NH + (rows - 1) * ROWGAP;
+    for (const [c, list] of Object.entries(stack)) {
+      const off = ((rows - list.length) * (NH + ROWGAP)) / 2;
+      list.forEach((n, i) => (pos[n.id] = { x: PAD + LABELW + c * (NW + COLGAP), y: y + LANEPAD + off + i * (NH + ROWGAP) }));
+    }
+    lanes.push({ id: m.id, name: m.name, y, h });
+    y += h + 10;
   }
-  const maxRows = Math.max(...cols.map((c) => c.length));
-  const pos = {};
-  cols.forEach((c, ci) => {
-    const off = ((maxRows - c.length) * (NH + ROWGAP)) / 2; // 每列竖直居中
-    c.forEach((n, i) => (pos[n.id] = { x: PAD + ci * (NW + COLGAP), y: PAD + off + i * (NH + ROWGAP) }));
-  });
-  return { pos, pre, next, width: PAD * 2 + cols.length * NW + (cols.length - 1) * COLGAP, height: PAD * 2 + maxRows * (NH + ROWGAP) - ROWGAP };
+  return { pos, pre, next, lanes, width: PAD * 2 + LABELW + ncol * NW + (ncol - 1) * COLGAP, height: y - 10 + PAD };
 }
 
 const closure = (id, adj) => { const out = new Set(); const st = [id]; while (st.length) { const u = st.pop(); for (const v of adj[u] || []) if (!out.has(v)) { out.add(v); st.push(v); } } return out; };
@@ -48,10 +50,9 @@ const lv = (n) => (n.mastery ? n.mastery.level : 'none');
  * @param opts  { focus, onFocus(id), panel(node, ctx) → html }
  */
 export function mountGraph(box, data, opts = {}) {
-  const modOrder = data.modules.map((m) => m.id);
-  const L = layout(data.nodes, data.edges, modOrder);
+  const L = layout(data.nodes, data.edges, data.modules);
   const byId = Object.fromEntries(data.nodes.map((n) => [n.id, n]));
-  let exam = 'amc8', focus = opts.focus && byId[opts.focus] ? opts.focus : null;
+  let focus = opts.focus && byId[opts.focus] ? opts.focus : null;
   const full = { x: 0, y: 0, w: L.width, h: L.height };
   let vb = { ...full };
 
@@ -61,7 +62,6 @@ export function mountGraph(box, data, opts = {}) {
         <button class="btn" data-z="in" aria-label="放大">＋</button><button class="btn" data-z="out" aria-label="缩小">－</button>
         <button class="btn" data-z="all">看全局</button><button class="btn" data-z="focus" ${focus ? '' : 'disabled'}>回到焦点</button>
       </div>
-      <div class="kg-exams">考情：${data.exams.map((e) => `<button class="${e.id === exam ? 'on' : ''}" data-exam="${e.id}" ${e.years ? '' : 'disabled'}>${esc(e.name)}${e.years ? '' : '（真题待录入）'}</button>`).join('')}</div>
     </div>
     <div class="kg-legend">${['strong', 'ok', 'weak', 'insufficient', 'none'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LEVEL[k]}</span>`).join('')}<span><i class="kg-dot"></i>有没订正的错题</span></div>
     <div class="kg-main">
@@ -116,8 +116,8 @@ export function mountGraph(box, data, opts = {}) {
     }
     let nds = '';
     for (const n of data.nodes) {
-      const { x, y } = L.pos[n.id], s = n.exams[exam], m = n.mastery;
-      const sub = `${LEVEL[lv(n)]}${m && m.level !== 'insufficient' ? ` ${m.score}` : ''}${s ? ` · 每届 ${s.per_exam} 题` : ''}`;
+      const { x, y } = L.pos[n.id], m = n.mastery;
+      const sub = `${LEVEL[lv(n)]}${m && m.level !== 'insufficient' ? ` · ${m.score} 分` : ''}`;
       nds += `<g class="kg-n lv-${lv(n)} ${cls(n.id)}" data-id="${n.id}" tabindex="0" role="button" aria-label="${esc(n.name)}：${esc(sub)}">
         <rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="10"/>
         <text class="t1" x="${x + 12}" y="${y + 22}">${esc(n.name)}</text>
@@ -125,12 +125,14 @@ export function mountGraph(box, data, opts = {}) {
         ${n.wrong?.todo ? `<circle class="kg-badge" cx="${x + NW - 4}" cy="${y + 4}" r="10"/><text class="kg-badge-t" x="${x + NW - 4}" y="${y + 8}">${n.wrong.todo}</text>` : ''}
       </g>`;
     }
+    const lanes = L.lanes.map((l, i) => `<g class="kg-lane ${i % 2 ? 'alt' : ''}"><rect x="${PAD - 10}" y="${l.y}" width="${L.width - 2 * PAD + 20}" height="${l.h}" rx="12"/>
+      <text x="${PAD + 4}" y="${l.y + l.h / 2 + 6}">${esc(l.name)}</text></g>`).join('');
     svg.innerHTML = `<defs><marker id="kg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="kg-ah"/></marker>
       <marker id="kg-arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="kg-ah on"/></marker></defs>
-      <g class="kg-edges">${e}</g><g class="kg-nodes">${nds}</g>`;
+      <g class="kg-lanes">${lanes}</g><g class="kg-edges">${e}</g><g class="kg-nodes">${nds}</g>`;
     svg.classList.toggle('focused', !!focus);
     box.querySelector('[data-z="focus"]').disabled = !focus;
-    panel.innerHTML = focus ? opts.panel(byId[focus], { byId, pre: L.pre[focus], next: L.next[focus], up, down, exam, LEVEL, lv }) : (opts.empty || '');
+    panel.innerHTML = focus ? opts.panel(byId[focus], { byId, pre: L.pre[focus], next: L.next[focus], up, down, LEVEL, lv }) : (opts.empty || '');
     panel.querySelectorAll('[data-focus]').forEach((b) => (b.onclick = () => select(b.dataset.focus)));
   }
   function select(id) {
@@ -176,10 +178,6 @@ export function mountGraph(box, data, opts = {}) {
     else if (b.dataset.z === 'all') animateTo(fitAll());
     else if (focus) animateTo(fitFocus());
   }));
-  box.querySelectorAll('[data-exam]').forEach((b) => (b.onclick = () => {
-    exam = b.dataset.exam; box.querySelectorAll('[data-exam]').forEach((x) => x.classList.toggle('on', x === b)); draw();
-  }));
-
   draw();
   requestAnimationFrame(() => { vb = focus ? fitFocus() : fitAll(); setVB(); });
   const onResize = () => { vb = focus ? fitFocus() : fitAll(); setVB(); };
