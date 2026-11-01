@@ -11,7 +11,9 @@ mkdir -p "$WORK"
 cp "$ROOT/backend/tests/pay/keys.mjs" "$ROOT/backend/tests/pay/mockgw.mjs" "$WORK/"
 [ -f "$WORK/keys.json" ] || (cd "$WORK" && node keys.mjs)
 echo 99.00 > "$WORK/amount"
-curl -s -m1 -o /dev/null http://127.0.0.1:8799/ || (cd "$WORK" && PAYTEST_DIR="$WORK" setsid nohup node mockgw.mjs > gw.log 2>&1 &)
+if ! curl -s -m1 -o /dev/null http://127.0.0.1:8799/; then
+  (cd "$WORK" && PAYTEST_DIR="$WORK" setsid nohup node mockgw.mjs < /dev/null > gw.log 2>&1 &)
+fi
 APPPRIV=$(node -e "console.log(require('$WORK/keys.json').appPrivPkcs1)")
 ALIPUB=$(node -e "console.log(require('$WORK/keys.json').aliPub)")
 WRANGLER=${WRANGLER:-npx wrangler}
@@ -20,9 +22,9 @@ setsid nohup $WRANGLER dev --local --port 8788 --inspector-port 9330 --persist-t
   --var ADMIN_KEY:localtest --var FREE_MODE:false --var AIPAY_APP_ID:2021000000000001 \
   --var "AIPAY_PRIVATE_KEY:$APPPRIV" --var "AIPAY_ALIPAY_PUBLIC_KEY:$ALIPUB" --var ALIPAY_GATEWAY:http://127.0.0.1:8799/gateway.do \
   --var PRICE_MATH_MONTH:39 --var PRICE_MATH_QUARTER:99 --var PRICE_MATH_YEAR:299 --var PRICE_ALL_YEAR:599 --var PAY_MAX_AMOUNT:100 \
-  > "$WORK/wrangler.log" 2>&1 &
+  < /dev/null > "$WORK/wrangler.log" 2>&1 &
 for i in $(seq 1 90); do curl -s -m1 -o /dev/null http://127.0.0.1:8788/ && break; sleep 1; done
-curl -s http://127.0.0.1:8788/math/api/admin/seed -H 'x-admin-key: localtest' > /dev/null
+curl -s -m 120 http://127.0.0.1:8788/math/api/admin/seed -H 'x-admin-key: localtest' > /dev/null
 python3 - "$DATA" <<'PY'
 import json, glob, sys, urllib.request
 d = sys.argv[1]
@@ -34,3 +36,4 @@ r = urllib.request.Request('http://127.0.0.1:8788/math/api/admin/import', data=j
 print('导入：', json.loads(urllib.request.urlopen(r).read())['ok'])
 PY
 echo "测试环境就绪：http://127.0.0.1:8788（工作目录 $WORK）"
+exit 0
