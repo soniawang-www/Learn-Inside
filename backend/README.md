@@ -148,7 +148,7 @@ node backend/tests/e2e.mjs http://127.0.0.1:8787
 
 | 名称 | 类型 | 内容 |
 |---|---|---|
-| `ALIPAY_APP_ID` | 变量 | 支付宝开放平台应用的 APPID |
+| `ALIPAY_APP_ID`（也可以写成支付宝后台给的 `AIPAY_APP_ID`，下同） | 变量 | 支付宝开放平台应用的 APPID |
 | `ALIPAY_PRIVATE_KEY` | **Secret** | 应用私钥（密钥工具生成的那串，PKCS8 或 PKCS1 都行） |
 | `ALIPAY_PUBLIC_KEY` | **Secret** | **支付宝公钥**（上传应用公钥后，平台显示的那串；不是应用公钥） |
 | `ALIPAY_SELLER_ID` | 变量，可选 | 收款支付宝账号的 2088 开头 PID，用来多核对一项 |

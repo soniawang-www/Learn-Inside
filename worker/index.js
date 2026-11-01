@@ -738,6 +738,11 @@ route('POST', '/api/admin/import', async (req, env) => {
 // ───────── 入口 ─────────
 export default {
   async fetch(req, env) {
+    // 支付宝后台给的变量名是 AIPAY_*，这里两种写法都认
+    if (!env.ALIPAY_APP_ID && env.AIPAY_APP_ID) {
+      env = { ...env };
+      for (const k of ['APP_ID', 'PRIVATE_KEY', 'PUBLIC_KEY', 'GATEWAY', 'SELLER_ID']) if (!env['ALIPAY_' + k] && env['AIPAY_' + k]) env['ALIPAY_' + k] = env['AIPAY_' + k];
+    }
     const url = new URL(req.url);
     // 全站接口（账号、会员、支付）在 /api/，数学的在 /math/api/；两边路由表相同，旧地址 /amc8/api/ 也照常处理
     const base = [PREFIX, OLD_PREFIX, ''].find((p) => url.pathname.startsWith(p + '/api/'));
