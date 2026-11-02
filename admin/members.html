@@ -90,7 +90,7 @@
   const day = (ms) => ms ? new Date(ms).toLocaleDateString('zh-CN') : '—';
   const time = (ms) => ms ? new Date(ms).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
   try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
-  $('key').onchange = () => { try { sessionStorage.setItem('amc8.adminKey', $('key').value.trim()); } catch {} };
+  $('key').onchange = () => { try { sessionStorage.setItem('amc8.adminKey', $('key').value.trim()); } catch {} document.querySelector('[data-tab].primary')?.click(); }; // 改了密钥就重新加载当前标签
   async function api(path, body) {
     const r = await fetch('/api/admin/' + path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', 'x-admin-key': $('key').value.trim() }, body: body ? JSON.stringify(body) : undefined });
     const d = await r.json().catch(() => ({}));
@@ -252,7 +252,7 @@
       $('pplans').innerHTML = '<tr><th>套餐</th><th>原价</th><th>活动价（元）</th><th></th></tr>' + promoPlans.map((p) => `<tr><td>${esc(p.name)}（${p.days} 天）</td><td>${p.price ? '¥' + p.price : '<span class="muted">未定价</span>'}</td>
         <td><input type="number" step="0.01" min="0.01" data-pp="${p.id}" value="${d.active && pr.prices[p.id] ? pr.prices[p.id] : ''}" style="width:7em;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"></td><td class="small" data-pn="${p.id}"></td></tr>`).join('');
       $('pplans').querySelectorAll('[data-pp]').forEach((i) => (i.oninput = notePrice)); notePrice();
-    } catch (e) { $('promonow').textContent = e.message; }
+    } catch (e) { promoPlans = []; $('pplans').innerHTML = ''; $('promonow').innerHTML = `<span class="kl-warn">${esc(e.message)}${/密钥/.test(e.message) ? '：在最上面重新填管理员密钥（Cloudflare 里的 ADMIN_KEY），套餐会自动出来' : ''}</span>`; }
   }
   function notePrice() {
     for (const p of promoPlans) {
@@ -263,6 +263,7 @@
   $('pfill').onclick = () => { const k = Number($('poff').value) / 10; if (!(k > 0 && k < 1)) return; for (const p of promoPlans) if (p.price) $('pplans').querySelector(`[data-pp="${p.id}"]`).value = (Math.round(p.price * k * 10) / 10).toFixed(1).replace(/\.0$/, ''); notePrice(); };
   $('pclear').onclick = () => { $('pplans').querySelectorAll('[data-pp]').forEach((i) => (i.value = '')); notePrice(); };
   $('psave').onclick = async () => {
+    if (!promoPlans.length) { $('pmsg').textContent = '套餐还没加载出来，先填对管理员密钥'; return; }
     const prices = {}; $('pplans').querySelectorAll('[data-pp]').forEach((i) => { if (i.value) prices[i.dataset.pp] = Number(i.value); });
     const until = new Date($('puntil').value).getTime();
     try { await api('promo', { title: $('ptitle').value.trim(), until, prices }); $('pmsg').textContent = '已保存，家长刷新账号页就能看到'; loadPromo(); } catch (e) { $('pmsg').textContent = e.message; }
