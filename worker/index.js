@@ -43,6 +43,10 @@ async function requireAccount(req, env) {
   return acc;
 }
 
+// 游客只能考试、看对错和答案；错题本、知识图谱、知识项、错因、错题练习要注册
+const REG_ONLY = '注册后才能用：错题本、知识图谱、知识项突击';
+function requireRegistered(acc) { if (acc.guest) throw new HttpError(403, REG_ONLY); }
+
 async function requireStudent(env, account, studentId) {
   const s = await env.DB.prepare('SELECT * FROM student WHERE id = ? AND account_id = ?').bind(studentId, account.id).first();
   if (!s) throw new HttpError(404, '找不到这个学生');
@@ -130,6 +134,7 @@ route('POST', '/api/sessions', async (req, env) => {
   const id = uid();
   const t = now();
   if (kp_id || problem_ids) {
+    requireRegistered(acc); // 知识项突击、错题订正 / 复习、单题练习只对注册用户
     let ids, title;
     if (kp_id) {
       const kp = await env.DB.prepare('SELECT id, name FROM knowledge_point WHERE id = ?').bind(kp_id).first();
@@ -350,6 +355,7 @@ route('GET', '/api/sessions/:id/review', async (req, env, p) => {
 // 复盘时标错因 → 重算画像
 route('PATCH', '/api/attempts/:id', async (req, env, p) => {
   const acc = await requireAccount(req, env);
+  requireRegistered(acc);
   const { error_reason } = await body(req);
   const allowed = [null, 'unknown', 'careless', 'no_time', 'reading'];
   if (!allowed.includes(error_reason)) throw new HttpError(400, '错因不合法');
@@ -420,6 +426,7 @@ route('GET', '/api/kp', async (req, env) => {
 // 知识点讲解（受 tier 保护）+ 相关题目
 route('GET', '/api/kp/:id', async (req, env, p, url) => {
   const acc = await requireAccount(req, env);
+  requireRegistered(acc);
   const kp = await env.DB.prepare('SELECT * FROM knowledge_point WHERE id = ?').bind(p.id).first();
   if (!kp) throw new HttpError(404, '知识项不存在');
   const unlocked = await hasTier(env, acc, kp.tier);
@@ -596,6 +603,7 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
     )
     .bind(st.id)
     .all();
+  if (acc.guest) return json({ student: { id: st.id, nickname: st.nickname }, points: [], edges: [], sessions, error_reasons: [], mistakes: [], locked: REG_ONLY });
   const { results: reasons } = await env.DB
     .prepare("SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 GROUP BY error_reason")
     .bind(st.id)
@@ -613,6 +621,7 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
 // 个人知识图谱：全部知识项 + 前置关系 + 这个学生的掌握度，以及在各考试里错过的题
 route('GET', '/api/students/:id/graph', async (req, env, p) => {
   const acc = await requireAccount(req, env);
+  requireRegistered(acc);
   const st = await requireStudent(env, acc, p.id);
   const { results: kps } = await env.DB.prepare('SELECT id, parent_id, name, sort, amc_ext FROM knowledge_point ORDER BY sort, id').all();
   const { results: edges } = await env.DB.prepare('SELECT from_kp, to_kp FROM kp_edge').all();

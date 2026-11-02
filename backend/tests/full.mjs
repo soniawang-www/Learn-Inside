@@ -43,13 +43,15 @@ const g = await call('/api/auth/guest', 'POST', {});
 const GT = g.data.token, gsid = g.data.student.id;
 let me = (await call('/math/api/me', 'GET', null, GT)).data;
 ok(g.status === 200 && me.guest && me.credits === 0 && !me.has_phone, '游客进入：没有手机号，免费次数 0');
-await doProblems(GT, gsid, [p25(1), 'amc8-2026-p01']);
+ok((await call('/math/api/sessions', 'POST', { problem_ids: [p25(1)], student_id: gsid }, GT)).status === 403, '游客不能开单题 / 专项练习，只能整套考');
+for (const e of ['amc8-2025', 'amc8-2026']) { const x = await call('/math/api/sessions', 'POST', { exam_id: e, student_id: gsid }, GT); await call(`/math/api/sessions/${x.data.session.id}/submit`, 'POST', { answers: {}, times: {}, flags: {} }, GT); }
+ok((await call(`/math/api/sessions/${(await call(`/math/api/students/${gsid}/profile`, 'GET', null, GT)).data.sessions[0].id}/review`, 'GET', null, GT)).data.items[0].answer, '游客交卷后能看对错和答案');
+ok((await call(`/math/api/students/${gsid}/graph`, 'GET', null, GT)).status === 403 && (await call(`/math/api/kp/cnt.perm?student=${gsid}`, 'GET', null, GT)).status === 403, '游客没有知识图谱和知识项页');
 ok((await adv('amc8-2026-p01', GT)).status === 200, '游客能看免费样板（2026 年互动解析）');
 const gl = await adv(p25(1), GT);
 ok(gl.status === 402 && gl.data.credits === 0, '游客看其他互动解析：402，次数 0');
 ok((await call('/api/unlock', 'POST', { item: `adv:${p25(1)}` }, GT)).status === 402, '游客不能用次数解锁');
-ok((await call('/math/api/sessions', 'POST', { kp_id: 'geo.area', student_id: gsid }, GT)).status === 200, '游客能开免费样板知识项突击');
-ok((await call('/math/api/sessions', 'POST', { kp_id: 'cnt.perm', student_id: gsid }, GT)).status === 402, '游客不能开其他知识项突击');
+ok((await call('/math/api/sessions', 'POST', { kp_id: 'geo.area', student_id: gsid }, GT)).status === 403, '游客不能开知识项突击（样板也要注册）');
 ok((await call('/api/pay/create', 'POST', { plan: 'math.month' }, GT)).status === 403, '游客不能在线开通会员');
 const gcode = (await call('/api/admin/codes', 'POST', { kind: 'days', amount: 31 }, null, true)).data.codes[0];
 ok((await call('/api/redeem', 'POST', { code: gcode }, GT)).status === 403, '游客不能兑换激活码');
@@ -94,7 +96,7 @@ ok((await adv('amc8-2026-p01', T)).status === 200, '次数用完，免费样板�
 const rv = (await call(`/math/api/problems/${p25(3)}?student=${sid}`, 'GET', null, T)).data;
 const rv10 = (await call(`/math/api/problems/${p25(10)}?student=${sid}`, 'GET', null, T)).data;
 ok(rv.advanced?.locked === false && rv10.advanced?.locked === true, '题目页的锁标记正确（解锁的开、没解锁的锁）');
-ok((await call(`/math/api/problems/${p25(20)}/advanced`, 'GET', null, T)).status === 403, '没做过的题不能看解析（防止考前偷看）');
+ok((await call('/math/api/problems/amc8-2022-p20/advanced', 'GET', null, T)).status === 403, '没做过的题不能看解析（防止考前偷看）');
 ok((await call('/api/unlock', 'POST', { item: 'adv:nope' }, T)).status === 404 && (await call('/api/unlock', 'POST', { item: 'x:y' }, T)).status === 400, '解锁项校验');
 await adminDo(aid, 'add_credits', 3);
 ok((await acct(T)).credits === 3, '后台加 3 次');

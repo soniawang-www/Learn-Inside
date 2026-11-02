@@ -182,6 +182,21 @@ document.addEventListener('click', (e) => { const a = e.target.closest('[data-ms
 const GIFT = (more = '') => `<div class="gift"><span class="gift-n"><span>10<small>次</small></span></span><span><b>注册就送 10 次互动解析</b>
   <small>会员才有的一步步讲解；解锁一道题用 1 次，之后随时重看${more}</small></span></div>`;
 
+// 游客只能考试、看对错和答案；错题本、知识图谱、知识项要注册
+const isGuest = () => !!lastMe?.guest;
+async function ensureMe() { if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {} return lastMe; }
+const REG_FEATS = `<ul class="reg-feats">
+    <li><b>错题本</b><span>做错和没做的题自动收集，订正之后隔一周提醒复习</span></li>
+    <li><b>知识图谱</b><span>每次考试都算进去，哪些知识项掌握得好、哪些薄弱一眼看清</span></li>
+    <li><b>知识项突击</b><span>挑出薄弱的知识项，用历年真题集中练</span></li></ul>`;
+function regWall(title) {
+  $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1><p class="muted">注册后就能用</p></div></header>
+    <div class="cols"><div class="col-main"><div class="card reg-wall"><h2>免费注册，解锁这些功能</h2>${REG_FEATS}
+      <p class="small muted">现在做过的题都会保留，注册后马上算进错题本和知识图谱。</p>
+      <a class="btn primary" href="#/account">免费注册</a></div></div>
+    <aside class="col-side"><a class="card gift-link" href="#/account">${GIFT()}</a></aside></div></main>`;
+}
+
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
 let joinTab = store.get('li.hadAccount') ? 'login' : 'register';
 function renderJoin() {
@@ -212,6 +227,7 @@ function renderJoin() {
       </form>
       <div class="auth-or"><span>或者</span></div>
       <button class="btn block" id="guest">先不注册，直接试试</button>
+      <p class="small muted guest-note">不注册也能做真题、看对错和答案；错题本和知识图谱要注册后使用。</p>
       <div class="auth-foot small muted">${reg
         ? '孩子的作答记录只用来生成知识图谱和错题本，不会公开。'
         : '<a href="javascript:" id="forgot">忘记密码？</a>'}</div>
@@ -277,7 +293,7 @@ async function renderAccount() {
           <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
           <label class="field"><span>新密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
           <button class="btn">保存</button><div class="error-msg" id="perr"></div></form></details>`
-      : `${a.guest ? `${GIFT()}<p class="small">现在做过的题、错题本和知识图谱都会保留到新账号里。</p>` : '<p class="small">绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。</p>'}
+      : `${a.guest ? `${GIFT()}<p class="small">注册后解锁错题本、知识图谱和知识项突击，现在做过的题会自动算进去。</p>` : '<p class="small">绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。</p>'}
         <form id="bind"><label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
           <label class="field"><span>设置密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
           ${a.guest ? `<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
@@ -360,9 +376,10 @@ async function renderDashboard() {
   lastMe = me;
   if (!auth.student || !me.students.find((s) => s.id === auth.student.id)) auth.setStudent(me.students[0]);
   const st = auth.student;
+  const guest = !!me.guest; // 游客没有知识图谱和错题本
   const [g, fams, prof, amc, exams] = await Promise.all([
-    api(`/math/api/students/${st.id}/graph`), apiList(`/math/api/families?student=${st.id}`),
-    api(`/math/api/students/${st.id}/profile`), api(`/math/api/families/amc8?student=${st.id}`),
+    guest ? { nodes: [], edges: [], modules: [] } : api(`/math/api/students/${st.id}/graph`), apiList(`/math/api/families?student=${st.id}`),
+    guest ? { mistakes: [] } : api(`/math/api/students/${st.id}/profile`), api(`/math/api/families/amc8?student=${st.id}`),
     apiList(`/math/api/exams?student=${st.id}&family=amc8`),
   ]);
   const lv = (n) => n.mastery?.level || 'none';
@@ -392,17 +409,18 @@ async function renderDashboard() {
   ].filter(Boolean);
   $app.innerHTML = `${topnav()}<main class="page dash">
     <header class="ph"><div><h1>${esc(st.nickname)}的数学</h1>
-      <p class="muted">做过 ${done} 套真题 · ${count('weak')} 个薄弱知识项 · ${pending + due} 道错题要处理</p></div>
+      <p class="muted">做过 ${done} 套真题${guest ? '' : ` · ${count('weak')} 个薄弱知识项 · ${pending + due} 道错题要处理`}</p></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
     ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="#/account">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     <div class="dash-grid">
-      <section class="card mm">
+      ${guest ? `<section class="card mm reg-wall"><div class="card-h"><h2>掌握地图</h2></div>
+        <p class="small muted">注册后，考过的题会算进知识图谱和错题本：</p>${REG_FEATS}<a class="btn primary" href="#/account">免费注册</a></section>` : `<section class="card mm">
         <div class="card-h"><h2>掌握地图</h2><a href="#/graph">看知识图谱 ›</a></div>
         <div class="mm-sum">${['strong', 'ok', 'weak', 'insufficient', 'none'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</div>
         <div class="mm-rows">${g.modules.map((m) => `<div class="mm-row"><span class="mm-mod">${esc(m.name)}</span><div class="mm-tiles">
           ${g.nodes.filter((n) => n.module === m.id).map((n) => `<a class="mm-tile lv-${lv(n)}" href="#/graph/${enc(n.id)}" title="${esc(n.name)}：${LV[lv(n)]}">${esc(n.name)}${n.wrong?.todo ? `<i>${n.wrong.todo}</i>` : ''}</a>`).join('')}
         </div></div>`).join('')}</div>
-      </section>
+      </section>`}
       <section class="card todo">
         <div class="card-h"><h2>今天做什么</h2></div>
         ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>` : '<p class="muted">都处理完了。可以挑一套没做过的真题模考。</p>'}
@@ -677,9 +695,9 @@ async function renderReview(sid) {
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
-      ${wrong.length ? `<p class="small muted">错了 ${wrong.length} 题，记得给每道错题标上错因。</p>` : ''}
+      ${wrong.length ? `<p class="small muted">${isGuest() ? `错了 ${wrong.length} 题。注册后，这些题会自动进错题本。` : `错了 ${wrong.length} 题，记得给每道错题标上错因。`}</p>` : ''}
       ${wrong.length && lastMe?.guest ? `<a class="gift-link" href="#/account">${GIFT()}</a>` : ''}
-      <div class="rev-btns"><a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a></div>
+      <div class="rev-btns">${isGuest() ? '<a class="btn primary" href="#/account">免费注册</a><a class="btn" href="#/exams">再做一套</a>' : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>
     <div class="col-main">${r.items.map(itemView).join('')}</div></div>
   </main>`;
@@ -696,7 +714,7 @@ async function renderReview(sid) {
       <div class="body">
         <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
         <ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>
-        ${it.correct ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
+        ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
         ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button> <span class="small muted">${it.advanced.locked ? '会员或用 1 次免费次数' : ''} 一步步跟着做</span></div>` : ''}
@@ -727,12 +745,13 @@ function kpCards(kps) {
   const main = kps.filter((k) => k.primary);
   const rest = kps.filter((k) => !k.primary);
   const shown = main.length ? main : kps.slice(0, 1);
+  const g = isGuest(); // 游客：知识项照常显示，但不进知识项页、不能突击
   return `<div class="kpcards">${shown.map((k) => `<div class="kpcard">
-      <div class="kphead"><a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
+      <div class="kphead">${g ? `<b>${esc(k.name)}</b>` : `<a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>`}${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
       ${k.signals?.length ? `<div class="sig-title">怎么认出这个考点</div><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul>` : (k.summary ? `<p class="small">${rich(k.summary)}</p>` : '')}
-      <div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? ' 🔒' : ''}</button></div>
+      ${g ? '<p class="small muted">注册后可以看这个知识项的相关真题、做真题突击。</p>' : `<div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? ' 🔒' : ''}</button></div>`}
     </div>`).join('')}
-    ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`).join('、')}</div>` : ''}</div>`;
+    ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => (g ? esc(k.name) : `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`)).join('、')}</div>` : ''}</div>`;
 }
 function bindKpCards(root) {
   root.querySelectorAll('[data-drill]').forEach((b) => (b.onclick = () => startDrill(b.dataset.drill)));
@@ -813,6 +832,7 @@ function graphList(d, MODN) {
   document.querySelectorAll('[data-gomap]').forEach((a) => a.addEventListener('click', () => { graphView = 'map'; }));
 }
 async function renderGraphPage(focusId) {
+  if ((await ensureMe())?.guest) return regWall('知识图谱');
   const d = await api(`/math/api/students/${auth.student.id}/graph`);
   const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
   $app.innerHTML = `${topnav()}<div class="page wide">
@@ -852,6 +872,7 @@ async function renderGraphPage(focusId) {
 
 // ───────── 知识项 ─────────
 async function renderKp(id) {
+  if ((await ensureMe())?.guest) return regWall('知识项');
   const fq = (location.hash.split('?')[1] || '').match(/family=([\w-]+)/);
   const k = await api(`/math/api/kp/${enc(id)}?student=${auth.student.id}${fq ? `&family=${fq[1]}` : ''}`);
   const fam = k.families.find((f) => f.id === k.family) || { name: k.family };
@@ -892,6 +913,7 @@ async function renderKp(id) {
 
 // ───────── 单题页（从知识项页「相关真题」进入） ─────────
 async function renderProblem(id) {
+  await ensureMe();
   const p = await api(`/math/api/problems/${enc(id)}?student=${auth.student.id}`);
   const done = p.attempted;
   $app.innerHTML = `${topnav()}<main class="page">
@@ -914,6 +936,7 @@ async function renderProblem(id) {
   $app.querySelector('[data-adv]')?.addEventListener('click', (e) => openAdvanced(e.currentTarget.dataset.adv));
   $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
   $app.querySelector('#try').onclick = async () => {
+    if (isGuest()) return modal(`<h2>注册后可以单题练习</h2>${REG_FEATS}<div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account">免费注册</a></div>`);
     const r = await api('/math/api/sessions', { method: 'POST', body: { problem_ids: [p.problem_id], student_id: auth.student.id } });
     location.hash = `#/exam/${r.session.id}`;
   };
@@ -951,6 +974,7 @@ async function startMistakes(items, purpose, btn) {
 
 let msFilter = 'todo', msMore = false, msFam = '', msKp = '';
 async function renderMistakes() {
+  if ((await ensureMe())?.guest) return regWall('错题本');
   const d = await api(`/math/api/students/${auth.student.id}/profile`);
   const RN = Object.fromEntries(REASONS);
   const all = d.mistakes;

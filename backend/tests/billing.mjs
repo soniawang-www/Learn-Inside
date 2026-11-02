@@ -131,8 +131,9 @@ ok(gu.status === 200 && gu.data.token && gu.data.student.nickname === '同学', 
 const G = gu.data.token, gs = gu.data.student.id;
 const gme = await call('/math/api/me', 'GET', null, G);
 ok(gme.data.guest === true && gme.data.credits === 0 && gme.data.has_phone === false, '游客：没有免费次数');
-const gss = await call('/math/api/sessions', 'POST', { problem_ids: ['amc8-2025-p02', 'amc8-2026-p02'], student_id: gs }, G);
-await call(`/math/api/sessions/${gss.data.session.id}/submit`, 'POST', { answers: {}, times: {}, flags: {} }, G);
+ok((await call('/math/api/sessions', 'POST', { problem_ids: ['amc8-2025-p02'], student_id: gs }, G)).status === 403, '游客不能开单题 / 专项练习');
+for (const e of ['amc8-2025', 'amc8-2026']) { const x = await call('/math/api/sessions', 'POST', { exam_id: e, student_id: gs }, G); await call(`/math/api/sessions/${x.data.session.id}/submit`, 'POST', { answers: {}, times: {}, flags: {} }, G); }
+ok((await call(`/math/api/students/${gs}/graph`, 'GET', null, G)).status === 403 && (await call(`/math/api/students/${gs}/profile`, 'GET', null, G)).data.mistakes.length === 0, '游客没有知识图谱和错题本');
 ok((await call('/math/api/problems/amc8-2026-p02/advanced', 'GET', null, G)).status === 200, '游客能看免费样板');
 ok((await call('/api/unlock', 'POST', { item: 'adv:amc8-2025-p02' }, G)).status === 402, '游客不能用次数解锁');
 const gc = await call('/math/api/admin/codes', 'POST', { kind: 'days', amount: 31 }, null, true);
@@ -143,5 +144,5 @@ ok(gb.status === 200 && gb.data.credits_added === 10, '游客注册送 10 次');
 const gl = await call('/api/auth/login', 'POST', { phone: gphone, password: 'guest12' });
 ok(gl.data.token === G && gl.data.student.nickname === '小游', '注册后用手机号登录回到同一账号，昵称已更新');
 const gp = await call(`/math/api/students/${gs}/profile`, 'GET', null, G);
-ok(gp.data.mistakes.length === 2 && (await call('/math/api/me', 'GET', null, G)).data.guest === false, '游客时的错题保留');
+ok(gp.data.mistakes.length === 50 && (await call('/math/api/me', 'GET', null, G)).data.guest === false, '游客时考的两套卷，注册后 50 道错题都进了错题本');
 ok((await call('/api/redeem', 'POST', { code: gc.data.codes[0] }, G)).status === 200, '注册后可以兑换');

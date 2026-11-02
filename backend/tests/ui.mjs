@@ -30,7 +30,7 @@ ok((await text('.gift-tip')).includes('注册就送 10 次互动解析'), '游�
 ok((await text('.side-who')).includes('游客'), '侧栏显示游客');
 const token = await page.evaluate(() => JSON.parse(localStorage.getItem('li.token')));
 const stu = await page.evaluate(() => JSON.parse(localStorage.getItem('li.student')));
-const s = await api('/math/api/sessions', 'POST', { problem_ids: ['amc8-2025-p01', 'amc8-2025-p02'], student_id: stu.id }, token);
+const s = await api('/math/api/sessions', 'POST', { exam_id: 'amc8-2025', student_id: stu.id }, token); // 游客只能整套考
 await api(`/math/api/sessions/${s.session.id}/submit`, 'POST', { answers: {}, times: {}, flags: {} }, token);
 await go(`#/review/${s.session.id}`);
 ok((await text('.rev-side')).includes('注册就送 10 次互动解析'), '复盘页（有错题）提示注册礼');

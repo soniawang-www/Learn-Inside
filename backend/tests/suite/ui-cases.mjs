@@ -5,7 +5,7 @@ const same = (v) => ({ guest: v, user: v, member: v });
 
 export const UI_FEATURES = [
   { id: 'U1', area: '界面', name: '首页', cases: [
-    { id: 'U1-1', name: '首页标题和掌握地图', run: async (p, c) => { await c.go('#/'); return (await p.locator('.mm-tile').count()) === 30 && (await c.text('h1')).includes('的数学'); }, expect: same(true) },
+    { id: 'U1-1', name: '首页掌握地图（游客换成注册后可用的功能）', run: async (p, c) => { await c.go('#/'); if (!(await c.text('h1')).includes('的数学')) return 'no-h1'; return (await p.locator('.mm .reg-feats').count()) ? '注册提示' : await p.locator('.mm-tile').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
     { id: 'U1-2', name: '顶部「注册就送 10 次互动解析」', run: async (p, c) => { await c.go('#/'); return (await p.locator('.gift-tip').count()) > 0; }, expect: { guest: true, user: false, member: false } },
     { id: 'U1-3', name: '侧栏身份', run: async (p, c) => { await c.go('#/'); const t = await c.text('.side-who small'); return t.includes('游客') ? '游客' : t.includes('会员') ? '会员' : t.replace(/\s/g, ''); }, expect: { guest: '游客', user: '免费次数10', member: '会员' } },
   ] },
@@ -15,12 +15,13 @@ export const UI_FEATURES = [
     { id: 'U2-3', name: '点「模考」出现考前须知', run: async (p, c) => { await c.go('#/contest/amc8'); await p.locator('[data-mode="exam"]').first().click(); await p.waitForTimeout(400); return (await p.locator('.modal').count()) > 0; }, expect: same(true) },
   ] },
   { id: 'U3', area: '界面', name: '知识图谱与错题本', cases: [
-    { id: 'U3-1', name: '知识图谱画出 30 个知识项', run: async (p, c) => { await c.go('#/graph'); await p.waitForTimeout(500); return p.locator('svg .kg-n').count(); }, expect: same(30) },
-    { id: 'U3-2', name: '列表视图（薄弱在前）', run: async (p, c) => { await c.go('#/graph'); await p.click('[data-view="list"]'); await p.waitForTimeout(500); return p.locator('.kl-row').count(); }, expect: same(30) },
-    { id: 'U3-3', name: '错题本列出错题', run: async (p, c) => { await c.go('#/mistakes'); return (await p.locator('.ms-row').count()) > 0; }, expect: same(true) },
+    { id: 'U3-1', name: '知识图谱画出 30 个知识项', run: async (p, c) => { await c.go('#/graph'); await p.waitForTimeout(500); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('svg .kg-n').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
+    { id: 'U3-2', name: '列表视图（薄弱在前）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; await p.click('[data-view="list"]'); await p.waitForTimeout(500); return p.locator('.kl-row').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
+    { id: 'U3-3', name: '错题本列出错题', run: async (p, c) => { await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('.ms-row').count()) > 0; }, expect: { guest: '注册提示', user: true, member: true } },
+    { id: 'U3-4', name: '复盘页：错因和知识项链接（游客只显示知识项名字）', run: async (p, c) => { await c.go(`#/review/${c.session}`); return `${await p.locator('.reason-chips').count() > 0}/${await p.locator('.kphead a').count() > 0}/${await p.locator('.kphead b').count() > 0}`; }, expect: { guest: 'false/false/true', user: 'true/true/true', member: 'true/true/true' } },
   ] },
   { id: 'U4', area: '界面', name: '会员内容的锁', cases: [
-    { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); return (await c.text('[data-drill]')).includes('🔒') ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
+    { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await c.text('[data-drill]')).includes('🔒') ? 'locked' : 'open'; }, expect: { guest: '注册提示', user: 'locked', member: 'open' } },
     { id: 'U4-2', name: '复盘页互动解析按钮是否带锁', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await c.text('[data-adv]')).includes('🔒') ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
     { id: 'U4-3', name: '复盘页（有错题）是否提示注册礼', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await p.locator('.rev-side .gift').count()) > 0; }, expect: { guest: true, user: false, member: false } },
     { id: 'U4-4', name: '点锁住的互动解析', run: async (p, c) => {

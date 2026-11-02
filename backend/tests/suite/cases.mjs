@@ -65,16 +65,16 @@ export const FEATURES = [
   ] },
   { id: 'B4', area: '考试', name: '复盘与错因', cases: [
     { id: 'B4-1', name: '复盘有答案和解题思路', run: async (c) => { const r = await c.get(`/math/api/sessions/${c.prS.session.id}/review`); return !!(r.data.items[0].answer && r.data.items[0].basic); }, expect: same(true) },
-    { id: 'B4-2', name: '标错因', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'careless' }, c.T)), expect: same(200) },
-    { id: 'B4-3', name: '错因不合法', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'lazy' }, c.T)), expect: same(400) },
+    { id: 'B4-2', name: '标错因', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'careless' }, c.T)), expect: { guest: 403, user: 200, member: 200 } },
+    { id: 'B4-3', name: '错因不合法', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'lazy' }, c.T)), expect: { guest: 403, user: 400, member: 400 } },
     { id: 'B4-4', name: '复盘页互动解析的锁（2023 年，非样板、没解锁）', run: async (c) => (c.prReview.items[2].advanced?.locked ? 'locked' : 'open'), expect: { guest: 'locked', user: 'locked', member: 'open' } },
   ] },
 
   // ───────── C 题目与互动解析 ─────────
   { id: 'C1', area: '互动解析', name: '单题页', cases: [
-    { id: 'C1-1', name: '没做过的题不给答案', run: async (c) => 'answer' in (await c.get(`/math/api/problems/${P25(20)}?student=${c.sid}`)).data, expect: same(false) },
+    { id: 'C1-1', name: '没做过的题不给答案', run: async (c) => 'answer' in (await c.get(`/math/api/problems/amc8-2022-p20?student=${c.sid}`)).data, expect: same(false) },
     { id: 'C1-2', name: '做过的题给答案和解题思路', run: async (c) => { const d = (await c.get(`/math/api/problems/${P25(1)}?student=${c.sid}`)).data; return !!(d.answer && d.basic); }, expect: same(true) },
-    { id: 'C1-3', name: '没做过的题不能看互动解析（防止考前偷看）', run: async (c) => st(await c.get(`/math/api/problems/${P25(20)}/advanced`)), expect: same(403) },
+    { id: 'C1-3', name: '没做过的题不能看互动解析（防止考前偷看）', run: async (c) => st(await c.get('/math/api/problems/amc8-2022-p20/advanced')), expect: same(403) },
   ] },
   { id: 'C2', area: '互动解析', name: '免费样板', cases: [
     { id: 'C2-1', name: '2026 年互动解析不用次数也能看', run: async (c) => st(await c.get(`/math/api/problems/${SAMPLE}/advanced`)), expect: same(200) },
@@ -94,32 +94,32 @@ export const FEATURES = [
 
   // ───────── D 知识项与真题突击 ─────────
   { id: 'D1', area: '知识项', name: '知识项页', cases: [
-    { id: 'D1-1', name: '知识项页（前置、题型、相关真题）', run: async (c) => { const d = (await c.get(`/math/api/kp/${KP}?student=${c.sid}`)).data; return d.prerequisites?.length > 0 && d.types?.length > 0 && d.problems?.length > 0; }, expect: same(true) },
-    { id: 'D1-2', name: '突击的锁标记（普通知识项）', run: async (c) => ((await c.get(`/math/api/kp/${KP}?student=${c.sid}`)).data.drill.locked ? 'locked' : 'open'), expect: { guest: 'locked', user: 'locked', member: 'open' } },
-    { id: 'D1-3', name: '样板知识项不锁', run: async (c) => (await c.get(`/math/api/kp/${SAMPLE_KP}?student=${c.sid}`)).data.drill.locked, expect: same(false) },
-    { id: 'D1-4', name: '按考试切换考情（思维 100 暂无）', run: async (c) => (await c.get(`/math/api/kp/${KP}?student=${c.sid}&family=swb100`)).data.stats, expect: same(null) },
-    { id: 'D1-5', name: '不存在的知识项', run: async (c) => st(await c.get(`/math/api/kp/nope?student=${c.sid}`)), expect: same(404) },
+    { id: 'D1-1', name: '知识项页（前置、题型、相关真题）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}`); if (r.status !== 200) return r.status; const d = r.data; return d.prerequisites?.length > 0 && d.types?.length > 0 && d.problems?.length > 0; }, expect: { guest: 403, user: true, member: true } },
+    { id: 'D1-2', name: '突击的锁标记（普通知识项）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}`); return r.status !== 200 ? r.status : r.data.drill.locked ? 'locked' : 'open'; }, expect: { guest: 403, user: 'locked', member: 'open' } },
+    { id: 'D1-3', name: '样板知识项不锁', run: async (c) => { const r = await c.get(`/math/api/kp/${SAMPLE_KP}?student=${c.sid}`); return r.status !== 200 ? r.status : r.data.drill.locked; }, expect: { guest: 403, user: false, member: false } },
+    { id: 'D1-4', name: '按考试切换考情（思维 100 暂无）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}&family=swb100`); return r.status !== 200 ? r.status : r.data.stats; }, expect: { guest: 403, user: null, member: null } },
+    { id: 'D1-5', name: '不存在的知识项', run: async (c) => st(await c.get(`/math/api/kp/nope?student=${c.sid}`)), expect: { guest: 403, user: 404, member: 404 } },
   ] },
   { id: 'D2', area: '知识项', name: '真题突击', cases: [
-    { id: 'D2-1', name: '样板知识项突击', run: async (c) => st(await c.post('/math/api/sessions', { kp_id: SAMPLE_KP, student_id: c.sid })), expect: same(200) },
-    { id: 'D2-2', name: '普通知识项突击（没解锁）', run: async (c) => st(await c.post('/math/api/sessions', { kp_id: KP, student_id: c.sid })), expect: { guest: 402, user: 402, member: 200 } },
+    { id: 'D2-1', name: '样板知识项突击', run: async (c) => st(await c.post('/math/api/sessions', { kp_id: SAMPLE_KP, student_id: c.sid })), expect: { guest: 403, user: 200, member: 200 } },
+    { id: 'D2-2', name: '普通知识项突击（没解锁）', run: async (c) => st(await c.post('/math/api/sessions', { kp_id: KP, student_id: c.sid })), expect: { guest: 403, user: 402, member: 200 } },
     { id: 'D2-3', name: '用 1 次解锁突击', run: async (c) => { const r = await c.post('/api/unlock', { item: `drill:${KP}` }); return r.status === 200 ? (r.data.charged ? 'charged' : 'free') : r.status; }, expect: { guest: 402, user: 'charged', member: 'free' } },
-    { id: 'D2-4', name: '解锁后能反复开突击', run: async (c) => `${st(await c.post('/math/api/sessions', { kp_id: KP, student_id: c.sid }))}/${st(await c.post('/math/api/sessions', { kp_id: KP, student_id: c.sid }))}`, expect: { guest: '402/402', user: '200/200', member: '200/200' } },
+    { id: 'D2-4', name: '解锁后能反复开突击', run: async (c) => `${st(await c.post('/math/api/sessions', { kp_id: KP, student_id: c.sid }))}/${st(await c.post('/math/api/sessions', { kp_id: KP, student_id: c.sid }))}`, expect: { guest: '403/403', user: '200/200', member: '200/200' } },
   ] },
 
   // ───────── E 知识图谱 ─────────
   { id: 'E1', area: '知识图谱', name: '个人知识图谱', cases: [
-    { id: 'E1-1', name: '30 个知识项、前置关系、掌握度', run: async (c) => { const d = (await c.get(`/math/api/students/${c.sid}/graph`)).data; return d.nodes.length === 30 && d.edges.length > 20 && d.nodes.some((n) => n.mastery); }, expect: same(true) },
-    { id: 'E1-2', name: '错过的题挂在知识项上', run: async (c) => (await c.get(`/math/api/students/${c.sid}/graph`)).data.nodes.some((n) => n.wrong?.total > 0), expect: same(true) },
-    { id: 'E1-3', name: '看不到别人家孩子的图谱', run: async (c) => st(await c.get(`/math/api/students/${c.outsider.sid}/graph`)), expect: same(404) },
+    { id: 'E1-1', name: '30 个知识项、前置关系、掌握度', run: async (c) => { const r = await c.get(`/math/api/students/${c.sid}/graph`); if (r.status !== 200) return r.status; const d = r.data; return d.nodes.length === 30 && d.edges.length > 20 && d.nodes.some((n) => n.mastery); }, expect: { guest: 403, user: true, member: true } },
+    { id: 'E1-2', name: '错过的题挂在知识项上', run: async (c) => { const r = await c.get(`/math/api/students/${c.sid}/graph`); return r.status !== 200 ? r.status : r.data.nodes.some((n) => n.wrong?.total > 0); }, expect: { guest: 403, user: true, member: true } },
+    { id: 'E1-3', name: '看不到别人家孩子的图谱', run: async (c) => st(await c.get(`/math/api/students/${c.outsider.sid}/graph`)), expect: { guest: 403, user: 404, member: 404 } },
   ] },
 
   // ───────── F 错题本 ─────────
   { id: 'F1', area: '错题本', name: '错题收集与订正', cases: [
-    { id: 'F1-1', name: '做错 / 没做的题自动收进错题本', run: async (c) => (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.length > 0, expect: same(true) },
-    { id: 'F1-2', name: '新错题是「待订正」', run: async (c) => (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.find((m) => m.problem_id === P25(3))?.status, expect: same('pending') },
-    { id: 'F1-3', name: '订正会话', run: async (c) => { const r = await c.post('/math/api/sessions', { problem_ids: [P25(3)], student_id: c.sid, purpose: 'pending' }); c.fixS = r.data; return r.data.exam?.title; }, expect: same('错题订正') },
-    { id: 'F1-4', name: '订正做对 → 已订正，7 天后复习', run: async (c) => { const ans = (await c.get(`/math/api/problems/${P25(3)}?student=${c.sid}`)).data.answer; await c.post(`/math/api/sessions/${c.fixS.session.id}/submit`, { answers: { [P25(3)]: ans }, times: {}, flags: {} }); const m = (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.find((x) => x.problem_id === P25(3)); return `${m.status}/${Math.round((m.review_at - Date.now()) / 86400000)}`; }, expect: same('fixed/7') },
+    { id: 'F1-1', name: '做错 / 没做的题自动收进错题本（游客的错题本是空的，注册后才有）', run: async (c) => (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.length > 0, expect: { guest: false, user: true, member: true } },
+    { id: 'F1-2', name: '新错题是「待订正」', run: async (c) => (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.find((m) => m.problem_id === P25(3))?.status ?? 'none', expect: { guest: 'none', user: 'pending', member: 'pending' } },
+    { id: 'F1-3', name: '订正会话', run: async (c) => { const r = await c.post('/math/api/sessions', { problem_ids: [P25(3)], student_id: c.sid, purpose: 'pending' }); c.fixS = r.data; return r.data.exam?.title ?? r.status; }, expect: { guest: 403, user: '错题订正', member: '错题订正' } },
+    { id: 'F1-4', name: '订正做对 → 已订正，7 天后复习', run: async (c) => { const ans = (await c.get(`/math/api/problems/${P25(3)}?student=${c.sid}`)).data.answer; await c.post(`/math/api/sessions/${c.fixS.session.id}/submit`, { answers: { [P25(3)]: ans }, times: {}, flags: {} }); const m = (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.find((x) => x.problem_id === P25(3)); return `${m.status}/${Math.round((m.review_at - Date.now()) / 86400000)}`; }, expect: { guest: 'skip', user: 'fixed/7', member: 'fixed/7' } },
   ] },
 
   // ───────── G 免费次数 ─────────
@@ -176,6 +176,7 @@ export const FEATURES = [
   { id: 'J1', area: '账号', name: '游客注册', cases: [
     { id: 'J1-1', name: '游客注册送 10 次', run: async (c) => (await c.post('/api/account/bind', { phone: c.newPhone(), password: 'abc123', nickname: '转正' })).data.credits_added, expect: { guest: 10, user: 'skip', member: 'skip' } },
     { id: 'J1-2', name: '注册后游客时的错题还在', run: async (c) => (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.length > 0, expect: { guest: true, user: 'skip', member: 'skip' } },
+    { id: 'J1-4', name: '注册后知识图谱和知识项能用了', run: async (c) => `${st(await c.get(`/math/api/students/${c.sid}/graph`))}/${st(await c.get(`/math/api/kp/${KP}?student=${c.sid}`))}`, expect: { guest: '200/200', user: 'skip', member: 'skip' } },
     { id: 'J1-3', name: '注册后可以用次数解锁', run: async (c) => (await c.post('/api/unlock', { item: `adv:${P25(2)}` })).data.charged, expect: { guest: true, user: 'skip', member: 'skip' } },
   ] },
 ];

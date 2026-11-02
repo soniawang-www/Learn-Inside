@@ -1074,3 +1074,11 @@ body:not(.exam-mode) { background: var(--paper); }
 .promo-bar b { color: var(--bad, #c0392b); }
 .promo-bar span { font-size: 13px; color: var(--muted); }
 .plan .price .orig { display: block; font-size: 13px; font-weight: 500; line-height: 1.2; color: var(--muted); }
+
+/* 游客：注册后才能用的功能 */
+.reg-feats { list-style: none; padding: 0; margin: 10px 0 14px; display: grid; gap: 10px; }
+.reg-feats li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2, var(--bg)); border: 1px solid var(--border); }
+.reg-feats b { color: var(--accent); }
+.reg-feats span { font-size: 13px; color: var(--muted); }
+.reg-wall .btn.primary { justify-self: start; }
+.guest-note { text-align: center; margin: 8px 0 0; }
