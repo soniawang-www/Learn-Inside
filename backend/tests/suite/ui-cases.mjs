@@ -59,8 +59,8 @@ export const UI_FEATURES = [
     { id: 'U3-4', name: '复盘页：错因和知识项链接（游客只显示知识项名字）', run: async (p, c) => { await c.go(`#/review/${c.session}`); return `${await p.locator('.reason-chips').count() > 0}/${await p.locator('.kphead a').count() > 0}/${await p.locator('.kphead b').count() > 0}`; }, expect: { guest: 'false/false/true', user: 'true/true/true', member: 'true/true/true' } },
   ] },
   { id: 'U4', area: '界面', name: '会员内容的锁', cases: [
-    { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await c.text('[data-drill]')).includes('🔒') ? 'locked' : 'open'; }, expect: { guest: '注册提示', user: 'locked', member: 'open' } },
-    { id: 'U4-2', name: '复盘页互动解析按钮是否带锁', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await c.text('[data-adv]')).includes('🔒') ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
+    { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('[data-drill] .ic-lock').count()) > 0 ? 'locked' : 'open'; }, expect: { guest: '注册提示', user: 'locked', member: 'open' } },
+    { id: 'U4-2', name: '复盘页互动解析按钮是否带锁', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await p.locator('[data-adv]').first().locator('.ic-lock').count()) > 0 ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
     { id: 'U4-3', name: '复盘页（有错题）是否提示注册礼', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await p.locator('.rev-side .gift').count()) > 0; }, expect: { guest: true, user: false, member: false } },
     { id: 'U4-4', name: '点锁住的互动解析', run: async (p, c) => {
       await c.go(`#/review/${c.session}`); await p.locator('[data-adv]').first().click(); await p.waitForTimeout(1200);

@@ -112,9 +112,17 @@ const ICON = {
   graph: '<circle cx="6" cy="7" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="17" r="2.2"/><path d="M8 7.6 16 6.4M7.2 8.9l3.6 6.2M16.8 7.9l-3.6 7.2"/>',
   mistakes: '<path d="M6 4h9l3 3v13H6z"/><path d="m9.5 11 5 5m0-5-5 5"/>',
   account: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+  gift: '<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M3 9h18M12 9v11M12 9c-1.5-3.5-5.5-4-5.5-1.5S12 9 12 9zm0 0c1.5-3.5 5.5-4 5.5-1.5S12 9 12 9z"/>',
+  done: '<circle cx="12" cy="12" r="8.5"/><path d="m8 12.3 2.8 2.7L16.2 9.5"/>',
+  menu: '<path d="M4.5 7h15M4.5 12h15M4.5 17h15"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z"/>',
+  flag: '<path d="M6 21V4.5M6 5h10.5l-2 3.5 2 3.5H6"/>',
+  bulb: '<path d="M9 17.5h6M10 21h4M12 3.5a5.5 5.5 0 0 0-3.2 10c.7.5 1.2 1.3 1.2 2.2v.3h4v-.3c0-.9.5-1.7 1.2-2.2A5.5 5.5 0 0 0 12 3.5z"/>',
   chat: '<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16h0A2 2 0 0 1 5 14z"/><path d="M9 9.5h6M9 12h4"/>',
 };
-const icon = (k) => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+const icon = (k, size = 20) => `<svg class="ic ic-${k}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
 let lastMe = null; // 侧栏显示会员 / 剩余次数
 // 客服：管理后台上传的微信二维码
 let supportCache = null;
@@ -353,7 +361,7 @@ async function renderAccount() {
   form('bind', '/api/account/bind', 'berr', async (r) => {
     const me = await api('/math/api/me'); lastMe = me;
     const s = me.students.find((x) => x.id === auth.student?.id) || me.students[0]; if (s) auth.setStudent(s);
-    if (r.credits_added) modal(`<div class="support"><div class="gift-big">🎁</div><h2>注册成功，已送你 ${r.credits_added} 次互动解析</h2><p>在复盘页或题目页点「▶ 互动解析」就能用，每道题用 1 次，之后随时重看；也可以用来开一个知识项的真题突击。以后用手机号登录就能接着用。</p></div><div class="actions" style="justify-content:center"><button class="btn primary" data-close>好的</button></div>`);
+    if (r.credits_added) modal(`<div class="support"><div class="gift-big">${icon('gift', 44)}</div><h2>注册成功，已送你 ${r.credits_added} 次互动解析</h2><p>在复盘页或题目页点「互动解析」就能用，每道题用 1 次，之后随时重看；也可以用来开一个知识项的真题突击。以后用手机号登录就能接着用。</p></div><div class="actions" style="justify-content:center"><button class="btn primary" data-close>好的</button></div>`);
     renderAccount();
   });
   form('pw', '/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
@@ -371,7 +379,7 @@ async function renderPaid(orderId) {
   for (let i = 0; i < 8; i++) {
     const o = await api(`/api/pay/orders/${enc(orderId)}`);
     if (o.status === 'paid') {
-      return box(`<div style="font-size:40px">🎉</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><p><a class="btn primary" href="#/">开始练习</a> <a class="btn" href="#/account">账号</a></p>`);
+      return box(`<div class="gift-big">${icon('done', 44)}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><p><a class="btn primary" href="#/">开始练习</a> <a class="btn" href="#/account">账号</a></p>`);
     }
     if (o.status === 'closed') break;
     await new Promise((r) => setTimeout(r, 2500));
@@ -401,7 +409,7 @@ async function askUnlock(item, what, credits, then) {
       then();
     };
   });
-  if (lastMe?.guest) return modal(`<div class="locked-panel"><div class="icon">🎁</div><p><b>注册就送 10 次互动解析</b></p>
+  if (lastMe?.guest) return modal(`<div class="locked-panel"><div class="icon">${icon('gift', 36)}</div><p><b>注册就送 10 次互动解析</b></p>
     <p class="small">互动解析是会员内容。注册账号就送 10 次，这道题马上能看；现在的做题记录也会保留。（2026 年真题的互动解析不用注册也能看。）</p>
     <div class="actions" style="justify-content:center"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>去注册</a></div></div>`);
   modal(`<h2>免费次数用完了</h2>${shareCard()}
@@ -614,11 +622,11 @@ async function renderExam(sid) {
     const hints = S.hints[p.id] || [];
     $app.innerHTML = `<div class="ez ${S.big ? 'big' : ''}">
       <header class="ez-top">
-        <button class="ez-cardbtn" id="cardbtn">☰ 答题卡</button>
-        <span class="ez-user">👤 ${esc(auth.student?.nickname || '')}</span>
+        <button class="ez-cardbtn" id="cardbtn">${icon('menu', 15)}答题卡</button>
+        <span class="ez-user">${icon('account', 15)}${esc(auth.student?.nickname || '')}</span>
         <span class="ez-title">${esc(data.exam.title)}${practice ? '<span class="ez-mode">练习</span>' : ''}</span>
         <span class="ez-sp"></span>
-        <button class="ez-tool" id="lang" title="切换题目语言">🌐 ${LANGS[lang.get()]}</button>
+        <button class="ez-tool" id="lang" title="切换题目语言">${icon('globe', 15)}${LANGS[lang.get()]}</button>
         <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
         <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
         <span class="ez-timer" id="timer">剩余时间 <b>--:--</b></span>
@@ -626,7 +634,7 @@ async function renderExam(sid) {
       </header>
       <div class="ez-body">
         <aside class="ez-card ${cardOpen ? 'open' : ''}">
-          <div class="ez-card-head"><b>答题卡</b><span class="muted">☰</span></div>
+          <div class="ez-card-head"><b>答题卡</b><span class="muted">${icon('menu', 16)}</span></div>
           <div class="ez-progress"><div class="ez-prow"><span>进度</span><span>${answered}/${problems.length}</span></div>
             <div class="ez-pbar"><div style="width:${(answered / problems.length) * 100}%"></div></div></div>
           <div class="ez-grid">${problems.map((x, i) => `<button class="ez-cell ${S.answers[x.id] ? 'done' : ''} ${S.flags[x.id] ? 'flag' : ''} ${i === S.cur ? 'cur' : ''}" data-go="${i}">${x.number}</button>`).join('')}</div>
@@ -635,14 +643,14 @@ async function renderExam(sid) {
         <main class="ez-main">
           <div class="ez-q">
             <div class="ez-qhead"><span class="ez-qno">${p.number}.(1分)${data.session.drill ? ` <span class="ez-src">${esc(p.label)}</span>` : ''}</span>
-              <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">📌 ${S.flags[p.id] ? '已标记' : '标记'}</button></div>
+              <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">${icon('flag', 14)}${S.flags[p.id] ? '已标记' : '标记'}</button></div>
             <div class="ez-stem">${stemHtml(p)}</div>
             ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
             <ul class="ez-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="ez-opt ${S.answers[p.id] === k ? 'sel' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${choiceHtml(p, k)}</span></li>`).join('')}</ul>
             <div class="ez-nav">
               <button class="ez-btn" id="prev" ${S.cur === 0 ? 'disabled' : ''}>上一题</button>
               <button class="ez-btn next" id="next" ${S.cur === problems.length - 1 ? 'disabled' : ''}>下一题</button>
-              ${practice && p.hint_count ? `<button class="ez-btn hint" id="hint" ${hints.length >= p.hint_count ? 'disabled' : ''}>💡 提示 ${hints.length}/${p.hint_count}</button>` : ''}
+              ${practice && p.hint_count ? `<button class="ez-btn hint" id="hint" ${hints.length >= p.hint_count ? 'disabled' : ''}>${icon('bulb', 15)}提示 ${hints.length}/${p.hint_count}</button>` : ''}
             </div>
             ${hints.length ? `<div class="hint-box">${hints.map((h, i) => `<div class="hint"><b>提示 ${i + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
           </div>
@@ -730,7 +738,7 @@ async function renderReview(sid) {
   const wrong = r.items.filter((i) => !i.correct);
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.mode === 'exam' ? '模考' : '练习'} · ${fmtDate(r.session.submitted_at)}</p></div>
-      <div class="row"><button class="btn" id="lang">🌐 ${LANGS[lang.get()]}</button></div></header>
+      <div class="row"><button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button></div></header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
@@ -750,14 +758,14 @@ async function renderReview(sid) {
       <summary><span class="mark">${it.correct ? '✓' : it.choice === null ? '–' : '✗'}</span>
         <b>Problem ${it.number}</b>${r.session.mode !== 'exam' && r.exam.id === 'drill' ? `<span class="muted small">${esc(it.label)}</span>` : ''}
         <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${it.choice}`}${it.correct ? '' : ` · 正确答案 ${it.answer}`}</span>
-        <span class="meta">${fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · ⚑' : ''}</span></summary>
+        <span class="meta">${fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · 已标记' : ''}</span></summary>
       <div class="body">
         <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
         <ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>
         ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
-        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
+        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">${icon('play', 14)}互动解析${it.advanced.locked ? `${icon('lock', 15)}` : ''}</button></div>` : ''}
         <div class="section-label">考点</div>
         ${typeChips(it.types)}
         ${kpCards(it.kps)}
@@ -789,7 +797,7 @@ function kpCards(kps) {
   return `<div class="kpcards">${shown.map((k) => `<div class="kpcard">
       <div class="kphead">${g ? `<b>${esc(k.name)}</b>` : `<a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>`}${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
       ${k.signals?.length ? `<div class="sig-title">怎么认出这个考点</div><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul>` : (k.summary ? `<p class="small">${rich(k.summary)}</p>` : '')}
-      ${g ? '<p class="small muted">注册后可以看这个知识项的相关真题、做真题突击。</p>' : `<div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? ' 🔒' : ''}</button></div>`}
+      ${g ? '<p class="small muted">注册后可以看这个知识项的相关真题、做真题突击。</p>' : `<div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? `${icon('lock', 15)}` : ''}</button></div>`}
     </div>`).join('')}
     ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => (g ? esc(k.name) : `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`)).join('、')}</div>` : ''}</div>`;
 }
@@ -824,7 +832,7 @@ async function openAdvanced(problemId) {
   openLesson({ title: '互动解析', ...r.lesson });
 }
 
-const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">🔒</div><p><b>${esc(title)}</b></p>
+const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">${icon('lock', 36)}</div><p><b>${esc(title)}</b></p>
   <p class="small">开通会员后可以查看。</p><div class="actions" style="justify-content:center"><button class="btn" data-close>知道了</button></div></div>`;
 
 
@@ -938,7 +946,7 @@ async function renderKp(id) {
     </div><aside class="col-side">
     <div class="card feature"><div><h2>真题突击 <span class="tag">会员</span></h2>
       <p class="small muted">${k.drill.count ? `${k.drill.count} 道真题` : '还没有考这个知识项的真题。'}</p></div>
-      ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? '🔒 ' : ''}开始突击</button>${k.drill.sample ? '<span class="small muted">免费体验</span>' : ''}` : ''}</div>
+      ${k.drill.count ? `<button class="btn primary" data-drill="${esc(k.id)}">${k.drill.locked ? `${icon('lock', 15)}` : ''}开始突击</button>${k.drill.sample ? '<span class="small muted">免费体验</span>' : ''}` : ''}</div>
     <div class="ctabs">${k.families.map((f) => `<a class="${f.id === k.family ? 'on' : ''}" href="#/kp/${enc(k.id)}?family=${f.id}">${esc(f.name)} 考情</a>`).join('')}</div>
     ${k.stats ? statCard(k.stats, k.exam_years || [], fam.name) : `<div class="card"><p class="muted small">${(k.exam_years || []).length ? `已收录的 ${k.exam_years.length} 届 ${esc(fam.name)} 真题里没有考过这个知识项。` : `${esc(fam.name)} 的真题还没有录入，暂时没有考情。`}</p></div>`}
     ${k.types?.length ? `<div class="card"><h2>题型</h2><div class="plist">${k.types.map((t) => { const s = k.type_stats?.[t.id];
@@ -958,7 +966,7 @@ async function renderProblem(id) {
   const done = p.attempted;
   $app.innerHTML = `${topnav()}<main class="page">
     <a href="javascript:history.back()" class="small">← 返回</a>
-    <header class="ph"><div><h1>${esc(p.label)}</h1></div><button class="btn" id="lang">🌐 ${LANGS[lang.get()]}</button></header>
+    <header class="ph"><div><h1>${esc(p.label)}</h1></div><button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button></header>
     <div class="cols half"><div class="card">
       <div class="stem">${stemHtml(p)}${p.figure ? `<div class="figure">${p.figure}</div>` : ''}</div>
       <ul class="choices ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="choice ${done && k === p.answer ? 'correct' : done && k === p.last.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(p, k)}</span></li>`).join('')}</ul>
@@ -966,7 +974,7 @@ async function renderProblem(id) {
     ${done ? `<div class="card">
         <p>${p.last.correct ? '✓ 上次做对了' : `✗ 上次${p.last.choice ? `选了 ${p.last.choice}` : '没作答'}，正确答案 <b>${p.answer}</b>`}</p>
         ${p.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(p.basic)}</div>` : ''}
-        ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">▶ 互动解析${p.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
+        ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">${icon('play', 14)}互动解析${p.advanced.locked ? `${icon('lock', 15)}` : ''}</button></div>` : ''}
         <div class="section-label">考点</div>${typeChips(p.types)}${kpCards(p.kps)}
         <div class="row" style="margin-top:14px"><button class="btn" id="try">再做一次</button></div>
       </div>` : `<div class="card feature"><div><h2>还没做过这道题</h2></div><button class="btn primary" id="try">做这道题</button></div>`}
@@ -1056,7 +1064,7 @@ function mistakeCard(list, reasonName) {
     <div class="ms-actions">
       ${n('pending') ? `<button class="btn primary" data-ms-go="pending">订正错题（${Math.min(n('pending'), BATCH)} 题）</button>` : ''}
       ${n('due') ? `<button class="btn primary" data-ms-go="due">复习到期的错题（${Math.min(n('due'), BATCH)} 题）</button>` : ''}
-      ${!todo.length ? '<span class="small muted">现在没有要做的错题 👍</span>' : ''}
+      ${!todo.length ? '<span class="small muted">现在没有要做的错题</span>' : ''}
     </div>
     <div class="ms-tabs">${tabs.map(([k, label]) => `<button class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label}</button>`).join('')}</div>
     <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || '<p class="muted small">这一类没有题。</p>'}</div>

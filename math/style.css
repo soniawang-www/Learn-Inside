@@ -1097,3 +1097,11 @@ body:not(.exam-mode) { background: var(--paper); }
 
 /* 手机顶部：会员标记 */
 .mtop-who .vip { font-style: normal; font-size: 11px; font-weight: 700; margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: var(--surface); vertical-align: 1px; }
+
+/* 线条图标（代替表情符号，和侧栏图标一套） */
+.ic { flex: none; vertical-align: -0.2em; }
+.btn .ic:first-child { margin-right: 6px; }
+.btn .ic:last-child:not(:first-child) { margin-left: 6px; opacity: .85; }
+.ez-tool .ic, .ez-user .ic, .ez-cardbtn .ic, .ez-pin .ic, .ez-btn .ic { margin-right: 4px; }
+.locked-panel .icon .ic, .gift-big .ic { display: block; margin: 0 auto; }
+.gift-big { color: var(--accent); }
