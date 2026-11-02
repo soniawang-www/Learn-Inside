@@ -125,7 +125,7 @@ async function showSupport(title = '联系客服') {
   const link = /^https:\/\//.test(s.url || '') ? s.url : '';
   modal(`<div class="support"><h2>${esc(title)}</h2>
     ${link && inWx ? `<a class="btn primary block" href="${esc(link)}">打开微信客服</a>` : ''}
-    ${s.qr && !(link && inWx) ? `<img class="support-qr" src="${esc(s.qr)}" alt="微信客服二维码">${s.uploaded_qr ? '<p>微信扫一扫，直接和客服聊</p>' : ''}` : ''}
+    ${s.qr && !(link && inWx) ? `<img class="support-qr" src="${esc(s.qr)}" alt="微信客服二维码"><p>微信扫一扫，直接和客服聊</p>` : ''}
     ${link && !inWx ? `<p class="small"><a href="${esc(link)}" target="_blank" rel="noopener">在微信里打开客服链接</a></p>` : ''}
     ${s.text ? `<p class="muted">${esc(s.text)}</p>` : s.qr || link ? '' : '<p class="muted">客服联系方式还没有设置。</p>'}
     <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div></div>`);
