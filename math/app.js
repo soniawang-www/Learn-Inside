@@ -151,7 +151,7 @@ function topnav() {
     <a class="side-help" href="javascript:" data-support>${icon('chat')}<span>联系客服</span></a>
     <a class="side-who" href="#/account"><span class="avatar">${esc(s.nickname.slice(0, 1))}</span><span><b>${esc(s.nickname)}</b><small>${esc(memb)}</small></span></a>
   </aside>
-  <header class="mtop">${BRAND}<span><a class="mtop-who" href="javascript:" data-support>客服</a><a class="mtop-who" href="#/account">${esc(s.nickname)}</a></span></header>`;
+  <header class="mtop">${BRAND}<span><a class="mtop-who" href="javascript:" data-support>客服</a><a class="mtop-who" href="#/account">${esc(s.nickname)}${lastMe?.premium && !lastMe.free_mode ? '<i class="vip">会员</i>' : ''}</a></span></header>`;
 }
 
 // ───────── 路由 ─────────
@@ -304,7 +304,7 @@ async function renderAccount() {
     </div>`;
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客' : esc(a.phone || '还没绑定手机号')}</p></div></header>
-    <div class="cols"><div class="col-main">${a.guest ? acctCard : ''}<div class="card"><h2>会员</h2>
+    <div class="cols"><div class="col-main">${a.guest ? acctCard : ''}<div class="card"><h2>${ms.length ? '我的会员' : '购买会员'}</h2>
       <p>${memberLine}</p>
       ${a.free_mode || a.guest ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
       ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}

@@ -1094,3 +1094,6 @@ body:not(.exam-mode) { background: var(--paper); }
 .share-btns .btn { white-space: nowrap; }
 .share-or { margin: 6px 0 0; }
 @media (max-width: 520px) { .share { flex-direction: column; align-items: center; } .share img { width: min(240px, 70%); } .share-t { width: 100%; } .share-btns .btn { flex: 1; justify-content: center; text-align: center; } }
+
+/* 手机顶部：会员标记 */
+.mtop-who .vip { font-style: normal; font-size: 11px; font-weight: 700; margin-left: 4px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: var(--surface); vertical-align: 1px; }
