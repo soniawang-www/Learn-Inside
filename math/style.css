@@ -1119,3 +1119,26 @@ body.net-wait::before { opacity: 1; animation: net-bar 1.6s ease-out infinite; }
 @keyframes net-bar { 0% { width: 0; left: 0; } 60% { width: 70%; left: 15%; } 100% { width: 10%; left: 100%; } }
 #app.page-wait { opacity: .55; pointer-events: none; transition: opacity .15s; }
 @media (prefers-reduced-motion: reduce) { .busy::after { animation-duration: 2s; } body.net-wait::before { animation: none; width: 100%; opacity: .6; } }
+
+/* 支付：确认订单、跳转遮罩、待付款提示、支付结果 */
+.pay-sum { display: grid; gap: 8px; margin: 10px 0 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2, var(--bg)); border: 1px solid var(--border); }
+.pay-sum > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.pay-sum span { color: var(--muted); }
+.pay-sum s { color: var(--muted); }
+.pay-total { border-top: 1px dashed var(--border); padding-top: 8px; }
+.pay-total b { font-size: 20px; color: var(--accent); }
+.pay-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(2px); }
+.pay-box { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 26px 24px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.12); max-width: 340px; width: 100%; }
+.pay-box p { margin: 0; }
+.pay-late { display: grid; gap: 8px; width: 100%; margin-top: 6px; }
+.pay-late:empty { display: none; }
+.pay-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); animation: busy-spin .8s linear infinite; display: inline-block; }
+.pay-pending { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--flag, #A85A2A) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--flag, #A85A2A) 45%, transparent); }
+.pay-pending > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.pay-pending span { font-size: 13px; color: var(--muted); }
+.pay-pending-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.pay-pending-btns .btn { white-space: nowrap; padding: 6px 12px; font-size: 14px; }
+.pay-result { max-width: 480px; margin: 40px auto; text-align: center; display: grid; justify-items: center; gap: 6px; }
+.pay-result .actions { justify-content: center; }
+.pay-actions { flex-wrap: wrap; }

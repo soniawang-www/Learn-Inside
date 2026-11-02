@@ -226,6 +226,8 @@ async function router() {
   } finally { clearTimeout(dim); $app.classList.remove('page-wait'); }
 }
 window.addEventListener('hashchange', router);
+// 从支付宝点「返回」时浏览器会恢复旧页面（按钮停在点过的样子）：重新加载一次，拿最新的订单状态
+window.addEventListener('pageshow', (e) => { if (e.persisted) { document.querySelector('.pay-overlay')?.remove(); router(); } });
 // 「去错题本订正」带上知识项筛选
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-mskp]'); if (a) { msKp = a.dataset.mskp; msFam = ''; msFilter = 'todo'; msMore = false; } });
 
@@ -350,6 +352,8 @@ async function renderAccount() {
     <div class="cols"><div class="col-main">${a.guest ? acctCard : ''}<div class="card"><h2>${ms.length ? '我的会员' : '购买会员'}</h2>
       <p>${memberLine}</p>
       ${a.free_mode || a.guest ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
+      ${a.pending_order ? `<div class="pay-pending"><div><b>有一笔订单还没付完</b><span>${esc(a.pending_order.name)} · ¥${esc(a.pending_order.amount)} · ${Math.max(1, 30 - Math.floor((Date.now() - a.pending_order.created_at) / 60000))} 分钟内有效</span></div>
+        <div class="pay-pending-btns"><button class="btn primary" data-repay="${esc(a.pending_order.id)}">继续支付</button><a class="btn" href="#/account/paid/${enc(a.pending_order.id)}">我已付款</a><button class="btn" data-cancel-order="${esc(a.pending_order.id)}">取消订单</button></div></div>` : ''}
       ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
         <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.orig_price ? `<s class="orig">¥${p.orig_price}</s>` : ''}${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
@@ -387,12 +391,20 @@ async function renderAccount() {
       <div class="actions"><button class="btn" data-close>知道了</button><button class="btn primary" id="cpurl">复制网址</button></div>`, (m) => (m.querySelector('#cpurl').onclick = async (e) => {
         try { await navigator.clipboard.writeText(location.href); e.target.textContent = '已复制'; } catch { e.target.outerHTML = `<span class="small">${esc(location.href)}</span>`; }
       }));
-    b.disabled = true;
-    try {
-      const r = await api('/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, from: 'math' } });
-      location.href = r.url;
-    } catch (err) { b.disabled = false; modal(`<h2>没能发起支付</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+    const p = a.plans.find((x) => x.id === b.dataset.plan);
+    // 先确认订单（套餐、天数、金额、支付方式），再去支付宝
+    modal(`<h2>确认开通</h2><div class="pay-sum"><div><span>套餐</span><b>${esc(p.name)}</b></div><div><span>有效期</span><b>${p.days} 天</b></div>
+      ${p.orig_price ? `<div><span>原价</span><s>¥${p.orig_price}</s></div>` : ''}<div><span>支付方式</span><b>支付宝</b></div><div class="pay-total"><span>应付</span><b>¥${p.price}</b></div></div>
+      ${a.pending_order && a.pending_order.plan !== p.id ? `<p class="small muted">之前没付完的「${esc(a.pending_order.name)}」订单会自动取消。</p>` : ''}
+      <div class="actions"><button class="btn" data-close>再想想</button><button class="btn primary" id="gopay">去支付 ¥${p.price}</button></div>`,
+    (m, close) => (m.querySelector('#gopay').onclick = () => { close(); goPay(() => api('/api/pay/create', { method: 'POST', body: { plan: p.id, from: 'math' } })); }));
   }));
+  // 待付款订单：继续支付 / 我已付款 / 取消
+  $app.querySelector('[data-repay]')?.addEventListener('click', (e) => goPay(() => api(`/api/pay/orders/${enc(e.currentTarget.dataset.repay)}/repay`, { method: 'POST', body: {} })));
+  $app.querySelector('[data-cancel-order]')?.addEventListener('click', async (e) => {
+    try { const r = await api(`/api/pay/orders/${enc(e.currentTarget.dataset.cancelOrder)}/cancel`, { method: 'POST', body: {} }); if (r.status === 'paid') return (location.hash = `#/account/paid/${enc(e.currentTarget.dataset.cancelOrder)}`); renderAccount(); }
+    catch (err) { modal(`<h2>没能取消</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+  });
   form('bind', '/api/account/bind', 'berr', async (r) => {
     const me = await api('/math/api/me'); lastMe = me;
     const s = me.students.find((x) => x.id === auth.student?.id) || me.students[0]; if (s) auth.setStudent(s);
@@ -408,19 +420,46 @@ async function renderAccount() {
 }
 
 // 支付宝付完跳回：查订单，没到账就隔几秒再查（服务端会主动问支付宝）
-async function renderPaid(orderId) {
-  const box = (html) => { $app.innerHTML = `${topnav()}<div class="page"><div class="card" style="max-width:480px;margin:40px auto;text-align:center">${html}</div></div>`; };
-  box('<h2>正在确认付款…</h2>');
-  for (let i = 0; i < 8; i++) {
-    const o = await api(`/api/pay/orders/${enc(orderId)}`);
-    if (o.status === 'paid') {
-      return box(`<div class="gift-big">${icon('done', 44)}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><p><a class="btn primary" href="#/">开始练习</a> <a class="btn" href="#/account">账号</a></p>`);
-    }
-    if (o.status === 'closed') break;
-    await new Promise((r) => setTimeout(r, 2500));
+// 去支付宝：全屏遮罩挡住页面，跳转慢时给手动打开的链接；付过了直接看结果
+async function goPay(create) {
+  const ov = document.createElement('div');
+  ov.className = 'pay-overlay';
+  ov.innerHTML = '<div class="pay-box"><span class="pay-spin"></span><b>正在打开支付宝…</b><p class="small muted">请稍候，不要关闭页面</p><div class="pay-late"></div></div>';
+  document.body.appendChild(ov);
+  try {
+    const r = await create();
+    if (r.status === 'paid') { ov.remove(); location.hash = `#/account/paid/${enc(r.order_id || '')}`; return; }
+    location.href = r.url;
+    setTimeout(() => { // 5 秒还没跳走：给手动打开和取消
+      const late = ov.querySelector('.pay-late');
+      if (late) late.innerHTML = `<a class="btn primary" href="${esc(r.url)}">没有跳转？点这里打开支付宝</a><button class="btn" id="pay-x">取消</button>`;
+      ov.querySelector('#pay-x')?.addEventListener('click', () => { ov.remove(); router(); });
+    }, 5000);
+  } catch (err) {
+    ov.remove();
+    modal(`<h2>没能发起支付</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`);
   }
-  box(`<h2>还没确认到付款</h2><p class="small">如果已经付款，稍等一两分钟刷新这个页面；一直没开通请<a href="javascript:" data-support>联系客服</a>，订单号 <code>${esc(orderId)}</code>。</p>
-    <p><button class="btn primary" onclick="location.reload()">刷新</button> <a class="btn" href="#/account">返回账号</a></p>`);
+}
+// 从支付宝回来（或点「我已付款」）：查支付结果，区分已开通 / 订单已关闭 / 还没付
+async function renderPaid(orderId) {
+  const box = (html) => { $app.innerHTML = `${topnav()}<div class="page"><div class="card pay-result">${html}</div></div>`; };
+  box('<span class="pay-spin"></span><h2>正在确认支付结果…</h2><p class="small muted">一般几秒钟，请不要关闭页面</p>');
+  let o;
+  for (let i = 0; i < 6; i++) {
+    o = await api(`/api/pay/orders/${enc(orderId)}`);
+    if (o.status !== 'pending' || !location.hash.includes(orderId)) break;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  if (!location.hash.includes(orderId)) return; // 已经离开这个页面
+  if (o.status === 'paid') return box(`<div class="gift-big">${icon('done', 44)}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><div class="actions"><a class="btn" href="#/account">账号</a><a class="btn primary" href="#/">开始练习</a></div>`);
+  if (o.status === 'refunded' || o.status === 'refunding') return box(`<h2>这笔订单已退款</h2><div class="actions"><a class="btn primary" href="#/account">返回账号</a></div>`);
+  if (o.status === 'closed') return box(`<h2>没有完成付款</h2><p>这笔订单（${esc(o.plan_name)} ¥${esc(o.amount)}）已关闭，没有扣款。</p><div class="actions"><a class="btn" href="#/">先不开了</a><a class="btn primary" href="#/account">重新开通</a></div>`);
+  box(`<h2>还没收到付款</h2><p>${esc(o.plan_name)} · ¥${esc(o.amount)}</p><p class="small muted">如果已经付款，可能是支付宝还没通知到，点「我已付款，再查一次」；还没付可以继续支付或取消。</p>
+    <div class="actions pay-actions"><button class="btn" id="pq">我已付款，再查一次</button><button class="btn primary" data-repay="${esc(o.id)}">继续支付</button></div>
+    <p class="small"><a href="javascript:" id="pc">取消订单</a> · <a href="javascript:" data-support>联系客服</a> · 订单号 <code>${esc(o.id)}</code></p>`);
+  $app.querySelector('#pq').onclick = () => renderPaid(orderId);
+  $app.querySelector('[data-repay]').onclick = () => goPay(() => api(`/api/pay/orders/${enc(o.id)}/repay`, { method: 'POST', body: {} }));
+  $app.querySelector('#pc').onclick = async () => { const r = await api(`/api/pay/orders/${enc(o.id)}/cancel`, { method: 'POST', body: {} }); r.status === 'paid' ? renderPaid(orderId) : (location.hash = '#/account'); };
 }
 
 /** 内容没解锁：有免费次数就问要不要用 1 次，没有就引导开通会员。解锁成功后执行 then() */

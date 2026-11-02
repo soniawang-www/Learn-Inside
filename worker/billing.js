@@ -248,9 +248,14 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM unlock WHERE account_id = ?').bind(acc.id).first();
     const ms = await memberships(env, acc.id);
     const pr = await loadPromo(env);
+    // 有没付完的订单：对一下账（付了就开通），还在等就告诉页面
+    const pend = await latestPending(env, acc.id);
+    let pending_order = null;
+    if (pend && (await syncOrder(env, pend)) === 'pending') pending_order = { id: pend.id, plan: pend.plan, name: basePlans(env).find((x) => x.id === pend.plan)?.name || pend.plan, amount: pend.amount, created_at: pend.created_at };
+    const ms2 = pend ? await memberships(env, acc.id) : ms;
     return json({
-      phone: acc.phone, guest: !!acc.guest, free_mode: ctx.free,
-      memberships: ms, scopes: SCOPES.filter((x) => x.live || ms[x.id]).map(({ id, name }) => ({ id, name })),
+      pending_order, phone: acc.phone, guest: !!acc.guest, free_mode: ctx.free,
+      memberships: ms2, scopes: SCOPES.filter((x) => x.live || ms2[x.id]).map(({ id, name }) => ({ id, name })),
       credits: ctx.credits, free_credits: FREE_CREDITS, unlocked: n.n,
       plans: await plansOf(env, pr), promo: promoPublic(pr), pay_ready: payReady(env), contact: env.PAY_CONTACT || '',
     });
@@ -297,7 +302,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   const money = (v) => Number(v).toFixed(2);
   /** 订单付款成功 → 开通会员（幂等：同一订单只加一次） */
   async function grantOrder(env, order, tradeNo, buyer) {
-    const r = await env.DB.prepare("UPDATE pay_order SET status = 'paid', trade_no = ?, buyer = ?, paid_at = ? WHERE id = ? AND status = 'pending'")
+    const r = await env.DB.prepare("UPDATE pay_order SET status = 'paid', trade_no = ?, buyer = ?, paid_at = ? WHERE id = ? AND status IN ('pending', 'closed')") // 关掉后又付了钱，也照样开通
       .bind(tradeNo || null, buyer || null, now(), order.id).run();
     if (!r.meta.changes) return false;
     await addDays(env, order.account_id, order.days, order.tier || 'math', `alipay:${tradeNo || order.id}`);
@@ -305,6 +310,32 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     return true;
   }
   const paidOk = (st) => st === 'TRADE_SUCCESS' || st === 'TRADE_FINISHED';
+  const PAY_WINDOW = 30 * 60 * 1000; // 支付宝 timeout_express 30m
+  /** 待付款订单对一下支付宝：付了就开通；超时、支付宝已关、或要求关闭（close）就关掉。返回最新状态 */
+  async function syncOrder(env, o, close = false) {
+    if (o.status !== 'pending') return o.status;
+    const expired = now() - o.created_at > PAY_WINDOW;
+    if (payReady(env)) {
+      try {
+        const q = await queryTrade(env, o.id);
+        if (q.code === '10000' && paidOk(q.trade_status) && money(q.total_amount) === o.amount) { await grantOrder(env, o, q.trade_no, q.buyer_logon_id); return 'paid'; }
+        if (q.code === '10000' && q.trade_status === 'TRADE_CLOSED') close = true;
+        if (!close && !expired) return 'pending';
+        if (q.code === '10000' && !paidOk(q.trade_status) && q.trade_status !== 'TRADE_CLOSED') await closeTrade(env, o.id); // 关掉支付宝那边，不能再付
+      } catch (e) { console.error('alipay sync failed', e); if (!close && !expired) return 'pending'; }
+    } else if (!close && !expired) return 'pending';
+    await env.DB.prepare("UPDATE pay_order SET status = 'closed' WHERE id = ? AND status = 'pending'").bind(o.id).run();
+    return 'closed';
+  }
+  const latestPending = (env, accId) => env.DB.prepare("SELECT * FROM pay_order WHERE account_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1").bind(accId).first();
+  async function payLink(env, o, origin, from = 'math') {
+    const pl = basePlans(env).find((x) => x.id === o.plan);
+    return payUrl(env, {
+      orderId: o.id, amount: o.amount, subject: `learn-inside 会员 · ${pl?.name || o.plan}（${o.days} 天）`,
+      // 本地调试（http://127.0.0.1）支付宝回调不到，不传 notify_url，靠查询兜底
+      notifyUrl: origin.startsWith('https://') ? `${origin}/api/pay/notify` : undefined, returnUrl: `${origin}/api/pay/return?o=${o.id}&f=${SUBJECTS.includes(from) ? from : 'math'}`,
+    });
+  }
 
   route('POST', '/api/pay/create', async (req, env, _p, url) => {
     const acc = await requireAccount(req, env);
@@ -314,18 +345,38 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const pl = (await plansOf(env)).find((x) => x.id === plan);
     if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');
     if (!pl.online) throw new HttpError(400, '这个套餐暂不支持在线支付，请联系客服购买激活码');
-    const back = SUBJECTS.includes(from) ? from : 'math'; // 付完回到哪个科目的页面
+    // 已有待付款订单：同一套餐、同一价格、还在 25 分钟内 → 接着付这一笔（不重复下单）；否则先对账，付了就算付了，没付就关掉再下新单
+    const old = await latestPending(env, acc.id);
+    if (old) {
+      if (old.plan === pl.id && old.amount === money(pl.price) && now() - old.created_at < 25 * 60 * 1000) {
+        const st = await syncOrder(env, old);
+        if (st === 'paid') return json({ order_id: old.id, status: 'paid' });
+        if (st === 'pending') return json({ order_id: old.id, url: await payLink(env, old, url.origin, from), reused: true });
+      } else if ((await syncOrder(env, old, true)) === 'paid') return json({ order_id: old.id, status: 'paid' });
+    }
     const id = 'M' + new Date(now() + 8 * 3600000).toISOString().slice(0, 10).replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     const order = { id, plan: pl.id, tier: pl.scope, days: pl.days, amount: money(pl.price) };
     await env.DB.prepare('INSERT INTO pay_order (id, account_id, plan, tier, days, amount, status, created_at, promo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(id, acc.id, order.plan, order.tier, order.days, order.amount, 'pending', now(), pl.promo || null).run();
-    const base = url.origin;
-    const payurl = await payUrl(env, {
-      orderId: id, amount: order.amount, subject: `learn-inside 会员 · ${pl.name}（${pl.days} 天）`,
-      // 本地调试（http://127.0.0.1）支付宝回调不到，不传 notify_url，靠查询兜底
-      notifyUrl: base.startsWith('https://') ? `${base}/api/pay/notify` : undefined, returnUrl: `${base}/api/pay/return?o=${id}&f=${back}`,
-    });
-    return json({ order_id: id, url: payurl });
+    return json({ order_id: id, url: await payLink(env, { ...order, created_at: now() }, url.origin, from) });
+  });
+
+  // 继续支付一笔待付款订单（从支付宝返回没付、或关掉了页面）
+  route('POST', '/api/pay/orders/:id/repay', async (req, env, p, url) => {
+    const acc = await requireAccount(req, env);
+    const o = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ? AND account_id = ?').bind(p.id, acc.id).first();
+    if (!o) throw new HttpError(404, '订单不存在');
+    const st = await syncOrder(env, o, now() - o.created_at > 25 * 60 * 1000);
+    if (st === 'paid') return json({ status: 'paid' });
+    if (st !== 'pending') throw new HttpError(409, '这笔订单已经关闭了，请重新开通');
+    return json({ status: 'pending', url: await payLink(env, o, url.origin) });
+  });
+  // 取消待付款订单（先对账：其实付了就直接开通）
+  route('POST', '/api/pay/orders/:id/cancel', async (req, env, p) => {
+    const acc = await requireAccount(req, env);
+    const o = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ? AND account_id = ?').bind(p.id, acc.id).first();
+    if (!o) throw new HttpError(404, '订单不存在');
+    return json({ status: await syncOrder(env, o, true) });
   });
 
   // 支付宝异步通知（application/x-www-form-urlencoded）。返回纯文本 success，否则支付宝会重试
@@ -358,15 +409,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const acc = await requireAccount(req, env);
     let order = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ? AND account_id = ?').bind(p.id, acc.id).first();
     if (!order) throw new HttpError(404, '订单不存在');
-    if (order.status === 'pending' && payReady(env)) {
-      try {
-        const q = await queryTrade(env, order.id);
-        if (q.code === '10000' && paidOk(q.trade_status) && money(q.total_amount) === order.amount) {
-          await grantOrder(env, order, q.trade_no, q.buyer_logon_id);
-          order = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ?').bind(order.id).first();
-        }
-      } catch (e) { console.error('alipay query failed', e); }
-    }
+    if (order.status === 'pending' && (await syncOrder(env, order)) !== 'pending') order = await env.DB.prepare('SELECT * FROM pay_order WHERE id = ?').bind(order.id).first();
     const tier = order.tier || 'math';
     const until = tier === 'all' ? await chainUntil(env, acc.id, ['all']) : await memberUntil(env, acc.id, tier);
     const pl = basePlans(env).find((x) => x.id === order.plan);

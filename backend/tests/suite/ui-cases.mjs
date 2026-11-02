@@ -132,4 +132,37 @@ export const UI_FEATURES = [
     { id: 'U6-7', name: '平板 768：同上', run: async (p, c) => c.sweep(768, 1024, 'light'), expect: same('ok') },
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
   ] },
+  { id: 'U10', area: '界面', name: '在线支付的各种情况', cases: [
+    { id: 'U10-1', name: '点「开通」：先确认订单，再全屏遮罩跳支付宝（页面不能点）', run: async (p, c) => {
+      c.mockPaid('0.00'); await c.go('#/account'); await p.locator('[data-plan="math.month"]').click(); await p.waitForTimeout(400);
+      const confirm = (await c.text('.modal')).includes('确认开通') && (await c.text('.pay-total')).includes('¥');
+      await p.route('**/gateway.do**', (route) => route.fulfill({ status: 200, body: 'mock alipay' }));
+      await p.route('**/api/pay/create', async (route) => { await new Promise((r) => setTimeout(r, 800)); await route.continue(); });
+      await p.click('#gopay'); await p.waitForTimeout(300);
+      const overlay = (await p.locator('.pay-overlay').count()) > 0;
+      await p.waitForURL(/gateway/, { timeout: 8000 }).catch(() => {}); await p.unroute('**/gateway.do**'); await p.unroute('**/api/pay/create');
+      return `${confirm}/${overlay}/${p.url().includes('gateway')}`;
+    }, expect: { guest: 'skip', user: 'true/true/true', member: 'true/true/true' } },
+    { id: 'U10-2', name: '从支付宝返回没付：账号页显示待付款订单，开通按钮正常', run: async (p, c) => {
+      await c.go('#/account');
+      return `${(await c.text('.pay-pending')).includes('还没付完')}/${await p.locator('[data-plan].busy, [data-plan]:disabled').count()}`;
+    }, expect: { guest: 'skip', user: 'true/0', member: 'true/0' } },
+    { id: 'U10-3', name: '再点同一套餐：接着付原来那笔，不重复下单', run: async (p, c) => {
+      const a = (await c.get('/api/account')).data.pending_order; const r = await c.post('/api/pay/create', { plan: 'math.month' });
+      return `${r.data.order_id === a.id}/${!!r.data.reused}`;
+    }, expect: { guest: 'skip', user: 'true/true', member: 'true/true' } },
+    { id: 'U10-4', name: '支付结果页：还没付 → 「还没收到付款」，可继续支付 / 取消', run: async (p, c) => {
+      const id = (await c.get('/api/account')).data.pending_order.id; await c.go(`#/account/paid/${id}`); await p.waitForTimeout(13000);
+      return `${(await c.text('.pay-result h2')).trim()}/${await p.locator('.pay-result [data-repay]').count()}`;
+    }, expect: { guest: 'skip', user: '还没收到付款/1', member: '还没收到付款/1' } },
+    { id: 'U10-5', name: '取消订单 → 结果页显示「没有完成付款」，账号页不再提示', run: async (p, c) => {
+      const id = (await c.get('/api/account')).data.pending_order.id; await c.post(`/api/pay/orders/${id}/cancel`, {});
+      await c.go(`#/account/paid/${id}`); await p.waitForTimeout(1500); const t = (await c.text('.pay-result h2')).trim();
+      await c.go('#/account'); return `${t}/${await p.locator('.pay-pending').count()}`;
+    }, expect: { guest: 'skip', user: '没有完成付款/0', member: '没有完成付款/0' } },
+    { id: 'U10-6', name: '付了钱：结果页显示已开通', run: async (p, c) => {
+      const r = await c.post('/api/pay/create', { plan: 'math.month' }); await c.notify(r.data.order_id, JSON.parse(new URL(r.data.url).searchParams.get('biz_content')).total_amount);
+      await c.go(`#/account/paid/${r.data.order_id}`); await p.waitForTimeout(1500); return (await c.text('.pay-result h2')).includes('已开通');
+    }, expect: { guest: 'skip', user: true, member: true } },
+  ] },
 ];

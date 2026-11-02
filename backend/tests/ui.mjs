@@ -87,7 +87,9 @@ ok(!(await text('.col-main')).includes('全科会员') && (await admin.locator('
 console.log('\n── 套餐按钮与支付跳转');
 const btns = await page.locator('.plan').allTextContents();
 ok(btns.some((t) => t.includes('开通')) && btns.some((t) => t.includes('暂不支持')), '在线可付的显示「开通」，超过上限的显示「暂不支持 · 找客服」');
-const [nav] = await Promise.all([page.waitForURL(/8799|alipay/, { timeout: 8000 }).then(() => true).catch(() => false), page.click('[data-plan="math.month"]')]);
+await page.click('[data-plan="math.month"]'); await page.waitForTimeout(300);
+ok((await text('.modal')).includes('确认开通'), '点「开通」先弹出确认订单');
+const [nav] = await Promise.all([page.waitForURL(/8799|alipay/, { timeout: 8000 }).then(() => true).catch(() => false), page.click('#gopay')]);
 ok(nav && page.url().includes('alipay.trade.page.pay'), '点「开通」跳到支付宝收银台（测试里是假网关）');
 await go('#/account');
 await page.click('.plan [data-support]'); await page.waitForTimeout(800);

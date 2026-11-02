@@ -64,6 +64,7 @@ async function makeContext(role, outsider) {
   c.get = (p) => req(p, 'GET', null, c.T);
   c.post = (p, b) => req(p, 'POST', b, c.T);
   c.admin = (p, m = 'GET', b) => req(p, m, b, null, true);
+  c.mockPaid = (amount) => writeFileSync(`${DIR}/amount`, amount); // 假支付宝「查询订单」返回的已付金额（和订单金额不同 = 没付）
   c.makeCode = async (kind, amount, tier) => (await c.admin('/api/admin/codes', 'POST', { kind, amount, tier, note: '标准测试' })).data.codes[0];
   // 游客不能开单题 / 专项练习，只能整套考：把这些题所在的整套卷各考一遍（空着交）
   c.doProblems = async (sid, ids) => { if (role === 'guest') { let first; for (const e of [...new Set(ids.map((x) => x.replace(/-p\d+$/, '')))]) { const s = await c.post('/math/api/sessions', { exam_id: e, student_id: sid }); await c.post(`/math/api/sessions/${s.data.session.id}/submit`, { answers: {}, times: {}, flags: {} }); first ||= s.data.session.id; } return first; }
