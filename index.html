@@ -225,9 +225,10 @@ $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").ma
 $("sup").onclick=async()=>{
   let s={qr:null,text:""};
   if(/^https?:$/.test(location.protocol)){try{s=await (await fetch("/api/support")).json()}catch(e){}}
-  const qr=typeof s.qr==="string"&&/^(data:image\/|https:)/.test(s.qr)?s.qr:"";
+  const qr=typeof s.qr==="string"&&/^(data:image\/|https:|\/math\/)/.test(s.qr)?s.qr:"";
+  const link=typeof s.url==="string"&&/^https:\/\//.test(s.url)?s.url:"",inWx=/MicroMessenger/i.test(navigator.userAgent);
   const d=document.createElement("div");d.className="dlg";
-  d.innerHTML=`<div class="dlg-box" role="dialog" aria-label="联系客服"><h2>联系客服</h2>${qr?`<img src="${esc(qr)}" alt="客服微信二维码"><p>微信扫码添加客服</p>`:""}${s.text?`<p>${esc(String(s.text))}</p>`:qr?"":"<p>客服联系方式还没有设置。</p>"}<button class="btn go">好的</button></div>`;
+  d.innerHTML=`<div class="dlg-box" role="dialog" aria-label="联系客服"><h2>联系客服</h2>${link&&inWx?`<a class="btn go" href="${esc(link)}">打开微信客服</a>`:qr?`<img src="${esc(qr)}" alt="微信客服二维码">${s.uploaded_qr?"<p>微信扫一扫，直接和客服聊</p>":""}`:""}${s.text?`<p>${esc(String(s.text))}</p>`:qr||link?"":"<p>客服联系方式还没有设置。</p>"}<button class="btn go">关闭</button></div>`;
   d.onclick=e=>{if(e.target===d||e.target.closest(".btn"))d.remove()};document.body.appendChild(d);
 };
 </script>

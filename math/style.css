@@ -996,7 +996,7 @@ body:not(.exam-mode) { background: var(--paper); }
 @media (hover: hover) { .side-help:hover { color: #fff; background: rgba(255,255,255,.05); } }
 .side-help + .side-who { margin-top: 0; }
 .support { text-align: center; }
-.support-qr { width: 220px; max-width: 70vw; aspect-ratio: 1; object-fit: contain; border: 1px solid var(--border); border-radius: 12px; padding: 8px; background: #fff; margin: 6px auto 4px; display: block; }
+.support-qr { width: 240px; max-width: 70vw; height: auto; border: 1px solid var(--border); border-radius: 12px; padding: 8px; background: #fff; margin: 6px auto 4px; display: block; }
 .buy-tip { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
 @media (max-width: 860px) { .side-help { display: none; } }
 .mtop-who + .mtop-who { margin-left: 14px; }

@@ -59,11 +59,12 @@
     <div id="tab-orders" hidden><div class="card" id="paystatus"></div><div class="card"><p class="small muted">只有状态是“已付款”的订单开通了会员。待付款 = 跳去支付宝后没付或还没收到通知。</p><div id="orders"></div></div></div>
     <div id="tab-support" hidden><div class="card">
       <h2>客服微信</h2>
-      <p class="small muted">家长在网站侧栏「联系客服」、账号页、次数用完的提示里会看到这个二维码，扫码加你微信（买激活码、问问题、重置密码）。</p>
+      <p class="small muted">家长点「联系客服」时：在微信里直接打开客服链接进聊天；在微信外显示二维码扫码。没上传二维码时用客服链接自带的二维码。</p>
       <div class="row" style="align-items:flex-start;gap:20px;flex-wrap:wrap">
         <div id="qrbox" style="width:200px;height:200px;border:1px dashed var(--border);border-radius:12px;display:grid;place-items:center;overflow:hidden" class="small muted">还没有二维码</div>
         <div style="flex:1;min-width:240px;display:grid;gap:10px">
-          <label class="field" style="margin:0"><span>二维码图片（微信 → 我 → 名片二维码，截图后上传）</span><input type="file" id="qrfile" accept="image/png,image/jpeg,image/webp"></label>
+          <label class="field" style="margin:0"><span>微信客服链接（企业微信 → 微信客服）</span><input type="url" id="qrurl" placeholder="https://work.weixin.qq.com/kfid/…"></label>
+          <label class="field" style="margin:0"><span>二维码图片（可选，上传后代替自带的二维码）</span><input type="file" id="qrfile" accept="image/png,image/jpeg,image/webp"></label>
           <label class="field" style="margin:0"><span>说明文字</span><input type="text" id="qrtext" placeholder="例如：微信扫码添加客服，工作日 9:00–21:00 回复"></label>
           <div class="row"><button class="btn primary" id="qrsave">保存</button><button class="btn" id="qrdel">删除二维码</button><span class="small" id="qrmsg"></span></div>
         </div>
@@ -220,6 +221,7 @@
     qrData = undefined;
     $('qrbox').innerHTML = d.qr ? `<img src="${d.qr}" style="width:100%;height:100%;object-fit:contain">` : '还没有二维码';
     $('qrtext').value = d.text || '';
+    $('qrurl').value = d.url || '';
   }
   $('qrfile').onchange = async () => {
     const f = $('qrfile').files[0]; if (!f) return;
@@ -233,7 +235,7 @@
     $('qrmsg').textContent = '预览中，点保存生效';
   };
   $('qrsave').onclick = async () => {
-    try { await api('support', { ...(qrData !== undefined ? { qr: qrData } : {}), text: $('qrtext').value.trim() }); $('qrmsg').textContent = '已保存'; qrData = undefined; }
+    try { await api('support', { ...(qrData !== undefined ? { qr: qrData } : {}), text: $('qrtext').value.trim(), url: $('qrurl').value.trim() }); $('qrmsg').textContent = '已保存'; qrData = undefined; }
     catch (e) { $('qrmsg').textContent = e.message; }
   };
   $('qrdel').onclick = async () => {

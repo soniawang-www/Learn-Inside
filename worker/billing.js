@@ -601,15 +601,23 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   });
 
   // ───────── 客服（微信二维码 + 一句说明），所有人都能看 ─────────
+  // 微信客服（企业微信「微信客服」链接）：微信里点链接直接进聊天，微信外扫码；后台可以改
+  const DEFAULT_SUPPORT_URL = 'https://work.weixin.qq.com/kfid/kfcd4b636f70fbb8a8e';
   route('GET', '/api/support', async (_req, env) => {
-    const { results } = await env.DB.prepare("SELECT key, value FROM setting WHERE key IN ('support_qr', 'support_text')").all();
+    const { results } = await env.DB.prepare("SELECT key, value FROM setting WHERE key IN ('support_qr', 'support_text', 'support_url')").all();
     const m = Object.fromEntries(results.map((r) => [r.key, r.value]));
-    return json({ qr: m.support_qr || null, text: m.support_text || env.PAY_CONTACT || '' });
+    const url = m.support_url || env.SUPPORT_URL || DEFAULT_SUPPORT_URL;
+    // 没上传二维码时，默认链接用自带的二维码图
+    return json({ qr: m.support_qr || (url === DEFAULT_SUPPORT_URL ? '/math/support-qr.png' : null), uploaded_qr: !!m.support_qr, url, text: m.support_text || env.PAY_CONTACT || '' });
   });
   route('POST', '/api/admin/support', async (req, env) => {
     requireAdmin(req, env);
-    const { qr, text } = await body(req);
+    const { qr, text, url } = await body(req);
     const ops = [];
+    if (url !== undefined) {
+      if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) throw new HttpError(400, '客服链接要以 https:// 开头');
+      ops.push(env.DB.prepare('INSERT INTO setting (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').bind('support_url', url || null, now()));
+    }
     if (qr !== undefined) {
       if (qr && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(qr)) throw new HttpError(400, '二维码要是 PNG / JPG 图片');
       if (qr && qr.length > 400000) throw new HttpError(400, '图片太大，换一张小一点的');
@@ -617,7 +625,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     }
     if (text !== undefined) ops.push(env.DB.prepare('INSERT INTO setting (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').bind('support_text', String(text).slice(0, 200), now()));
     if (ops.length) await env.DB.batch(ops);
-    await log(env, null, 'support', { qr: qr === undefined ? undefined : !!qr, text });
+    await log(env, null, 'support', { qr: qr === undefined ? undefined : !!qr, text, url });
     return json({ ok: true });
   });
 

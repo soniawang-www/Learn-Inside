@@ -121,10 +121,14 @@ let supportCache = null;
 async function showSupport(title = '联系客服') {
   try { supportCache ||= await (await fetch('/api/support')).json(); } catch { supportCache = { qr: null, text: '' }; }
   const s = supportCache;
+  const inWx = /MicroMessenger/i.test(navigator.userAgent); // 微信里：点一下直接进客服聊天
+  const link = /^https:\/\//.test(s.url || '') ? s.url : '';
   modal(`<div class="support"><h2>${esc(title)}</h2>
-    ${s.qr ? `<img class="support-qr" src="${s.qr}" alt="客服微信二维码"><p>微信扫码添加客服${/Mobi|Android|iPhone/i.test(navigator.userAgent) ? '（手机上可以长按图片保存，再用微信扫一扫识别）' : ''}</p>` : ''}
-    ${s.text ? `<p class="muted">${esc(s.text)}</p>` : s.qr ? '' : '<p class="muted">客服联系方式还没有设置。</p>'}
-    <div class="actions" style="justify-content:center"><button class="btn primary" data-close>好的</button></div></div>`);
+    ${link && inWx ? `<a class="btn primary block" href="${esc(link)}">打开微信客服</a>` : ''}
+    ${s.qr && !(link && inWx) ? `<img class="support-qr" src="${esc(s.qr)}" alt="微信客服二维码">${s.uploaded_qr ? '<p>微信扫一扫，直接和客服聊</p>' : ''}` : ''}
+    ${link && !inWx ? `<p class="small"><a href="${esc(link)}" target="_blank" rel="noopener">在微信里打开客服链接</a></p>` : ''}
+    ${s.text ? `<p class="muted">${esc(s.text)}</p>` : s.qr || link ? '' : '<p class="muted">客服联系方式还没有设置。</p>'}
+    <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div></div>`);
 }
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-support]'); if (a) { e.preventDefault(); showSupport(a.dataset.support || '联系客服'); } });
 function topnav() {
