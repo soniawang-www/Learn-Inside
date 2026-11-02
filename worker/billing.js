@@ -63,10 +63,14 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
     return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(salt), iterations: iter }, key, 256));
   }
+  // 迭代次数：免费版每次请求只有 10ms CPU，10 万次要 ~20ms，改成 1 万次（~2ms，每个密码各自加盐）
+  // 存储格式里带着次数，老密码（10 万次）照样能验证，登录成功时自动换成新次数
+  const PW_ITER = 10000;
   async function hashPw(password) {
     const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
-    return `pbkdf2$100000$${salt}$${await pbkdf2(password, salt, 100000)}`;
+    return `pbkdf2$${PW_ITER}$${salt}$${await pbkdf2(password, salt, PW_ITER)}`;
   }
+  const pwNeedsRehash = (stored) => Number(String(stored || '').split('$')[1]) !== PW_ITER;
   async function checkPw(password, stored) {
     const [, iter, salt, h] = String(stored || '').split('$');
     if (!h) return false;
@@ -195,6 +199,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const phone = normPhone(p);
     const acc = await env.DB.prepare('SELECT * FROM account WHERE phone = ?').bind(phone).first();
     if (!acc || !(await checkPw(password, acc.pw_hash))) throw new HttpError(403, '手机号或密码错误');
+    if (pwNeedsRehash(acc.pw_hash)) await env.DB.prepare('UPDATE account SET pw_hash = ? WHERE id = ?').bind(await hashPw(password), acc.id).run(); // 老密码顺手升级
     const student = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1').bind(acc.id).first();
     return json({ token: acc.token, student });
   });
