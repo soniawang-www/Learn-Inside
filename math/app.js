@@ -203,8 +203,8 @@ function renderJoin() {
   const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
     <section class="auth-intro">
-      <h1>数学查漏补缺</h1>
-      <p>奥数真题边练边学</p>
+      <h1>奥数真题边练边学</h1>
+      <p>做真题，自动找出孩子的薄弱知识项，错题按知识项整理，一步步补上。</p>
       <ul>
         <li><b>真题模考</b>AMC 8 历年真题，按正式考试计时</li>
         <li><b>知识图谱</b>30 个知识项的掌握程度和前后依赖，一眼看出先补哪里</li>
