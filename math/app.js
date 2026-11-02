@@ -118,10 +118,12 @@ const icon = (k) => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden
 let lastMe = null; // 侧栏显示会员 / 剩余次数
 // 客服：管理后台上传的微信二维码
 let supportCache = null;
+// 在微信里打开：客服直接点链接进聊天；图片不能下载只能长按；支付宝付款要换到浏览器
+const IN_WX = /MicroMessenger/i.test(navigator.userAgent);
 async function showSupport(title = '联系客服') {
   try { supportCache ||= await (await fetch('/api/support')).json(); } catch { supportCache = { qr: null, text: '' }; }
   const s = supportCache;
-  const inWx = /MicroMessenger/i.test(navigator.userAgent); // 微信里：点一下直接进客服聊天
+  const inWx = IN_WX;
   const link = /^https:\/\//.test(s.url || '') ? s.url : '';
   modal(`<div class="support"><h2>${esc(title)}</h2>
     ${link && inWx ? `<a class="btn primary block" href="${esc(link)}">打开微信客服</a>` : ''}
@@ -338,6 +340,10 @@ async function renderAccount() {
   form('redeem', '/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `${esc(r.tier_name || '')}会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
   $app.querySelectorAll('[data-goreg]').forEach((b) => (b.onclick = () => { const f = document.getElementById('bind'); f?.scrollIntoView({ behavior: 'smooth', block: 'center' }); f?.querySelector('input')?.focus(); }));
   $app.querySelectorAll('[data-plan]').forEach((b) => (b.onclick = async () => {
+    if (IN_WX) return modal(`<h2>请在浏览器里开通</h2><p>微信里不能打开支付宝付款。点右上角「···」，选「在浏览器打开」，登录后再点「开通」。</p>
+      <div class="actions"><button class="btn" data-close>知道了</button><button class="btn primary" id="cpurl">复制网址</button></div>`, (m) => (m.querySelector('#cpurl').onclick = async (e) => {
+        try { await navigator.clipboard.writeText(location.href); e.target.textContent = '已复制'; } catch { e.target.outerHTML = `<span class="small">${esc(location.href)}</span>`; }
+      }));
     b.disabled = true;
     try {
       const r = await api('/api/pay/create', { method: 'POST', body: { plan: b.dataset.plan, from: 'math' } });
@@ -379,8 +385,8 @@ async function renderPaid(orderId) {
 const SHARE_IMG = '/math/share-poster.png';
 const shareCard = () => `<div class="share"><img src="${SHARE_IMG}" alt="learn-inside 宣传图（带二维码）">
   <div class="share-t"><b>分享再得 10 次</b>
-    <ol><li>${/Mobi|Android|iPhone/i.test(navigator.userAgent) ? '长按图片保存，或点「保存宣传图」' : '点「保存宣传图」下载'}</li><li>转发到 <b>100 人以上</b>的微信群</li><li>截图发给客服，客服给你加 <b>10 次</b></li></ol>
-    <div class="share-btns"><a class="btn" href="${SHARE_IMG}" download="learn-inside-宣传图.png">保存宣传图</a><button class="btn primary" data-support="把转发截图发给客服，领 10 次">发截图给客服</button></div></div></div>`;
+    <ol><li>${IN_WX ? '长按上面的图片，保存到手机' : /Mobi|Android|iPhone/i.test(navigator.userAgent) ? '长按图片保存，或点「保存宣传图」' : '点「保存宣传图」下载'}</li><li>转发到 <b>100 人以上</b>的微信群</li><li>截图发给客服，客服给你加 <b>10 次</b></li></ol>
+    <div class="share-btns">${IN_WX ? '' : `<a class="btn" href="${SHARE_IMG}" download="learn-inside-宣传图.png">保存宣传图</a>`}<button class="btn primary" data-support="把转发截图发给客服，领 10 次">发截图给客服</button></div></div></div>`;
 async function askUnlock(item, what, credits, then) {
   if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {}
   if (credits > 0) return modal(`<h2>解锁${esc(what)}</h2>

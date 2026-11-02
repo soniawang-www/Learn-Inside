@@ -2,6 +2,7 @@
 // run(page, ctx) 返回观察值；expect 同 cases.mjs。ctx.go(hash) 打开页面，ctx.text(sel) 取文字。
 
 const same = (v) => ({ guest: v, user: v, member: v });
+const WX_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.50';
 
 export const UI_FEATURES = [
   { id: 'U1', area: '界面', name: '首页', cases: [
@@ -31,6 +32,20 @@ export const UI_FEATURES = [
       await ctx.close(); return r;
     }, expect: { guest: '登录/true/true', user: 'skip', member: 'skip' } },
     { id: 'U7-2', name: '账号页注册 / 改密码表单有「再输一遍」', run: async (p, c) => { await c.go('#/account'); return p.locator('#bind [name=password2], #pw [name=password2]').count(); }, expect: { guest: 1, user: 1, member: 1 } },
+  ] },
+  { id: 'U8', area: '界面', name: '在微信里打开', cases: [
+    { id: 'U8-1', name: '微信里：忘记密码 / 联系客服直接给「打开微信客服」按钮', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, userAgent: WX_UA }); const q = await ctx.newPage();
+      await q.goto(c.base + '/math/'); await q.waitForTimeout(700); await q.click('[data-tab="login"]'); await q.click('#forgot'); await q.waitForTimeout(800);
+      const r = await q.locator('.support a.btn[href^="https://work.weixin"]').count(); await ctx.close(); return r;
+    }, expect: { guest: 1, user: 'skip', member: 'skip' } },
+    { id: 'U8-2', name: '微信里点「开通」：提示到浏览器打开，不跳支付宝', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, userAgent: WX_UA }); const q = await ctx.newPage();
+      await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: '微信' }]);
+      await q.goto(c.base + '/math/#/account'); await q.reload(); await q.waitForTimeout(1000);
+      await q.locator('[data-plan]').first().click(); await q.waitForTimeout(700);
+      const r = `${(await q.locator('.modal').textContent().catch(() => '')).includes('在浏览器')}/${q.url().includes('alipay')}`; await ctx.close(); return r;
+    }, expect: { guest: 'skip', user: 'true/false', member: 'true/false' } },
   ] },
   { id: 'U2', area: '界面', name: '考试与考情', cases: [
     { id: 'U2-1', name: 'AMC 8 试卷卡片数', run: async (p, c) => { await c.go('#/contest/amc8'); return p.locator('.exam-tile').count(); }, expect: same(26) },
