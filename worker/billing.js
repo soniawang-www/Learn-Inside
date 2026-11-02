@@ -19,7 +19,7 @@ export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio']
 export const SCOPES = [
   { id: 'math', name: '数学', live: true },
   { id: 'chinese', name: '语文', live: false },
-  { id: 'all', name: '全科', live: true },
+  { id: 'all', name: '全科', live: false }, // 现在只有数学，全科先不卖；开语文时一起打开
 ];
 export const PERIODS = [
   { id: 'month', name: '月卡', days: 31 },

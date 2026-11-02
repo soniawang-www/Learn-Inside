@@ -99,7 +99,8 @@
   }
   // 会员种类：数学 / 语文 / 全科
   const SC = { math: '数学', chinese: '语文', all: '全科' };
-  const scopeOpts = (sel = 'math') => Object.entries(SC).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}会员</option>`).join('');
+  const LIVE = ['math']; // 现在只开放数学会员；开语文 / 全科时加到这里
+  const scopeOpts = (sel = 'math') => Object.entries(SC).filter(([k]) => LIVE.includes(k)).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}会员</option>`).join('');
   const memberText = (a) => Object.keys(a.memberships || {}).length
     ? Object.entries(a.memberships).map(([k, u]) => `<span class="member">${SC[k] || k}会员${u === 'forever' ? '永久' : `到 ${day(u)}`}</span>`).join(' ')
     : '<span class="muted">非会员</span>';

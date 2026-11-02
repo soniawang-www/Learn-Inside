@@ -68,8 +68,9 @@ ok((await call(`/math/api/pay/orders/${c3.data.order_id}`, 'GET', null, T)).data
 
 const ret = await call(`/math/api/pay/return?o=${c1.data.order_id}&trade_no=T001`);
 ok(ret.status === 302 && ret.headers.get('location').endsWith(`/math/#/account/paid/${c1.data.order_id}`), '付完跳回网页结果页');
-const ca = await call('/api/pay/create', 'POST', { plan: 'all.year' }, T);
-ok(ca.status === 400 && acc.data.plans.find((p) => p.id === 'all.year').online === false, '超过上限（测试设 PAY_MAX_AMOUNT=100）的全科年卡 599 暂不支持在线支付');
+const ca = await call('/api/pay/create', 'POST', { plan: 'math.year' }, T);
+ok(ca.status === 400 && acc.data.plans.find((p) => p.id === 'math.year').online === false, '超过上限（测试设 PAY_MAX_AMOUNT=100）的数学年卡 299 暂不支持在线支付');
+ok(!acc.data.plans.some((p) => p.scope === 'all') && (await call('/api/pay/create', 'POST', { plan: 'all.year' }, T)).status === 400, '全科会员暂不开放：没有全科套餐，也下不了全科的单');
 ok(acc.data.plans.find((p) => p.id === 'math.month').online === true, '上限以内的数学月卡 39 可以在线支付');
 const other = await call('/math/api/auth/register', 'POST', { phone: '136' + String(Date.now()).slice(-8), password: 'pay123', nickname: '别人' });
 ok((await call(`/math/api/pay/orders/${c1.data.order_id}`, 'GET', null, other.data.token)).status === 404, '看不到别人的订单');

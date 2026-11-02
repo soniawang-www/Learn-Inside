@@ -19,7 +19,7 @@ const login = await call('/math/api/auth/login', 'POST', { phone, password: 'sec
 ok(login.status === 200 && login.data.token === reg.data.token && login.data.student.nickname === '小测', '手机号登录拿到同一个账号');
 const T = reg.data.token, sid = reg.data.student.id;
 let acc = await call('/math/api/account', 'GET', null, T);
-ok(Object.keys(acc.data.memberships).length === 0 && acc.data.credits === 10 && acc.data.plans.length === 6 && acc.data.plans.every((p) => ['math', 'all'].includes(p.scope)), '新账号：非会员、10 次、数学和全科各三档');
+ok(Object.keys(acc.data.memberships).length === 0 && acc.data.credits === 10 && acc.data.plans.length === 3 && acc.data.plans.every((p) => p.scope === 'math'), '新账号：非会员、10 次、数学和全科各三档');
 ok((await call('/api/account', 'GET', null, T)).status === 200, '全站接口 /api/account');
 
 // 做一道题才能看互动解析
