@@ -39,9 +39,12 @@ export const UI_FEATURES = [
     { id: 'U5-5', name: '联系客服弹出二维码说明', run: async (p, c) => { await c.go('#/account'); await p.locator('[data-support]').first().click(); await p.waitForTimeout(500); return (await p.locator('.support').count()) > 0; }, expect: same(true) },
   ] },
   { id: 'U6', area: '界面', name: '所有页面在各种屏幕上', cases: [
-    { id: 'U6-1', name: '电脑 1440：页面不溢出、没有脚本错误', run: async (p, c) => c.sweep(1440, 900, 'light'), expect: same('ok') },
-    { id: 'U6-2', name: '手机 390：页面不溢出、没有脚本错误', run: async (p, c) => c.sweep(390, 844, 'light'), expect: same('ok') },
-    { id: 'U6-3', name: '手机深色模式：页面不溢出、没有脚本错误', run: async (p, c) => c.sweep(390, 844, 'dark'), expect: same('ok') },
+    { id: 'U6-1', name: '电脑 1440：不溢出、文字不截断、按钮不折行、没有脚本错误', run: async (p, c) => c.sweep(1440, 900, 'light'), expect: same('ok') },
+    { id: 'U6-2', name: '手机 390：同上', run: async (p, c) => c.sweep(390, 844, 'light'), expect: same('ok') },
+    { id: 'U6-3', name: '手机 390 深色模式：同上', run: async (p, c) => c.sweep(390, 844, 'dark'), expect: same('ok') },
+    { id: 'U6-5', name: '小屏手机 360：同上', run: async (p, c) => c.sweep(360, 740, 'light'), expect: same('ok') },
+    { id: 'U6-6', name: '最窄 320（或手机调大字号）：同上', run: async (p, c) => c.sweep(320, 640, 'light'), expect: same('ok') },
+    { id: 'U6-7', name: '平板 768：同上', run: async (p, c) => c.sweep(768, 1024, 'light'), expect: same('ok') },
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
   ] },
 ];

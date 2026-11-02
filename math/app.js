@@ -179,7 +179,7 @@ window.addEventListener('hashchange', router);
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-mskp]'); if (a) { msKp = a.dataset.mskp; msFam = ''; msFilter = 'todo'; msMore = false; } });
 
 // 注册礼：在登录页、游客提示、账号页、复盘页统一用这一块
-const GIFT = (more = '') => `<div class="gift"><span class="gift-n">10<small>次</small></span><span><b>注册就送 10 次互动解析</b>
+const GIFT = (more = '') => `<div class="gift"><span class="gift-n"><span>10<small>次</small></span></span><span><b>注册就送 10 次互动解析</b>
   <small>会员才有的一步步讲解；解锁一道题用 1 次，之后随时重看${more}</small></span></div>`;
 
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
@@ -260,8 +260,8 @@ async function renderAccount() {
       <p>${memberLine}</p>
       ${a.free_mode ? '' : a.guest ? GIFT() : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
-        <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
-        ${!a.pay_ready || !p.price ? '' : a.guest ? '<a class="btn" href="javascript:" data-goreg>注册后开通</a>' : p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付">暂不支持 · 找客服</button>'}</div>`).join('')}</div>`).join('')}
+        <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
+        ${!a.pay_ready || !p.price ? '' : a.guest ? '<a class="btn" href="javascript:" data-goreg><span class="lg">注册后开通</span><span class="sm">去注册</span></a>' : p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付"><span class="lg">暂不支持 · 找客服</span><span class="sm">找客服</span></button>'}</div>`).join('')}</div>`).join('')}
       
       ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
     </div>

@@ -122,6 +122,30 @@ if (WITH_UI) {
         await pg.goto(BASE + '/math/' + hsh); await pg.reload(); await pg.waitForTimeout(700);
         const ov = await pg.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         if (ov > 1) bad.push(`${hsh} 溢出 ${ov}px`);
+        // 版面检查：文字被截断（容器裁掉内容）、按钮文字折成多行、卡片里的标签被挤到折行
+        const issues = await pg.evaluate(() => {
+          const out = [];
+          const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+          const name = (el) => (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : el.tagName.toLowerCase());
+          for (const el of document.querySelectorAll('main *, .auth-wrap *, .modal *')) {
+            if (!vis(el) || !el.textContent.trim()) continue;
+            const cs = getComputedStyle(el);
+            if (cs.overflowX !== 'visible' && cs.textOverflow !== 'ellipsis' && el.scrollWidth > el.clientWidth + 2 && !el.matches('.katex, .katex *, .katex-display, .katex-display *, svg, svg *, .kg-wrap, .kg-wrap *, #kg, #kg *, .ctabs, .utable, table')) out.push(`截断 ${name(el)}「${el.textContent.trim().slice(0, 10)}」`);
+          }
+          // 同一段文字被折成两行（按钮、标签、价格这类本该一行的东西）
+          for (const el of document.querySelectorAll('.btn, .tag, .kg-chip, .mm-tile, .side-nav a span, .plan .price, .plan .pname, .et-year, .ph-stats dd')) {
+            if (!vis(el) || el.matches('.block')) continue;
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+              if (!n.textContent.trim() || getComputedStyle(n.parentElement).display === 'none') continue;
+              const r = document.createRange(); r.selectNodeContents(n);
+              const lines = new Set([...r.getClientRects()].filter((x) => x.width > 1).map((x) => Math.round(x.top)));
+              if (lines.size > 1) { out.push(`折行 ${name(el)}「${n.textContent.trim().slice(0, 10)}」`); break; }
+            }
+          }
+          return [...new Set(out)].slice(0, 3);
+        });
+        if (issues.length) bad.push(`${hsh} ${issues.join('、')}`);
       }
       await pg.close();
       return bad.length || e2.length ? [...bad, ...e2.slice(0, 2)].join('；') : 'ok';
