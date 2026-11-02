@@ -275,7 +275,7 @@ async function renderAccount() {
     <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客（记录只存在这台设备上）' : esc(a.phone || '还没绑定手机号')}</p></div></header>
     <div class="cols"><div class="col-main"><div class="card"><h2>会员</h2>
       <p>${memberLine}</p>
-      ${a.free_mode ? '' : a.guest ? GIFT() : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>`}
+      ${a.free_mode ? '' : a.guest ? GIFT() : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
       ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
         <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.orig_price ? `<s class="orig">¥${p.orig_price}</s>` : ''}${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
@@ -347,6 +347,12 @@ async function renderPaid(orderId) {
 }
 
 /** 内容没解锁：有免费次数就问要不要用 1 次，没有就引导开通会员。解锁成功后执行 then() */
+// 次数用完：转发宣传图到 100 人以上的微信群，截图给客服，再送 10 次（客服在后台「加次数」）
+const SHARE_IMG = '/math/share-poster.png';
+const shareCard = () => `<div class="share"><img src="${SHARE_IMG}" alt="learn-inside 宣传图（带二维码）">
+  <div class="share-t"><b>分享再得 10 次</b>
+    <ol><li>${/Mobi|Android|iPhone/i.test(navigator.userAgent) ? '长按图片保存，或点「保存宣传图」' : '点「保存宣传图」下载'}</li><li>转发到 <b>100 人以上</b>的微信群</li><li>截图发给客服，客服给你加 <b>10 次</b></li></ol>
+    <div class="share-btns"><a class="btn" href="${SHARE_IMG}" download="learn-inside-宣传图.png">保存宣传图</a><button class="btn primary" data-support="把转发截图发给客服，领 10 次">发截图给客服</button></div></div></div>`;
 async function askUnlock(item, what, credits, then) {
   if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {}
   if (credits > 0) return modal(`<h2>解锁${esc(what)}</h2>
@@ -364,9 +370,9 @@ async function askUnlock(item, what, credits, then) {
   if (lastMe?.guest) return modal(`<div class="locked-panel"><div class="icon">🎁</div><p><b>注册就送 10 次互动解析</b></p>
     <p class="small">互动解析是会员内容。注册账号就送 10 次，这道题马上能看；现在的做题记录也会保留。（2026 年真题的互动解析不用注册也能看。）</p>
     <div class="actions" style="justify-content:center"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>去注册</a></div></div>`);
-  modal(`<div class="locked-panel"><div class="icon">🔒</div><p><b>免费次数用完了</b></p>
-    <p class="small">开通会员后，所有互动解析和知识项突击不限次数；也可以用激活码兑换。</p>
-    <div class="actions" style="justify-content:center"><button class="btn" data-support="购买激活码">联系客服</button><a class="btn primary" href="#/account" data-close>开通会员</a></div></div>`);
+  modal(`<h2>免费次数用完了</h2>${shareCard()}
+    <p class="small muted share-or">或者开通会员，所有互动解析和知识项突击不限次数。</p>
+    <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>开通会员</a></div>`);
 }
 
 // ───────── 首页：掌握地图 + 今天做什么 + 最近成绩 ─────────

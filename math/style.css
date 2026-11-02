@@ -1082,3 +1082,16 @@ body:not(.exam-mode) { background: var(--paper); }
 .reg-feats span { font-size: 13px; color: var(--muted); }
 .reg-wall .btn.primary { justify-self: start; }
 .guest-note { text-align: center; margin: 8px 0 0; }
+
+/* 分享宣传图再得 10 次 */
+.share { display: flex; gap: 16px; align-items: flex-start; padding: 14px; margin: 10px 0; border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
+.share img { flex: none; width: 150px; border-radius: 10px; border: 1px solid var(--border); background: #fff; }
+.share-t { min-width: 0; flex: 1; display: grid; gap: 6px; }
+.share-t > b { font-size: 17px; color: var(--accent); }
+.share-t ol { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; font-size: 14px; }
+.share-t ol b { color: var(--accent); }
+.share-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.share-btns .btn { white-space: nowrap; }
+.share-or { margin: 6px 0 0; }
+@media (max-width: 520px) { .share { flex-direction: column; align-items: center; } .share img { width: min(240px, 70%); } .share-t { width: 100%; } .share-btns .btn { flex: 1; justify-content: center; text-align: center; } }

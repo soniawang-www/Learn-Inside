@@ -44,6 +44,16 @@ export const UI_FEATURES = [
       const r = `${(await c.text('.promo-bar')).includes('界面测试活动')}/${await c.text('.plan .orig')}/${await p.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)}`;
       await c.admin('/api/admin/promo', 'DELETE'); await p.setViewportSize({ width: 1366, height: 860 }); return r;
     }, expect: same('true/¥39/true') },
+    { id: 'U5-7', name: '次数用完：账号页和解锁弹窗提示转发宣传图再得 10 次', run: async (p, c) => {
+      const left = c.aid ? (await c.get('/api/account')).data.credits : 0;
+      if (c.aid && left) await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_credits', value: -left, reason: '标准测试：次数用完' });
+      await c.go('#/account'); const acc = (await p.locator('.col-main .share').count()) > 0;
+      await c.go(`#/review/${c.session}`); await p.locator('[data-adv]').first().click(); await p.waitForTimeout(1000);
+      const mod = (await p.locator('.modal .share').count()) > 0;
+      const img = mod ? await p.evaluate(() => { const i = document.querySelector('.modal .share img'); return i.complete && i.naturalWidth > 500; }) : false;
+      if (c.aid && left) await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_credits', value: left, reason: '标准测试：恢复次数' });
+      return `${acc}/${mod}/${img}`;
+    }, expect: { guest: 'false/false/false', user: 'true/true/true', member: 'false/false/false' } },
   ] },
   { id: 'U6', area: '界面', name: '所有页面在各种屏幕上', cases: [
     { id: 'U6-1', name: '电脑 1440：不溢出、文字不截断、按钮不折行、没有脚本错误', run: async (p, c) => c.sweep(1440, 900, 'light'), expect: same('ok') },
