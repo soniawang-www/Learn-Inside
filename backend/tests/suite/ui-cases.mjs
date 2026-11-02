@@ -37,6 +37,12 @@ export const UI_FEATURES = [
     { id: 'U5-3', name: '激活码提示注册', run: async (p, c) => { await c.go('#/account'); return (await c.text('.col-side')).includes('注册后才能兑换'); }, expect: { guest: true, user: false, member: false } },
     { id: 'U5-4', name: '右侧卡片：注册 / 登录方式', run: async (p, c) => { await c.go('#/account'); const t = await c.text('.col-side'); return t.includes('注册账号') ? '注册账号' : t.includes('登录方式') ? '登录方式' : '?'; }, expect: { guest: '注册账号', user: '登录方式', member: '登录方式' } },
     { id: 'U5-5', name: '联系客服弹出二维码说明', run: async (p, c) => { await c.go('#/account'); await p.locator('[data-support]').first().click(); await p.waitForTimeout(500); return (await p.locator('.support').count()) > 0; }, expect: same(true) },
+    { id: 'U5-6', name: '活动期间套餐显示原价划线和活动价，手机上不挤', run: async (p, c) => {
+      await c.admin('/api/admin/promo', 'POST', { title: '界面测试活动', until: Date.now() + 86400000, prices: { 'math.month': 19.9 } });
+      await p.setViewportSize({ width: 360, height: 740 }); await c.go('#/account');
+      const r = `${(await c.text('.promo-bar')).includes('界面测试活动')}/${await c.text('.plan .orig')}/${await p.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)}`;
+      await c.admin('/api/admin/promo', 'DELETE'); await p.setViewportSize({ width: 1366, height: 860 }); return r;
+    }, expect: same('true/¥39/true') },
   ] },
   { id: 'U6', area: '界面', name: '所有页面在各种屏幕上', cases: [
     { id: 'U6-1', name: '电脑 1440：不溢出、文字不截断、按钮不折行、没有脚本错误', run: async (p, c) => c.sweep(1440, 900, 'light'), expect: same('ok') },

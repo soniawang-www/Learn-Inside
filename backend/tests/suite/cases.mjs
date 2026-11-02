@@ -159,6 +159,13 @@ export const FEATURES = [
   ] },
 
   // ───────── I 客服 / 后台权限 ─────────
+  { id: 'H5', area: '会员', name: '活动价', cases: [
+    { id: 'H5-1', name: '后台设活动价（数学月卡 ¥19.9），账号页显示原价和活动价', run: async (c) => { await c.admin('/api/admin/promo', 'POST', { title: '测试活动', until: Date.now() + 3 * 86400000, prices: { 'math.month': 19.9, 'math.quarter': 120 } }); const a = (await c.get('/api/account')).data; const p = a.plans.find((x) => x.id === 'math.month'); return `${p.price}/${p.orig_price}/${a.promo?.title}`; }, expect: same('19.9/39/测试活动') },
+    { id: 'H5-2', name: '不低于原价的活动价不生效（季卡填 ¥120）', run: async (c) => { const p = (await c.get('/api/account')).data.plans.find((x) => x.id === 'math.quarter'); return `${p.price}/${p.orig_price ?? '无'}`; }, expect: same('99/无') },
+    { id: 'H5-3', name: '下单按活动价收钱', run: async (c) => { const r = await c.post('/api/pay/create', { plan: 'math.month' }); return r.data.url ? JSON.parse(new URL(r.data.url).searchParams.get('biz_content')).total_amount : st(r); }, expect: { guest: 403, user: '19.90', member: '19.90' } },
+    { id: 'H5-4', name: '普通登录凭证不能改活动价', run: async (c) => `${st(await c.post('/api/admin/promo', { until: Date.now() + 86400000, prices: { 'math.month': 0.01 } }))}/${st(await c.req('/api/admin/promo', 'DELETE'))}`, expect: same('403/403') },
+    { id: 'H5-5', name: '结束活动后恢复原价', run: async (c) => { await c.admin('/api/admin/promo', 'DELETE'); const a = (await c.get('/api/account')).data; return `${a.plans.find((x) => x.id === 'math.month').price}/${a.promo}`; }, expect: same('39/null') },
+  ] },
   { id: 'I1', area: '其他', name: '客服与后台权限', cases: [
     { id: 'I1-1', name: '客服二维码信息', run: async (c) => st(await c.get('/api/support')), expect: same(200) },
     { id: 'I1-2', name: '普通登录凭证进不了后台', run: async (c) => `${st(await c.get('/api/admin/accounts'))}/${st(await c.post('/api/admin/codes', { kind: 'days', amount: 31 }))}/${st(await c.post(`/api/admin/accounts/${c.aid}`, { action: 'add_days', value: 999 }))}`, expect: same('403/403/403') },

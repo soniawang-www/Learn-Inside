@@ -1067,3 +1067,10 @@ body:not(.exam-mode) { background: var(--paper); }
 .tag { white-space: nowrap; }
 .plan .btn { text-align: center; }
 .gift-tip > b { display: block; align-self: stretch; }
+
+/* 活动价 */
+.promo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 12px 0 4px; padding: 10px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--bad, #c0392b) 10%, var(--surface)); border: 1px dashed color-mix(in srgb, var(--bad, #c0392b) 55%, transparent); }
+.promo-bar b { color: var(--bad, #c0392b); }
+.promo-bar span { font-size: 13px; color: var(--muted); }
+.plan .price .orig { display: block; font-size: 13px; font-weight: 500; line-height: 1.2; color: var(--muted); }

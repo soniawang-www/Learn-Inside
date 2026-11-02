@@ -29,7 +29,7 @@
     <div class="card row">
       <label class="field" style="flex:1;margin:0"><span>管理员密钥（ADMIN_KEY）</span><input type="password" id="key" autocomplete="off"></label>
     </div>
-    <div class="tabs2"><button class="btn primary" data-tab="acc">账号</button><button class="btn" data-tab="codes">激活码</button><button class="btn" data-tab="orders">支付订单</button><button class="btn" data-tab="log">操作记录</button><button class="btn" data-tab="support">客服</button></div>
+    <div class="tabs2"><button class="btn primary" data-tab="acc">账号</button><button class="btn" data-tab="codes">激活码</button><button class="btn" data-tab="orders">支付订单</button><button class="btn" data-tab="log">操作记录</button><button class="btn" data-tab="promo">活动价</button><button class="btn" data-tab="support">客服</button></div>
 
     <div id="tab-acc">
       <div class="card">
@@ -68,6 +68,18 @@
           <div class="row"><button class="btn primary" id="qrsave">保存</button><button class="btn" id="qrdel">删除二维码</button><span class="small" id="qrmsg"></span></div>
         </div>
       </div>
+    </div></div>
+    <div id="tab-promo" hidden><div class="card">
+      <h2>活动价</h2>
+      <p class="small muted">填了活动价的套餐，账号页会显示原价划线和活动价，家长按活动价在线付款；到截止时间自动恢复原价。不填的套餐保持原价。</p>
+      <div id="promonow" class="small" style="margin:8px 0"></div>
+      <div class="row" style="gap:12px;flex-wrap:wrap">
+        <label class="field" style="margin:0;flex:1;min-width:200px"><span>活动名（显示给家长）</span><input type="text" id="ptitle" maxlength="20" placeholder="例如：双十一限时优惠"></label>
+        <label class="field" style="margin:0"><span>截止时间</span><input type="datetime-local" id="puntil"></label>
+      </div>
+      <div class="row" style="gap:8px;margin:12px 0;align-items:center;flex-wrap:wrap"><span class="small">一键填：全部打</span><input type="number" id="poff" value="8" min="1" max="9.9" step="0.5" style="width:5em;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"><span class="small">折</span><button class="btn" id="pfill">填入</button><button class="btn" id="pclear">清空</button></div>
+      <table class="codes" id="pplans"></table>
+      <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" id="psave">开始 / 更新活动</button><button class="btn danger" id="pend">立即结束活动</button><span class="small" id="pmsg"></span></div>
     </div></div>
     <div id="tab-log" hidden><div class="card"><div id="log"></div></div></div>
     <p class="small muted"><a href="/admin/">← 管理后台</a> · <a href="/admin/import.html">题库导入</a></p>
@@ -108,7 +120,7 @@
         <button class="btn danger" data-del>删除账号</button>
       </div></details><span class="small kl-warn" data-msg></span></div>`;
   }
-  const NAMES = { refund: '退款', refund_pending: '退款待确认', support: '修改客服', delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码' };
+  const NAMES = { refund: '退款', refund_pending: '退款待确认', support: '修改客服', delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码', promo: '设置活动价', promo_end: '结束活动' };
   async function search() {
     try {
       const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()));
@@ -183,7 +195,7 @@
       const paid = d.filter((o) => o.status === 'paid');
       $('orders').innerHTML = `<p class="small">已付款 ${paid.length} 单，合计 ¥${paid.reduce((a, o) => a + Number(o.amount), 0).toFixed(2)}</p>
         <table class="codes"><tr><th>时间</th><th>账号</th><th>套餐</th><th>金额</th><th>状态</th><th>订单号 / 支付宝交易号</th><th></th></tr>${d.map((o) => `<tr>
-        <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${SC[o.tier || 'math']}会员 ${o.plan.split('.').pop() === 'month' ? '月卡' : o.plan.split('.').pop() === 'quarter' ? '季卡' : o.plan.split('.').pop() === 'year' ? '年卡' : o.plan}（${o.days} 天）</td><td>¥${o.amount}</td><td>${ST[o.status] || o.status}</td>
+        <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${SC[o.tier || 'math']}会员 ${o.plan.split('.').pop() === 'month' ? '月卡' : o.plan.split('.').pop() === 'quarter' ? '季卡' : o.plan.split('.').pop() === 'year' ? '年卡' : o.plan}（${o.days} 天）</td><td>¥${o.amount}${o.promo ? `<br><span class="small muted">${esc(o.promo)}</span>` : ''}</td><td>${ST[o.status] || o.status}</td>
         <td class="small">${o.id}${o.trade_no ? `<br>${o.trade_no}` : ''}</td>
         <td>${o.status === 'paid' ? `<button class="btn danger" data-refund="${o.id}">退款</button>` : o.status === 'refunding' ? `<button class="btn" data-refund="${o.id}">确认退款结果</button>` : o.status === 'pending' ? `<button class="btn" data-close-order="${o.id}">关闭</button>` : ''}</td></tr>`).join('')}</table>`;
       $('orders').querySelectorAll('[data-refund]').forEach((b) => (b.onclick = async () => {
@@ -227,6 +239,38 @@
     if (!confirm('删除客服二维码？')) return;
     try { await api('support', { qr: '' }); loadSupport(); $('qrmsg').textContent = '已删除'; } catch (e) { $('qrmsg').textContent = e.message; }
   };
+  // 活动价
+  let promoPlans = [], payMax = 50;
+  const dtLocal = (ms) => { const d = new Date(ms - new Date().getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); };
+  async function loadPromo() {
+    try {
+      const d = await api('promo'); promoPlans = d.plans; payMax = d.pay_max;
+      const pr = d.promo;
+      $('promonow').innerHTML = d.active ? `<span class="member">进行中：${esc(pr.title)}，到 ${new Date(pr.until).toLocaleString('zh-CN')}</span>` : pr ? `<span class="muted">上次的活动「${esc(pr.title)}」已在 ${new Date(pr.until).toLocaleString('zh-CN')} 结束，现在是原价</span>` : '<span class="muted">现在没有活动，都是原价</span>';
+      $('ptitle').value = d.active ? pr.title : '';
+      if (!$('puntil').value || d.active) { const e = new Date(); e.setDate(e.getDate() + 7); e.setHours(23, 59, 0, 0); $('puntil').value = dtLocal(d.active ? pr.until : e.getTime()); }
+      $('pplans').innerHTML = '<tr><th>套餐</th><th>原价</th><th>活动价（元）</th><th></th></tr>' + promoPlans.map((p) => `<tr><td>${esc(p.name)}（${p.days} 天）</td><td>${p.price ? '¥' + p.price : '<span class="muted">未定价</span>'}</td>
+        <td><input type="number" step="0.01" min="0.01" data-pp="${p.id}" value="${d.active && pr.prices[p.id] ? pr.prices[p.id] : ''}" style="width:7em;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"></td><td class="small" data-pn="${p.id}"></td></tr>`).join('');
+      $('pplans').querySelectorAll('[data-pp]').forEach((i) => (i.oninput = notePrice)); notePrice();
+    } catch (e) { $('promonow').textContent = e.message; }
+  }
+  function notePrice() {
+    for (const p of promoPlans) {
+      const v = Number($('pplans').querySelector(`[data-pp="${p.id}"]`).value), n = $('pplans').querySelector(`[data-pn="${p.id}"]`);
+      n.innerHTML = !v ? '' : p.price && v >= p.price ? '<span class="kl-warn">不低于原价，不会生效</span>' : v > payMax ? `<span class="muted">超过 ¥${payMax}，仍不能在线付</span>` : p.price ? `<span class="member">${(v / p.price * 10).toFixed(1).replace(/\.0$/, '')} 折</span>` : '';
+    }
+  }
+  $('pfill').onclick = () => { const k = Number($('poff').value) / 10; if (!(k > 0 && k < 1)) return; for (const p of promoPlans) if (p.price) $('pplans').querySelector(`[data-pp="${p.id}"]`).value = (Math.round(p.price * k * 10) / 10).toFixed(1).replace(/\.0$/, ''); notePrice(); };
+  $('pclear').onclick = () => { $('pplans').querySelectorAll('[data-pp]').forEach((i) => (i.value = '')); notePrice(); };
+  $('psave').onclick = async () => {
+    const prices = {}; $('pplans').querySelectorAll('[data-pp]').forEach((i) => { if (i.value) prices[i.dataset.pp] = Number(i.value); });
+    const until = new Date($('puntil').value).getTime();
+    try { await api('promo', { title: $('ptitle').value.trim(), until, prices }); $('pmsg').textContent = '已保存，家长刷新账号页就能看到'; loadPromo(); } catch (e) { $('pmsg').textContent = e.message; }
+  };
+  $('pend').onclick = async () => {
+    if (!confirm('立即结束活动、恢复原价？')) return;
+    try { const r = await fetch('/api/admin/promo', { method: 'DELETE', headers: { 'x-admin-key': $('key').value.trim() } }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '失败'); $('pmsg').textContent = '活动已结束'; loadPromo(); } catch (e) { $('pmsg').textContent = e.message; }
+  };
   async function loadLog() {
     try {
       const d = await api('log');
@@ -236,11 +280,12 @@
   }
   document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => {
     document.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('primary', x === b));
-    for (const t of ['acc', 'codes', 'orders', 'log', 'support']) $('tab-' + t).hidden = t !== b.dataset.tab;
+    for (const t of ['acc', 'codes', 'orders', 'log', 'promo', 'support']) $('tab-' + t).hidden = t !== b.dataset.tab;
     if (b.dataset.tab === 'codes') loadCodes();
     if (b.dataset.tab === 'log') loadLog();
     if (b.dataset.tab === 'orders') loadOrders();
     if (b.dataset.tab === 'support') loadSupport();
+    if (b.dataset.tab === 'promo') loadPromo();
   }));
   $('ctier').innerHTML = scopeOpts();
   $('kind').onchange = () => { $('ctier').hidden = $('kind').value !== 'days'; };

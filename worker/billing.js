@@ -53,6 +53,7 @@ export const BILLING_MIGRATIONS = [
   "UPDATE entitlement SET tier = 'math' WHERE tier = 'premium'", // 只有数学时开的会员算数学会员
   'CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)',
   'ALTER TABLE account ADD COLUMN guest INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE pay_order ADD COLUMN promo TEXT', // 下单时用的活动名（按活动价付的）
 ];
 
 export function registerBilling({ route, json, HttpError, body, requireAccount, uid, now }) {
@@ -147,12 +148,28 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   // 在线支付单笔上限（元），超过的套餐先不开放在线支付；PAY_MAX_AMOUNT 可改，默认 50
   const payMax = (env) => (env.PAY_MAX_AMOUNT && Number(env.PAY_MAX_AMOUNT) > 0 ? Number(env.PAY_MAX_AMOUNT) : 50);
   // 价格：PRICE_<科目>_<周期>，比如 PRICE_MATH_MONTH、PRICE_ALL_YEAR（元）
-  const plansOf = (env) => SCOPES.filter((sc) => sc.live).flatMap((sc) => PERIODS.map((p) => {
+  // 活动价：后台「活动」里设置（setting.promo = {title, until, prices: {套餐: 价格}}），到截止时间自动恢复原价
+  async function loadPromo(env) {
+    const r = await env.DB.prepare("SELECT value FROM setting WHERE key = 'promo'").first();
+    try { return r?.value ? JSON.parse(r.value) : null; } catch { return null; }
+  }
+  const promoOn = (pr) => !!(pr && pr.until > now() && pr.prices && Object.keys(pr.prices).length);
+  const basePlans = (env) => SCOPES.filter((sc) => sc.live).flatMap((sc) => PERIODS.map((p) => {
     const v = env[`PRICE_${sc.id.toUpperCase()}_${p.id.toUpperCase()}`];
-    const price = v ? Number(v) : null;
-    return { id: `${sc.id}.${p.id}`, scope: sc.id, scope_name: sc.name, name: `${sc.name}${p.name}`, period: p.name, days: p.days, price,
-      online: price !== null && price <= payMax(env) }; // 超过上限的套餐暂不支持在线支付（可用激活码）
+    return { id: `${sc.id}.${p.id}`, scope: sc.id, scope_name: sc.name, name: `${sc.name}${p.name}`, period: p.name, days: p.days, price: v ? Number(v) : null };
   }));
+  async function plansOf(env, pr) {
+    if (pr === undefined) pr = await loadPromo(env);
+    const on = promoOn(pr);
+    return basePlans(env).map((pl) => {
+      const pp = on ? Number(pr.prices[pl.id]) : NaN;
+      const promo = pp > 0 && (pl.price === null || pp < pl.price);
+      const price = promo ? pp : pl.price;
+      return { ...pl, price, ...(promo ? { orig_price: pl.price, promo: pr.title || '限时优惠' } : {}),
+        online: price !== null && price <= payMax(env) }; // 超过上限的套餐暂不支持在线支付（可用激活码）
+    });
+  }
+  const promoPublic = (pr) => (promoOn(pr) ? { title: pr.title || '限时优惠', until: pr.until } : null);
 
   // ───────── 登录 ─────────
   // 注册：手机号 + 密码 + 孩子昵称（不发短信验证码；忘记密码由管理员在后台重置）
@@ -225,11 +242,12 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const ctx = await accessCtx(env, acc);
     const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM unlock WHERE account_id = ?').bind(acc.id).first();
     const ms = await memberships(env, acc.id);
+    const pr = await loadPromo(env);
     return json({
       phone: acc.phone, guest: !!acc.guest, free_mode: ctx.free,
       memberships: ms, scopes: SCOPES.filter((x) => x.live || ms[x.id]).map(({ id, name }) => ({ id, name })),
       credits: ctx.credits, free_credits: FREE_CREDITS, unlocked: n.n,
-      plans: plansOf(env), pay_ready: payReady(env), contact: env.PAY_CONTACT || '',
+      plans: await plansOf(env, pr), promo: promoPublic(pr), pay_ready: payReady(env), contact: env.PAY_CONTACT || '',
     });
   });
 
@@ -288,14 +306,14 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     if (!payReady(env)) throw new HttpError(503, '在线支付还没开通');
     if (!acc.phone) throw new HttpError(403, '请先注册账号再开通会员（游客的会员换设备就找不回来了）');
     const { plan, from = 'math' } = await body(req);
-    const pl = plansOf(env).find((x) => x.id === plan);
+    const pl = (await plansOf(env)).find((x) => x.id === plan);
     if (!pl || !(pl.price > 0)) throw new HttpError(400, '这个套餐还没有定价');
     if (!pl.online) throw new HttpError(400, '这个套餐暂不支持在线支付，请联系客服购买激活码');
     const back = SUBJECTS.includes(from) ? from : 'math'; // 付完回到哪个科目的页面
     const id = 'M' + new Date(now() + 8 * 3600000).toISOString().slice(0, 10).replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
     const order = { id, plan: pl.id, tier: pl.scope, days: pl.days, amount: money(pl.price) };
-    await env.DB.prepare('INSERT INTO pay_order (id, account_id, plan, tier, days, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, acc.id, order.plan, order.tier, order.days, order.amount, 'pending', now()).run();
+    await env.DB.prepare('INSERT INTO pay_order (id, account_id, plan, tier, days, amount, status, created_at, promo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, acc.id, order.plan, order.tier, order.days, order.amount, 'pending', now(), pl.promo || null).run();
     const base = url.origin;
     const payurl = await payUrl(env, {
       orderId: id, amount: order.amount, subject: `learn-inside 会员 · ${pl.name}（${pl.days} 天）`,
@@ -346,7 +364,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     }
     const tier = order.tier || 'math';
     const until = tier === 'all' ? await chainUntil(env, acc.id, ['all']) : await memberUntil(env, acc.id, tier);
-    const pl = plansOf(env).find((x) => x.id === order.plan);
+    const pl = basePlans(env).find((x) => x.id === order.plan);
     return json({ id: order.id, status: order.status, plan: order.plan, plan_name: pl?.name || order.plan, tier, days: order.days, amount: order.amount, member_until: until === Infinity ? 'forever' : until });
   });
 
@@ -526,7 +544,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       private_key: ks.private_key, public_key: ks.public_key,
       gateway: env.ALIPAY_GATEWAY || 'https://openapi.alipay.com/gateway.do',
       free_mode: env.FREE_MODE === 'true', pay_ready: payReady(env),
-      plans: plansOf(env).map((p) => ({ id: p.id, name: p.name, price: p.price })),
+      plans: (await plansOf(env)).map((p) => ({ id: p.id, name: p.name, price: p.price, orig_price: p.orig_price })),
       wrong_names: ['AIPAY_PUBLIC_KEY', 'ALIPAY_ALIPAY_PUBLIC_KEY', 'PRICE_MONTH', 'PRICE_QUARTER', 'PRICE_YEAR'].filter((k) => env[k] !== undefined && env[k] !== ''),
     });
   });
@@ -543,6 +561,38 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const { results } = await env.DB.prepare(
       'SELECT c.*, a.phone AS used_phone FROM redeem_code c LEFT JOIN account a ON a.id = c.used_by ORDER BY c.created_at DESC LIMIT 300').all();
     return json(results);
+  });
+
+  // ───────── 活动价（后台设置，到期自动恢复原价） ─────────
+  route('GET', '/api/admin/promo', async (req, env) => {
+    requireAdmin(req, env);
+    const pr = await loadPromo(env);
+    return json({ promo: pr, active: promoOn(pr), plans: basePlans(env).map(({ id, name, price, days }) => ({ id, name, price, days })), pay_max: payMax(env) });
+  });
+  route('POST', '/api/admin/promo', async (req, env) => {
+    requireAdmin(req, env);
+    const { title = '', until, prices = {} } = await body(req);
+    const t = Number(until);
+    if (!(t > now())) throw new HttpError(400, '截止时间要在现在之后');
+    const ids = new Set(basePlans(env).map((p) => p.id)), ps = {};
+    for (const [k, v] of Object.entries(prices || {})) {
+      if (v === '' || v === null || v === undefined) continue;
+      const n = Number(v);
+      if (!ids.has(k)) throw new HttpError(400, `没有这个套餐：${k}`);
+      if (!(n > 0) || Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) throw new HttpError(400, '活动价要是大于 0 的金额，最多两位小数');
+      ps[k] = n;
+    }
+    if (!Object.keys(ps).length) throw new HttpError(400, '至少给一个套餐填活动价');
+    const pr = { title: String(title).trim().slice(0, 20) || '限时优惠', until: t, prices: ps, created_at: now() };
+    await env.DB.prepare('INSERT INTO setting (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').bind('promo', JSON.stringify(pr), now()).run();
+    await log(env, null, 'promo', { title: pr.title, until: t, prices: ps });
+    return json({ ok: true, promo: pr });
+  });
+  route('DELETE', '/api/admin/promo', async (req, env) => {
+    requireAdmin(req, env);
+    await env.DB.prepare("DELETE FROM setting WHERE key = 'promo'").run();
+    await log(env, null, 'promo_end', null);
+    return json({ ok: true });
   });
 
   // ───────── 客服（微信二维码 + 一句说明），所有人都能看 ─────────
