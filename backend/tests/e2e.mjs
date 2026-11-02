@@ -1,4 +1,4 @@
-// 端到端冒烟测试：先 wrangler dev 并打开 /math/api/admin/seed，再 node backend/tests/e2e.mjs [baseURL]
+// 端到端冒烟测试（试用期模式）：wrangler dev --var FREE_MODE:true（wrangler.jsonc 里已是正式收费 false），打开 /math/api/admin/seed，再 node backend/tests/e2e.mjs [baseURL]
 const BASE = process.argv[2] || "http://127.0.0.1:8787";
 let token = null;
 const call = async (path, method = 'GET', body) => {
