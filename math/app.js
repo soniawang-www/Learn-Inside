@@ -150,8 +150,10 @@ function topnav() {
 
 // ───────── 路由 ─────────
 let cleanup = null;
+let lastRoute = '';
 async function router() {
   cleanup?.(); cleanup = null;
+  if (location.hash !== lastRoute) { lastRoute = location.hash; window.scrollTo(0, 0); } // 换页回到顶部
   closeLesson();
   document.body.classList.remove('exam-mode');
   $modal.innerHTML = '';
@@ -199,6 +201,7 @@ function regWall(title) {
 
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
 let joinTab = store.get('li.hadAccount') ? 'login' : 'register';
+let joinPrefill = null;
 function renderJoin() {
   const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
@@ -242,6 +245,7 @@ function renderJoin() {
     i.type = show ? 'text' : 'password'; e.target.textContent = show ? '隐藏' : '显示';
     const i2 = document.querySelector('#join [name=password2]'); if (i2) i2.type = i.type;
   };
+  if (joinPrefill) { const jp = joinPrefill; joinPrefill = null; document.querySelector('#join [name=phone]').value = jp.phone; document.getElementById('err').textContent = jp.msg; document.querySelector('#join [name=password]').focus(); }
   document.getElementById('forgot')?.addEventListener('click', () => showSupport('忘记密码？加客服帮你重置'));
   const err = document.getElementById('err');
   document.getElementById('join').onsubmit = async (e) => {
@@ -258,7 +262,10 @@ function renderJoin() {
       const r = await api(`/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
       auth.save(r.token, r.student); store.set('li.hadAccount', true);
       location.hash = '#/'; router();
-    } catch (x) { err.textContent = x.message; btn.disabled = false; }
+    } catch (x) {
+      if (reg && /已经注册过/.test(x.message)) { joinTab = 'login'; joinPrefill = { phone: f.phone, msg: '这个手机号已经注册过，输入密码直接登录' }; return renderJoin(); } // 注册过的手机号：直接换到登录
+      err.textContent = x.message; btn.disabled = false;
+    }
   };
 }
 
@@ -272,23 +279,8 @@ async function renderAccount() {
   const memberLine = a.free_mode ? '试用期间所有内容免费开放。'
     : ms.length ? ms.map((x) => `<span class="mtag">${esc(x.name)}会员</span> ${untilText(a.memberships[x.id])}`).join('<br>') : '还不是会员';
   const groups = a.scopes.map((sc) => ({ ...sc, plans: a.plans.filter((p) => p.scope === sc.id) })).filter((g) => g.plans.length);
-  $app.innerHTML = `${topnav()}<main class="page">
-    <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客' : esc(a.phone || '还没绑定手机号')}</p></div></header>
-    <div class="cols"><div class="col-main"><div class="card"><h2>会员</h2>
-      <p>${memberLine}</p>
-      ${a.free_mode ? '' : a.guest ? GIFT() : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
-      ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}
-      ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
-        <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.orig_price ? `<s class="orig">¥${p.orig_price}</s>` : ''}${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
-        ${!a.pay_ready || !p.price ? '' : a.guest ? '<a class="btn" href="javascript:" data-goreg><span class="lg">注册后开通</span><span class="sm">去注册</span></a>' : p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付"><span class="lg">暂不支持 · 找客服</span><span class="sm">找客服</span></button>'}</div>`).join('')}</div>`).join('')}
-      
-      ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
-    </div>
-    </div><aside class="col-side"><div class="card"><h2>激活码</h2>${a.guest ? '<p class="small muted">注册后才能兑换。</p>' : ''}
-      <form id="redeem" class="row"><input type="text" name="code" placeholder="输入激活码" autocomplete="off" style="flex:1;min-width:160px"><button class="btn primary">兑换</button></form>
-      <div class="error-msg" id="rerr"></div>
-    </div>
-    <div class="card"><h2>${a.guest ? '注册账号' : '登录方式'}</h2>
+  // 账号卡片：游客放在最上面（手机上一眼看到注册表单），注册用户放在右栏
+  const acctCard = `<div class="card"><h2>${a.guest ? '注册账号' : '登录方式'}</h2>
       ${a.phone ? `<p>手机号 <b>${esc(a.phone)}</b></p>
         <details><summary class="small">修改密码</summary><form id="pw" style="margin-top:10px">
           <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
@@ -303,7 +295,24 @@ async function renderAccount() {
           <button class="btn primary">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
 `}
       <p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>
+    </div>`;
+  $app.innerHTML = `${topnav()}<main class="page">
+    <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客' : esc(a.phone || '还没绑定手机号')}</p></div></header>
+    <div class="cols"><div class="col-main">${a.guest ? acctCard : ''}<div class="card"><h2>会员</h2>
+      <p>${memberLine}</p>
+      ${a.free_mode || a.guest ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
+      ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}
+      ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
+        <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.orig_price ? `<s class="orig">¥${p.orig_price}</s>` : ''}${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
+        ${!a.pay_ready || !p.price ? '' : a.guest ? '<a class="btn" href="javascript:" data-goreg><span class="lg">注册后开通</span><span class="sm">去注册</span></a>' : p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付"><span class="lg">暂不支持 · 找客服</span><span class="sm">找客服</span></button>'}</div>`).join('')}</div>`).join('')}
+      
+      ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
     </div>
+    </div><aside class="col-side"><div class="card"><h2>激活码</h2>${a.guest ? '<p class="small muted">注册后才能兑换。</p>' : ''}
+      <form id="redeem" class="row"><input type="text" name="code" placeholder="输入激活码" autocomplete="off" style="flex:1;min-width:160px"><button class="btn primary">兑换</button></form>
+      <div class="error-msg" id="rerr"></div>
+    </div>
+    ${a.guest ? '' : acctCard}
   </aside></div></main>`;
   const form = (id, path, errId, done) => document.getElementById(id)?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -314,7 +323,13 @@ async function renderAccount() {
       delete body.password2;
     }
     try { const r = await api(path, { method: 'POST', body }); if (r.status === 402) throw new Error(r.error); await done(r); }
-    catch (err) { document.getElementById(errId).textContent = err.message; }
+    catch (err) {
+      if (id === 'bind' && /已经注册过/.test(err.message) && a.guest) { // 游客注册时手机号已注册过：去登录
+        return modal(`<h2>这个手机号已经注册过</h2><p>直接用这个手机号登录就行。</p><p class="small muted">游客时做的题不会带过去。</p><div class="actions"><button class="btn" data-close>换个手机号</button><button class="btn primary" id="tologin">去登录</button></div>`,
+          (m) => (m.querySelector('#tologin').onclick = () => { auth.clear(); joinTab = 'login'; joinPrefill = { phone: String(body.phone || '').replace(/\D/g, ''), msg: '这个手机号已经注册过，输入密码直接登录' }; location.hash = '#/'; router(); }));
+      }
+      document.getElementById(errId).textContent = err.message;
+    }
   });
   form('redeem', '/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `${esc(r.tier_name || '')}会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
   $app.querySelectorAll('[data-goreg]').forEach((b) => (b.onclick = () => { const f = document.getElementById('bind'); f?.scrollIntoView({ behavior: 'smooth', block: 'center' }); f?.querySelector('input')?.focus(); }));

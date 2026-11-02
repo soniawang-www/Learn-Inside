@@ -37,7 +37,7 @@ ok((await text('.rev-side')).includes('注册就送 10 次互动解析'), '复�
 await page.click('[data-adv]'); await page.waitForTimeout(700);
 ok((await text('.modal')).includes('注册就送 10 次互动解析'), '游客点锁住的互动解析 → 弹出注册礼');
 await page.click('.modal a[href="#/account"]'); await page.waitForTimeout(1000);
-ok((await text('.col-side')).includes('注册就送 10 次'), '账号页注册卡片有注册礼');
+ok((await text('.col-main > .card:first-child')).includes('注册就送 10 次') && await page.locator('.col-main > .card:first-child #bind').count() === 1, '游客的账号页：注册卡片（带注册礼）在最上面');
 ok(await page.locator('[data-goreg]').count() > 0 && await page.locator('[data-plan]').count() === 0, '游客的套餐按钮是「注册后开通」');
 
 console.log('\n── 注册、用次数解锁');

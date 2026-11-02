@@ -219,7 +219,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const { phone: p, password, nickname } = await body(req);
     const phone = normPhone(p);
     checkInput(phone, password);
-    if (await env.DB.prepare('SELECT 1 FROM account WHERE phone = ?').bind(phone).first()) throw new HttpError(409, '这个手机号已经被别的账号用了');
+    if (await env.DB.prepare('SELECT 1 FROM account WHERE phone = ?').bind(phone).first()) throw new HttpError(409, '这个手机号已经注册过，请直接登录');
     await env.DB.prepare(`UPDATE account SET phone = ?, pw_hash = ?, guest = 0${acc.guest ? `, credits = credits + ${FREE_CREDITS}` : ''} WHERE id = ?`)
       .bind(phone, await hashPw(password), acc.id).run();
     const nn = String(nickname || '').trim().slice(0, 20);

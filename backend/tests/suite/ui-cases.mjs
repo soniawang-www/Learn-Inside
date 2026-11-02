@@ -21,7 +21,16 @@ export const UI_FEATURES = [
       const good = !!(await q.evaluate(() => localStorage.getItem('li.token')));
       await ctx.close(); return `${bad}/${good}`;
     }, expect: { guest: 'true/true', user: 'skip', member: 'skip' } },
-    { id: 'U7-2', name: '账号页注册 / 改密码表单有「再输一遍」', run: async (p, c) => { await c.go('#/account'); return p.locator('.col-side [name=password2]').count(); }, expect: { guest: 1, user: 1, member: 1 } },
+    { id: 'U7-3', name: '用已注册的手机号注册：提示后直接换到登录页，手机号已填好', run: async (p, c) => {
+      const phone = c.newPhone(); await c.anon('/api/auth/register', 'POST', { phone, password: 'abc123', nickname: '老用户' });
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage();
+      await q.goto(c.base + '/math/'); await q.waitForTimeout(600);
+      await q.fill('#join [name=phone]', phone); await q.fill('#join [name=password]', 'abc123'); await q.fill('#join [name=password2]', 'abc123'); await q.fill('#join [name=nickname]', '再注册');
+      await q.click('#join [type=submit]'); await q.waitForTimeout(1200);
+      const r = `${(await q.locator('.auth-card h2').textContent()).trim()}/${await q.inputValue('#join [name=phone]') === phone}/${(await q.locator('#err').textContent()).includes('已经注册过')}`;
+      await ctx.close(); return r;
+    }, expect: { guest: '登录/true/true', user: 'skip', member: 'skip' } },
+    { id: 'U7-2', name: '账号页注册 / 改密码表单有「再输一遍」', run: async (p, c) => { await c.go('#/account'); return p.locator('#bind [name=password2], #pw [name=password2]').count(); }, expect: { guest: 1, user: 1, member: 1 } },
   ] },
   { id: 'U2', area: '界面', name: '考试与考情', cases: [
     { id: 'U2-1', name: 'AMC 8 试卷卡片数', run: async (p, c) => { await c.go('#/contest/amc8'); return p.locator('.exam-tile').count(); }, expect: same(26) },
@@ -50,7 +59,7 @@ export const UI_FEATURES = [
     { id: 'U5-1', name: '会员卡片显示', run: async (p, c) => { await c.go('#/account'); const t = await c.text('.col-main'); return t.includes('数学会员 到') || t.includes('数学会员到') ? '数学会员' : t.includes('注册就送 10 次') ? '注册礼' : t.includes('剩余免费次数 10 次') ? '剩 10 次' : '?'; }, expect: { guest: '注册礼', user: '剩 10 次', member: '数学会员' } },
     { id: 'U5-2', name: '套餐按钮', run: async (p, c) => { await c.go('#/account'); const n = async (s) => p.locator(s).count(); return `${await n('[data-plan]')}开通/${await n('.plan [data-support]')}找客服/${await n('[data-goreg]')}注册后开通`; }, expect: { guest: '0开通/0找客服/3注册后开通', user: '2开通/1找客服/0注册后开通', member: '2开通/1找客服/0注册后开通' } },
     { id: 'U5-3', name: '激活码提示注册', run: async (p, c) => { await c.go('#/account'); return (await c.text('.col-side')).includes('注册后才能兑换'); }, expect: { guest: true, user: false, member: false } },
-    { id: 'U5-4', name: '右侧卡片：注册 / 登录方式', run: async (p, c) => { await c.go('#/account'); const t = await c.text('.col-side'); return t.includes('注册账号') ? '注册账号' : t.includes('登录方式') ? '登录方式' : '?'; }, expect: { guest: '注册账号', user: '登录方式', member: '登录方式' } },
+    { id: 'U5-4', name: '账号卡片：游客在最上面注册，注册用户在右栏看登录方式', run: async (p, c) => { await c.go('#/account'); const t = await c.text(c.role === 'guest' ? '.col-main > .card:first-child' : '.col-side'); return t.includes('注册账号') ? '注册账号' : t.includes('登录方式') ? '登录方式' : '?'; }, expect: { guest: '注册账号', user: '登录方式', member: '登录方式' } },
     { id: 'U5-5', name: '联系客服弹出二维码说明', run: async (p, c) => { await c.go('#/account'); await p.locator('[data-support]').first().click(); await p.waitForTimeout(500); return (await p.locator('.support').count()) > 0; }, expect: same(true) },
     { id: 'U5-6', name: '活动期间套餐显示原价划线和活动价，手机上不挤', run: async (p, c) => {
       await c.admin('/api/admin/promo', 'POST', { title: '界面测试活动', until: Date.now() + 86400000, prices: { 'math.month': 19.9 } });
@@ -68,6 +77,15 @@ export const UI_FEATURES = [
       if (c.aid && left) await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_credits', value: left, reason: '标准测试：恢复次数' });
       return `${acc}/${mod}/${img}`;
     }, expect: { guest: 'false/false/false', user: 'true/true/true', member: 'false/false/false' } },
+    { id: 'U5-8', name: '手机上从复盘页点注册：一进账号页就看到注册表单', run: async (p, c) => {
+      await p.setViewportSize({ width: 390, height: 844 }); await c.go(`#/review/${c.session}`);
+      await p.mouse.wheel(0, 3000); await p.waitForTimeout(300);
+      const link = p.locator('.rev-side a[href="#/account"]').first();
+      if (!(await link.count())) { await p.setViewportSize({ width: 1366, height: 860 }); return 'no-link'; }
+      await link.click(); await p.waitForTimeout(1200);
+      const box = await p.locator('#bind').boundingBox(); await p.setViewportSize({ width: 1366, height: 860 });
+      return !!box && box.y >= 0 && box.y < 844;
+    }, expect: { guest: true, user: 'skip', member: 'skip' } },
   ] },
   { id: 'U6', area: '界面', name: '所有页面在各种屏幕上', cases: [
     { id: 'U6-1', name: '电脑 1440：不溢出、文字不截断、按钮不折行、没有脚本错误', run: async (p, c) => c.sweep(1440, 900, 'light'), expect: same('ok') },
