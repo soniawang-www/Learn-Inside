@@ -190,7 +190,7 @@ const REG_FEATS = `<ul class="reg-feats">
     <li><b>知识图谱</b><span>每次考试都算进去，哪些知识项掌握得好、哪些薄弱一眼看清</span></li>
     <li><b>知识项突击</b><span>挑出薄弱的知识项，用历年真题集中练</span></li></ul>`;
 function regWall(title) {
-  $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1><p class="muted">注册后就能用</p></div></header>
+  $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1></div></header>
     <div class="cols"><div class="col-main"><div class="card reg-wall"><h2>免费注册，解锁这些功能</h2>${REG_FEATS}
       <p class="small muted">现在做过的题都会保留，注册后马上算进错题本和知识图谱。</p>
       <a class="btn primary" href="#/account">免费注册</a></div></div>
@@ -204,7 +204,7 @@ function renderJoin() {
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
     <section class="auth-intro">
       <h1>数学查漏补缺</h1>
-      <p>做真题，自动找出孩子的薄弱知识项，错题按知识项整理，一步步补上。</p>
+      <p>奥数真题边练边学</p>
       <ul>
         <li><b>真题模考</b>AMC 8 历年真题，按正式考试计时</li>
         <li><b>知识图谱</b>30 个知识项的掌握程度和前后依赖，一眼看出先补哪里</li>
@@ -221,16 +221,14 @@ function renderJoin() {
           <div class="input-group"><span class="prefix">+86</span><input type="tel" name="phone" inputmode="numeric" maxlength="11" placeholder="请输入手机号" autocomplete="username"></div></label>
         <label class="field"><span>${reg ? '设置密码' : '密码'}</span>
           <div class="input-group"><input type="password" name="password" placeholder="${reg ? '至少 6 位' : '请输入密码'}" autocomplete="${reg ? 'new-password' : 'current-password'}"><button type="button" class="eye" aria-label="显示密码">显示</button></div></label>
+        ${reg ? '<label class="field"><span>再输一遍密码</span><input type="password" name="password2" placeholder="和上面一样" autocomplete="new-password"></label>' : ''}
         ${reg ? '<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" placeholder="例如：小桐（以后可以再加孩子）"></label>' : ''}
         <div class="error-msg" id="err" role="alert"></div>
         <button class="btn primary block" type="submit">${reg ? '注册' : '登录'}</button>
       </form>
       <div class="auth-or"><span>或者</span></div>
       <button class="btn block" id="guest">先不注册，直接试试</button>
-      <p class="small muted guest-note">不注册也能做真题、看对错和答案；错题本和知识图谱要注册后使用。</p>
-      <div class="auth-foot small muted">${reg
-        ? '孩子的作答记录只用来生成知识图谱和错题本，不会公开。'
-        : '<a href="javascript:" id="forgot">忘记密码？</a>'}</div>
+      ${reg ? '' : '<div class="auth-foot small muted"><a href="javascript:" id="forgot">忘记密码？</a></div>'}
     </section>
   </div>`;
   $app.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => { joinTab = t.dataset.tab; renderJoin(); }));
@@ -242,6 +240,7 @@ function renderJoin() {
   $app.querySelector('.eye').onclick = (e) => {
     const i = e.target.previousElementSibling; const show = i.type === 'password';
     i.type = show ? 'text' : 'password'; e.target.textContent = show ? '隐藏' : '显示';
+    const i2 = document.querySelector('#join [name=password2]'); if (i2) i2.type = i.type;
   };
   document.getElementById('forgot')?.addEventListener('click', () => showSupport('忘记密码？加客服帮你重置'));
   const err = document.getElementById('err');
@@ -251,6 +250,8 @@ function renderJoin() {
     f.phone = String(f.phone || '').replace(/\D/g, '');
     if (!/^1\d{10}$/.test(f.phone)) return (err.textContent = '请输入正确的 11 位手机号');
     if (!f.password || (reg && f.password.length < 6)) return (err.textContent = reg ? '密码至少 6 位' : '请输入密码');
+    if (reg && f.password !== f.password2) return (err.textContent = '两次输入的密码不一样，请再检查一下');
+    delete f.password2;
     if (reg && !String(f.nickname || '').trim()) return (err.textContent = '请填写孩子的昵称');
     const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; err.textContent = '';
     try {
@@ -272,7 +273,7 @@ async function renderAccount() {
     : ms.length ? ms.map((x) => `<span class="mtag">${esc(x.name)}会员</span> ${untilText(a.memberships[x.id])}`).join('<br>') : '还不是会员';
   const groups = a.scopes.map((sc) => ({ ...sc, plans: a.plans.filter((p) => p.scope === sc.id) })).filter((g) => g.plans.length);
   $app.innerHTML = `${topnav()}<main class="page">
-    <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客（记录只存在这台设备上）' : esc(a.phone || '还没绑定手机号')}</p></div></header>
+    <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客' : esc(a.phone || '还没绑定手机号')}</p></div></header>
     <div class="cols"><div class="col-main"><div class="card"><h2>会员</h2>
       <p>${memberLine}</p>
       ${a.free_mode ? '' : a.guest ? GIFT() : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
@@ -292,19 +293,27 @@ async function renderAccount() {
         <details><summary class="small">修改密码</summary><form id="pw" style="margin-top:10px">
           <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
           <label class="field"><span>新密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
+          <label class="field"><span>再输一遍新密码</span><input type="password" name="password2" autocomplete="new-password"></label>
           <button class="btn">保存</button><div class="error-msg" id="perr"></div></form></details>`
       : `${a.guest ? `${GIFT()}<p class="small">注册后解锁错题本、知识图谱和知识项突击，现在做过的题会自动算进去。</p>` : '<p class="small">绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。</p>'}
         <form id="bind"><label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
           <label class="field"><span>设置密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
+          <label class="field"><span>再输一遍密码</span><input type="password" name="password2" autocomplete="new-password"></label>
           ${a.guest ? `<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
           <button class="btn primary">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
-        ${a.guest ? '<p class="small muted" style="margin-top:10px">已经有账号？退出游客后用手机号登录（游客的记录不会合并）。</p>' : ''}`}
+`}
       <p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>
     </div>
   </aside></div></main>`;
   const form = (id, path, errId, done) => document.getElementById(id)?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    try { const r = await api(path, { method: 'POST', body: Object.fromEntries(new FormData(e.target)) }); if (r.status === 402) throw new Error(r.error); await done(r); }
+    const body = Object.fromEntries(new FormData(e.target));
+    if ('password2' in body) { // 设置 / 修改密码要输两遍
+      if (String(body.password || '').length < 6) return (document.getElementById(errId).textContent = '密码至少 6 位');
+      if (body.password !== body.password2) return (document.getElementById(errId).textContent = '两次输入的密码不一样，请再检查一下');
+      delete body.password2;
+    }
+    try { const r = await api(path, { method: 'POST', body }); if (r.status === 402) throw new Error(r.error); await done(r); }
     catch (err) { document.getElementById(errId).textContent = err.message; }
   });
   form('redeem', '/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `${esc(r.tier_name || '')}会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
@@ -455,7 +464,7 @@ async function renderHome() {
   const st = auth.student;
   const fams = await apiList(`/math/api/families?student=${st.id}`);
   $app.innerHTML = `${topnav()}<div class="page">
-    <header class="ph"><div><h1>考试</h1><p class="muted">选一种考试，做真题、看考情</p></div></header>
+    <header class="ph"><div><h1>考试</h1></div></header>
     ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="#/account">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     ${me.students.length > 1 ? `<div class="card row"><span class="muted">当前学生</span>
       <select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select></div>` : ''}
@@ -701,7 +710,7 @@ async function renderReview(sid) {
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
-      ${wrong.length ? `<p class="small muted">${isGuest() ? `错了 ${wrong.length} 题。注册后，这些题会自动进错题本。` : `错了 ${wrong.length} 题，记得给每道错题标上错因。`}</p>` : ''}
+      ${wrong.length && isGuest() ? '<p class="small muted">注册后，错题会自动进错题本。</p>' : ''}
       ${wrong.length && lastMe?.guest ? `<a class="gift-link" href="#/account">${GIFT()}</a>` : ''}
       <div class="rev-btns">${isGuest() ? '<a class="btn primary" href="#/account">免费注册</a><a class="btn" href="#/exams">再做一套</a>' : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>
@@ -723,7 +732,7 @@ async function renderReview(sid) {
         ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
-        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button> <span class="small muted">${it.advanced.locked ? '会员或用 1 次免费次数' : ''} 一步步跟着做</span></div>` : ''}
+        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">▶ 互动解析${it.advanced.locked ? ' 🔒' : ''}</button></div>` : ''}
         <div class="section-label">考点</div>
         ${typeChips(it.types)}
         ${kpCards(it.kps)}
@@ -842,7 +851,7 @@ async function renderGraphPage(focusId) {
   const d = await api(`/math/api/students/${auth.student.id}/graph`);
   const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
   $app.innerHTML = `${topnav()}<div class="page wide">
-    <header class="ph"><div><h1>${esc(d.student.nickname)}的知识图谱</h1><p class="muted">${d.nodes.length} 个知识项，按大类分行，箭头从前置指向后续</p></div></header>
+    <header class="ph"><div><h1>${esc(d.student.nickname)}的知识图谱</h1></div></header>
     <div class="ctabs"><a class="${graphView === 'map' ? 'on' : ''}" data-view="map">图</a><a class="${graphView === 'list' ? 'on' : ''}" data-view="list">列表（薄弱在前）</a></div>
     <div id="kg"></div></div>`;
   $app.querySelectorAll('[data-view]').forEach((a) => (a.onclick = () => { graphView = a.dataset.view; renderGraphPage(focusId); }));
@@ -1012,7 +1021,7 @@ async function renderMistakes() {
 }
 const SHOW = 15;
 function mistakeCard(list, reasonName) {
-  if (!list.length) return `<div class="card" id="mistakes"><p class="muted small">${msFam || msKp ? '这个筛选下没有错题。' : '做错或没做的题会自动收集到这里。交卷后在复盘页给错题标上错因，回顾时更有针对性。'}</p></div>`;
+  if (!list.length) return `<div class="card" id="mistakes"><p class="muted small">${msFam || msKp ? '这个筛选下没有错题。' : '还没有错题。'}</p></div>`;
   const n = (st) => list.filter((m) => m.status === st).length;
   const todo = list.filter(isTodo);
   const tabs = [['todo', `要做的 ${todo.length}`], ['pending', `待订正 ${n('pending')}`], ['due', `该复习 ${n('due')}`], ['fixed', `已订正 ${n('fixed')}`], ['mastered', `已掌握 ${n('mastered')}`], ['all', `全部 ${list.length}`]];
@@ -1022,7 +1031,7 @@ function mistakeCard(list, reasonName) {
     <div class="ms-actions">
       ${n('pending') ? `<button class="btn primary" data-ms-go="pending">订正错题（${Math.min(n('pending'), BATCH)} 题）</button>` : ''}
       ${n('due') ? `<button class="btn primary" data-ms-go="due">复习到期的错题（${Math.min(n('due'), BATCH)} 题）</button>` : ''}
-      ${!todo.length ? '<span class="small muted">现在没有要做的错题 👍</span>' : `<span class="small muted">${todo.length > BATCH ? `每次最多 ${BATCH} 题，从最早错的开始；` : ''}可以看提示，做完自动更新状态</span>`}
+      ${!todo.length ? '<span class="small muted">现在没有要做的错题 👍</span>' : ''}
     </div>
     <div class="ms-tabs">${tabs.map(([k, label]) => `<button class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label}</button>`).join('')}</div>
     <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || '<p class="muted small">这一类没有题。</p>'}</div>

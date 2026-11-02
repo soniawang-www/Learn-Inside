@@ -1081,7 +1081,6 @@ body:not(.exam-mode) { background: var(--paper); }
 .reg-feats b { color: var(--accent); }
 .reg-feats span { font-size: 13px; color: var(--muted); }
 .reg-wall .btn.primary { justify-self: start; }
-.guest-note { text-align: center; margin: 8px 0 0; }
 
 /* 分享宣传图再得 10 次 */
 .share { display: flex; gap: 16px; align-items: flex-start; padding: 14px; margin: 10px 0; border-radius: 14px;

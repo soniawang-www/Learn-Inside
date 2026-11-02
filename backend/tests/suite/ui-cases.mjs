@@ -9,6 +9,20 @@ export const UI_FEATURES = [
     { id: 'U1-2', name: '顶部「注册就送 10 次互动解析」', run: async (p, c) => { await c.go('#/'); return (await p.locator('.gift-tip').count()) > 0; }, expect: { guest: true, user: false, member: false } },
     { id: 'U1-3', name: '侧栏身份', run: async (p, c) => { await c.go('#/'); const t = await c.text('.side-who small'); return t.includes('游客') ? '游客' : t.includes('会员') ? '会员' : t.replace(/\s/g, ''); }, expect: { guest: '游客', user: '免费次数10', member: '会员' } },
   ] },
+  { id: 'U7', area: '界面', name: '注册要输两遍密码', cases: [
+    { id: 'U7-1', name: '注册页：两次密码不一样不能提交，一样才行', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage();
+      await q.goto(c.base + '/math/'); await q.waitForTimeout(600); if (await q.locator('[data-tab="register"]').count()) await q.click('[data-tab="register"]');
+      const phone = '139' + String(Date.now()).slice(-8);
+      await q.fill('#join [name=phone]', phone); await q.fill('#join [name=password]', 'abc123'); await q.fill('#join [name=password2]', 'abc124'); await q.fill('#join [name=nickname]', '两遍');
+      await q.click('#join [type=submit]'); await q.waitForTimeout(600);
+      const bad = (await q.locator('#err').textContent()).includes('不一样') && !(await q.evaluate(() => localStorage.getItem('li.token')));
+      await q.fill('#join [name=password2]', 'abc123'); await q.click('#join [type=submit]'); await q.waitForTimeout(1500);
+      const good = !!(await q.evaluate(() => localStorage.getItem('li.token')));
+      await ctx.close(); return `${bad}/${good}`;
+    }, expect: { guest: 'true/true', user: 'skip', member: 'skip' } },
+    { id: 'U7-2', name: '账号页注册 / 改密码表单有「再输一遍」', run: async (p, c) => { await c.go('#/account'); return p.locator('.col-side [name=password2]').count(); }, expect: { guest: 1, user: 1, member: 1 } },
+  ] },
   { id: 'U2', area: '界面', name: '考试与考情', cases: [
     { id: 'U2-1', name: 'AMC 8 试卷卡片数', run: async (p, c) => { await c.go('#/contest/amc8'); return p.locator('.exam-tile').count(); }, expect: same(26) },
     { id: 'U2-2', name: '考情：大类占比 + 知识项表', run: async (p, c) => { await c.go('#/contest/amc8/stats'); return (await p.locator('.mrow').count()) === 8 && (await p.locator('.utable tr').count()) > 20; }, expect: same(true) },

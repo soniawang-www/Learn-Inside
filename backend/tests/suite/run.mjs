@@ -113,6 +113,7 @@ if (WITH_UI) {
     const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
     const errs = []; page.on('pageerror', (e) => errs.push(e.message)); c.errs = errs;
     await login(page);
+    c.base = BASE;
     c.go = async (hash) => { await page.goto(BASE + '/math/' + hash); await page.reload(); await page.waitForTimeout(900); };
     c.text = async (sel) => (await page.locator(sel).first().textContent({ timeout: 3000 }).catch(() => '')) || '';
     c.sweep = async (w, h, scheme) => {
