@@ -47,6 +47,27 @@ export const UI_FEATURES = [
       const r = `${(await q.locator('.modal').textContent().catch(() => '')).includes('在浏览器')}/${q.url().includes('alipay')}`; await ctx.close(); return r;
     }, expect: { guest: 'skip', user: 'true/false', member: 'true/false' } },
   ] },
+  { id: 'U9', area: '界面', name: '等服务器时不能重复点', cases: [
+    { id: 'U9-1', name: '网慢时连点「兑换」：按钮转圈、只发一次请求、顶部有进度条', run: async (p, c) => {
+      let n = 0;
+      await p.route('**/api/redeem', async (route) => { n++; await new Promise((r) => setTimeout(r, 1200)); await route.continue(); });
+      await c.go('#/account'); await p.fill('#redeem input', 'NOTACODE00');
+      const b = p.locator('#redeem button'); await b.click(); await p.waitForTimeout(250);
+      const busy = await b.evaluate((x) => x.classList.contains('busy')); const bar = await p.evaluate(() => document.body.classList.contains('net-wait'));
+      await b.click({ force: true }).catch(() => {}); await b.click({ force: true }).catch(() => {});
+      await p.waitForTimeout(1800); await p.unroute('**/api/redeem');
+      const done = !(await b.evaluate((x) => x.classList.contains('busy')));
+      return `${busy}/${bar}/${n}/${done}`;
+    }, expect: same('true/true/1/true') },
+    { id: 'U9-2', name: '换页时数据没回来：旧页面变淡、不能点', run: async (p, c) => {
+      await c.go('#/'); await p.route('**/math/api/families**', async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
+      await p.evaluate(() => { location.hash = '#/exams'; }); await p.waitForTimeout(400);
+      const dim = await p.evaluate(() => document.getElementById('app').classList.contains('page-wait'));
+      await p.waitForTimeout(1500); await p.unroute('**/math/api/families**');
+      const back = !(await p.evaluate(() => document.getElementById('app').classList.contains('page-wait')));
+      return `${dim}/${back}`;
+    }, expect: same('true/true') },
+  ] },
   { id: 'U2', area: '界面', name: '考试与考情', cases: [
     { id: 'U2-1', name: 'AMC 8 试卷卡片数', run: async (p, c) => { await c.go('#/contest/amc8'); return p.locator('.exam-tile').count(); }, expect: same(26) },
     { id: 'U2-2', name: '考情：大类占比 + 知识项表', run: async (p, c) => { await c.go('#/contest/amc8/stats'); return (await p.locator('.mrow').count()) === 8 && (await p.locator('.utable tr').count()) > 20; }, expect: same(true) },

@@ -22,13 +22,47 @@ const auth = {
   clear() { store.del('li.token'); store.del('li.student'); store.del('amc8.token'); store.del('amc8.student'); },
 };
 
+// ───────── 等待服务器时的保护 ─────────
+// 点了按钮 / 提交了表单，接下来的请求没回来之前：这个按钮转圈、不能再点；顶部显示进度条
+let tapEl = null, tapAt = 0, inflight = 0, barTimer = null;
+const isBusy = (el) => el?.classList.contains('busy');
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('button, a.btn, [data-plan], [data-adv], [data-drill]');
+  if (isBusy(el)) { e.preventDefault(); e.stopImmediatePropagation(); return; } // 还在等，忽略重复点击
+  tapEl = el; tapAt = Date.now();
+}, true);
+document.addEventListener('submit', (e) => {
+  const b = e.submitter || e.target.querySelector('button[type=submit], button:not([type])');
+  if (isBusy(b)) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+  tapEl = b; tapAt = Date.now();
+}, true);
+function setBusy(el, on) {
+  if (!el) return;
+  el.classList.toggle('busy', on);
+  if (on) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy');
+}
+function progress(delta) {
+  inflight = Math.max(0, inflight + delta);
+  clearTimeout(barTimer);
+  if (inflight) barTimer = setTimeout(() => document.body.classList.add('net-wait'), 150); // 很快的请求不闪
+  else document.body.classList.remove('net-wait');
+}
+
 // ───────── API ─────────
 async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: { 'content-type': 'application/json', ...(auth.token ? { authorization: `Bearer ${auth.token}` } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const el = tapEl && Date.now() - tapAt < 400 ? tapEl : null; // 刚点过的按钮，等这个请求
+  tapEl = null;
+  setBusy(el, true); progress(1);
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: { 'content-type': 'application/json', ...(auth.token ? { authorization: `Bearer ${auth.token}` } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('网络不太好，请稍后再试');
+  } finally { setBusy(el, false); progress(-1); }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) { auth.clear(); location.hash = '#/'; }
   if (!res.ok && res.status !== 402) throw new Error(data.error || `请求失败 (${res.status})`);
@@ -172,6 +206,7 @@ async function router() {
   document.body.classList.remove('exam-mode');
   $modal.innerHTML = '';
   const [, page, id, sub] = (location.hash.slice(1) || '/').split('?')[0].split('/');
+  const dim = setTimeout(() => $app.classList.add('page-wait'), 150); // 换页时旧页面变淡、不能点
   try {
     if (!auth.token) return renderJoin();
     if (page === 'exam') return await renderExam(id);
@@ -188,7 +223,7 @@ async function router() {
     return await renderDashboard();
   } catch (e) {
     $app.innerHTML = `${topnav()}<main class="page"><div class="card"><p class="error-msg">${esc(e.message)}</p><a href="#/">返回首页</a></div></main>`;
-  }
+  } finally { clearTimeout(dim); $app.classList.remove('page-wait'); }
 }
 window.addEventListener('hashchange', router);
 // 「去错题本订正」带上知识项筛选

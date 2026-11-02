@@ -1105,3 +1105,17 @@ body:not(.exam-mode) { background: var(--paper); }
 .ez-tool .ic, .ez-user .ic, .ez-cardbtn .ic, .ez-pin .ic, .ez-btn .ic { margin-right: 4px; }
 .locked-panel .icon .ic, .gift-big .ic { display: block; margin: 0 auto; }
 .gift-big { color: var(--accent); }
+
+/* 等待服务器：按钮转圈不能再点；顶部进度条；换页时旧页面变淡 */
+.busy { position: relative; pointer-events: none; cursor: progress; color: transparent !important; --spin: var(--accent); }
+.btn.primary.busy, .ez-btn.primary.busy { --spin: var(--surface); }
+.btn.danger.busy { --spin: #fff; }
+.busy > * { visibility: hidden; }
+.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 1em; height: 1em; box-sizing: border-box;
+  border: 2px solid var(--spin); border-right-color: transparent; border-radius: 50%; animation: busy-spin .7s linear infinite; }
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+body::before { content: ""; position: fixed; z-index: 9999; top: 0; left: 0; height: 3px; width: 0; background: var(--accent); opacity: 0; pointer-events: none; }
+body.net-wait::before { opacity: 1; animation: net-bar 1.6s ease-out infinite; }
+@keyframes net-bar { 0% { width: 0; left: 0; } 60% { width: 70%; left: 15%; } 100% { width: 10%; left: 100%; } }
+#app.page-wait { opacity: .55; pointer-events: none; transition: opacity .15s; }
+@media (prefers-reduced-motion: reduce) { .busy::after { animation-duration: 2s; } body.net-wait::before { animation: none; width: 100%; opacity: .6; } }
