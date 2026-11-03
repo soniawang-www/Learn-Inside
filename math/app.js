@@ -660,7 +660,8 @@ function showInstructions(exam, mode) {
     <ol>
       ${exam.id.startsWith('hope-') ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4。</li>
       <li>答对 1 题得 1 分，答错不扣分。</li>
-      <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
+      <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
+      ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
       <li>答对 1 题得 1 分，答错不扣分，所以每题都值得作答。</li>
       <li>只允许使用草稿纸、笔、直尺和橡皮；不能用计算器、量角器、圆规或任何电子设备。</li>
       <li>图形不一定按比例绘制。</li>
