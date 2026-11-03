@@ -203,20 +203,19 @@ export function openPreview(opts, h) {
       tip.textContent = '这个浏览器生成 PDF 没有成功。可以点「打印」，在打印设置里选「存储为 PDF」；或者换 Safari、Chrome 再试。';
       pdfBtn.disabled = false; pdfBtn.textContent = '存成 PDF'; return;
     }
-    saveOptions({ tip, doc: a.querySelector('.pv-doc'), canvases, blob, title: opts.title, file: opts.file });
+    saveOptions({ tip, canvases, blob, title: opts.title, file: opts.file });
     pdfBtn.disabled = false; pdfBtn.textContent = '存成 PDF';
   };
 }
 
-/** 生成 PDF 后按设备给保存办法（同学习页模板；登录状态带不到别的浏览器，所以不给「用浏览器打开」，改成图片兜底） */
-function saveOptions({ tip, doc, canvases, blob, title, file }) {
+/** 生成 PDF 后按设备给保存办法：手机能分享文件就用系统分享，其他一律直接下载 PDF（不用图片兜底） */
+function saveOptions({ tip, canvases, blob, title, file }) {
   const pages = canvases.length;
   const name = `${title}.pdf`;
   const f = typeof File === 'function' ? new File([blob], name, { type: 'application/pdf' }) : null;
   let canShare = false; try { canShare = !!(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })); } catch {}
   const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
   let inFrame = true; try { inFrame = window.self !== window.top; } catch {}
-  const inApp = /MicroMessenger|wxwork|DingTalk|QQ\/|Weibo|AlipayClient/i.test(navigator.userAgent);
   tip.innerHTML = '';
   const head = el('div', null, `已生成 ${pages} 页 PDF：`), box = el('div', 'pv-save'), note = el('div');
   const d0 = new Date(), dlName = `${file}-${d0.getFullYear()}${String(d0.getMonth() + 1).padStart(2, '0')}${String(d0.getDate()).padStart(2, '0')}.pdf`;
@@ -227,23 +226,15 @@ function saveOptions({ tip, doc, canvases, blob, title, file }) {
       document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
       note.textContent = `已开始下载「${dlName}」，在浏览器的下载列表或「下载」文件夹里可以找到。没看到的话，可能是浏览器拦截了下载。`; }
     catch { note.textContent = '这个浏览器不允许保存文件。'; } }; return b; };
-  const showImages = () => {
-    doc.className = 'pv-doc pv-imgs'; doc.textContent = '';
-    canvases.forEach((cv, i) => { const im = el('img'); im.src = cv.toDataURL('image/png'); im.alt = `错题练习单第 ${i + 1} 页`; doc.appendChild(im); });
-  };
-  if (!isMobile) {
-    box.appendChild(saveBtn('plum'));
-    note.textContent = '点「保存到本地」，PDF 会下载到电脑的「下载」文件夹，打开后就可以打印。';
-    if (inFrame) { showImages(); note.textContent += `如果没有反应，可以在下面的图片上点右键，选「图片另存为」，共 ${pages} 页。`; }
-  } else if (canShare && !inFrame) {
+  if (canShare && isMobile && !inFrame) {
     box.appendChild(shareBtn('plum'));
     note.textContent = '点「分享 / 存到本地」，可以选「存储到文件」、发到微信，或直接选「打印」。';
   } else {
-    // 微信等 App 里、或者嵌在框里：下载和分享常被拦，换成图片，长按就能保存
-    head.textContent = inApp || inFrame ? '在 App 里打开时不能直接保存文件，练习单已经转成图片放在下面：' : '这个浏览器不能直接分享 PDF，练习单已经转成图片放在下面：';
-    box.appendChild(saveBtn('ghost'));
-    note.textContent = `长按图片，选「保存图片」或「存储到相册」，再打印或发给别人，共 ${pages} 页。也可以先试「保存到本地」。`;
-    showImages();
+    // 电脑、微信（实测苹果微信能下载）和其他不能分享文件的浏览器：直接下载 PDF
+    box.appendChild(saveBtn('plum'));
+    note.textContent = isMobile
+      ? '点「保存到本地」保存 PDF。如果出现 PDF 预览，可以从右上角的菜单保存到手机、发给别人或打印。'
+      : '点「保存到本地」，PDF 会下载到电脑的「下载」文件夹，打开后就可以打印。';
   }
   tip.append(head, box, note);
 }
