@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>保存 PDF 检测 · learn-inside</title>
+<style>
+  body { margin: 0; background: #F6F4EE; color: #18302A; font: 16px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 18px 16px 60px; }
+  h1 { font-size: 22px; margin: 6px 0 4px; }
+  .muted { color: #5E726C; font-size: 14px; }
+  .card { background: #fff; border: 1px solid #E4E0D6; border-radius: 12px; padding: 14px; margin: 14px 0; }
+  .t { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px dashed #E4E0D6; }
+  .t:last-child { border-bottom: 0; }
+  button { font: inherit; border: 1.5px solid #1D5C4D; background: #1D5C4D; color: #fff; border-radius: 999px; padding: 8px 16px; align-self: flex-start; }
+  button.ghost { background: #fff; color: #1D5C4D; }
+  .r { font-size: 14px; color: #5E726C; }
+  .r.ok { color: #1D5C4D; } .r.bad { color: #B04A6F; }
+  .ask { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ask button { padding: 4px 12px; font-size: 14px; background: #fff; color: #1D5C4D; }
+  .ask button.on { background: #1D5C4D; color: #fff; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 170px; font: 13px/1.5 ui-monospace, Menlo, monospace; border: 1px solid #E4E0D6; border-radius: 8px; padding: 8px; }
+  table { border-collapse: collapse; font-size: 14px; width: 100%; }
+  td { padding: 3px 6px; border-bottom: 1px solid #F0EDE5; vertical-align: top; word-break: break-all; }
+  td:first-child { color: #5E726C; white-space: nowrap; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #121C19; color: #E8EFEA; } .card { background: #1A2723; border-color: #2B3B36; }
+    .muted, .r, td:first-child { color: #9DB0A9; } .r.ok { color: #6CC2A6; } .r.bad { color: #F29BBB; }
+    textarea { background: #1A2723; color: #E8EFEA; border-color: #2B3B36; } td { border-color: #2B3B36; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>保存 PDF 检测</h1>
+  <p class="muted">在微信（苹果、安卓各一次）里打开这个页面，逐个点下面的按钮，再在每一项下面选「成功 / 没反应 / 出错」。最后点「复制结果」发给我。</p>
+
+  <div class="card"><b>这个浏览器</b><table id="env"></table></div>
+
+  <div class="card" id="tests"></div>
+
+  <div class="card">
+    <b>结果</b>
+    <p class="muted">点「复制结果」；复制不了的话，长按下面的文字全选复制。</p>
+    <textarea id="out" readonly></textarea>
+    <p><button id="copy">复制结果</button></p>
+  </div>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const UA = navigator.userAgent;
+// 一页 A4 的小 PDF（每页一张 JPEG，做法和正式练习单一样）
+function testCanvas() {
+  const c = document.createElement('canvas'); c.width = 1240; c.height = 1754;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 1240, 1754);
+  x.fillStyle = '#1D5C4D'; x.fillRect(96, 180, 1048, 4);
+  x.fillStyle = '#18302A'; x.font = '600 52px "Songti SC","STSong",serif'; x.fillText('保存 PDF 检测', 96, 160);
+  x.font = '30px -apple-system,"PingFang SC",sans-serif'; x.fillText('看到这一页，说明 PDF 已经保存或打开成功。', 96, 260);
+  x.fillStyle = '#5D6A65'; x.font = '24px -apple-system,"PingFang SC",sans-serif'; x.fillText(new Date().toLocaleString('zh-CN'), 96, 310);
+  return c;
+}
+function makePdf(pages) {
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = (v) => { const b = typeof v === 'string' ? enc.encode(v) : v; parts.push(b); len += b.length; };
+  push(new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52, 10, 37, 226, 227, 207, 211, 10]));
+  const n = pages.length, total = 3 + n * 3, PW = 595.28, PH = 841.89;
+  offs[1] = len; push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offs[2] = len; push('2 0 obj\n<< /Type /Pages /Kids [' + pages.map((_, i) => (3 + i * 3) + ' 0 R').join(' ') + '] /Count ' + n + ' >>\nendobj\n');
+  pages.forEach((cv, i) => {
+    const pid = 3 + i * 3, cid = pid + 1, iid = pid + 2;
+    const bin = atob(cv.toDataURL('image/jpeg', 0.88).split(',')[1]), jpg = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) jpg[k] = bin.charCodeAt(k);
+    const content = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q';
+    offs[pid] = len; push(pid + ' 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 ' + iid + ' 0 R >> >> /Contents ' + cid + ' 0 R >>\nendobj\n');
+    offs[cid] = len; push(cid + ' 0 obj\n<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream\nendobj\n');
+    offs[iid] = len; push(iid + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + cv.width + ' /Height ' + cv.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpg.length + ' >>\nstream\n');
+    push(jpg); push('\nendstream\nendobj\n');
+  });
+  const xref = len; let t = 'xref\n0 ' + total + '\n0000000000 65535 f \n';
+  for (let id = 1; id < total; id++) t += String(offs[id]).padStart(10, '0') + ' 00000 n \n';
+  push(t + 'trailer\n<< /Size ' + total + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+  return new Blob(parts, { type: 'application/pdf' });
+}
+let blob = null, file = null;
+const pdf = () => { if (!blob) { blob = makePdf([testCanvas()]); file = typeof File === 'function' ? new File([blob], '检测.pdf', { type: 'application/pdf' }) : null; } return blob; };
+const dataUrl = () => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(pdf()); });
+
+// 环境
+let canShareFiles = '不支持';
+try { pdf(); canShareFiles = navigator.canShare ? String(navigator.canShare({ files: [file] })) : 'navigator.canShare 不存在'; } catch (e) { canShareFiles = '出错：' + e.message; }
+let inFrame = '否'; try { inFrame = window.self !== window.top ? '是' : '否'; } catch { inFrame = '是（跨域）'; }
+const ENV = {
+  '系统': /iPhone|iPad|iPod/.test(UA) ? 'iOS' : /HarmonyOS/.test(UA) ? '鸿蒙' : /Android/.test(UA) ? 'Android' : /Mac/.test(UA) ? 'Mac' : /Windows/.test(UA) ? 'Windows' : '其他',
+  '在微信里': /MicroMessenger/i.test(UA) ? ('是 ' + ((UA.match(/MicroMessenger\/([\d.]+)/) || [])[1] || '')) : (/wxwork/i.test(UA) ? '企业微信' : '否'),
+  '内核': (UA.match(/(XWEB|TBS|MMWEBSDK)\/?[\w.]*/g) || []).join(' ') || '—',
+  'navigator.share': typeof navigator.share === 'function' ? '有' : '没有',
+  '能分享 PDF 文件': canShareFiles,
+  'a[download]': 'download' in document.createElement('a') ? '有' : '没有',
+  '嵌在框里': inFrame,
+  'UA': UA,
+};
+$('#env').innerHTML = Object.entries(ENV).map(([k, v]) => `<tr><td>${k}</td><td>${String(v).replace(/</g, '&lt;')}</td></tr>`).join('');
+
+// 各种保存办法
+const TESTS = [
+  ['dl-blob', '下载 PDF（blob 链接）', '应该开始下载，或弹出「保存 / 下载」', () => { const u = URL.createObjectURL(pdf()); const a = document.createElement('a'); a.href = u; a.download = 'learn-inside-test.pdf'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); }],
+  ['dl-data', '下载 PDF（data 链接）', '同上，换一种写法', async () => { const a = document.createElement('a'); a.href = await dataUrl(); a.download = 'learn-inside-test.pdf'; document.body.appendChild(a); a.click(); a.remove(); }],
+  ['share', '系统分享 PDF', '应该弹出系统分享面板（存储到文件 / 微信 / 打印）', async () => { if (!navigator.share) throw new Error('没有 navigator.share'); await navigator.share({ files: [file], title: '检测' }); }],
+  ['open', '在新窗口打开 PDF', '应该打开 PDF 预览，可以再从右上角菜单保存', () => { const u = URL.createObjectURL(pdf()); const w = window.open(u, '_blank'); if (!w) throw new Error('新窗口被拦截'); }],
+  ['nav', '在当前页打开 PDF', '会离开这个页面显示 PDF；看完点返回回来', () => { location.href = URL.createObjectURL(pdf()); }],
+  ['print', '打印（window.print）', '应该弹出打印对话框', () => { window.print(); }],
+];
+const res = {};
+$('#tests').innerHTML = '<b>逐个试</b>' + TESTS.map(([id, name, hint]) => `<div class="t" id="t-${id}"><button data-run="${id}">${name}</button>
+  <span class="r">${hint}</span><span class="r" id="r-${id}"></span>
+  <div class="ask">${['成功', '没反应', '出错'].map((v) => `<button class="ghost" data-id="${id}" data-v="${v}">${v}</button>`).join('')}</div></div>`).join('');
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-run]');
+  if (b) {
+    const [id, , , fn] = TESTS.find((t) => t[0] === b.dataset.run);
+    const r = $('#r-' + id);
+    try { await fn(); r.className = 'r ok'; r.textContent = '已调用，没有报错。请看手机上出现了什么，在下面选一个。'; res[id] = { ...(res[id] || {}), js: '调用成功' }; }
+    catch (err) { r.className = 'r bad'; r.textContent = '报错：' + (err && (err.name + ' ' + err.message)); res[id] = { ...(res[id] || {}), js: '报错 ' + (err && err.name) }; }
+    out(); return;
+  }
+  const a = e.target.closest('[data-v]');
+  if (a) {
+    a.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === a));
+    res[a.dataset.id] = { ...(res[a.dataset.id] || {}), 你看到: a.dataset.v }; out();
+  }
+});
+function out() {
+  const lines = ['【保存 PDF 检测】', ...Object.entries(ENV).filter(([k]) => k !== 'UA').map(([k, v]) => `${k}：${v}`),
+    ...TESTS.map(([id, name]) => `${name}：${res[id] ? [res[id].你看到 || '没选', res[id].js || '没点'].join('，') : '没试'}`), 'UA：' + UA];
+  $('#out').value = lines.join('\n');
+}
+out();
+$('#copy').onclick = async () => { const t = $('#out'); try { await navigator.clipboard.writeText(t.value); $('#copy').textContent = '已复制'; } catch { t.focus(); t.select(); $('#copy').textContent = '请长按文字复制'; } };
+</script>
+</body>
+</html>
