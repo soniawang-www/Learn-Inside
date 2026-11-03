@@ -72,6 +72,9 @@ const MIGRATIONS = [
   'ALTER TABLE exam_session ADD COLUMN title TEXT', 'ALTER TABLE exam_session ADD COLUMN kp_id TEXT',
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
+  // 错题打印链接（微信里不能存文件时，换到浏览器打开；24 小时有效）
+  `CREATE TABLE IF NOT EXISTS print_job (token TEXT PRIMARY KEY, student_id TEXT NOT NULL REFERENCES student(id),
+     payload TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)`,
   ...BILLING_MIGRATIONS,
 ];
 // 每次都执行的数据修正（幂等）

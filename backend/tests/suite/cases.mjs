@@ -127,6 +127,11 @@ export const FEATURES = [
     { id: 'F2-3', name: '不在错题本里的题（没做过）不给，防止先看答案', run: async (c) => { const r = await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: ['amc8-2010-p01', 'amc8-2010-p02'] }); return r.status === 200 ? r.data.items.length : r.status; }, expect: { guest: 403, user: 0, member: 0 } },
     { id: 'F2-4', name: '打印别人家孩子的错题', run: async (c) => st(await c.post(`/math/api/students/${c.outsider.sid}/mistakes/print`, { problem_ids: [P25(3)] })), expect: { guest: 403, user: 404, member: 404 } },
     { id: 'F2-5', name: '一次超过 60 题', run: async (c) => st(await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: Array.from({ length: 61 }, (_, i) => `x-${i}`) })), expect: { guest: 403, user: 400, member: 400 } },
+    { id: 'F2-6', name: '生成打印链接（安卓微信里换到浏览器用）', run: async (c) => { const r = await c.post(`/math/api/students/${c.sid}/mistakes/print-link`, { problem_ids: [P25(3)], title: 't', sub: 's', with_ans: true, space: true, lang: 'zh' }); c.printTok = r.data.token; return r.status === 200 ? /^[0-9a-f]{64}$/.test(r.data.token) && Math.round((r.data.expires_at - Date.now()) / 3600000) === 24 : r.status; }, expect: { guest: 403, user: true, member: true } },
+    { id: 'F2-7', name: '不登录用打印链接取题：题、答案和打印选项都在', run: async (c) => { if (!c.printTok) return 'skip'; const r = await c.anon(`/math/api/print/${c.printTok}`); const x = r.data.items?.[0]; return r.status === 200 && r.data.items.length === 1 && x.problem_id === P25(3) && !!x.answer && r.data.lang === 'zh' && r.data.with_ans === true && r.data.problem_ids === undefined; }, expect: { guest: 'skip', user: true, member: true } },
+    { id: 'F2-8', name: '乱写的打印链接', run: async (c) => st(await c.anon('/math/api/print/' + '0'.repeat(64))), expect: same(404) },
+    { id: 'F2-9', name: '给别人家孩子生成打印链接', run: async (c) => st(await c.post(`/math/api/students/${c.outsider.sid}/mistakes/print-link`, { problem_ids: [P25(3)] })), expect: { guest: 403, user: 404, member: 404 } },
+    { id: 'F2-10', name: '打印链接只收错题本里的题', run: async (c) => st(await c.post(`/math/api/students/${c.sid}/mistakes/print-link`, { problem_ids: ['amc8-2010-p01'] })), expect: { guest: 403, user: 400, member: 400 } },
   ] },
 
   // ───────── G 免费次数 ─────────

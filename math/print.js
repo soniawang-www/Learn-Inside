@@ -173,6 +173,7 @@ function area() {
   return a;
 }
 export function closePreview() {
+  if (restoreUrl) { try { history.replaceState(null, '', restoreUrl); } catch {} restoreUrl = null; }
   const a = document.getElementById('printArea');
   if (a) { a.hidden = true; a.innerHTML = ''; }
   document.body.classList.remove('printing');
@@ -194,6 +195,7 @@ export function openPreview(opts, h) {
   a.querySelector('#pvPrint').onclick = () => { try { window.print(); } catch {} };
   const pdfBtn = a.querySelector('#pvPdf');
   pdfBtn.onclick = async () => {
+    if (opts.link && needsBrowser()) return linkFlow(tip, opts);
     pdfBtn.disabled = true; pdfBtn.textContent = '正在生成……';
     tip.textContent = `正在把 ${opts.items.length} 道题排成 A4 页，题多的话要等一会儿。`;
     let canvases, blob;
@@ -206,6 +208,27 @@ export function openPreview(opts, h) {
     saveOptions({ tip, canvases, blob, title: opts.title, file: opts.file });
     pdfBtn.disabled = false; pdfBtn.textContent = '存成 PDF';
   };
+}
+
+// 安卓、鸿蒙的微信 / 企业微信里不能下载文件（苹果微信实测可以），要换到手机浏览器打开再存
+export const needsBrowser = () => /MicroMessenger|wxwork/i.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent);
+let restoreUrl = null;
+async function linkFlow(tip, opts) {
+  tip.textContent = '正在生成打印链接……';
+  let url;
+  try { url = await opts.link(); }
+  catch (e) { tip.textContent = `没能生成打印链接：${e.message}`; return; }
+  // 微信右上角「在浏览器打开」打开的是当前网址，所以把打印链接换到地址栏
+  if (!restoreUrl) restoreUrl = location.href;
+  try { history.replaceState(null, '', url); } catch {}
+  tip.innerHTML = '';
+  const head = el('div'); head.innerHTML = '微信里不能直接保存文件。请点右上角 <b>「···」</b>，选 <b>「在浏览器打开」</b>，在浏览器里点「存成 PDF」就能保存。';
+  const box = el('div', 'pv-save'), note = el('div', null, '这个链接 24 小时内有效，不用登录就能打开，请不要转发给不认识的人。');
+  const cp = el('button', 'btn ghost', '复制链接');
+  const show = () => { if (!box.querySelector('.pv-link')) box.appendChild(el('div', 'pv-link', url)); cp.textContent = '长按上面的链接复制'; };
+  cp.onclick = async () => { try { await navigator.clipboard.writeText(url); cp.textContent = '已复制，粘贴到手机浏览器打开'; } catch { show(); } };
+  box.appendChild(cp);
+  tip.append(head, box, note);
 }
 
 /** 生成 PDF 后按设备给保存办法：手机能分享文件就用系统分享，其他一律直接下载 PDF（不用图片兜底） */

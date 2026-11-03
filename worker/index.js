@@ -651,25 +651,25 @@ route('GET', '/api/students/:id/graph', async (req, env, p) => {
 // 打印错题：给错题本里的题（按请求顺序）题干、选项、图、答案和解题思路，拼练习单用。
 // 只给这个孩子错题本里的题：没做过、做对过但没错过的题一律不给（防止拿来先看答案）。
 const PRINT_MAX = 60;
-route('POST', '/api/students/:id/mistakes/print', async (req, env, p) => {
-  const acc = await requireAccount(req, env);
-  requireRegistered(acc);
-  const st = await requireStudent(env, acc, p.id);
-  const { problem_ids } = await body(req);
+const PRINT_LINK_MS = 24 * 3600 * 1000;
+function printIds(problem_ids) {
   if (!Array.isArray(problem_ids) || !problem_ids.length) throw new HttpError(400, '没有要打印的题');
   if (problem_ids.length > PRINT_MAX) throw new HttpError(400, `一次最多打印 ${PRINT_MAX} 题`);
-  const book = new Map((await mistakeBook(env, st.id)).map((m) => [m.problem_id, m]));
-  const ids = [...new Set(problem_ids.map(String))].filter((id) => book.has(id));
-  if (!ids.length) return json({ student: { id: st.id, nickname: st.nickname }, items: [] });
-  const q = ids.map(() => '?').join(',');
+  return [...new Set(problem_ids.map(String))];
+}
+/** 这个孩子错题本里的这些题（按给定顺序）的打印内容 */
+async function printItems(env, studentId, wanted) {
+  const book = new Map((await mistakeBook(env, studentId)).map((m) => [m.problem_id, m]));
+  const ids = wanted.filter((id) => book.has(id));
+  if (!ids.length) return [];
   const { results } = await env.DB
     .prepare(`SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, e.title AS exam_title, sb.content AS basic
                 FROM problem p JOIN exam e ON e.id = p.exam_id
                 LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic'
-               WHERE p.id IN (${q})`)
+               WHERE p.id IN (${ids.map(() => '?').join(',')})`)
     .bind(...ids).all();
   const by = new Map(results.map((r) => [r.id, r]));
-  const items = ids.filter((id) => by.has(id)).map((id) => {
+  return ids.filter((id) => by.has(id)).map((id) => {
     const r = by.get(id), m = book.get(id);
     return {
       problem_id: id, label: labelOf(r), stem: r.stem, stem_zh: r.stem_zh, figure: r.figure,
@@ -677,7 +677,41 @@ route('POST', '/api/students/:id/mistakes/print', async (req, env, p) => {
       answer: r.answer, basic: r.basic ?? null, status: m.status, types: m.types, kps: m.kps,
     };
   });
-  return json({ student: { id: st.id, nickname: st.nickname }, items });
+}
+route('POST', '/api/students/:id/mistakes/print', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  requireRegistered(acc);
+  const st = await requireStudent(env, acc, p.id);
+  const ids = printIds((await body(req)).problem_ids);
+  return json({ student: { id: st.id, nickname: st.nickname }, items: await printItems(env, st.id, ids) });
+});
+// 打印链接：微信（安卓 / 鸿蒙）里不能保存文件，换到手机浏览器打开这个链接再存 PDF。
+// 外面的浏览器没有登录状态，所以凭链接里的随机凭证取题；只含这一次要打印的错题，24 小时后失效。
+route('POST', '/api/students/:id/mistakes/print-link', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  requireRegistered(acc);
+  const st = await requireStudent(env, acc, p.id);
+  const b = await body(req);
+  const ids = printIds(b.problem_ids);
+  const book = new Set((await mistakeBook(env, st.id)).map((m) => m.problem_id));
+  const keep = ids.filter((id) => book.has(id));
+  if (!keep.length) throw new HttpError(400, '没有要打印的错题');
+  const token = (uid() + uid()).replace(/-/g, '');
+  const t = now();
+  const payload = {
+    problem_ids: keep, title: String(b.title || `${st.nickname}的错题本`).slice(0, 60), sub: String(b.sub || '').slice(0, 80),
+    with_ans: !!b.with_ans, space: !!b.space, lang: ['en', 'zh', 'both'].includes(b.lang) ? b.lang : 'en',
+  };
+  await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
+  await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(token, st.id, JSON.stringify(payload), t, t + PRINT_LINK_MS).run();
+  return json({ token, expires_at: t + PRINT_LINK_MS });
+});
+route('GET', '/api/print/:token', async (_req, env, p) => {
+  const job = await env.DB.prepare('SELECT * FROM print_job WHERE token = ?').bind(p.token).first();
+  if (!job || job.expires_at < now()) throw new HttpError(404, '这个打印链接已经失效（24 小时有效），请回到错题本重新打印');
+  const pl = parseJ(job.payload, {});
+  return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, items: await printItems(env, job.student_id, pl.problem_ids || []) });
 });
 
 // 错题本：做错过（含未作答）的题，按最近一次错误后的表现分阶段

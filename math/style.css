@@ -1169,3 +1169,4 @@ body.net-wait::before { opacity: 1; animation: net-bar 1.6s ease-out infinite; }
   .pv-doc { padding:0; }
   .sheet { max-width:none; }
 }
+.pv-link { flex-basis:100%; word-break:break-all; user-select:all; -webkit-user-select:all; background:#fff; border:1px solid #cfe0dc; border-radius:8px; padding:6px 8px; font-size:.8rem; }

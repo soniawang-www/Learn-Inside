@@ -3,6 +3,7 @@
 import { mountPlayer } from './player.js';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
+const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
 
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
@@ -210,6 +211,8 @@ async function router() {
   const [, page, id, sub] = (location.hash.slice(1) || '/').split('?')[0].split('/');
   const dim = setTimeout(() => $app.classList.add('page-wait'), 150); // 换页时旧页面变淡、不能点
   try {
+    const printTok = new URLSearchParams(location.search).get('print');
+    if (printTok) return await renderPrintLink(printTok);
     if (!auth.token) return renderJoin();
     if (page === 'exam') return await renderExam(id);
     if (page === 'review') return await renderReview(id);
@@ -1197,12 +1200,37 @@ function bindPrintPanel(box, list, redraw) {
       const r = await api(`/math/api/students/${auth.student.id}/mistakes/print`, { method: 'POST', body: { problem_ids: items.map((m) => m.problem_id) } });
       if (!r.items?.length) throw new Error('没有取到题目');
       const desc = prScope === 'all' ? '全部错题' : prDesc();
+      const title = `${msCtx.nickname}的错题本`, sub = `${desc} · 共 ${r.items.length} 题`;
+      const withAns = prAns, space = prSpace, L = lang.get();
+      let link = null; // 安卓微信里用：同一次预览只生成一个链接
       openPreview({
-        title: `${msCtx.nickname}的错题本`, sub: `${desc} · 共 ${r.items.length} 题`, items: r.items,
-        withAns: prAns, space: prSpace, file: 'mistakes',
-      }, { esc, rich, stemHtml, isFig, lang: () => lang.get(), typeset });
+        title, sub, items: r.items, withAns, space, file: 'mistakes',
+        link: async () => link ||= printLinkUrl((await api(`/math/api/students/${auth.student.id}/mistakes/print-link`, { method: 'POST',
+          body: { problem_ids: r.items.map((x) => x.problem_id), title, sub, with_ans: withAns, space, lang: L } })).token),
+      }, { esc, rich, stemHtml, isFig, lang: () => L, typeset });
     } catch (err) { btn.disabled = false; modal(`<h2>没能打开打印预览</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
   };
 }
+
+// 打印链接（微信里换到浏览器打开）：不用登录，凭链接取题，直接打开打印预览
+async function renderPrintLink(token) {
+  const page = (body) => { $app.innerHTML = `<main class="page"><div class="card" style="max-width:560px;margin:40px auto">${body}</div></main>`; };
+  let d;
+  try {
+    const r = await fetch(`/math/api/print/${encodeURIComponent(token)}`);
+    d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `请求失败 (${r.status})`);
+  } catch (e) { return page(`<h2>打不开这张练习单</h2><p>${esc(e.message)}</p><a class="btn primary" href="/math/#/mistakes">去错题本</a>`); }
+  const L = d.lang || 'en';
+  const open = () => openPreview({
+    title: d.title, sub: d.sub, items: d.items, withAns: d.with_ans, space: d.space, file: 'mistakes',
+    link: async () => printLinkUrl(token), onClose: closed,
+  }, { esc, rich, stemHtml: (p) => withLang(L, () => stemHtml(p)), isFig, lang: () => L, typeset });
+  const closed = () => { page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub)} · 链接 ${fmtDate(d.expires_at)} 前有效</p><div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="reopen">打开打印预览</button><a class="btn" href="/math/#/mistakes">去错题本</a></div>`); $app.querySelector('#reopen').onclick = open; };
+  if (!d.items?.length) return page('<h2>这张练习单没有题</h2><a class="btn primary" href="/math/#/mistakes">去错题本</a>');
+  closed(); open();
+}
+/** 临时按指定语言出题干（打印链接用链接里的语言，不改本机设置） */
+function withLang(L, fn) { const g = lang.get; lang.get = () => L; try { return fn(); } finally { lang.get = g; } }
 
 router();

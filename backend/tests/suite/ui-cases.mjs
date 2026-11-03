@@ -2,6 +2,7 @@
 // run(page, ctx) 返回观察值；expect 同 cases.mjs。ctx.go(hash) 打开页面，ctx.text(sel) 取文字。
 
 const same = (v) => ({ guest: v, user: v, member: v });
+const WX_ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; V2309A Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.103 Mobile Safari/537.36 XWEB/1300333 MMWEBSDK/20241103 MMWEBID/1234 MicroMessenger/8.0.54.2760(0x28003637) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64';
 const WX_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.50';
 
 export const UI_FEATURES = [
@@ -94,6 +95,24 @@ export const UI_FEATURES = [
       await p.emulateMedia({ media: 'screen' }); await p.click('#pvClose');
       return ok && (await p.locator('#printArea').isHidden());
     }, expect: { guest: '注册提示', user: true, member: true } },
+    { id: 'U3-7', name: '安卓微信「存成 PDF」→ 提示在浏览器打开；没登录的浏览器打开链接直接进打印预览，题数一致', run: async (p, c) => {
+      const token = await p.evaluate(() => localStorage.getItem('li.token')), student = await p.evaluate(() => localStorage.getItem('li.student'));
+      const b = p.context().browser();
+      const wx = await b.newContext({ userAgent: WX_ANDROID_UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const q = await wx.newPage();
+      await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', t); localStorage.setItem('li.student', s); }, [token, student]);
+      await q.goto(c.base + '/math/#/mistakes'); await q.reload(); await q.waitForTimeout(900);
+      if (await q.locator('.reg-wall').count()) { await wx.close(); return '注册提示'; }
+      await q.click('[data-ms-print]'); await q.click('[data-pr-scope="all"]'); await q.click('#pr-go'); await q.waitForSelector('#pvSheet .it');
+      const n = await q.locator('#pvSheet .it').count();
+      await q.click('#pvPdf'); await q.waitForFunction(() => /在浏览器打开/.test(document.querySelector('#pvTip')?.textContent || ''));
+      const url = q.url(); const okUrl = /\/math\/\?print=[0-9a-f]{64}$/.test(url);
+      await q.click('#pvClose'); const restored = !q.url().includes('print='); await wx.close();
+      const ext = await b.newContext({ viewport: { width: 390, height: 844 } }); const r = await ext.newPage(); // 手机浏览器：没有登录状态
+      await r.goto(url); await r.waitForSelector('#pvSheet .it', { timeout: 15000 });
+      const m = await r.locator('#pvSheet .it').count(), loggedOut = !(await r.evaluate(() => localStorage.getItem('li.token')));
+      await ext.close();
+      return `${okUrl}/${restored}/${m === n && n > 0}/${loggedOut}`;
+    }, expect: { guest: '注册提示', user: 'true/true/true/true', member: 'true/true/true/true' } },
   ] },
   { id: 'U4', area: '界面', name: '会员内容的锁', cases: [
     { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('[data-drill] .ic-lock').count()) > 0 ? 'locked' : 'open'; }, expect: { guest: '注册提示', user: 'locked', member: 'open' } },
