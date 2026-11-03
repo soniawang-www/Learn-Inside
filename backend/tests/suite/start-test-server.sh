@@ -1,10 +1,10 @@
 #!/bin/bash
 # 起一套给标准测试用的本地环境（不连真实支付宝）：
 #   测试密钥 + 假支付宝网关(8799) + 正式收费模式的 wrangler dev(8788) + 导入真题
-# 用法：backend/tests/suite/start-test-server.sh <amc8-data 目录> [工作目录，默认 /tmp/suite]
+# 用法：backend/tests/suite/start-test-server.sh <math-data 目录> [工作目录，默认 /tmp/suite]
 # 然后：node backend/tests/suite/run.mjs http://127.0.0.1:8788 <工作目录> --ui --report 报告.md
 set -e
-DATA=${1:?请给出 amc8-data 仓库目录}
+DATA=${1:?请给出 math-data 仓库目录}
 WORK=${2:-/tmp/suite}
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 mkdir -p "$WORK"
@@ -29,7 +29,7 @@ python3 - "$DATA" <<'PY'
 import json, glob, sys, urllib.request
 d = sys.argv[1]
 u = json.load(open(f'{d}/knowledge/units.json'))
-ex = [json.load(open(f)) for f in sorted(glob.glob(f'{d}/exams/amc8-*.json') + glob.glob(f'{d}/exams/hope-*.json'))]
+ex = [json.load(open(f)) for f in sorted(glob.glob(f"{d}/exams/*/*.json"))]
 for e in ex: e['published'] = True
 r = urllib.request.Request('http://127.0.0.1:8788/math/api/admin/import', data=json.dumps({'points': u['points'], 'edges': u['edges'], 'prune': True, 'exams': ex}).encode(),
                            headers={'content-type': 'application/json', 'x-admin-key': 'localtest'})

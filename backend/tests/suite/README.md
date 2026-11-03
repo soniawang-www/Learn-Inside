@@ -17,8 +17,8 @@
 ## 运行
 
 ```bash
-# 1. 起测试环境（需要私有题库仓库 amc8-data）
-backend/tests/suite/start-test-server.sh ../amc8-data /tmp/suite
+# 1. 起测试环境（需要私有题库仓库 math-data）
+backend/tests/suite/start-test-server.sh ../math-data /tmp/suite
 
 # 2. 跑接口 + 界面用例，生成报告
 node backend/tests/suite/run.mjs http://127.0.0.1:8788 /tmp/suite --ui --report backend/tests/suite/REPORT.md

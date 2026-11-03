@@ -44,11 +44,11 @@ backend/                 开发用（不公开）
 
 ## 导入真题（推荐方式）
 
-真题放在私有仓库 `soniawang-www/amc8-data`，**不要放进这个公开仓库**。
+真题放在私有仓库 `soniawang-www/math-data`（原名 amc8-data），**不要放进这个公开仓库**。
 
 1. 打开 `https://learn-inside.com/admin/import.html`
 2. 填管理员密钥（Cloudflare 里设置的 Secret `ADMIN_KEY`）
-3. 选择 `amc8-data/exams/` 下的试卷 JSON（可多选），页面会先显示题数和答案串，确认后点「导入」
+3. 选择 `math-data/exams/<考试>/` 下的试卷 JSON（可多选），页面会先显示题数和答案串，确认后点「导入」
 
 同一套试卷可以反复导入：题目内容会更新，孩子的作答记录不受影响。
 
@@ -99,7 +99,7 @@ backend/                 开发用（不公开）
 
 模块（8 个）→ 知识项（30 个，备考和统计的单位）→ 题型。知识项之间的前置关系在 `kp_edge`，画像里知识项薄弱且它的前置也薄弱时，提示先补前置。
 
-私有仓库 `amc8-data/knowledge/units.json` 是完整的知识项体系（由 `build_units.py` 生成），在 admin.html 导入时会整体替换前置关系、删除不在里面的旧知识点，并重算所有学生的画像。试卷的 `kps`/`types` 由 `amc8-data/tools/retag.py` 按 `knowledge/tags_amc8.txt` 生成。
+私有仓库 `math-data/knowledge/units.json` 是完整的知识项体系（由 `build_units.py` 生成），在 admin.html 导入时会整体替换前置关系、删除不在里面的旧知识点，并重算所有学生的画像。试卷的 `kps`/`types` 由 `math-data/tools/amc8/retag.py` 按 `knowledge/tags_amc8.txt` 生成。
 
 ### 知识项内容
 

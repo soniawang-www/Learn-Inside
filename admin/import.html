@@ -14,7 +14,7 @@
   <div class="page" style="max-width:640px">
     <h1>题库导入</h1>
     <div class="card">
-      <p class="small muted">选择私有仓库 <code>amc8-data</code> 里的 JSON 文件导入：<code>exams/</code> 下的试卷，和 <code>knowledge/units.json</code>（知识项体系：模块、知识项、前置关系、题型、识别信号）。导入 units.json 会整体替换前置关系，并删除不在里面的旧知识点；之后所有学生的画像按新考点重算。可以一次多选，反复导入不影响孩子的作答记录。建议先导入 units.json，再导入试卷（也可以一起选）。</p>
+      <p class="small muted">选择私有仓库 <code>math-data</code> 里的 JSON 文件导入：<code>exams/</code> 下各考试文件夹里的试卷，和 <code>knowledge/units.json</code>（知识项体系：模块、知识项、前置关系、题型、识别信号）。导入 units.json 会整体替换前置关系，并删除不在里面的旧知识点；之后所有学生的画像按新考点重算。可以一次多选，反复导入不影响孩子的作答记录。建议先导入 units.json，再导入试卷（也可以一起选）。</p>
       <label class="field"><span>管理员密钥（ADMIN_KEY）</span><input type="text" id="key" autocomplete="off" spellcheck="false"></label>
       <label class="field"><span>文件（可多选）</span><input type="file" id="files" accept=".json,application/json" multiple></label>
       <div id="preview" class="small"></div>
@@ -38,7 +38,7 @@
           lines.push(`✓ ${f.name}：知识项 ${d.points.filter((p) => p.parent).length} 个、模块 ${d.points.filter((p) => !p.parent).length} 个（识别信号 ${d.points.filter((p) => p.signals?.length).length}，前置关系 ${d.edges ? d.edges.length : '—'}）${d.edges ? '，会删除不在这个文件里的旧知识点' : ''}`);
         } else if (d.id && Array.isArray(d.problems)) {
           exams.push(d);
-          lines.push(`✓ ${f.name}：${d.title}（${d.problems.length} 题，答案 ${d.problems.map((p) => p.answer).join('')}，互动解析 ${d.problems.filter((p) => p.advanced).length} 题）`);
+          lines.push(`✓ ${f.name}：${d.title}（${d.problems.length} 题，答案 ${d.problems.map((p) => p.answer).join(d.problems.some((p) => !Object.keys(p.choices || {}).length) ? ' ' : '')}，互动解析 ${d.problems.filter((p) => p.advanced).length} 题）`);
         } else throw new Error('不是试卷或知识点文件');
       } catch (e) { lines.push(`✗ ${f.name}：${e.message}`); }
     }
