@@ -255,7 +255,10 @@ function saveOptions({ tip, canvases, blob, title, file }) {
   } else {
     // 电脑、微信（实测苹果微信能下载）和其他不能分享文件的浏览器：直接下载 PDF
     box.appendChild(saveBtn('plum'));
-    note.textContent = isMobile
+    const iosWx = /MicroMessenger|wxwork/i.test(navigator.userAgent) && /iPhone|iPad|iPod/.test(navigator.userAgent);
+    note.textContent = iosWx
+      ? '点「保存到本地」会打开 PDF 预览，再点右上角的菜单，就可以保存到手机、发给别人或打印。'
+      : isMobile
       ? '点「保存到本地」保存 PDF。如果出现 PDF 预览，可以从右上角的菜单保存到手机、发给别人或打印。'
       : '点「保存到本地」，PDF 会下载到电脑的「下载」文件夹，打开后就可以打印。';
   }
