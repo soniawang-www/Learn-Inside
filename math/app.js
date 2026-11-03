@@ -96,7 +96,12 @@ function choiceHtml(p, k) {
   if (L === 'zh') return rich(zh);
   return `${rich(en)}<span class="zh-inline">${rich(zh)}</span>`;
 }
-const figChoices = (p) => Object.values(p.choices).every(isFig);
+const figChoices = (p) => { const v = Object.values(p.choices || {}); return v.length > 0 && v.every(isFig); };
+/** 填空题：没有选项 */
+const isFillP = (p) => !Object.keys(p.choices || {}).length;
+/** 有没有英文原题（希望数学是纯中文卷：不显示语言切换、题号写「第 N 题」） */
+const hasEn = (list) => list.some((p) => p.stem_zh);
+const qLabel = (n, en) => (en ? `Problem ${n}` : `第 ${n} 题`);
 function typeset(el = document.body) {
   if (!window.renderMathInElement) { setTimeout(() => typeset(el), 60); return; }
   window.renderMathInElement(el, {
@@ -590,6 +595,8 @@ async function renderHome() {
 }
 
 // ───────── 一种考试：试卷 / 考情 / 成绩记录 ─────────
+const GRADE = { 1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级', 5: '五年级', 6: '六年级', 7: '初一', 8: '初二' };
+const contestGrade = {}; // 分年级的考试：每种考试记住选的年级
 async function renderContest(fid, tab = 'exams') {
   const st = auth.student;
   const d = await api(`/math/api/families/${enc(fid)}?student=${st.id}`);
@@ -597,11 +604,14 @@ async function renderContest(fid, tab = 'exams') {
   const TABS = [['exams', '试卷'], ['stats', '考情'], ['records', '成绩记录']];
   tab = TABS.some((t) => t[0] === tab) ? tab : 'exams';
   let body = '';
-  const exams = await apiList(`/math/api/exams?student=${st.id}&family=${enc(fid)}`);
+  const allExams = await apiList(`/math/api/exams?student=${st.id}&family=${enc(fid)}`);
+  const grades = f.grades ? [...new Set(allExams.map((e) => e.grade).filter(Boolean))].sort((a, b) => a - b) : [];
+  if (grades.length && !grades.includes(contestGrade[fid])) contestGrade[fid] = grades[0];
+  const exams = grades.length ? allExams.filter((e) => e.grade === contestGrade[fid]) : allExams;
   if (tab === 'exams') {
-    body = exams.length ? `<div class="exam-grid">
+    body = exams.length ? `${grades.length ? `<div class="ms-tabs grade-tabs">${grades.map((g) => `<button class="${g === contestGrade[fid] ? 'on' : ''}" data-grade="${g}">${GRADE[g] || g + ' 年级'}</button>`).join('')}</div>` : ''}<div class="exam-grid">
       ${exams.map((e) => `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
-        <div class="et-top"><span class="et-year">${e.year || ''}</span>
+        <div class="et-top"><span class="et-year">${f.grades ? esc(e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/\s+/g, ' ').trim()) : e.year || ''}</span>
           ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
         <div class="small muted">${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div>
         <div class="et-btns">
@@ -641,18 +651,21 @@ async function renderContest(fid, tab = 'exams') {
     ${body}
   </main>`;
   $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode)));
+  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[fid] = +b.dataset.grade; renderContest(fid, tab); }));
 }
 
 function showInstructions(exam, mode) {
   const mins = Math.round(exam.duration_sec / 60);
   modal(`<div class="instructions"><h2>${esc(exam.title)} · ${mode === 'exam' ? '模考' : '练习'}</h2>
     <ol>
-      <li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
+      ${exam.id.startsWith('hope-') ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4。</li>
+      <li>答对 1 题得 1 分，答错不扣分。</li>
+      <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
       <li>答对 1 题得 1 分，答错不扣分，所以每题都值得作答。</li>
       <li>只允许使用草稿纸、笔、直尺和橡皮；不能用计算器、量角器、圆规或任何电子设备。</li>
       <li>图形不一定按比例绘制。</li>
       <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
-      ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}
+      ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}`}
     </ol></div>
     <div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="go">开始答题</button></div>`,
   (el, close) => {
@@ -674,6 +687,7 @@ async function renderExam(sid) {
   const problems = data.problems;
   const clockOffset = data.session.server_now - Date.now();
   const practice = data.session.mode === 'practice';
+  const en = hasEn(problems);
   let enteredAt = Date.now();
   let submitting = false;
   let cardOpen = false; // 窄屏时答题卡默认收起
@@ -705,7 +719,7 @@ async function renderExam(sid) {
         <span class="ez-user">${icon('account', 15)}${esc(auth.student?.nickname || '')}</span>
         <span class="ez-title">${esc(data.exam.title)}${practice ? '<span class="ez-mode">练习</span>' : ''}</span>
         <span class="ez-sp"></span>
-        <button class="ez-tool" id="lang" title="切换题目语言">${icon('globe', 15)}${LANGS[lang.get()]}</button>
+        ${en ? `<button class="ez-tool" id="lang" title="切换题目语言">${icon('globe', 15)}${LANGS[lang.get()]}</button>` : ''}
         <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
         <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
         <span class="ez-timer" id="timer">剩余时间 <b>--:--</b></span>
@@ -725,7 +739,8 @@ async function renderExam(sid) {
               <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">${icon('flag', 14)}${S.flags[p.id] ? '已标记' : '标记'}</button></div>
             <div class="ez-stem">${stemHtml(p)}</div>
             ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
-            <ul class="ez-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="ez-opt ${S.answers[p.id] === k ? 'sel' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${choiceHtml(p, k)}</span></li>`).join('')}</ul>
+            ${isFillP(p) ? `<label class="ez-fill"><span>答</span><input id="fill" type="text" autocomplete="off" enterkeyhint="next" maxlength="40" value="${esc(S.answers[p.id] || '')}"></label>`
+              : `<ul class="ez-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="ez-opt ${S.answers[p.id] === k ? 'sel' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${choiceHtml(p, k)}</span></li>`).join('')}</ul>`}
             <div class="ez-nav">
               <button class="ez-btn" id="prev" ${S.cur === 0 ? 'disabled' : ''}>上一题</button>
               <button class="ez-btn next" id="next" ${S.cur === problems.length - 1 ? 'disabled' : ''}>下一题</button>
@@ -742,12 +757,24 @@ async function renderExam(sid) {
 
     $app.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => go(+b.dataset.go)));
     $app.querySelectorAll('[data-choice]').forEach((c) => (c.onclick = () => { S.answers[p.id] = c.dataset.choice; save(); draw(); }));
+    const fill = $app.querySelector('#fill');
+    if (fill) {
+      // 只更新答题卡，不重画（重画会打断输入）
+      const mark = () => { const v = fill.value.trim(); if (v) S.answers[p.id] = v; else delete S.answers[p.id]; save();
+        const n = problems.filter((x) => S.answers[x.id]).length;
+        $app.querySelector(`[data-go="${S.cur}"]`)?.classList.toggle('done', !!v);
+        $app.querySelector('.ez-prow span:last-child').textContent = `${n}/${problems.length}`;
+        $app.querySelector('.ez-pbar div').style.width = `${(n / problems.length) * 100}%`; };
+      fill.addEventListener('input', mark);
+      fill.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(S.cur + 1); } });
+      if (matchMedia('(pointer:fine)').matches) fill.focus();
+    }
     $app.querySelector('#prev').onclick = () => go(S.cur - 1);
     $app.querySelector('#next').onclick = () => go(S.cur + 1);
     $app.querySelector('#flag').onclick = () => { S.flags[p.id] ? delete S.flags[p.id] : (S.flags[p.id] = true); save(); draw(); };
     $app.querySelector('#refresh').onclick = () => { flushTime(); save(); location.reload(); };
     $app.querySelector('#font').onclick = () => { S.big = !S.big; save(); draw(); };
-    $app.querySelector('#lang').onclick = () => { lang.next(); draw(); };
+    $app.querySelector('#lang')?.addEventListener('click', () => { lang.next(); draw(); });
     $app.querySelector('#cardbtn').onclick = () => { cardOpen = !cardOpen; draw(); };
     $app.querySelector('#mask')?.addEventListener('click', () => { cardOpen = false; draw(); });
     $app.querySelector('#submit').onclick = confirmSubmit;
@@ -764,7 +791,7 @@ async function renderExam(sid) {
     const fl = problems.filter((x) => S.flags[x.id]);
     modal(`<h2>确认交卷？</h2>
       <p>已答 <b>${problems.length - un.length}</b> 题，未答 <b style="color:var(--bad)">${un.length}</b> 题，标记 <b style="color:var(--flag)">${fl.length}</b> 题。</p>
-      ${un.length ? `<p class="small muted">未答：${un.map((x) => x.number).join('、')}。答错不扣分，空着的题建议也选一个。</p>` : ''}
+      ${un.length ? `<p class="small muted">未答：${un.map((x) => x.number).join('、')}。答错不扣分，空着的题建议也作答。</p>` : ''}
       <p class="small muted">交卷后不能再修改答案。</p>
       <div class="actions"><button class="btn" data-close>继续作答</button><button class="btn primary" id="yes">确认交卷</button></div>`,
     (el, close) => { el.querySelector('#yes').onclick = () => { close(); submit(false); }; });
@@ -782,7 +809,8 @@ async function renderExam(sid) {
   const onKey = (e) => {
     if ($modal.innerHTML || e.target.tagName === 'INPUT') return;
     const k = e.key.toUpperCase();
-    if (k.length === 1 && 'ABCDE'.includes(k)) { S.answers[problems[S.cur].id] = k; save(); draw(); }
+    const cp = problems[S.cur];
+    if (k.length === 1 && !isFillP(cp) && Object.prototype.hasOwnProperty.call(cp.choices, k)) { S.answers[cp.id] = k; save(); draw(); }
     else if (e.key === 'ArrowRight') go(S.cur + 1);
     else if (e.key === 'ArrowLeft') go(S.cur - 1);
   };
@@ -815,9 +843,10 @@ async function renderReview(sid) {
   if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {}
   const used = (r.session.submitted_at - r.session.started_at) / 1000;
   const wrong = r.items.filter((i) => !i.correct);
+  const en = hasEn(r.items);
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.mode === 'exam' ? '模考' : '练习'} · ${fmtDate(r.session.submitted_at)}</p></div>
-      <div class="row"><button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button></div></header>
+      ${en ? `<div class="row"><button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button></div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
@@ -835,12 +864,12 @@ async function renderReview(sid) {
     const cls = it.choice === null ? 'blank' : it.correct ? 'right' : 'wrong';
     return `<details class="ritem ${cls}" id="q${it.number}" ${it.correct ? '' : 'open'}>
       <summary><span class="mark">${it.correct ? '✓' : it.choice === null ? '–' : '✗'}</span>
-        <b>Problem ${it.number}</b>${r.session.mode !== 'exam' && r.exam.id === 'drill' ? `<span class="muted small">${esc(it.label)}</span>` : ''}
-        <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${it.choice}`}${it.correct ? '' : ` · 正确答案 ${it.answer}`}</span>
+        <b>${qLabel(it.number, en)}</b>${r.session.mode !== 'exam' && r.exam.id === 'drill' ? `<span class="muted small">${esc(it.label)}</span>` : ''}
+        <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${esc(it.choice)}`}${it.correct ? '' : ` · 正确答案 ${esc(it.answer)}`}</span>
         <span class="meta">${fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · 已标记' : ''}</span></summary>
       <div class="body">
         <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
-        <ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>
+        ${isFillP(it) ? fillResult(it.choice, it.answer, it.correct) : `<ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>`}
         ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
@@ -859,8 +888,10 @@ async function renderReview(sid) {
   }));
   bindKpCards($app);
   $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv)));
-  $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
+  $app.querySelector('#lang')?.addEventListener('click', () => { lang.next(); router(); });
 }
+/** 填空题的作答结果 */
+const fillResult = (mine, ans, ok) => `<div class="fill-res"><div class="${ok ? 'ok' : mine === null ? '' : 'bad'}"><span>你的答案</span><b>${mine === null ? '未作答' : esc(mine)}</b></div>${ok ? '' : `<div class="ok"><span>正确答案</span><b>${esc(ans)}</b></div>`}</div>`;
 
 // 题型：一道题属于哪几个题型（主题型加粗）
 const typeChips = (types) => (types?.length ? `<div class="type-chips"><span class="small muted">题型：</span>${types.map((t) => `<span class="tag ${t.w >= 1 ? 'main' : ''}">${esc(t.name)}</span>`).join('')}</div>` : '');
@@ -920,6 +951,7 @@ const bandName = (st) => { const b = st.bands; const m = Math.max(b.easy, b.mid,
 function statCard(st, years, famName = 'AMC 8') {
   if (!st) return '';
   const max = Math.max(...st.per_num, 1);
+  const nq = st.per_num.length, c1 = Math.round(nq * 0.4), c2 = Math.round(nq * 0.8); // 和后端的分段一致（AMC 8：10 / 20 / 25）
   const cell = (n, i) => `<i style="--a:${n ? 0.18 + 0.82 * n / max : 0}" title="第 ${i + 1} 题：${n} 次"></i>`;
   return `<div class="card"><h2>考情分析</h2>
     
@@ -929,9 +961,9 @@ function statCard(st, years, famName = 'AMC 8') {
       <div><span class="big">${st.from === st.to ? st.from : `${st.from}–${st.to}`}</span><span class="small muted">一般是第几题<br>一半落在这里 · 中位第 ${st.median} 题</span></div>
     </div>
     <div class="section-label">题号分布（颜色越深考得越多）</div>
-    <div class="st-strip">${st.per_num.map(cell).join('')}</div>
-    <div class="st-axis"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span></div>
-    <div class="st-bands small"><span>第 1–10 题（基础）<b>${st.bands.easy}%</b></span><span>11–20（中档）<b>${st.bands.mid}%</b></span><span>21–25（难题）<b>${st.bands.hard}%</b></span></div>
+    <div class="st-strip" style="grid-template-columns:repeat(${nq},1fr)">${st.per_num.map(cell).join('')}</div>
+    <div class="st-axis" style="grid-template-columns:repeat(${nq},1fr)">${[1, ...[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].filter((n) => n <= nq)].map((n) => `<span style="grid-column:${n}">${n}</span>`).join('')}</div>
+    <div class="st-bands small"><span>第 1–${c1} 题（基础）<b>${st.bands.easy}%</b></span><span>${c1 + 1}–${c2}（中档）<b>${st.bands.mid}%</b></span><span>${c2 + 1}–${nq}（难题）<b>${st.bands.hard}%</b></span></div>
     <div class="section-label">每年考了几题${years.includes(2020) && years.includes(2022) && !years.includes(2021) ? '<span class="small muted">（2021 年停办）</span>' : ''}</div>
     <div class="st-years">${years.map((y) => `<span class="${st.per_year[y] ? 'on' : ''}" title="${y}：${st.per_year[y] || 0} 题"><b>${st.per_year[y] || ''}</b><small>${String(y).slice(2)}</small></span>`).join('')}</div>
     <p class="small muted" style="margin-top:10px">${st.rate >= 80 ? '几乎每年必考，' : st.rate >= 50 ? '经常考，' : '不是每年都考，'}多出现在${bandName(st)}。</p>
@@ -1045,13 +1077,13 @@ async function renderProblem(id) {
   const done = p.attempted;
   $app.innerHTML = `${topnav()}<main class="page">
     <a href="javascript:history.back()" class="small">← 返回</a>
-    <header class="ph"><div><h1>${esc(p.label)}</h1></div><button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button></header>
+    <header class="ph"><div><h1>${esc(p.label)}</h1></div>${p.stem_zh ? `<button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button>` : ''}</header>
     <div class="cols half"><div class="card">
       <div class="stem">${stemHtml(p)}${p.figure ? `<div class="figure">${p.figure}</div>` : ''}</div>
-      <ul class="choices ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="choice ${done && k === p.answer ? 'correct' : done && k === p.last.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(p, k)}</span></li>`).join('')}</ul>
+      ${isFillP(p) ? (done ? fillResult(p.last.choice, p.answer, p.last.correct) : '') : `<ul class="choices ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="choice ${done && k === p.answer ? 'correct' : done && k === p.last.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(p, k)}</span></li>`).join('')}</ul>`}
     </div>
     ${done ? `<div class="card">
-        <p>${p.last.correct ? '✓ 上次做对了' : `✗ 上次${p.last.choice ? `选了 ${p.last.choice}` : '没作答'}，正确答案 <b>${p.answer}</b>`}</p>
+        <p>${p.last.correct ? '✓ 上次做对了' : `✗ 上次${p.last.choice ? `${isFillP(p) ? '填了' : '选了'} ${esc(p.last.choice)}` : '没作答'}，正确答案 <b>${esc(p.answer)}</b>`}</p>
         ${p.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(p.basic)}</div>` : ''}
         ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">${icon('play', 14)}互动解析${p.advanced.locked ? `${icon('lock', 15)}` : ''}</button></div>` : ''}
         <div class="section-label">考点</div>${typeChips(p.types)}${kpCards(p.kps)}
@@ -1061,7 +1093,7 @@ async function renderProblem(id) {
   typeset($app);
   bindKpCards($app);
   $app.querySelector('[data-adv]')?.addEventListener('click', (e) => openAdvanced(e.currentTarget.dataset.adv));
-  $app.querySelector('#lang').onclick = () => { lang.next(); router(); };
+  $app.querySelector('#lang')?.addEventListener('click', () => { lang.next(); router(); });
   $app.querySelector('#try').onclick = async () => {
     if (isGuest()) return modal(`<h2>注册后可以单题练习</h2>${REG_FEATS}<div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account">免费注册</a></div>`);
     const r = await api('/math/api/sessions', { method: 'POST', body: { problem_ids: [p.problem_id], student_id: auth.student.id } });

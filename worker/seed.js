@@ -17,13 +17,16 @@ export function buildRows(knowledge, exams) {
   for (const [from, to] of knowledge.edges) rows.push(['kp_edge', { from_kp: from, to_kp: to }]);
 
   for (const ex of exams) {
-    rows.push(['exam', { id: ex.id, title: ex.title, year: ex.year ?? null, source: ex.source, duration_sec: ex.duration_sec ?? 2400, published: ex.published === false ? 0 : 1 }]);
+    rows.push(['exam', { id: ex.id, title: ex.title, year: ex.year ?? null, grade: ex.grade ?? null, source: ex.source, duration_sec: ex.duration_sec ?? 2400, published: ex.published === false ? 0 : 1 }]);
     for (const p of ex.problems) {
       const pid = `${ex.id}-p${String(p.number).padStart(2, '0')}`;
-      if (!'ABCDE'.includes(p.answer) || p.answer.length !== 1) throw new Error(`${pid}: 答案必须是 A–E，现在是 ${p.answer}`);
+      const keys = Object.keys(p.choices || {});
+      // 选择题：答案是选项字母之一；填空题（没有选项）：答案是要填的内容，accept 是其他可接受的写法
+      if (keys.length ? !keys.includes(p.answer) : !String(p.answer ?? '').trim()) throw new Error(`${pid}: 答案 ${p.answer} 不对（选项 ${keys.join('') || '无，填空题'}）`);
       rows.push(['problem', {
         id: pid, exam_id: ex.id, number: p.number, stem: p.stem, stem_zh: p.stem_zh ?? null, figure: p.figure ?? null,
-        choices: JSON.stringify(p.choices), choices_zh: p.choices_zh ? JSON.stringify(p.choices_zh) : null, answer: p.answer, difficulty: p.difficulty ?? null,
+        choices: JSON.stringify(p.choices || {}), choices_zh: p.choices_zh ? JSON.stringify(p.choices_zh) : null, answer: String(p.answer), difficulty: p.difficulty ?? null,
+        accept: p.accept?.length ? JSON.stringify(p.accept) : null,
         reviewed: p.reviewed === false ? 0 : 1, types: p.types ? JSON.stringify(p.types) : null,
       }]);
       (p.hints ?? []).forEach((h, i) => rows.push(['hint', { problem_id: pid, level: i + 1, content: h }]));
@@ -70,6 +73,8 @@ const MIGRATIONS = [
   'ALTER TABLE knowledge_point ADD COLUMN signals TEXT', 'ALTER TABLE knowledge_point ADD COLUMN lesson TEXT',
   'ALTER TABLE knowledge_point ADD COLUMN types TEXT', 'ALTER TABLE problem ADD COLUMN types TEXT',
   'ALTER TABLE exam_session ADD COLUMN title TEXT', 'ALTER TABLE exam_session ADD COLUMN kp_id TEXT',
+  'ALTER TABLE exam ADD COLUMN grade INTEGER',      // 分年级的考试（希望数学）：4 = 四年级 … 8 = 初二
+  'ALTER TABLE problem ADD COLUMN accept TEXT',     // 填空题其他可接受的写法（JSON 数组）
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
   // 错题打印链接（微信里不能存文件时，换到浏览器打开；24 小时有效）

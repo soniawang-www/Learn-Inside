@@ -73,6 +73,13 @@ export const UI_FEATURES = [
     { id: 'U2-1', name: 'AMC 8 试卷卡片数', run: async (p, c) => { await c.go('#/contest/amc8'); return p.locator('.exam-tile').count(); }, expect: same(26) },
     { id: 'U2-2', name: '考情：大类占比 + 知识项表', run: async (p, c) => { await c.go('#/contest/amc8/stats'); return (await p.locator('.mrow').count()) === 8 && (await p.locator('.utable tr').count()) > 20; }, expect: same(true) },
     { id: 'U2-3', name: '点「模考」出现考前须知', run: async (p, c) => { await c.go('#/contest/amc8'); await p.locator('[data-mode="exam"]').first().click(); await p.waitForTimeout(400); return (await p.locator('.modal').count()) > 0; }, expect: same(true) },
+    { id: 'U2-4', name: '希望数学：按年级列卷，填空题是输入框，没有语言切换', run: async (p, c) => {
+      await c.go('#/contest/hope'); const tabs = await p.locator('.grade-tabs button').count();
+      await p.locator('[data-start="hope-2019w-g4"][data-mode="practice"]').click(); await p.waitForSelector('#go'); await p.click('#go'); await p.waitForSelector('.ez-q');
+      const r = `${tabs}/${await p.locator('#fill').count()}/${await p.locator('#lang').count()}`;
+      await p.fill('#fill', '4'); const prog = await p.textContent('.ez-prow span:last-child');
+      return `${r}/${prog}`;
+    }, expect: same('1/1/0/1/40') },
   ] },
   { id: 'U3', area: '界面', name: '知识图谱与错题本', cases: [
     { id: 'U3-1', name: '知识图谱画出 30 个知识项', run: async (p, c) => { await c.go('#/graph'); await p.waitForTimeout(500); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('svg .kg-n').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },

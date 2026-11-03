@@ -27,6 +27,8 @@ node backend/tests/suite/run.mjs http://127.0.0.1:8788 /tmp/suite --ui --report 
 # 更新功能清单：node backend/tests/suite/run.mjs --plan > backend/tests/suite/TESTPLAN.md
 ```
 
+填空题判分另有单元测试：`node backend/tests/unit/answers.test.mjs`。
+
 界面用例需要 Playwright（`PLAYWRIGHT=<playwright 模块路径>` 可指定）。
 
 ## 加用例

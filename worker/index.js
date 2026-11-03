@@ -6,6 +6,7 @@ const parseJ = (v, d = null) => { try { return v ? JSON.parse(v) : d; } catch { 
 import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 import { registerBilling, SAMPLES } from './billing.js';
+import { judge, normalizeInput } from './answers.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
@@ -13,6 +14,7 @@ const PREFIX = '/math', OLD_PREFIX = '/amc8';
 const FAMILIES = [
   { id: 'amc8', name: 'AMC 8', prefix: 'amc8-', desc: '美国数学竞赛 8 年级组：25 道选择题，40 分钟' },
   { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 数学竞赛' },
+  { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true },
 ];
 const familyOf = (examOrProblemId) => FAMILIES.find((f) => String(examOrProblemId).startsWith(f.prefix)) || null;
 let migrated = null;
@@ -109,11 +111,11 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
   if (studentId) await requireStudent(env, acc, studentId);
   const { results } = await env.DB
     .prepare(
-      `SELECT e.id, e.title, e.year, e.source, e.duration_sec,
+      `SELECT e.id, e.title, e.year, e.grade, e.source, e.duration_sec,
               (SELECT COUNT(*) FROM problem p WHERE p.exam_id = e.id) AS problem_count,
               (SELECT s.score FROM exam_session s WHERE s.exam_id = e.id AND s.student_id = ? AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_score,
               (SELECT s.id FROM exam_session s WHERE s.exam_id = e.id AND s.student_id = ? AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session
-         FROM exam e WHERE e.published = 1 ORDER BY e.year DESC, e.id`
+         FROM exam e WHERE e.published = 1 ORDER BY e.year DESC, e.grade, e.id`
     )
     .bind(studentId, studentId)
     .all();
@@ -252,7 +254,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const t = now();
   const late = t > s.deadline_at + DEADLINE_GRACE_MS;
 
-  const problems = await sessionProblems(env, s, 'p.id, p.answer');
+  const problems = await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept');
   const { results: hintRows } = await env.DB
     .prepare('SELECT problem_id, MAX(level) AS lv FROM session_hint WHERE session_id = ? GROUP BY problem_id')
     .bind(s.id)
@@ -262,10 +264,11 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   let score = 0;
   const stmts = [];
   for (const pr of problems) {
-    let choice = answers[pr.id] ?? null;
-    if (choice !== null && !'ABCDE'.includes(choice)) choice = null;
+    // 选择题存字母，填空题存孩子填的内容（规范化后）
+    const key = { choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) };
+    const choice = normalizeInput(key.choices, answers[pr.id]);
     // 超时（late）仍记录作答，前端提示“超时交卷”；如需严格按官方规则，可在 late 时把 choice 置空
-    const correct = choice === pr.answer ? 1 : 0;
+    const correct = judge(key, choice) ? 1 : 0;
     score += correct;
     stmts.push(
       env.DB
@@ -482,7 +485,8 @@ async function kpStats(env, family = 'amc8') {
   if (hit && now() - hit.at < 600000) return hit.data;
   const like = fam.prefix + '%';
   const { results: exams } = await env.DB.prepare("SELECT year FROM exam WHERE published = 1 AND source = 'official' AND year IS NOT NULL AND id LIKE ? ORDER BY year").bind(like).all();
-  const years = exams.map((e) => e.year);
+  const nExams = exams.length || 1;
+  const years = [...new Set(exams.map((e) => e.year))]; // 分年级的考试一年有几套卷
   const recent = new Set(years.slice(-10));
   const { results } = await env.DB
     .prepare(`SELECT pk.kp_id, pk.weight, p.number, e.year FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
@@ -490,7 +494,10 @@ async function kpStats(env, family = 'amc8') {
     .bind(like).all();
   const by = {};
   for (const r of results) (by[r.kp_id] ||= []).push(r);
-  const data = { family: fam.id, exams: years.length, years, kps: {} };
+  const { results: mx } = await env.DB.prepare('SELECT MAX(p.number) AS n FROM problem p WHERE p.exam_id LIKE ?').bind(like).all();
+  const maxNum = Math.max(25, mx[0]?.n || 0);
+  const cut = [Math.round(maxNum * 0.4), Math.round(maxNum * 0.8)]; // 前 40% 基础、中段、后 20% 难题（AMC 8：10 / 20 / 25）
+  const data = { family: fam.id, exams: exams.length, years, max_num: maxNum, cut, kps: {} };
   // 各模块占比：每题按主考点分 1 份
   const { results: parents } = await env.DB.prepare('SELECT id, parent_id FROM knowledge_point WHERE parent_id IS NOT NULL').all();
   const parentOf = Object.fromEntries(parents.map((r) => [r.id, r.parent_id]));
@@ -510,18 +517,18 @@ async function kpStats(env, family = 'amc8') {
     const nums = rows.map((r) => r.number).sort((a, b) => a - b);
     const at = (f) => nums[Math.round(f * (nums.length - 1))];
     const ys = new Set(rows.map((r) => r.year));
-    const perYear = {}, perNum = Array(25).fill(0);
-    for (const r of rows) { perYear[r.year] = (perYear[r.year] || 0) + 1; if (r.number >= 1 && r.number <= 25) perNum[r.number - 1]++; }
+    const perYear = {}, perNum = Array(maxNum).fill(0);
+    for (const r of rows) { perYear[r.year] = (perYear[r.year] || 0) + 1; if (r.number >= 1 && r.number <= maxNum) perNum[r.number - 1]++; }
     const band = (a, b) => Math.round((nums.filter((n) => n >= a && n <= b).length / nums.length) * 100);
     data.kps[kp] = {
       rate: Math.round((ys.size / years.length) * 100),           // 出现过的届数 / 总届数
       years_hit: ys.size,
       recent_hit: [...ys].filter((y) => recent.has(y)).length,   // 近 10 届里出现几届
       recent_n: recent.size,
-      per_exam: Math.round((rows.length / years.length) * 10) / 10, // 平均每届几题
+      per_exam: Math.round((rows.length / nExams) * 10) / 10, // 平均每套卷几题
       total: rows.length,
       from: at(0.25), to: at(0.75), median: at(0.5),             // 一半的题落在 from–to
-      bands: { easy: band(1, 10), mid: band(11, 20), hard: band(21, 25) },
+      bands: { easy: band(1, cut[0]), mid: band(cut[0] + 1, cut[1]), hard: band(cut[1] + 1, maxNum) },
       per_year: perYear, per_num: perNum,
       share: Math.round(((unitShare[kp] || 0) / nProb) * 1000) / 10, // 主考点份额
     };
@@ -537,7 +544,7 @@ async function kpStats(env, family = 'amc8') {
     const a = (tacc[t.id] ||= { n: 0, ys: new Set() }); a.n++; a.ys.add(r.year);
   }
   data.types = Object.fromEntries(Object.entries(tacc).map(([k, a]) => [k, {
-    total: a.n, per_exam: Math.round((a.n / years.length) * 100) / 100, rate: Math.round((a.ys.size / years.length) * 100) }]));
+    total: a.n, per_exam: Math.round((a.n / nExams) * 100) / 100, rate: Math.round((a.ys.size / years.length) * 100) }]));
   statsCache[fam.id] = { at: now(), data };
   return data;
 }
@@ -571,9 +578,9 @@ route('GET', '/api/families/:id', async (req, env, p, url) => {
                WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND s.exam_id LIKE ? ORDER BY s.submitted_at DESC LIMIT 50`)
     .bind(studentId, fam.prefix + '%').all() : { results: [] };
   return json({
-    family: { id: fam.id, name: fam.name, desc: fam.desc },
+    family: { id: fam.id, name: fam.name, desc: fam.desc, grades: !!fam.grades },
     stats: {
-      exams: stats.exams, years: stats.years,
+      exams: stats.exams, years: stats.years, max_num: stats.max_num, cut: stats.cut,
       modules: kps.filter((k) => !k.parent_id).map((m) => ({ id: m.id, name: m.name, share: stats.modules?.[m.id] || 0 })),
       units: kps.filter((k) => k.parent_id).map((k) => ({ id: k.id, name: k.name, module: k.parent_id, ...(stats.kps[k.id] || {}) })),
     },
@@ -630,8 +637,7 @@ route('GET', '/api/students/:id/graph', async (req, env, p) => {
   const book = await mistakeBook(env, st.id);
   const wrong = {};
   // 考试系列：按题目 id 前缀（amc8-2024-p05 → AMC 8）
-  const FAMILY = [['amc8-', 'AMC 8'], ['swb100-', '思维 100']];
-  const family = (pid) => (FAMILY.find(([pre]) => pid.startsWith(pre)) || [null, '其他'])[1];
+  const family = (pid) => familyOf(pid)?.name || '其他';
   for (const x of book) for (const k of x.kps) {
     const w = (wrong[k.id] ||= { total: 0, todo: 0, list: [] }); w.total++; if (x.status === 'pending' || x.status === 'due') w.todo++;
     w.list.push({ problem_id: x.problem_id, label: x.label, family: family(x.problem_id), status: x.status, reason: x.reason, types: x.types, main: k.primary });

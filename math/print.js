@@ -30,6 +30,8 @@ export const SHEET_CSS = `.sheet{font-family:-apple-system,"PingFang SC","Micros
 .sheet .op.figs svg{width:100%;max-width:170px;height:auto;display:block}
 .sheet .op.figs img{max-width:100%;height:auto;display:block}
 .sheet .work{height:120px}
+.sheet .fa{margin-top:8px;font-size:11.5pt;color:#3A4743;display:flex;align-items:flex-end;gap:4px}
+.sheet .fa i{display:inline-block;width:12em;border-bottom:1px solid ${INK};height:1.2em}
 .sheet .ah{break-before:page;page-break-before:always;border-bottom:2px solid ${JADE};padding-bottom:6px;margin:28px 0 4px}
 .sheet .ah h1{font-size:17pt}
 .sheet .ai{display:flex;gap:4px;padding:7px 0;border-bottom:1px dashed ${LINE};font-size:10.5pt;line-height:1.6;break-inside:avoid;page-break-inside:avoid}
@@ -42,7 +44,7 @@ export const SHEET_CSS = `.sheet{font-family:-apple-system,"PingFang SC","Micros
 /** 一道错题在纸上的样子：预览和 PDF 共用同一份 HTML */
 function itemHtml(it, i, h, space) {
   const ks = Object.keys(it.choices);
-  const figs = ks.every((k) => h.isFig(it.choices[k]));
+  const figs = ks.length > 0 && ks.every((k) => h.isFig(it.choices[k]));
   const opt = (k) => {
     const en = it.choices[k];
     if (figs || h.isFig(en)) return `<span><b>(${k})</b>${en}</span>`;
@@ -54,7 +56,7 @@ function itemHtml(it, i, h, space) {
     <span class="src">${h.esc(it.label)}</span>
     <div class="stx">${h.stemHtml(it)}</div>
     ${it.figure ? `<div class="fg">${it.figure}</div>` : ''}
-    <div class="op ${figs ? 'figs' : ''}">${ks.map(opt).join('')}</div>
+    ${ks.length ? `<div class="op ${figs ? 'figs' : ''}">${ks.map(opt).join('')}</div>` : '<div class="fa">答：<i></i></div>'}
     ${space ? '<div class="work"></div>' : ''}
   </div></div>`;
 }

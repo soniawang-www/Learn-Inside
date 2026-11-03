@@ -29,7 +29,7 @@ python3 - "$DATA" <<'PY'
 import json, glob, sys, urllib.request
 d = sys.argv[1]
 u = json.load(open(f'{d}/knowledge/units.json'))
-ex = [json.load(open(f)) for f in sorted(glob.glob(f'{d}/exams/amc8-*.json'))]
+ex = [json.load(open(f)) for f in sorted(glob.glob(f'{d}/exams/amc8-*.json') + glob.glob(f'{d}/exams/hope-*.json'))]
 for e in ex: e['published'] = True
 r = urllib.request.Request('http://127.0.0.1:8788/math/api/admin/import', data=json.dumps({'points': u['points'], 'edges': u['edges'], 'prune': True, 'exams': ex}).encode(),
                            headers={'content-type': 'application/json', 'x-admin-key': 'localtest'})

@@ -14,6 +14,7 @@ const P25 = (n) => `amc8-2025-p${String(n).padStart(2, '0')}`;
 const SAMPLE = 'amc8-2026-p01'; // 免费样板（2026 年互动解析）
 const SAMPLE_KP = 'geo.area'; // 免费样板知识项突击
 const KP = 'cnt.perm'; // 普通知识项
+const HOPE = 'hope-2019w-g4'; // 希望数学试点卷
 const same = (v) => ({ guest: v, user: v, member: v });
 const st = (r) => r.status;
 
@@ -44,7 +45,7 @@ export const FEATURES = [
 
   // ───────── B 考试与做题 ─────────
   { id: 'B1', area: '考试', name: '考试与试卷列表', cases: [
-    { id: 'B1-1', name: '考试种类（AMC 8、思维 100）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,swb100') },
+    { id: 'B1-1', name: '考试种类（AMC 8、思维 100、希望数学）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,swb100,hope') },
     { id: 'B1-2', name: 'AMC 8 试卷数', run: async (c) => (await c.get(`/math/api/exams?student=${c.sid}&family=amc8`)).data.length, expect: same(26) },
     { id: 'B1-3', name: 'AMC 8 考情（大类占比、知识项）', run: async (c) => { const d = (await c.get(`/math/api/families/amc8?student=${c.sid}`)).data; return d.stats.exams === 26 && d.stats.units.length === 30; }, expect: same(true) },
     { id: 'B1-4', name: '思维 100 暂无真题', run: async (c) => (await c.get(`/math/api/families/swb100?student=${c.sid}`)).data.stats.exams, expect: same(0) },
@@ -68,6 +69,16 @@ export const FEATURES = [
     { id: 'B4-2', name: '标错因', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'careless' }, c.T)), expect: { guest: 403, user: 200, member: 200 } },
     { id: 'B4-3', name: '错因不合法', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'lazy' }, c.T)), expect: { guest: 403, user: 400, member: 400 } },
     { id: 'B4-4', name: '复盘页互动解析的锁（2023 年，非样板、没解锁）', run: async (c) => (c.prReview.items[2].advanced?.locked ? 'locked' : 'open'), expect: { guest: 'locked', user: 'locked', member: 'open' } },
+  ] },
+  { id: 'B5', area: '考试', name: '希望数学：分年级、填空题', cases: [
+    { id: 'B5-1', name: '试卷带年级（2019 冬令营四年级，40 题，120 分钟）', run: async (c) => { const e = (await c.get(`/math/api/exams?student=${c.sid}&family=hope`)).data.find((x) => x.id === HOPE); return e ? `${e.grade}/${e.problem_count}/${e.duration_sec / 60}` : 'none'; }, expect: same('4/40/120') },
+    { id: 'B5-2', name: '开始模考：填空题没有选项，选择题有 A–D', run: async (c) => { const r = await c.post('/math/api/sessions', { exam_id: HOPE, student_id: c.sid, mode: 'exam' }); c.hopeS = r.data; const ps = r.data.problems; return `${Object.keys(ps[0].choices).length}/${Object.keys(ps[5].choices).join('')}/${ps.some((p) => 'answer' in p)}`; }, expect: same('0/ABCD/false') },
+    { id: 'B5-3', name: '交卷判分：填空题容许空格、单位、全角数字，选择题比字母', run: async (c) => { const id = (n) => `${HOPE}-p${String(n).padStart(2, '0')}`;
+      const r = await c.post(`/math/api/sessions/${c.hopeS.session.id}/submit`, { answers: { [id(1)]: '4', [id(2)]: '3', [id(3)]: '14 ', [id(4)]: '１９', [id(6)]: 'B', [id(7)]: 'A', [id(13)]: '40个', [id(14)]: '2,039,190' }, times: {}, flags: {} });
+      c.hopeRev = r.data; return r.data.session?.score; }, expect: same(6) },
+    { id: 'B5-4', name: '复盘：存的是孩子填的内容，给出正确答案', run: async (c) => { const it = c.hopeRev.items; return `${it[1].choice}/${it[1].answer}/${it[1].correct}/${it[2].choice}/${it[4].choice}`; }, expect: same('3/2/false/14/null') },
+    { id: 'B5-5', name: '填错的填空题进错题本', run: async (c) => (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.some((m) => m.problem_id === `${HOPE}-p02`), expect: { guest: false, user: true, member: true } },
+    { id: 'B5-6', name: '打印错题：填空题没有选项，答案是要填的数', run: async (c) => { const r = await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: [`${HOPE}-p02`] }); const x = r.data.items?.[0]; return r.status === 200 ? `${Object.keys(x.choices).length}/${x.answer}` : r.status; }, expect: { guest: 403, user: '0/2', member: '0/2' } },
   ] },
 
   // ───────── C 题目与互动解析 ─────────
