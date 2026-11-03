@@ -1184,3 +1184,45 @@ body.net-wait::before { opacity: 1; animation: net-bar 1.6s ease-out infinite; }
 .fill-res .ok { border-color:var(--ok); background:var(--ok-soft); }
 .fill-res .bad { border-color:var(--bad); background:var(--bad-soft); }
 .grade-tabs { margin:4px 0 14px; }
+
+/* ───────── 希望数学考试界面：沿用 AMC 8 的布局，换成 learn-inside 的风格（纸色底、深青、少量粉、宋体） ───────── */
+body.exam-mode.exam-li {
+  --bg: #F6F4EE; --surface: #FFFFFF; --surface-2: #FBFAF6; --text: #18302A; --muted: #5E726C; --border: #E4E0D6;
+  --accent: #1D5C4D; --accent-soft: #E3ECE7; --ok: #1D5C4D; --ok-soft: #E3ECE7; --bad: #B04A6F; --bad-soft: #F6E7EC;
+  --flag: #B04A6F; --flag-soft: #F6E7EC; --radius: 12px;
+  --ez-blue: #1D5C4D; --ez-blue-soft: #E3ECE7; --ez-bg: #F6F4EE;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body.exam-mode.exam-li {
+    --bg: #121C19; --surface: #1A2723; --surface-2: #1E2C28; --text: #E8EFEA; --muted: #9DB0A9; --border: #2B3B36;
+    --accent: #6CC2A6; --accent-soft: #1E352F; --ok: #6CC2A6; --ok-soft: #1E352F; --bad: #F29BBB; --bad-soft: #3E2630;
+    --flag: #F29BBB; --flag-soft: #3E2630; --ez-blue: #6CC2A6; --ez-blue-soft: #1E352F; --ez-bg: #121C19;
+  }
+}
+:root[data-theme="dark"] body.exam-mode.exam-li {
+  --bg: #121C19; --surface: #1A2723; --surface-2: #1E2C28; --text: #E8EFEA; --muted: #9DB0A9; --border: #2B3B36;
+  --accent: #6CC2A6; --accent-soft: #1E352F; --ok: #6CC2A6; --ok-soft: #1E352F; --bad: #F29BBB; --bad-soft: #3E2630;
+  --flag: #F29BBB; --flag-soft: #3E2630; --ez-blue: #6CC2A6; --ez-blue-soft: #1E352F; --ez-bg: #121C19;
+}
+body.exam-li h1, body.exam-li h2 { font-family: var(--display); }
+body.exam-li .ez-top { padding: 10px 18px; gap: 16px; }
+body.exam-li .ez-title { font-family: var(--display); font-size: 16px; letter-spacing: .04em; }
+body.exam-li .ez-submit { border-radius: 999px; padding: 7px 22px; font-weight: 600; }
+body.exam-li .ez-timer b { font-size: 17px; color: var(--accent); }
+body.exam-li .ez-timer.warn b { color: var(--bad); }
+body.exam-li .ez-card, body.exam-li .ez-main { border-radius: var(--radius); }
+body.exam-li .ez-progress { border-radius: 8px; }
+body.exam-li .ez-pbar { height: 6px; border-radius: 3px; }
+body.exam-li .ez-cell { border-radius: 8px; height: 30px; }
+body.exam-li .ez-legend .lg { border-radius: 3px; }
+body.exam-li .ez-qhead { font-size: 14px; }
+body.exam-li .ez-qno { font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--accent); letter-spacing: .04em; }
+body.exam-li .ez-qno small { font-family: var(--sans); font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+body.exam-li .ez-stem { font-family: var(--display); font-size: 18px; line-height: 1.9; }
+body.exam-li .ez-opt { border-radius: 10px; padding: 8px 12px; font-family: var(--display); }
+body.exam-li .ez-letter { width: 26px; height: 26px; font-weight: 600; }
+body.exam-li .ez-btn { border-radius: 999px; padding: 6px 20px; font-size: 14px; }
+body.exam-li .ez-btn.next { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+body.exam-li .ez-fill input { border-radius: 10px; font-family: var(--serif); }
+body.exam-li .ez-pin.on { border-radius: 999px; }
+body.exam-li .ez.big .ez-stem { font-size: 22px; }

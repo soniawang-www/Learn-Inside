@@ -211,7 +211,7 @@ async function router() {
   cleanup?.(); cleanup = null;
   if (location.hash !== lastRoute) { lastRoute = location.hash; window.scrollTo(0, 0); } // 换页回到顶部
   closeLesson();
-  document.body.classList.remove('exam-mode');
+  document.body.classList.remove('exam-mode', 'exam-li');
   $modal.innerHTML = '';
   const [, page, id, sub] = (location.hash.slice(1) || '/').split('?')[0].split('/');
   const dim = setTimeout(() => $app.classList.add('page-wait'), 150); // 换页时旧页面变淡、不能点
@@ -682,6 +682,9 @@ async function renderExam(sid) {
   const data = await api(`/math/api/sessions/${sid}`);
   if (data.session.submitted) { location.hash = `#/review/${sid}`; return; }
   document.body.classList.add('exam-mode');
+  // 希望数学：布局同 AMC 8，用 learn-inside 自己的风格
+  const li = data.exam.id?.startsWith('hope-') || (data.session.drill && !hasEn(data.problems));
+  document.body.classList.toggle('exam-li', !!li);
   const key = `amc8.s.${sid}`;
   const S = Object.assign({ answers: {}, flags: {}, times: {}, hints: {}, cur: 0, big: false }, store.get(key, {}));
   const problems = data.problems;
@@ -735,7 +738,7 @@ async function renderExam(sid) {
         </aside>
         <main class="ez-main">
           <div class="ez-q">
-            <div class="ez-qhead"><span class="ez-qno">${p.number}.(1分)${data.session.drill ? ` <span class="ez-src">${esc(p.label)}</span>` : ''}</span>
+            <div class="ez-qhead"><span class="ez-qno">${li ? `第 ${p.number} 题<small>1 分</small>` : `${p.number}.(1分)`}${data.session.drill ? ` <span class="ez-src">${esc(p.label)}</span>` : ''}</span>
               <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">${icon('flag', 14)}${S.flags[p.id] ? '已标记' : '标记'}</button></div>
             <div class="ez-stem">${stemHtml(p)}</div>
             ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
