@@ -1179,10 +1179,10 @@ function printPanel(shown) {
       <button class="pr-opt" data-pr-scope="cur" ${tog(prScope === 'cur')}>当前列表（${esc(prDesc())}）${shown.length} 题</button>
       <button class="pr-opt" data-pr-scope="all" ${tog(prScope === 'all')}>全部错题 ${msCtx?.all.length || 0} 题</button></div>
     <div class="pr-row"><span class="pr-label">语言</span>${Object.entries(LANGS).map(([k, v]) => `<button class="pr-opt" data-pr-lang="${k}" ${tog(lang.get() === k)}>${v}</button>`).join('')}</div>
-    <div class="pr-row"><label class="pr-chk"><input type="checkbox" id="pr-ans" ${prAns ? 'checked' : ''}>最后附答案和解题思路（另起一页）</label>
+    <div class="pr-row"><label class="pr-chk"><input type="checkbox" id="pr-ans" ${prAns ? 'checked' : ''}>附答案和解题思路</label>
       <label class="pr-chk"><input type="checkbox" id="pr-space" ${prSpace ? 'checked' : ''}>每题下面留演算空白</label></div>
     <div class="pr-row"><button class="btn primary" id="pr-go" ${n ? '' : 'disabled'}>打印预览</button>
-      <span class="pr-note">${!n ? '这个范围里没有题。' : n > PR_MAX ? `一次最多打印 ${PR_MAX} 题，会打印列表里的前 ${PR_MAX} 题（最近错的在前）。` : `共 ${n} 题，A4 纸。`}</span></div>
+      <span class="pr-note">${!n ? '这个范围里没有题。' : n > PR_MAX ? `一次最多打印 ${PR_MAX} 题，只打印前 ${PR_MAX} 题。` : ''}</span></div>
   </div>`;
 }
 function bindPrintPanel(box, list, redraw) {
@@ -1226,7 +1226,7 @@ async function renderPrintLink(token) {
     title: d.title, sub: d.sub, items: d.items, withAns: d.with_ans, space: d.space, file: 'mistakes',
     link: async () => printLinkUrl(token), onClose: closed,
   }, { esc, rich, stemHtml: (p) => withLang(L, () => stemHtml(p)), isFig, lang: () => L, typeset });
-  const closed = () => { page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub)} · 链接 ${fmtDate(d.expires_at)} 前有效</p><div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="reopen">打开打印预览</button><a class="btn" href="/math/#/mistakes">去错题本</a></div>`); $app.querySelector('#reopen').onclick = open; };
+  const closed = () => { page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub)}</p><div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="reopen">打开打印预览</button><a class="btn" href="/math/#/mistakes">去错题本</a></div>`); $app.querySelector('#reopen').onclick = open; };
   if (!d.items?.length) return page('<h2>这张练习单没有题</h2><a class="btn primary" href="/math/#/mistakes">去错题本</a>');
   closed(); open();
 }

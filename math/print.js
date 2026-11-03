@@ -197,12 +197,11 @@ export function openPreview(opts, h) {
   pdfBtn.onclick = async () => {
     if (opts.link && needsBrowser()) return linkFlow(tip, opts);
     pdfBtn.disabled = true; pdfBtn.textContent = '正在生成……';
-    tip.textContent = `正在把 ${opts.items.length} 道题排成 A4 页，题多的话要等一会儿。`;
     let canvases, blob;
     try { canvases = await sheetCanvases(sheet); blob = makePdf(canvases); }
     catch (e) {
       console.error(e);
-      tip.textContent = '这个浏览器生成 PDF 没有成功。可以点「打印」，在打印设置里选「存储为 PDF」；或者换 Safari、Chrome 再试。';
+      tip.textContent = '生成 PDF 没有成功，请换 Safari 或 Chrome 再试。';
       pdfBtn.disabled = false; pdfBtn.textContent = '存成 PDF'; return;
     }
     saveOptions({ tip, canvases, blob, title: opts.title, file: opts.file });
@@ -214,7 +213,6 @@ export function openPreview(opts, h) {
 export const needsBrowser = () => /MicroMessenger|wxwork/i.test(navigator.userAgent) && !/iPhone|iPad|iPod/.test(navigator.userAgent);
 let restoreUrl = null;
 async function linkFlow(tip, opts) {
-  tip.textContent = '正在生成打印链接……';
   let url;
   try { url = await opts.link(); }
   catch (e) { tip.textContent = `没能生成打印链接：${e.message}`; return; }
@@ -222,13 +220,13 @@ async function linkFlow(tip, opts) {
   if (!restoreUrl) restoreUrl = location.href;
   try { history.replaceState(null, '', url); } catch {}
   tip.innerHTML = '';
-  const head = el('div'); head.innerHTML = '微信里不能直接保存文件。请点右上角 <b>「···」</b>，选 <b>「在浏览器打开」</b>，在浏览器里点「存成 PDF」就能保存。';
-  const box = el('div', 'pv-save'), note = el('div', null, '这个链接 24 小时内有效，不用登录就能打开，请不要转发给不认识的人。');
+  const head = el('div'); head.innerHTML = '请点右上角 <b>「···」</b>，选 <b>「在浏览器打开」</b>，再点「存成 PDF」。';
+  const box = el('div', 'pv-save');
   const cp = el('button', 'btn ghost', '复制链接');
   const show = () => { if (!box.querySelector('.pv-link')) box.appendChild(el('div', 'pv-link', url)); cp.textContent = '长按上面的链接复制'; };
-  cp.onclick = async () => { try { await navigator.clipboard.writeText(url); cp.textContent = '已复制，粘贴到手机浏览器打开'; } catch { show(); } };
+  cp.onclick = async () => { try { await navigator.clipboard.writeText(url); cp.textContent = '已复制'; } catch { show(); } };
   box.appendChild(cp);
-  tip.append(head, box, note);
+  tip.append(head, box);
 }
 
 /** 生成 PDF 后按设备给保存办法：手机能分享文件就用系统分享，其他一律直接下载 PDF（不用图片兜底） */
@@ -240,27 +238,20 @@ function saveOptions({ tip, canvases, blob, title, file }) {
   const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
   let inFrame = true; try { inFrame = window.self !== window.top; } catch {}
   tip.innerHTML = '';
-  const head = el('div', null, `已生成 ${pages} 页 PDF：`), box = el('div', 'pv-save'), note = el('div');
+  const head = el('div', null, `已生成 ${pages} 页 PDF`), box = el('div', 'pv-save'), note = el('div');
   const d0 = new Date(), dlName = `${file}-${d0.getFullYear()}${String(d0.getMonth() + 1).padStart(2, '0')}${String(d0.getDate()).padStart(2, '0')}.pdf`;
   const shareBtn = (cls) => { const b = el('button', 'btn ' + cls, '分享 / 存到本地');
     b.onclick = async () => { try { await navigator.share({ files: [f], title }); } catch (e) { if (e?.name !== 'AbortError') b.textContent = '这个浏览器不能分享文件'; } }; return b; };
   const saveBtn = (cls) => { const b = el('button', 'btn ' + cls, '保存到本地');
     b.onclick = () => { try { const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = dlName; l.rel = 'noopener';
       document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
-      note.textContent = `已开始下载「${dlName}」，在浏览器的下载列表或「下载」文件夹里可以找到。没看到的话，可能是浏览器拦截了下载。`; }
+      }
     catch { note.textContent = '这个浏览器不允许保存文件。'; } }; return b; };
   if (canShare && isMobile && !inFrame) {
     box.appendChild(shareBtn('plum'));
-    note.textContent = '点「分享 / 存到本地」，可以选「存储到文件」、发到微信，或直接选「打印」。';
   } else {
     // 电脑、微信（实测苹果微信能下载）和其他不能分享文件的浏览器：直接下载 PDF
     box.appendChild(saveBtn('plum'));
-    const iosWx = /MicroMessenger|wxwork/i.test(navigator.userAgent) && /iPhone|iPad|iPod/.test(navigator.userAgent);
-    note.textContent = iosWx
-      ? '点「保存到本地」会打开 PDF 预览，再点右上角的菜单，就可以保存到手机、发给别人或打印。'
-      : isMobile
-      ? '点「保存到本地」保存 PDF。如果出现 PDF 预览，可以从右上角的菜单保存到手机、发给别人或打印。'
-      : '点「保存到本地」，PDF 会下载到电脑的「下载」文件夹，打开后就可以打印。';
   }
   tip.append(head, box, note);
 }
