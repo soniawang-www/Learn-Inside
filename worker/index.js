@@ -648,6 +648,38 @@ route('GET', '/api/students/:id/graph', async (req, env, p) => {
   });
 });
 
+// 打印错题：给错题本里的题（按请求顺序）题干、选项、图、答案和解题思路，拼练习单用。
+// 只给这个孩子错题本里的题：没做过、做对过但没错过的题一律不给（防止拿来先看答案）。
+const PRINT_MAX = 60;
+route('POST', '/api/students/:id/mistakes/print', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  requireRegistered(acc);
+  const st = await requireStudent(env, acc, p.id);
+  const { problem_ids } = await body(req);
+  if (!Array.isArray(problem_ids) || !problem_ids.length) throw new HttpError(400, '没有要打印的题');
+  if (problem_ids.length > PRINT_MAX) throw new HttpError(400, `一次最多打印 ${PRINT_MAX} 题`);
+  const book = new Map((await mistakeBook(env, st.id)).map((m) => [m.problem_id, m]));
+  const ids = [...new Set(problem_ids.map(String))].filter((id) => book.has(id));
+  if (!ids.length) return json({ student: { id: st.id, nickname: st.nickname }, items: [] });
+  const q = ids.map(() => '?').join(',');
+  const { results } = await env.DB
+    .prepare(`SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, e.title AS exam_title, sb.content AS basic
+                FROM problem p JOIN exam e ON e.id = p.exam_id
+                LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic'
+               WHERE p.id IN (${q})`)
+    .bind(...ids).all();
+  const by = new Map(results.map((r) => [r.id, r]));
+  const items = ids.filter((id) => by.has(id)).map((id) => {
+    const r = by.get(id), m = book.get(id);
+    return {
+      problem_id: id, label: labelOf(r), stem: r.stem, stem_zh: r.stem_zh, figure: r.figure,
+      choices: JSON.parse(r.choices), choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null,
+      answer: r.answer, basic: r.basic ?? null, status: m.status, types: m.types, kps: m.kps,
+    };
+  });
+  return json({ student: { id: st.id, nickname: st.nickname }, items });
+});
+
 // 错题本：做错过（含未作答）的题，按最近一次错误后的表现分阶段
 //   pending  待订正：最近一次还是错的
 //   due      该复习：订正对了一次，已过 REVIEW_DAYS 天，再做一次巩固

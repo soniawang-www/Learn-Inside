@@ -78,6 +78,22 @@ export const UI_FEATURES = [
     { id: 'U3-2', name: '列表视图（薄弱在前）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; await p.click('[data-view="list"]'); await p.waitForTimeout(500); return p.locator('.kl-row').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
     { id: 'U3-3', name: '错题本列出错题', run: async (p, c) => { await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('.ms-row').count()) > 0; }, expect: { guest: '注册提示', user: true, member: true } },
     { id: 'U3-4', name: '复盘页：错因和知识项链接（游客只显示知识项名字）', run: async (p, c) => { await c.go(`#/review/${c.session}`); return `${await p.locator('.reason-chips').count() > 0}/${await p.locator('.kphead a').count() > 0}/${await p.locator('.kphead b').count() > 0}`; }, expect: { guest: 'false/false/true', user: 'true/true/true', member: 'true/true/true' } },
+    { id: 'U3-5', name: '错题本「打印错题」→ 打印预览：题数和答案数等于错题数', run: async (p, c) => {
+      await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示';
+      const total = +(/共 (\d+) 道/.exec(await c.text('.ph p')) || [])[1];
+      await p.click('[data-ms-print]'); await p.click('[data-pr-scope="all"]'); await p.click('#pr-go');
+      await p.waitForSelector('#pvSheet .it', { timeout: 15000 });
+      const n = await p.locator('#pvSheet .it').count(), na = await p.locator('#pvSheet .ai').count();
+      return total > 0 && n === Math.min(total, 60) && na === n;
+    }, expect: { guest: '注册提示', user: true, member: true } },
+    { id: 'U3-6', name: '打印预览「存成 PDF」生成 A4 页，打印媒体下只剩练习单', run: async (p, c) => {
+      if (!(await p.locator('#pvPdf').count())) return '注册提示';
+      await p.click('#pvPdf'); await p.waitForFunction(() => /已生成 \d+ 页 PDF/.test(document.querySelector('#pvTip')?.textContent || ''), null, { timeout: 120000 });
+      await p.emulateMedia({ media: 'print' });
+      const ok = await p.evaluate(() => getComputedStyle(document.getElementById('app')).display === 'none' && getComputedStyle(document.querySelector('.pv-bar')).display === 'none' && getComputedStyle(document.getElementById('printArea')).position === 'static');
+      await p.emulateMedia({ media: 'screen' }); await p.click('#pvClose');
+      return ok && (await p.locator('#printArea').isHidden());
+    }, expect: { guest: '注册提示', user: true, member: true } },
   ] },
   { id: 'U4', area: '界面', name: '会员内容的锁', cases: [
     { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('[data-drill] .ic-lock').count()) > 0 ? 'locked' : 'open'; }, expect: { guest: '注册提示', user: 'locked', member: 'open' } },

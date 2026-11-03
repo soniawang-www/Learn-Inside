@@ -121,6 +121,13 @@ export const FEATURES = [
     { id: 'F1-3', name: '订正会话', run: async (c) => { const r = await c.post('/math/api/sessions', { problem_ids: [P25(3)], student_id: c.sid, purpose: 'pending' }); c.fixS = r.data; return r.data.exam?.title ?? r.status; }, expect: { guest: 403, user: '错题订正', member: '错题订正' } },
     { id: 'F1-4', name: '订正做对 → 已订正，7 天后复习', run: async (c) => { const ans = (await c.get(`/math/api/problems/${P25(3)}?student=${c.sid}`)).data.answer; await c.post(`/math/api/sessions/${c.fixS.session.id}/submit`, { answers: { [P25(3)]: ans }, times: {}, flags: {} }); const m = (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.find((x) => x.problem_id === P25(3)); return `${m.status}/${Math.round((m.review_at - Date.now()) / 86400000)}`; }, expect: { guest: 'skip', user: 'fixed/7', member: 'fixed/7' } },
   ] },
+  { id: 'F2', area: '错题本', name: '打印错题', cases: [
+    { id: 'F2-1', name: '取错题本里全部题的打印内容：题数和错题本一致', run: async (c) => { const ms = (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes; const r = await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: ms.length ? ms.slice(0, 60).map((m) => m.problem_id) : [P25(3)] }); return r.status === 200 ? r.data.items.length === Math.min(ms.length, 60) && ms.length > 0 : r.status; }, expect: { guest: 403, user: true, member: true } },
+    { id: 'F2-2', name: '打印内容带题干、选项、答案和解题思路', run: async (c) => { const r = await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: [P25(3)] }); const x = r.data.items?.[0]; return r.status === 200 ? !!(x && x.stem && Object.keys(x.choices).length === 5 && /^[A-E]$/.test(x.answer) && x.basic) : r.status; }, expect: { guest: 403, user: true, member: true } },
+    { id: 'F2-3', name: '不在错题本里的题（没做过）不给，防止先看答案', run: async (c) => { const r = await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: ['amc8-2010-p01', 'amc8-2010-p02'] }); return r.status === 200 ? r.data.items.length : r.status; }, expect: { guest: 403, user: 0, member: 0 } },
+    { id: 'F2-4', name: '打印别人家孩子的错题', run: async (c) => st(await c.post(`/math/api/students/${c.outsider.sid}/mistakes/print`, { problem_ids: [P25(3)] })), expect: { guest: 403, user: 404, member: 404 } },
+    { id: 'F2-5', name: '一次超过 60 题', run: async (c) => st(await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: Array.from({ length: 61 }, (_, i) => `x-${i}`) })), expect: { guest: 403, user: 400, member: 400 } },
+  ] },
 
   // ───────── G 免费次数 ─────────
   { id: 'G1', area: '免费次数', name: '10 次额度', cases: [
