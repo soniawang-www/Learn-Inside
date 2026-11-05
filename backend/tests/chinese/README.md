@@ -8,7 +8,7 @@ python3 backend/tests/chinese/api.py ../math-data
 
 # 界面（Playwright，手机 Pixel 5 + 电脑 1280 浅色 / 深色）：一页一题、未作答不能下一页、没有上一页、
 # 不显示剩余题数、古文字图、诗句输入提示、整套 150 题点完得满分、刷新后接着做、错题本、练习模式
-PW=<playwright 模块路径> DATA=../math-data OUT=/tmp/shots node backend/tests/chinese/ui-exam.mjs
+EXAM=hanzi-2021-city PW=<playwright 模块路径> DATA=../math-data OUT=/tmp/shots node backend/tests/chinese/ui-exam.mjs   # EXAM 换成别的试卷 id 可测其他卷
 PW=<playwright 模块路径> OUT=/tmp/shots node backend/tests/chinese/ui-mistakes.mjs
 ```
 
