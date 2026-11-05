@@ -3,6 +3,10 @@
 // 数值答案按数值比：3/4、0.75、1又1/2、1 1/2、15%、全角数字都认；末尾的单位汉字（个、元、厘米……）忽略。
 
 const MAX_LEN = 40;
+const HAN = /[\u3400-\u9fff]/;
+// 汉字答案（成语、诗句）忽略标点：孩子常顺手打上逗号句号，官方也只要求填字
+const PUNCT = /[\s　,.;:!?'"，。、；：！？“”‘’《》〈〉（）()【】\[\]「」『』…—·-]+/g;
+const cleanHan = (s) => String(s ?? '').normalize('NFKC').replace(PUNCT, '');
 
 /** 题目是不是填空题（没有选项） */
 export const isFill = (choices) => !choices || !Object.keys(choices).length;
@@ -66,6 +70,7 @@ export function judge({ choices, answer, accept }, input) {
   const cv = clean(v), rv = toRational(v);
   for (const k of keys) {
     if (clean(k) === cv) return true;
+    if (HAN.test(k) && cleanHan(k) && cleanHan(k) === cleanHan(v)) return true;
     const rk = toRational(k);
     if (rk && rv && rk[0] === rv[0] && rk[1] === rv[1]) return true;
     // 文字答案末尾带单位（如“5个”）：去掉单位再比

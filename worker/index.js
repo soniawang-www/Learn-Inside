@@ -12,11 +12,17 @@ const SAMPLE_DRILLS = SAMPLES.drills;
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
 // 考试系列：试卷 id 以前缀区分。画像、知识图谱、错题本不分考试；考情、试卷、成绩按考试分开。
 const FAMILIES = [
-  { id: 'amc8', name: 'AMC 8', prefix: 'amc8-', desc: '美国数学竞赛 8 年级组：25 道选择题，40 分钟' },
-  { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 数学竞赛' },
-  { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true },
+  { id: 'amc8', name: 'AMC 8', prefix: 'amc8-', desc: '美国数学竞赛 8 年级组：25 道选择题，40 分钟', subject: 'math' },
+  { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 数学竞赛', subject: 'math' },
+  { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true, subject: 'math' },
+  // 语文（learn-inside.com/chinese）
+  { id: 'hanzi', name: '汉字小达人', prefix: 'hanzi-', desc: '上海市小学生「美丽汉字小达人」：150 题，40 分钟', subject: 'chinese' },
 ];
 const familyOf = (examOrProblemId) => FAMILIES.find((f) => String(examOrProblemId).startsWith(f.prefix)) || null;
+// 科目：数学、语文的成绩和错题分开（画像、知识图谱目前只有数学）
+const SUBJECTS = ['math', 'chinese'];
+const subjectOf = (examOrProblemId) => familyOf(examOrProblemId)?.subject || 'math';
+const subjectParam = (url) => (SUBJECTS.includes(url?.searchParams.get('subject')) ? url.searchParams.get('subject') : 'math');
 let migrated = null;
 
 const DEADLINE_GRACE_MS = 30_000; // 交卷允许的网络延迟
@@ -156,8 +162,8 @@ route('POST', '/api/sessions', async (req, env) => {
     }
     if (!ids.length) throw new HttpError(404, '没有可练的题');
     const stmts = [env.DB
-      .prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, kp_id) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?)")
-      .bind(id, student_id, t, t + ids.length * 180 * 1000, title, kp_id ?? null)];
+      .prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, kp_id, subject) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?, ?)")
+      .bind(id, student_id, t, t + ids.length * (subjectOf(ids[0]) === 'chinese' ? 30 : 180) * 1000, title, kp_id ?? null, subjectOf(ids[0]))];
     ids.forEach((pid, i) => stmts.push(env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
     await env.DB.batch(stmts);
     return json(await sessionPayload(env, id));
@@ -166,8 +172,8 @@ route('POST', '/api/sessions', async (req, env) => {
   const exam = await env.DB.prepare('SELECT * FROM exam WHERE id = ? AND published = 1').bind(exam_id).first();
   if (!exam) throw new HttpError(404, '试卷不存在');
   await env.DB
-    .prepare('INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, student_id, exam_id, mode, t, t + exam.duration_sec * 1000)
+    .prepare('INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, subject) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(id, student_id, exam_id, mode, t, t + exam.duration_sec * 1000, subjectOf(exam_id))
     .run();
   return json(await sessionPayload(env, id));
 });
@@ -201,13 +207,19 @@ async function loadSession(env, account, sessionId) {
   return s;
 }
 
+/** 会话对应的试卷信息（突击 / 错题练习用会话自己的标题和时长）；sections = 大题划分（语文） */
+async function examInfo(env, s) {
+  const e = await env.DB.prepare('SELECT id, title, duration_sec, sections, origin FROM exam WHERE id = ?').bind(s.exam_id).first();
+  const exam = { id: e.id, title: e.title, duration_sec: e.duration_sec, sections: parseJ(e.sections, null), origin: e.origin ?? null, subject: s.subject || 'math' };
+  if (s.exam_id === 'drill') { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
+  return exam;
+}
 async function sessionPayload(env, sessionId) {
   const s = await env.DB.prepare('SELECT * FROM exam_session WHERE id = ?').bind(sessionId).first();
-  const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ?').bind(s.exam_id).first();
+  const exam = await examInfo(env, s);
   const drill = s.exam_id === 'drill';
-  if (drill) { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
   const results = (await sessionProblems(env, s,
-    'p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count'))
+    'p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.section, p.input_hint, (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count'))
     .map((p, i) => ({ ...p, label: labelOf(p), seq: i + 1, number: drill ? i + 1 : p.number }));
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
@@ -243,6 +255,19 @@ route('POST', '/api/sessions/:id/hint', async (req, env, p) => {
   if (!h) throw new HttpError(404, '没有这一级提示');
   await env.DB.prepare('INSERT OR IGNORE INTO session_hint (session_id, problem_id, level, viewed_at) VALUES (?, ?, ?, ?)').bind(s.id, problem_id, level, now()).run();
   return json({ level, content: h.content });
+});
+
+// 练习（错题重做）：确认一题后马上判对错、给正确答案和简单解析。模考会话不能用（防止考试中途看答案）。
+route('POST', '/api/sessions/:id/check', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  const s = await loadSession(env, acc, p.id);
+  if (s.mode !== 'practice') throw new HttpError(403, '模考中不能查看答案');
+  const { problem_id, answer } = await body(req);
+  const pr = (await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept')).find((x) => x.id === problem_id);
+  if (!pr) throw new HttpError(404, '这道题不在本次练习里');
+  const key = { choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) };
+  const sol = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
+  return json({ correct: judge(key, answer), answer: pr.answer, basic: sol?.content ?? null });
 });
 
 // 交卷：判分、写原始事件、重算画像
@@ -285,18 +310,25 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
 });
 
+/** D1 一条语句最多 100 个参数：ids 很多时（语文一套 150 题）分批查询再合并结果 */
+async function allIn(env, sql, ids, size = 90) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += size) {
+    const part = ids.slice(i, i + size);
+    const { results } = await env.DB.prepare(sql.replace('(?IDS)', `(${part.map(() => '?').join(',')})`)).bind(...part).all();
+    out.push(...results);
+  }
+  return out;
+}
+
 /** 题目的考点（带识别信号；讲解 / 突击是否解锁） */
 async function kpTags(env, acc, problemIds) {
   if (!problemIds.length) return {};
   const premium = await hasTier(env, acc, 'premium');
-  const { results } = await env.DB
-    .prepare(
-      `SELECT pk.problem_id, pk.weight, k.id, k.name, k.tier, k.amc_ext, k.summary, k.signals, (k.lesson IS NOT NULL OR k.content IS NOT NULL) AS has_lesson
-         FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
-        WHERE pk.problem_id IN (${problemIds.map(() => '?').join(',')}) ORDER BY pk.weight DESC`
-    )
-    .bind(...problemIds)
-    .all();
+  const results = (await allIn(env,
+    `SELECT pk.problem_id, pk.weight, k.id, k.name, k.tier, k.amc_ext, k.summary, k.signals, (k.lesson IS NOT NULL OR k.content IS NOT NULL) AS has_lesson
+       FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
+      WHERE pk.problem_id IN (?IDS)`, problemIds)).sort((a, b) => b.weight - a.weight);
   const out = {};
   for (const t of results) {
     (out[t.problem_id] ||= []).push({
@@ -311,13 +343,12 @@ async function kpTags(env, acc, problemIds) {
 // 复盘数据：答案、解题思路、考点（带锁定状态）
 async function reviewPayload(env, acc, sessionId) {
   const s = await env.DB.prepare('SELECT * FROM exam_session WHERE id = ?').bind(sessionId).first();
-  const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ?').bind(s.exam_id).first();
+  const exam = await examInfo(env, s);
   const drill = s.exam_id === 'drill';
-  if (drill) { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
   const ctx = await billing.accessCtx(env, acc);
   const { results: rows } = await env.DB
     .prepare(
-      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types,
+      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types, p.section, p.input_hint,
               ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason,
               sb.content AS basic,
               sa.tier AS adv_tier, e.title AS exam_title
@@ -340,7 +371,7 @@ async function reviewPayload(env, acc, sessionId) {
       choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null,
       answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
-      basic: r.basic,
+      basic: r.basic, section: r.section, input_hint: r.input_hint,
       advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)) } : null,
       kps: kpByProblem[r.id] || [],
       types: parseJ(r.types, []),
@@ -557,7 +588,8 @@ route('GET', '/api/families', async (req, env, _p, url) => {
   const { results: ex } = await env.DB.prepare('SELECT id FROM exam WHERE published = 1').all();
   const { results: ss } = studentId ? await env.DB
     .prepare('SELECT exam_id, score, submitted_at FROM exam_session WHERE student_id = ? AND submitted_at IS NOT NULL ORDER BY submitted_at DESC').bind(studentId).all() : { results: [] };
-  return json(FAMILIES.map((f) => {
+  const subject = subjectParam(url); // 默认数学；语文页面传 subject=chinese
+  return json(FAMILIES.filter((f) => f.subject === subject).map((f) => {
     const mine = ss.filter((s) => s.exam_id.startsWith(f.prefix));
     return { id: f.id, name: f.name, desc: f.desc, exams: ex.filter((e) => e.id.startsWith(f.prefix)).length, sessions: mine.length, last: mine[0] || null };
   }));
@@ -606,9 +638,9 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
       `SELECT s.id, s.mode, s.score, s.submitted_at, COALESCE(s.title, e.title) AS title,
               (SELECT COUNT(*) FROM attempt_event a WHERE a.session_id = s.id) AS total
          FROM exam_session s JOIN exam e ON e.id = s.exam_id
-        WHERE s.student_id = ? AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 20`
+        WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND COALESCE(s.subject, 'math') = ? ORDER BY s.submitted_at DESC LIMIT 20`
     )
-    .bind(st.id)
+    .bind(st.id, subjectParam(new URL(req.url)))
     .all();
   if (acc.guest) return json({ student: { id: st.id, nickname: st.nickname }, points: [], edges: [], sessions, error_reasons: [], mistakes: [], locked: REG_ONLY });
   const { results: reasons } = await env.DB
@@ -726,7 +758,24 @@ route('GET', '/api/print/:token', async (_req, env, p) => {
 //   fixed    已订正：订正对了一次，还没到复习时间
 //   mastered 已掌握：最近一次错误之后又做对了两次以上
 const REVIEW_DAYS = 7;
-async function mistakeBook(env, studentId) {
+route('GET', '/api/students/:id/mistakes', async (req, env, p, url) => {
+  const acc = await requireAccount(req, env);
+  const st = await requireStudent(env, acc, p.id);
+  requireRegistered(acc);
+  const subject = subjectParam(url);
+  const book = await mistakeBook(env, st.id, subject);
+  const det = {};
+  const rows = await allIn(env, `SELECT p.id, p.stem, p.figure, p.choices, p.answer, p.section, p.input_hint, e.sections, sb.content AS basic
+      FROM problem p JOIN exam e ON e.id = p.exam_id LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic'
+     WHERE p.id IN (?IDS)`, book.map((m) => m.problem_id));
+  for (const r of rows) {
+    const sec = (parseJ(r.sections, []) || []).find((x) => x.no === r.section);
+    det[r.id] = { stem: r.stem, figure: r.figure, choices: parseJ(r.choices, {}), answer: r.answer, input_hint: r.input_hint, basic: r.basic, section: r.section, section_name: sec?.name ?? null };
+  }
+  return json({ subject, mistakes: book.map((m) => ({ ...m, ...det[m.problem_id] })) });
+});
+
+async function mistakeBook(env, studentId, subject = 'math') {
   const { results: rows } = await env.DB
     .prepare(
       `SELECT ae.problem_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, p.types, e.title AS exam_title, e.year
@@ -745,13 +794,10 @@ async function mistakeBook(env, studentId) {
     m.last_at = r.created_at;
     by.set(r.problem_id, m);
   }
-  const list = [...by.values()];
+  const list = [...by.values()].filter((m) => subjectOf(m.problem_id) === subject);
   if (!list.length) return [];
-  const { results: kps } = await env.DB
-    .prepare(`SELECT pk.problem_id, pk.weight, k.id, k.name FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
-               WHERE pk.weight >= 0.5 AND pk.problem_id IN (${list.map(() => '?').join(',')}) ORDER BY pk.weight DESC`)
-    .bind(...list.map((x) => x.problem_id))
-    .all();
+  const kps = (await allIn(env, `SELECT pk.problem_id, pk.weight, k.id, k.name FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
+               WHERE pk.weight >= 0.5 AND pk.problem_id IN (?IDS)`, list.map((x) => x.problem_id))).sort((a, b) => b.weight - a.weight);
   const kpOf = {};
   for (const k of kps) (kpOf[k.problem_id] ||= []).push({ id: k.id, name: k.name, primary: k.weight >= 1 });
   const t = now();

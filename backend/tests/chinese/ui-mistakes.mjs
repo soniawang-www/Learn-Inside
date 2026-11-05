@@ -1,0 +1,27 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { chromium, devices } = require(process.env.PW);
+const B = 'http://127.0.0.1:8788', O = process.env.OUT;
+const j = async (p, b, t) => (await fetch(B + p, { method: b ? 'POST' : 'GET', headers: { 'content-type': 'application/json', ...(t ? { authorization: 'Bearer ' + t } : {}) }, body: b ? JSON.stringify(b) : undefined })).json();
+const u = await j('/api/auth/register', { phone: '138' + String(Math.random()).slice(2, 10), password: 'abc12345', nickname: '小测' });
+const s = await j('/api/sessions', { exam_id: 'hanzi-2021-city', student_id: u.student.id, mode: 'exam' }, u.token);
+await j(`/api/sessions/${s.session.id}/submit`, { answers: {} }, u.token); // 全部没答 → 150 道错题
+const fails = []; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); if (!c) fails.push(m); };
+const b = await chromium.launch();
+const ctx = await b.newContext({ ...devices['Pixel 5'] });
+await ctx.addInitScript(([t, st]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(st)); }, [u.token, u.student]);
+const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', (e) => errs.push(e.message));
+await pg.goto(B + '/chinese/#/mistakes');
+await pg.locator('h1', { hasText: '错题本' }).waitFor();
+ok((await pg.locator('details.mk').count()) === 150, '错题本列出 150 道错题');
+ok((await pg.locator('.card h2').allInnerTexts()).some((t) => t.includes('古文字')), '按大题分组');
+await pg.locator('details.mk').nth(105).click(); await pg.screenshot({ path: `${O}/m-mistakes.png` });
+await pg.getByText(/重做 30 道错题/).click();
+await pg.locator('.ex-q').waitFor();
+await pg.locator('.ex-opt').nth(3).click(); await pg.locator('.ex-next').click();
+await pg.locator('.ex-fb').waitFor();
+ok((await pg.locator('.ex-fb').innerText()).includes('答对了'), '练习模式：第 1 题选「嘉」判对并显示解析');
+await pg.screenshot({ path: `${O}/m-practice.png` });
+ok((await pg.locator('.ex-next').innerText()) === '下一页', '判完后按钮变成「下一页」');
+ok(errs.length === 0, '没有脚本错误 ' + errs.join('|'));
+await b.close(); console.log(fails.length ? `失败 ${fails.length}` : '全部通过');

@@ -17,7 +17,8 @@ export function buildRows(knowledge, exams) {
   for (const [from, to] of knowledge.edges) rows.push(['kp_edge', { from_kp: from, to_kp: to }]);
 
   for (const ex of exams) {
-    rows.push(['exam', { id: ex.id, title: ex.title, year: ex.year ?? null, grade: ex.grade ?? null, source: ex.source, duration_sec: ex.duration_sec ?? 2400, published: ex.published === false ? 0 : 1 }]);
+    rows.push(['exam', { id: ex.id, title: ex.title, year: ex.year ?? null, grade: ex.grade ?? null, source: ex.source, duration_sec: ex.duration_sec ?? 2400, published: ex.published === false ? 0 : 1,
+      sections: ex.sections ? JSON.stringify(ex.sections) : null, origin: ex.origin ?? null }]);
     for (const p of ex.problems) {
       const pid = `${ex.id}-p${String(p.number).padStart(2, '0')}`;
       const keys = Object.keys(p.choices || {});
@@ -28,6 +29,7 @@ export function buildRows(knowledge, exams) {
         choices: JSON.stringify(p.choices || {}), choices_zh: p.choices_zh ? JSON.stringify(p.choices_zh) : null, answer: String(p.answer), difficulty: p.difficulty ?? null,
         accept: p.accept?.length ? JSON.stringify(p.accept) : null,
         reviewed: p.reviewed === false ? 0 : 1, types: p.types ? JSON.stringify(p.types) : null,
+        section: p.section ?? null, input_hint: p.input_hint ?? null,
       }]);
       (p.hints ?? []).forEach((h, i) => rows.push(['hint', { problem_id: pid, level: i + 1, content: h }]));
       if (p.basic) rows.push(['solution', { id: `${pid}-basic`, problem_id: pid, kind: 'basic', tier: 'free', content: p.basic, url: null }]);
@@ -75,6 +77,12 @@ const MIGRATIONS = [
   'ALTER TABLE exam_session ADD COLUMN title TEXT', 'ALTER TABLE exam_session ADD COLUMN kp_id TEXT',
   'ALTER TABLE exam ADD COLUMN grade INTEGER',      // 分年级的考试（希望数学）：4 = 四年级 … 8 = 初二
   'ALTER TABLE problem ADD COLUMN accept TEXT',     // 填空题其他可接受的写法（JSON 数组）
+  // 语文（汉字小达人）：大题划分、来源说明、填空输入提示；会话所属科目（数学 / 语文的成绩和错题分开）
+  'ALTER TABLE exam ADD COLUMN sections TEXT',      // JSON [{no, from, to, name, title}]
+  'ALTER TABLE exam ADD COLUMN origin TEXT',
+  'ALTER TABLE problem ADD COLUMN section INTEGER',
+  'ALTER TABLE problem ADD COLUMN input_hint TEXT',
+  'ALTER TABLE exam_session ADD COLUMN subject TEXT', // NULL = 数学（旧数据）
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
   // 错题打印链接（微信里不能存文件时，换到浏览器打开；24 小时有效）
