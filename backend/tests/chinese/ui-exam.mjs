@@ -40,7 +40,7 @@ for (let n = 1; n <= N; n++) {
     await pg.locator('.ex-opt').nth(Object.keys(k.choices).indexOf(k.answer)).click();
   }
   if (n === 106 && k.figure) ok(await pg.locator('.ex-fig img').isVisible(), '古文字题显示字形图');
-  if (n === 141 && EXAM !== 'hanzi-2025-district') ok((await pg.locator('.ex-hint').count()) > 0, '诗句题有输入提示');
+  if (k.input_hint && (await pg.locator('.ex-hint').count()) === 0) ok(false, `第 ${n} 题没有显示输入提示`);
   if (n === 30 || n === 75) ok(!(await overflow(pg)), `第 ${n} 题没有横向溢出`);
   await pg.locator('.ex-next').click();
 }

@@ -9,7 +9,7 @@ exam=json.load(open(sys.argv[1]+'/exams/hanzi/hanzi-2021-city.json'))
 key={p['number']:p for p in exam['problems']}
 ok=lambda c,m: print(('✓' if c else '✗'),m) or (c or sys.exit(1))
 g=call('/api/auth/guest',{}); tok=g['token']; st=g['student']['id']
-ex=call(f'/api/exams?student={st}&family=hanzi',tok=tok); ok(len(ex)==1 and ex[0]['problem_count']==150,f"语文试卷 {[(e['id'],e['problem_count']) for e in ex]}")
+ex=call(f'/api/exams?student={st}&family=hanzi',tok=tok); ok(any(e['id']=='hanzi-2021-city' and e['problem_count']==150 for e in ex),f"语文试卷 {[(e['id'],e['problem_count']) for e in ex]}")
 mx=call(f'/api/exams?student={st}&family=amc8',tok=tok); ok(all(not e['id'].startswith('hanzi') for e in mx),f"数学 AMC8 列表不含语文（{len(mx)} 套）")
 s=call('/api/sessions',{'exam_id':'hanzi-2021-city','student_id':st,'mode':'exam'},tok)
 P=s['problems']; ok(len(P)==150 and 'answer' not in P[0],'开考：150 题，题目不带答案')

@@ -16,5 +16,6 @@ const T = [
 let bad = 0;
 for (const [ch, ans, inp, exp] of T) { const r = judge({ choices: ch, answer: ans }, inp); if (r !== exp) { bad++; console.log('✗', ans, JSON.stringify(inp), '→', r); } }
 if (judge({ choices: F, answer: '6', accept: ['六'] }, '六') !== true) { bad++; console.log('✗ accept'); }
+if (judge({ choices: C, answer: 'C', accept: ['A'] }, 'A') !== true || judge({ choices: C, answer: 'C', accept: ['A'] }, 'B') !== false) { bad++; console.log('✗ 选择题 accept'); }
 console.log(bad ? `失败 ${bad}` : `全部通过：${T.length + 1} 条`);
 process.exit(bad ? 1 : 0);

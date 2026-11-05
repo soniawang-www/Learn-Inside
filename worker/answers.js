@@ -65,7 +65,7 @@ export function normalizeInput(choices, input) {
 export function judge({ choices, answer, accept }, input) {
   const v = normalizeInput(choices, input);
   if (v === null) return false;
-  if (!isFill(choices)) return v === answer;
+  if (!isFill(choices)) return v === answer || (accept || []).includes(v); // 选择题：印刷错误导致两个选项都成立时，accept 里放另一个字母
   const keys = [answer, ...(accept || [])].filter((x) => x !== null && x !== undefined && x !== '');
   const cv = clean(v), rv = toRational(v);
   for (const k of keys) {
