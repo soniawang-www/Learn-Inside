@@ -13,7 +13,7 @@ const PREFIX = '/math', OLD_PREFIX = '/amc8';
 // 考试系列：试卷 id 以前缀区分。画像、知识图谱、错题本不分考试；考情、试卷、成绩按考试分开。
 const FAMILIES = [
   { id: 'amc8', name: 'AMC 8', prefix: 'amc8-', desc: '美国数学竞赛 8 年级组：25 道选择题，40 分钟', subject: 'math' },
-  { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 数学竞赛', subject: 'math' },
+  { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 STEM 应用能力活动（数学）：按年级分卷，填空题为主，60 分钟', grades: true, subject: 'math' },
   { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true, subject: 'math' },
   // 语文（learn-inside.com/chinese）
   { id: 'hanzi', name: '汉字小达人', prefix: 'hanzi-', desc: '上海市小学生「美丽汉字小达人」：150 题，40 分钟', subject: 'chinese' },

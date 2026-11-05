@@ -410,6 +410,14 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .tapsvg .tp-s.on { fill:var(--lp-plum); }
 .tapsvg .extra { fill:none; stroke:var(--lp-ink); stroke-width:.03; pointer-events:none; }
 .lp-gbar b { color:var(--lp-ink); }
+/* 取石子（takeaway）、点阵连线（dotpath） */
+.tk { display:flex; flex-direction:column; gap:8px; align-items:center; }
+.tk-left { font-size:1.05rem; } .tk-left b { color:var(--lp-plum); font-size:1.3rem; }
+.tk-log { font-size:.9rem; color:var(--lp-soft); max-height:9.5em; overflow:auto; align-self:stretch; padding:0 6px; }
+.tk-log .muted { margin-left:4px; }
+.tk-moves { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; }
+.tk-moves .lp-ghost, .tk-pick .lp-ghost { margin-top:0; }
+.tk-pick { text-align:center; } .tk-pick .lp-gbar { flex-wrap:wrap; }
 .lp-gbar input[type=range] { width:min(320px, 60vw); accent-color:var(--lp-plum); }
 .muted { color:var(--lp-soft); }
 /* 求和 */

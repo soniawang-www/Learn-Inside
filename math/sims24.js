@@ -34,7 +34,26 @@ function slider(box, p, api) {
     if (tip) { const t = tip(v, H); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
     if (goal && goal(v, H)) ok();
   };
-  box.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('input', () => { v[r.dataset.k] = +r.value; draw(); }));
+  box.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('input', () => { stop(); v[r.dataset.k] = +r.value; draw(); }));
+  // play: 'k' 时加一个「播放」按钮，让变量 k 从当前值自动走到最大值（行程、旋转等动画）；ms 是每一小步的间隔
+  let timer = null;
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; } const b = box.querySelector('.sl-play'); if (b) b.textContent = '▶ 播放'; };
+  if (p.play) {
+    const x = p.vars.find((q) => q.k === p.play);
+    const r = box.querySelector(`input[data-k="${p.play}"]`);
+    box.insertAdjacentHTML('beforeend', bar(btn('sl-play', '▶ 播放')));
+    box.querySelector('.sl-play').onclick = (e) => {
+      if (timer) return stop();
+      if (v[x.k] >= x.max) v[x.k] = x.min;
+      e.currentTarget.textContent = '❚❚ 暂停';
+      timer = setInterval(() => {
+        if (!box.isConnected) return stop();
+        v[x.k] = Math.min(x.max, +(v[x.k] + (x.step || 1)).toFixed(6));
+        r.value = v[x.k]; draw();
+        if (v[x.k] >= x.max) stop();
+      }, p.ms || 60);
+    };
+  }
   draw();
 }
 
