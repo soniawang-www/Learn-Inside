@@ -415,4 +415,5 @@ function seats(box, p, api) {
   paint();
 }
 
+export { compile, H };
 export const SIMS24 = { slider, chain, stack, dice, tiles, tree, hops, route, kings, cube, linecells, seats };

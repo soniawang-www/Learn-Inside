@@ -1236,3 +1236,28 @@ body.exam-li .ez-pin.on { border-radius: 999px; }
 body.exam-li .ez.big .ez-stem { font-size: 22px; }
 
 @media (max-width: 520px) { .exam-grid.long { grid-template-columns: minmax(0, 1fr); } } /* 手机上分年级的卷名较长，一行一张 */
+/* 开关格（toggles）、单步执行器（stepper）、格子填数（gridfill）、换位排序（sorter） */
+.tgsvg .tg-i { cursor:pointer; }
+.tgsvg .tg-c { stroke:var(--lp-ink); stroke-width:1.4; transition:fill .12s; }
+.tgsvg .tg-i:hover .tg-c { stroke:var(--lp-plum); stroke-width:2.2; }
+.tg-bad, .gf-bad { stroke:var(--lp-plum) !important; stroke-width:3.2 !important; }
+.lp-sim .st.tg-on { fill:var(--lp-card); font-weight:700; }
+.stp { display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; }
+.stp-code { align-self:stretch; margin:0; padding:8px 10px; background:var(--lp-card); border:1px solid var(--lp-line); border-radius:8px; font-size:.85rem; line-height:1.55; overflow-x:auto; color:var(--lp-ink); }
+.stp-code span { display:block; padding:0 4px; border-radius:4px; }
+.stp-code span.cur { background:var(--lp-plum-soft); box-shadow:inset 3px 0 0 var(--lp-plum); }
+.stp-vars table { border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.stp-vars th, .stp-vars td { border:1px solid var(--lp-line); padding:3px 10px; text-align:center; color:var(--lp-ink); }
+.stp-vars th { color:var(--lp-soft); font-weight:500; font-size:.85rem; }
+.stp-vars td.chg { background:var(--lp-plum-soft); color:var(--lp-plum); font-weight:700; }
+.stp .lp-gbar { flex-wrap:wrap; } .stp .lp-ghost:disabled { opacity:.35; }
+.stp-n { font-variant-numeric:tabular-nums; min-width:5.5em; text-align:center; }
+.slsvg .gf-c { fill:var(--lp-card); stroke:var(--lp-ink); stroke-width:1.2; cursor:pointer; }
+.slsvg .gf-giv { fill:var(--lp-jade-soft); cursor:default; }
+.slsvg .gf-blk { fill:var(--lp-line); stroke:var(--lp-ink); stroke-width:1.2; }
+.slsvg .gf-sel { stroke:var(--lp-plum); stroke-width:3; }
+.gf-pad { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.gf-pad .lp-ghost { margin-top:0; min-width:2.6em; }
+.so-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.so-c { min-width:48px; height:52px; padding:0 10px; border:2px solid var(--lp-line); background:var(--lp-card); color:var(--lp-ink); border-radius:10px; font-size:1.1rem; font-weight:700; cursor:pointer; }
+.so-c.on { border-color:var(--lp-plum); background:var(--lp-plum-soft); color:var(--lp-plum); }
