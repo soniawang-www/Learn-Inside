@@ -5,7 +5,7 @@ import { compile, H } from './sims24.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const bar = (html) => `<div class="lp-gbar">${html}</div>`;
 const btn = (cls, text, extra = '') => `<button class="lp-ghost ${cls}" ${extra}>${text}</button>`;
-const SVG = (w, h, body, cls = '') => `<svg viewBox="0 0 ${w} ${h}" class="lp-sim ${cls}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+const SVG = (w, h, body, cls = '', cap = 0) => `<svg viewBox="0 0 ${w} ${h}" class="lp-sim ${cls}"${cap ? ` style="max-width:${Math.round(w * cap)}px"` : ''} xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 const once = (fn) => { let done = false; return (...a) => { if (!done) { done = true; fn(...a); } }; };
 
 // ── 取石子博弈：孩子当先手，电脑当后手且按最优策略走 ──
@@ -138,7 +138,7 @@ function toggles(box, p, api) {
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   const tip = fn(p.tip, keys);
   const vw = p.vw || 360, vh = p.vh || 220;
-  box.innerHTML = SVG(vw, vh, '<g class="tg-g"></g>', 'slsvg tgsvg') + '<div class="sl-info"></div>' + bar(btn('tg-reset', '重来'));
+  box.innerHTML = SVG(vw, vh, '<g class="tg-g"></g>', 'slsvg tgsvg', 1.6) + '<div class="sl-info"></div>' + bar(btn('tg-reset', '重来'));
   const env = () => { const L = items.map((it) => S[it.k]); return { S, L, K: items.map((it) => it.k), cnt: (v) => L.filter((x) => x === v).length, on: (k) => S[k] !== 0 }; };
   const draw = () => {
     const v = env(), bad = new Set(run(F.bad, v, []) || []);
@@ -174,7 +174,7 @@ function stepper(box, p, api) {
   let i = 0, timer = null, prev = {};
   const vw = p.vw || 360, vh = p.vh || 200;
   box.innerHTML = `<div class="stp">${(draw || steps.some((s) => s.svg)) ? SVG(vw, vh, '<g class="stp-g"></g>', 'slsvg') : ''}<div class="stp-html"></div>
-    ${p.code ? `<pre class="stp-code">${p.code.map((l, k) => `<span data-l="${k}">${esc(l)}</span>`).join('\n')}</pre>` : ''}
+    ${p.code ? `<pre class="stp-code">${p.code.map((l, k) => `<span data-l="${k}">${esc(l)}</span>`).join('')}</pre>` : ''}
     <div class="stp-vars"></div><div class="sl-info stp-say"></div>
     ${bar(btn('stp-prev', '◀ 上一步') + `<span class="stp-n"></span>` + btn('stp-next', '下一步 ▶') + btn('stp-play', '▶ 播放') + btn('stp-reset', '重来'))}</div>`;
   const stop = () => { if (timer) { clearInterval(timer); timer = null; } box.querySelector('.stp-play').textContent = '▶ 播放'; };
@@ -219,7 +219,7 @@ function gridfill(box, p, api) {
   const ok = once(() => api.solved(p.say_ok));
   let sel = null;
   const vw = p.vw || x0 * 2 + C * c, vh = p.vh || y0 * 2 + R * c;
-  box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg') + '<div class="sl-info"></div>' +
+  box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg', 1.5) + '<div class="sl-info"></div>' +
     `<div class="gf-pad">${(p.nums || [1, 2, 3, 4, 5, 6, 7, 8, 9]).map((v) => `<button class="lp-ghost gf-n" data-v="${esc(v)}">${esc(v)}</button>`).join('')}<button class="lp-ghost gf-n" data-v="">清除</button></div>` + bar(btn('gf-reset', '重来'));
   const env = () => ({ G, R, C, filled: G.every((row, i) => row.every((v, j) => v !== null || block.has(`${i},${j}`))) });
   const draw = () => {
@@ -263,14 +263,14 @@ function nim(box, p, api) {
   const ok = once(() => api.solved(p.say_ok));
   let P = null, log = [], over = false, games = 0, pick = null;
   const pileSvg = () => {
-    const s = 22, per = Math.max(...P, 1), w = 60 + per * s;
+    const s = 22, per = Math.max(...P, ...(starts.flat()), 1), w = 60 + per * s;
     let o = '';
     P.forEach((n, i) => {
       o += `<text x="8" y="${30 + i * 40}" font-size="14" class="st">第${i + 1}堆</text>`;
       for (let k = 0; k < n; k++) o += `<circle class="nm-s" data-i="${i}" data-t="${n - k}" cx="${62 + k * s}" cy="${25 + i * 40}" r="9" style="fill:${pick && pick[0] === i && k >= n - pick[1] ? 'var(--lp-plum)' : 'var(--lp-jade)'};opacity:.88;cursor:pointer"/>`;
       o += `<text x="${66 + n * s}" y="${30 + i * 40}" font-size="13" class="st">${n}</text>`;
     });
-    return SVG(w + 30, 20 + P.length * 40, o);
+    return SVG(w + 30, 20 + P.length * 40, o, '', 1.4);
   };
   const paint = () => {
     if (!P) { box.innerHTML = `<div class="tk-pick"><p>选一个开局，你先拿：</p>${bar(starts.map((st, k) => btn(`nm-start" data-k="${k}`, st.join('、'))).join(''))}</div>`; return; }

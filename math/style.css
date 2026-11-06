@@ -1243,7 +1243,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tg-bad, .gf-bad { stroke:var(--lp-plum) !important; stroke-width:3.2 !important; }
 .lp-sim .st.tg-on { fill:var(--lp-card); font-weight:700; }
 .stp { display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; }
-.stp-code { align-self:stretch; margin:0; padding:8px 10px; background:var(--lp-card); border:1px solid var(--lp-line); border-radius:8px; font-size:.85rem; line-height:1.55; overflow-x:auto; color:var(--lp-ink); }
+.stp-code { align-self:stretch; text-align:left; margin:0; padding:8px 10px; background:var(--lp-card); border:1px solid var(--lp-line); border-radius:8px; font-size:.85rem; line-height:1.55; overflow-x:auto; color:var(--lp-ink); }
 .stp-code span { display:block; padding:0 4px; border-radius:4px; }
 .stp-code span.cur { background:var(--lp-plum-soft); box-shadow:inset 3px 0 0 var(--lp-plum); }
 .stp-vars table { border-collapse:collapse; font-variant-numeric:tabular-nums; }
