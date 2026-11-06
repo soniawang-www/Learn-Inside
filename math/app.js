@@ -1,6 +1,7 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
+import { sideNav } from '/assets/sidenav.js?v=20261106c';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
@@ -190,27 +191,13 @@ function topnav() {
   const s = auth.student;
   if (!s) return `<nav class="topnav">${BRAND}</nav>`;
   const h = location.hash || '#/';
-  const NAV = SECTION === 'account' ? [
-    ['/', '网站首页', 'home', /^$/],
-    ['/math/', '数学', 'exam', /^$/],
-    ['/chinese/', '语文', 'exam', /^$/],
-    ['#/account', '账号', 'account', /^#\/(account)?/],
-  ] : [
-    ['#/', '首页', 'home', /^#\/?$/],
+  const SUB = SECTION === 'math' ? [
     ['#/exams', '考试', 'exam', /^#\/(exams|contest|review)/],
     ['#/graph', '知识图谱', 'graph', /^#\/(graph|kp)/],
     ['#/mistakes', '错题本', 'mistakes', /^#\/(mistakes|problem)/],
-    [ACCOUNT_URL, '账号', 'account', /^#\/account/],
-  ];
+  ] : [];
   const memb = lastMe ? (lastMe.guest ? '游客 · 点这里注册' : lastMe.free_mode ? '试用期全部免费' : lastMe.premium ? '会员' : `免费次数 ${lastMe.credits}`) : '';
-  return `<aside class="side">
-    <div class="side-brand">${BRAND}</div>
-    <nav class="side-nav">${NAV.map(([href, n, ic, re]) => `<a class="${re.test(h) ? 'on' : ''}" href="${href}">${icon(ic)}<span>${n}</span></a>`).join('')}</nav>
-    <a class="side-help" href="javascript:" data-support>${icon('chat')}<span>联系客服</span></a>
-    ${SECTION === 'math' ? '<a class="side-switch" href="/chinese/">去语文 ›</a>' : ''}
-    <a class="side-who" href="${ACCOUNT_URL}"><span class="avatar">${esc(s.nickname.slice(0, 1))}</span><span><b>${esc(s.nickname)}</b><small>${esc(memb)}</small></span></a>
-  </aside>
-  <header class="mtop">${BRAND}<span><a class="mtop-who" href="javascript:" data-support>客服</a>${SECTION === 'math' ? '<a class="mtop-who" href="/chinese/">语文</a>' : ''}<a class="mtop-who" href="${ACCOUNT_URL}">${esc(s.nickname)}${lastMe?.premium && !lastMe.free_mode ? '<i class="vip">会员</i>' : ''}</a></span></header>`;
+  return sideNav({ section: SECTION, sub: SUB.map(([href, n, ic, re]) => [href, n, ic, re.test(h)]), who: { name: s.nickname, note: memb } });
 }
 
 // ───────── 路由 ─────────
