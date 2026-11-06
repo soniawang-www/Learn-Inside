@@ -34,10 +34,10 @@ html.side-mini .sn-sub a { padding: 8px 0; }
 html.side-mini .sn-who { justify-content: center; padding: 6px 0; background: transparent; }
 html.side-mini .sn-fold svg { transform: rotate(180deg); }
 
-/* 手机 / 平板竖屏：顶部条 + 左上角菜单，导航从左边滑出 */
+/* 手机 / 平板竖屏：顶部条 + 右上角菜单，导航从右边滑出 */
 @media (max-width: 860px) {
   #app:has(> .side) { display: block; }
-  .side { position: fixed; left: 0; top: 0; bottom: 0; width: min(280px, 82vw); height: auto; transform: translateX(-105%); transition: transform .22s ease; padding-top: calc(14px + env(safe-area-inset-top)); padding-bottom: calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 0 40px rgba(0,0,0,.3); }
+  .side { position: fixed; left: auto; right: 0; top: 0; bottom: 0; width: min(280px, 82vw); height: auto; transform: translateX(105%); transition: transform .22s ease; padding-top: calc(14px + env(safe-area-inset-top)); padding-bottom: calc(14px + env(safe-area-inset-bottom)); box-shadow: 0 0 40px rgba(0,0,0,.3); }
   html.side-open .side { transform: none; }
   html.side-mini .side { padding: 14px 10px; }
   html.side-mini .sn-top { flex-direction: row; }
@@ -50,9 +50,8 @@ html.side-mini .sn-fold svg { transform: rotate(180deg); }
   .sn-mask { position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.4); }
   html.side-open .sn-mask { display: block; }
   .sn-bar { display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 40; padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top)); background: var(--sn-board); color: #fff; }
-  .sn-menu { color: #fff; }
+  .sn-menu { color: #fff; margin-left: auto; margin-right: -6px; }
   .sn-bar .sn-logo b { font-size: 16px; letter-spacing: .08em; }
-  .sn-me { margin-left: auto; color: var(--sn-dim); text-decoration: none; font-size: 14px; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .side { transition: none; } }
 

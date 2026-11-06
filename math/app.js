@@ -1,7 +1,7 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
-import { sideNav } from '/assets/sidenav.js?v=20261106c';
+import { sideNav } from '/assets/sidenav.js?v=20261106d';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
@@ -266,13 +266,12 @@ function renderJoin() {
   const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
     <section class="auth-intro">
-      <h1>奥数真题边练边学</h1>
-      <p>做真题，自动找出孩子的薄弱知识项，错题按知识项整理，一步步补上。</p>
+      <h1>竞赛真题边练边学</h1>
       <ul>
-        <li><b>真题模考</b>AMC 8 历年真题，按正式考试计时</li>
-        <li><b>知识图谱</b>30 个知识项的掌握程度和前后依赖，一眼看出先补哪里</li>
-        <li><b>错题本</b>订正、一周后复习，直到真正掌握</li>
-        <li><b>互动解析</b>像老师一样一步步讲，<em class="hl">注册就送 10 次</em></li>
+        <li><b>数学真题</b>AMC 8 · 希望数学 · 思维 100</li>
+        <li><b>语文真题</b>汉字小达人</li>
+        <li><b>知识图谱 · 错题本</b>数学、语文同一个账号</li>
+        <li><b>互动解析</b><em class="hl">注册送 10 次</em></li>
       </ul>
     </section>
     <section class="auth-card card">
