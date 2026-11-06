@@ -511,12 +511,9 @@ async function renderDashboard() {
   const st = auth.student;
   const guest = !!me.guest; // 游客没有知识图谱和错题本
   const fams = (await apiList(`/math/api/families?student=${st.id}`)).sort((a, b) => (b.exams > 0) - (a.exams > 0));
-  if (!fams.some((f) => f.id === dashFam)) dashFam = (fams.find((f) => f.exams) || fams[0])?.id;
-  const [g, prof, fd, exams] = await Promise.all([
+  const [g, prof] = await Promise.all([
     guest ? { nodes: [], edges: [], modules: [] } : api(`/math/api/students/${st.id}/graph`),
-    guest ? { mistakes: [] } : api(`/math/api/students/${st.id}/profile`),
-    api(`/math/api/families/${enc(dashFam)}?student=${st.id}`),
-    apiList(`/math/api/exams?student=${st.id}&family=${enc(dashFam)}`),
+    api(`/math/api/students/${st.id}/profile`).catch(() => ({ sessions: [], mistakes: [] })),
   ]);
   const lv = (n) => n.mastery?.level || 'none';
   const byId = Object.fromEntries(g.nodes.map((n) => [n.id, n]));
@@ -534,13 +531,10 @@ async function renderDashboard() {
   }
   const ms = prof.mistakes || [];
   const pending = ms.filter((m) => m.status === 'pending').length, due = ms.filter((m) => m.status === 'due').length;
-  const sessions = (fd.sessions || []).slice(0, 5);
-  const doneN = (fd.sessions || []).filter((x) => x.mode === 'exam').length;
+  const sessions = (prof.sessions || []).slice(0, 5);
   const tasks = [ // 错题在页面最上面的「继续」条里，这里只列要补的知识项
     ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><i class="kg-sw lv-weak"></i><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span></a>`),
   ].filter(Boolean);
-  const f = fd.family;
-  const { html: grid } = examGrid(f, exams, dashFam, 6);
   // 没做完的模考：浏览器里存着答题进度的会话，向服务器确认还没交卷、没过期
   let live = null;
   for (const k of Object.keys(localStorage).filter((k) => k.startsWith('amc8.s.')).slice(0, 5)) {
@@ -557,9 +551,9 @@ async function renderDashboard() {
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <section class="dash-exams" aria-label="考试">
-      <div class="fam-tabs" role="tablist">${fams.map((x) => `<button role="tab" class="${x.id === dashFam ? 'on' : ''}" data-fam="${x.id}"><b>${esc(x.name)}</b><small>${x.exams ? `${x.exams} 套` : '录入中'}</small></button>`).join('')}</div>
-      <p class="small fam-desc"><a href="#/contest/${enc(dashFam)}/stats">考情 ›</a></p>
-      ${grid}
+      <div class="fam-cards">${fams.map((x) => `<a class="fam-card ${x.id === dashFam ? 'last' : ''}" href="#/contest/${enc(x.id)}">
+        <b>${esc(x.name)}</b><span>${x.exams ? `${x.exams} 套真题` : '录入中'}</span>
+        <small>${x.last ? `最近 ${x.last.score} 分` : ''}</small><i>›</i></a>`).join('')}</div>
     </section>
     ${tasks.length || sessions.length ? `<div class="dash-grid">
       <section class="card todo">
@@ -579,9 +573,6 @@ async function renderDashboard() {
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
-  $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { dashFam = b.dataset.fam; store.set('math.fam', dashFam); renderDashboard(); }));
-  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[dashFam] = +b.dataset.grade; saveGrade(); renderDashboard(); }));
-  $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode)));
 }
 
 // ───────── 考试列表 ─────────
@@ -628,6 +619,7 @@ function examGrid(f, allExams, fid, limit = 0) {
   return { html, exams };
 }
 async function renderContest(fid, tab = 'exams') {
+  dashFam = fid; store.set('math.fam', fid);
   const st = auth.student;
   const d = await api(`/math/api/families/${enc(fid)}?student=${st.id}`);
   const f = d.family;

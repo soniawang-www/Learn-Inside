@@ -897,6 +897,16 @@ body:not(.exam-mode) { background: var(--paper); }
 .cont-go i { font-style: normal; font-size: 20px; line-height: 1; }
 .mode-tip { margin: -6px 2px 12px; color: var(--muted); }
 .mode-tip b { color: var(--text); font-weight: 600; }
+/* 数学首页：各竞赛入口卡片，点进去才看试卷 */
+.fam-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.fam-card { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 18px 40px 16px 20px; border-radius: var(--radius); background: var(--surface); border: 1.5px solid var(--border); color: var(--text); text-decoration: none; min-width: 0; }
+.fam-card b { font-family: var(--display); font-weight: 600; font-size: 20px; letter-spacing: .03em; }
+.fam-card span { font-size: 14px; color: var(--muted); }
+.fam-card small { font-size: 13px; color: var(--accent); min-height: 1.2em; }
+.fam-card i { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 22px; color: var(--accent); }
+.fam-card.last { border-color: var(--accent); }
+@media (hover: hover) { .fam-card:hover { border-color: var(--accent); } }
+@media (max-width: 860px) { .fam-cards { grid-template-columns: minmax(0, 1fr); gap: 10px; } .fam-card { padding: 14px 40px 12px 16px; } }
 /* 数学首页最上面的「考试」：竞赛标签 + 试卷格子 */
 .dash-exams { margin-bottom: 20px; }
 .fam-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
