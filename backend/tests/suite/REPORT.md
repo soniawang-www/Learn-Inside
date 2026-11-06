@@ -349,13 +349,14 @@
 | U12-3 | 电脑：收起导航，刷新后还是收起的 | ✓ true/false | ✓ true/false | ✓ true/false |
 | U12-4 | 手机：菜单在左上角、logo 在右上角，导航从左边滑出，点遮罩关上 | ✓ true/true/true/true | ✓ true/true/true/true | ✓ true/true/true/true |
 
-### U13 界面 · 加载时的漫画
+### U13 界面 · 加载时的样子
 
 | 用例 | 测什么 | 游客 | 注册用户 | 会员 |
 |---|---|---|---|---|
-| U13-1 | 数学换页时数据慢：屏幕正中弹出四格漫画，加载完自动关 | ✓ true/4/true | ✓ true/4/true | ✓ true/4/true |
-| U13-2 | 语文换页时数据慢：弹出语文的四格漫画 | ✓ true/true | ✓ true/true | ✓ true/true |
-| U13-3 | 网快时不弹 | ✓ 0 | ✓ 0 | ✓ 0 |
+| U13-1 | 第一次打开（数据慢）：屏幕正中弹出圆形四格漫画，外圈是加载进度，加载完自动关 | ✓ true/4/1/true | ✓ true/4/1/true | ✓ true/4/1/true |
+| U13-2 | 数学站内换页（数据慢）：不弹漫画；内容区原地显示骨架，导航不动，顶部进度条在走；加载完换成内容 | ✓ true/0/1/true/true | ✓ true/0/1/true/true | ✓ true/0/1/true/true |
+| U13-3 | 语文站内换页（数据慢）：同样显示骨架 | ✓ true/0/true | ✓ true/0/true | ✓ true/0/true |
+| U13-4 | 网快时换页：不出骨架也不弹漫画 | ✓ 0/0 | ✓ 0/0 | ✓ 0/0 |
 
 ### U14 界面 · 网站首页
 
