@@ -229,6 +229,35 @@ export const UI_FEATURES = [
       await c.go('/'); await p.waitForTimeout(800); return `${fresh}/${await p.locator('#promo').isVisible()}`;
     }, expect: same('true/false') },
   ] },
+  { id: 'U15', area: '界面', name: '语文答题（和比赛界面一样）', cases: [
+    { id: 'U15-1', name: '开考：一页一题、有倒计时，没作答「下一页」不能点，没有「上一页」，不显示还剩多少题', run: async (p, c) => {
+      await c.go('/chinese/#/intro/hanzi-2021-city'); await p.getByText(/开始答题|重新开始/).first().click(); await p.locator('.ex-q').waitFor({ timeout: 15000 });
+      c.zhExam = p.url().split('#/exam/')[1];
+      const body = await p.locator('body').innerText();
+      return `${await p.locator('.ex-q').count()}/${await p.locator('#clock').isVisible()}/${await p.locator('.ex-next').isDisabled()}/${(await p.getByText('上一页').count()) === 0}/${!/第\s*\d+\s*\/\s*150|还剩\s*\d+\s*题/.test(body)}`;
+    }, expect: same('1/true/true/true/true') },
+    { id: 'U15-2', name: '做了 3 题后刷新：从第 4 题接着做', run: async (p, c) => {
+      for (let n = 1; n <= 3; n++) await c.zhAnswer(n, n === 1 ? 'wrong' : 'right');
+      await p.reload(); await p.locator('.ex-q').waitFor({ timeout: 15000 }); return (await p.locator('.ex-q').innerText()).trim().startsWith('4.');
+    }, expect: same(true) },
+    { id: 'U15-3', name: '手机 390 深色模式下答题页不溢出、选项按钮完整', run: async (p, c) => {
+      await p.setViewportSize({ width: 390, height: 844 }); await p.emulateMedia({ colorScheme: 'dark' }); await p.waitForTimeout(300);
+      const r = `${await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)}/${await p.locator('.ex-next').isVisible()}`;
+      await p.emulateMedia({ colorScheme: 'light' }); await p.setViewportSize({ width: 1366, height: 860 }); return r;
+    }, expect: same('true/true') },
+    { id: 'U15-4', name: '做完整套（第 1 题故意做错）：交卷得 149 分，成绩页有各大题得分', run: async (p, c) => {
+      const n0 = +((await p.locator('.ex-q').innerText()).match(/^(\d+)\./) || [])[1];
+      for (let n = n0; n <= c.zhKey.length; n++) await c.zhAnswer(n, 'right');
+      await p.locator('.score-big').waitFor({ timeout: 20000 });
+      return `${await c.text('.score-big b')}/${(await p.locator('.score .tbl tr').count()) > 1}`;
+    }, expect: same('149/true') },
+    { id: 'U15-5', name: '成绩页：游客提示注册收进错题本，注册用户直接去错题本', run: async (p, c) => (await c.text('.score .actions')).includes('注册后收进错题本') ? '注册提示' : (await c.text('.score .actions')).includes('去错题本') ? '去错题本' : '?', expect: { guest: '注册提示', user: '去错题本', member: '去错题本' } },
+    { id: 'U15-6', name: '做错的题进了语文错题本（数学错题本里没有）', run: async (p, c) => {
+      await c.go('/chinese/#/mistakes'); if ((await c.text('main h2')).includes('注册')) return '注册提示';
+      const zh = await p.locator('.mk').count(); await c.go('#/mistakes'); const mathHasHanzi = (await c.text('main')).includes('汉字');
+      return `${zh}/${mathHasHanzi}`;
+    }, expect: { guest: '注册提示', user: '1/false', member: '1/false' } },
+  ] },
   { id: 'U10', area: '界面', name: '在线支付的各种情况', cases: [
     { id: 'U10-1', name: '点「开通」：先确认订单，再全屏遮罩跳支付宝（页面不能点）', run: async (p, c) => {
       c.mockPaid('0.00'); await c.go('#/account'); await p.locator('[data-plan="math.month"]').click(); await p.waitForTimeout(400);

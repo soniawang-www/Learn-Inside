@@ -2,11 +2,12 @@
 //
 //   node backend/tests/suite/run.mjs http://127.0.0.1:8788 <keys 目录> [--report 报告.md]
 //   node backend/tests/suite/run.mjs --plan > backend/tests/suite/TESTPLAN.md     # 只输出功能清单和预期，不跑
+//   加 --shots <目录>：跑完界面用例后，把每个页面在手机和电脑上各截一张图，并生成总览 index.html（人工看「好不好看」）
 //
 // 被测服务要求：FREE_MODE=false（正式收费）、ADMIN_KEY=localtest、已导入 AMC 8 真题和知识项、
 // 假支付宝网关 + 测试密钥（见 backend/tests/pay.mjs 开头）、PRICE_MATH_MONTH=39、PRICE_MATH_YEAR=299、PAY_MAX_AMOUNT=100。
 import { createSign } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { FEATURES as API_FEATURES, ROLES } from './cases.mjs';
 import { UI_FEATURES } from './ui-cases.mjs';
 import { createRequire } from 'node:module';
@@ -36,6 +37,8 @@ if (args.includes('--plan')) {
 const BASE = args[0] || 'http://127.0.0.1:8788';
 const DIR = args[1] || '/tmp/paytest';
 const reportPath = args.includes('--report') ? args[args.indexOf('--report') + 1] : null;
+const SHOTS = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
+const shotList = [];
 const K = JSON.parse(readFileSync(`${DIR}/keys.json`, 'utf8'));
 
 async function req(path, method = 'GET', body, token, admin) {
@@ -121,6 +124,17 @@ if (WITH_UI) {
     const settle = async (pg) => { await pg.waitForTimeout(400); await pg.waitForFunction(() => !document.querySelector('body > .li-load, #app > .li-load') && !document.getElementById('app')?.classList.contains('page-wait'), null, { timeout: 15000 }).catch(() => {}); await pg.waitForTimeout(300); };
     const open = async (pg, t) => { await pg.goto(url(t)); await pg.reload().catch(() => {}); await settle(pg); };
     c.role = role; c.settle = () => settle(page);
+    // 语文答题用的标准答案（来自题库仓库 math-data，环境变量 DATA 指定目录）
+    if (!c.zhKey) {
+      const f = `${process.env.DATA || ''}/exams/hanzi/hanzi-2021-city.json`;
+      c.zhKey = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')).problems.sort((a, b) => a.number - b.number) : [];
+    }
+    c.zhAnswer = async (n, how) => {
+      const k = c.zhKey[n - 1]; if (!k) throw new Error('缺少语文标准答案：运行时请设 DATA=<math-data 目录>');
+      if (k.kind === 'fill') await page.locator('#fill').fill(how === 'wrong' ? '错' : k.answer);
+      else { const keys = Object.keys(k.choices); const i = keys.indexOf(k.answer); await page.locator('.ex-opt').nth(how === 'wrong' ? (i + 1) % keys.length : i).click(); }
+      await page.locator('.ex-next').click();
+    };
     c.go = (t) => open(page, t);
     c.text = async (sel) => (await page.locator(sel).first().textContent({ timeout: 3000 }).catch(() => '')) || '';
     c.sweep = async (w, h, scheme) => {
@@ -165,9 +179,35 @@ if (WITH_UI) {
       return bad.length || e2.length ? [...bad, ...e2.slice(0, 2)].join('；') : 'ok';
     };
     for (const f of FEATURES.filter((x) => x.id.startsWith('U'))) for (const t of f.cases) await record(t, role, async () => { const r = await t.run(page, c); await page.keyboard.press('Escape').catch(() => {}); return r; });
+    // 截图总览：每个页面手机 390 / 电脑 1440 各一张（整页，最长截到 2400px）
+    if (SHOTS) {
+      mkdirSync(SHOTS, { recursive: true });
+      const extra = [`#/review/${c.session}`, ...(c.zhExam ? [`/chinese/#/review/${c.zhExam}`] : [])];
+      for (const [w, h] of [[390, 844], [1440, 900]]) {
+        const pg = await browser.newPage({ viewport: { width: w, height: h } }); await login(pg);
+        for (const hsh of [...PAGES, ...extra]) {
+          await open(pg, hsh);
+          const H = Math.min(2400, await pg.evaluate(() => document.documentElement.scrollHeight));
+          const name = `${role}-${w}-${hsh.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'home'}.png`;
+          await pg.screenshot({ path: `${SHOTS}/${name}`, clip: { x: 0, y: 0, width: w, height: H }, fullPage: true });
+          shotList.push({ role, w, page: hsh, name });
+        }
+        await pg.close();
+      }
+    }
     await page.close();
   }
   await browser.close();
+}
+
+if (SHOTS && shotList.length) {
+  const esc = (s) => String(s).replace(/[&<>"]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  const pages = [...new Set(shotList.map((x) => x.page))];
+  const html = `<!doctype html><meta charset="utf-8"><title>截图总览</title><style>body{font:14px system-ui;margin:16px;background:#f4f4f2}section{margin:0 0 28px}h2{font-size:15px;margin:0 0 8px}.row{display:flex;gap:12px;align-items:flex-start;overflow-x:auto}figure{margin:0}figcaption{font-size:12px;color:#666}img{display:block;border:1px solid #ccc;background:#fff}.w390 img{width:240px}.w1440 img{width:640px}</style>
+<h1>截图总览 · ${esc(BASE)} · ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}</h1>
+${pages.map((pg) => `<section><h2>${esc(pg)}</h2><div class="row">${shotList.filter((x) => x.page === pg).map((x) => `<figure class="w${x.w}"><figcaption>${esc(ROLES[x.role])} · ${x.w}</figcaption><a href="${x.name}"><img src="${x.name}" loading="lazy"></a></figure>`).join('')}</div></section>`).join('\n')}`;
+  writeFileSync(`${SHOTS}/index.html`, html);
+  console.log(`截图 ${shotList.length} 张：${SHOTS}/index.html`);
 }
 
 // ───────── 报告 ─────────

@@ -20,8 +20,8 @@
 # 1. 起测试环境（需要私有题库仓库 math-data）
 backend/tests/suite/start-test-server.sh ../math-data /tmp/suite
 
-# 2. 跑接口 + 界面用例，生成报告
-node backend/tests/suite/run.mjs http://127.0.0.1:8788 /tmp/suite --ui --report backend/tests/suite/REPORT.md
+# 2. 跑接口 + 界面用例，生成报告；--shots 另外把每个页面在手机 / 电脑上各截一张图，生成总览
+DATA=../math-data node backend/tests/suite/run.mjs http://127.0.0.1:8788 /tmp/suite --ui --report backend/tests/suite/REPORT.md --shots /tmp/suite/shots
 
 # 只跑接口：去掉 --ui；只跑界面：--ui-only
 # 更新功能清单：node backend/tests/suite/run.mjs --plan > backend/tests/suite/TESTPLAN.md
@@ -29,7 +29,10 @@ node backend/tests/suite/run.mjs http://127.0.0.1:8788 /tmp/suite --ui --report 
 
 填空题判分另有单元测试：`node backend/tests/unit/answers.test.mjs`。
 
-界面用例需要 Playwright（`PLAYWRIGHT=<playwright 模块路径>` 可指定）。
+界面用例需要 Playwright（`PLAYWRIGHT=<playwright 模块路径>` 可指定）；语文答题用例要按标准答案作答，需要 `DATA=<math-data 目录>`。
+
+界面用例能自动查出：横向溢出、文字被截断、按钮 / 卷名折行、脚本错误、有左侧导航的页面版面不一致（内容区宽度、标题大小和位置），覆盖数学、语文、账号、网站首页的所有页面和电脑 / 平板 / 手机 / 深色模式。
+「好不好看」（留白、颜色、多余的说明文字）程序判断不了：每次上线前用 `--shots` 生成截图总览（`<目录>/index.html`），逐页看一遍再推。
 
 ## 加用例
 
