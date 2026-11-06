@@ -192,7 +192,6 @@ function topnav() {
   if (!s) return `<nav class="topnav">${BRAND}</nav>`;
   const h = location.hash || '#/';
   const SUB = SECTION === 'math' ? [
-    ['#/exams', '考试', 'exam', /^#\/(exams|contest|review)/],
     ['#/graph', '知识图谱', 'graph', /^#\/(graph|kp)/],
     ['#/mistakes', '错题本', 'mistakes', /^#\/(mistakes|problem)/],
   ] : [];
@@ -227,7 +226,7 @@ async function router() {
     if (page === 'account' && id === 'paid') return await renderPaid(sub);
     if (page === 'account') return await renderAccount();
     if (page === 'contest') return await renderContest(id, sub);
-    if (page === 'exams') return await renderHome();
+    if (page === 'exams') { location.replace('#/'); return; } // 考试列表并进了数学首页
     return await renderDashboard();
   } catch (e) {
     $app.innerHTML = `${topnav()}<main class="page"><div class="card"><p class="error-msg">${esc(e.message)}</p><a href="#/">返回首页</a></div></main>`;
@@ -651,7 +650,7 @@ async function renderContest(fid, tab = 'exams') {
   const best = done.length ? Math.max(...done.map((e) => e.last_score)) : null;
   const avg = d.sessions.length ? (d.sessions.reduce((a, x) => a + x.score, 0) / d.sessions.length).toFixed(1) : null;
   $app.innerHTML = `${topnav()}<main class="page">
-    <a href="#/exams" class="small">← 全部考试</a>
+    <a href="#/" class="small">← 数学首页</a>
     <header class="ph"><div><h1>${esc(f.name)}</h1><p class="muted">${esc(f.desc)}</p></div>
       <dl class="ph-stats"><div><dt>真题</dt><dd>${exams.length}<small> 套</small></dd></div><div><dt>做过</dt><dd>${done.length}<small> 套</small></dd></div>
         <div><dt>最好成绩</dt><dd>${best ?? '—'}</dd></div><div><dt>平均分</dt><dd>${avg ?? '—'}</dd></div></dl></header>
@@ -865,7 +864,7 @@ async function renderReview(sid) {
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
       ${wrong.length && isGuest() ? '<p class="small muted">注册后，错题会自动进错题本。</p>' : ''}
       ${wrong.length && lastMe?.guest ? `<a class="gift-link" href="#/account">${GIFT()}</a>` : ''}
-      <div class="rev-btns">${isGuest() ? '<a class="btn primary" href="#/account">免费注册</a><a class="btn" href="#/exams">再做一套</a>' : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
+      <div class="rev-btns">${isGuest() ? '<a class="btn primary" href="#/account">免费注册</a><a class="btn" href="#/">再做一套</a>' : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>
     <div class="col-main">${r.items.map(itemView).join('')}</div></div>
   </main>`;
