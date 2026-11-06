@@ -548,27 +548,25 @@ async function renderDashboard() {
     if (d && !d.session.submitted && d.session.deadline_at > d.session.server_now) { live = { sid: d.session.id, title: d.exam.title }; break; }
   }
   const strip = [
-    live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)} · 上次没做完</span><i>›</i></a>`,
+    live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
     pending + due ? `<a class="cont-go alt" href="#/mistakes"><b>${pending + due} 道错题</b><span>${pending ? `${pending} 道待订正` : ''}${pending && due ? '，' : ''}${due ? `${due} 道该复习` : ''}</span><i>›</i></a>` : '',
   ].filter(Boolean);
   const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
   $app.innerHTML = `${topnav()}<main class="page dash">
-    <header class="ph"><div><h1>数学竞赛真题</h1>
-      <p class="muted">选一套开始模考，交卷自动判分；做完三套左右，就能看出哪些知识项薄弱。</p></div>
+    <header class="ph"><div><h1>数学竞赛真题</h1></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <section class="dash-exams" aria-label="考试">
       <div class="fam-tabs" role="tablist">${fams.map((x) => `<button role="tab" class="${x.id === dashFam ? 'on' : ''}" data-fam="${x.id}"><b>${esc(x.name)}</b><small>${x.exams ? `${x.exams} 套` : '录入中'}</small></button>`).join('')}</div>
-      <p class="small muted fam-desc">${esc(f.desc || '')} <a href="#/contest/${enc(dashFam)}/stats">考情 ›</a></p>
-      <p class="small mode-tip"><b>练习</b>不计时，可以看提示；<b>模考</b>限时，和正式比赛一样，交卷后出分。</p>
+      <p class="small fam-desc"><a href="#/contest/${enc(dashFam)}/stats">考情 ›</a></p>
       ${grid}
     </section>
-    <div class="dash-grid">
+    ${tasks.length || sessions.length ? `<div class="dash-grid">
       <section class="card todo">
         <div class="card-h"><h2>今天做什么</h2></div>
         ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>`
-          : `<p class="muted">${doneN ? '暂时没有特别薄弱的知识项，可以再挑一套没做过的真题。' : '还没做过整套真题。先从上面挑一套模考，交卷后这里会列出要补的知识项。'}</p>`}
-        ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">${tried ? '' : '做过的题会算进去'} ›</span></a>`}
+          : '<p class="muted">暂无</p>'}
+        ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">›</span></a>`}
       </section>
       <section class="card recent">
         <div class="card-h"><h2>最近成绩</h2>${sessions.length ? `<a href="#/contest/${enc(dashFam)}/records">全部 ›</a>` : ''}</div>
@@ -577,7 +575,7 @@ async function renderDashboard() {
           <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>`
         : '<p class="muted">还没有成绩。</p>'}
       </section>
-    </div>
+    </div>` : ''}
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });

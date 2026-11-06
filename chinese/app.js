@@ -161,8 +161,8 @@ async function renderHome() {
   const unfinished = exams.filter((e) => store.get(`hz.cur.${e.id}`));
   const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
   const tasks = [
-    ...unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)} · 上次没做完</span><i>›</i></a>`),
-    todo && `<a class="cont-go alt" href="#/mistakes"><b>${todo} 道错题</b><span>待订正，重做时每题马上告诉你对错</span><i>›</i></a>`,
+    ...unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`),
+    todo && `<a class="cont-go alt" href="#/mistakes"><b>${todo} 道错题</b><span>待订正</span><i>›</i></a>`,
   ].filter(Boolean);
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
   const row = (e) => `<div class="exam-row">
@@ -171,13 +171,13 @@ async function renderHome() {
         <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const real = exams.filter((e) => !e.id.endsWith('-mock')), mock = exams.filter((e) => e.id.endsWith('-mock'));
   const cards = real.length ? real.map(row).join('') : '<p class="muted">试卷整理中，很快上线。</p>';
-  page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1><p class="muted small">选一套开始，答题界面和比赛一样。</p></div>
+  page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1></div>
     ${tasks.length ? `<div class="cont-strip">${tasks.join('')}</div>` : ''}
     <div class="card"><h2>真题</h2>${cards}</div>
-    ${mock.length ? `<div class="card"><h2>模拟题</h2><p class="small muted">《中文自修》每年七八月合刊的官方模拟题，题量比正式比赛大，适合分几次练。</p>${mock.map(row).join('')}</div>` : ''}
+    ${mock.length ? `<div class="card"><h2>模拟题</h2>${mock.map(row).join('')}</div>` : ''}
     ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
       ${sessions.map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}
-    <div class="card small muted"><p style="margin-top:0">比赛规则：上海市小学生「美丽汉字小达人」市级活动 150 题、每题 1 分、40 分钟。这里的答题界面和比赛一样：一页一题，做完才能进下一页，不能返回，也不显示还剩几题。</p>题目来源：《中文自修》「美丽汉字小达人」历届市级活动，仅供练习。比赛通知以《中文自修》官网和公众号「魔都语文课代表」为准。</div>`, 'home');
+    <p class="small muted center">题目来源：《中文自修》「美丽汉字小达人」历届活动</p>`, 'home');
 }
 
 // ───────── 考前须知 ─────────
@@ -339,15 +339,15 @@ async function renderReview(sid) {
 // ───────── 错题本 ─────────
 const STATUS = { pending: '待订正', due: '该复习了', fixed: '已订正', mastered: '已掌握' };
 async function renderMistakes() {
-  if (isGuest()) return page(`<div class="card center"><h2>错题本要注册后才能用</h2><p class="muted">注册后，做过的题会自动收进错题本，按大题分类，可以随时重做。</p>
+  if (isGuest()) return page(`<div class="card center"><h2>注册后可以使用错题本</h2>
     <a class="btn primary" href="/account/">去注册（数学、语文通用）</a></div>`, 'mistakes');
   const r = await api(`/api/students/${enc(auth.student.id)}/mistakes?subject=chinese`);
   const list = r.mistakes;
-  if (!list.length) return page('<div class="card center"><h2>还没有错题</h2><p class="muted">做完一套模考，做错的题会自动收进来。</p><a class="btn primary" href="#/">去模考</a></div>', 'mistakes');
+  if (!list.length) return page('<div class="card center"><h2>还没有错题</h2><a class="btn primary" href="#/">去模考</a></div>', 'mistakes');
   const todo = list.filter((m) => m.status === 'pending' || m.status === 'due');
   const groups = {};
   for (const m of list) (groups[m.section_name || '其他'] ||= []).push(m);
-  page(`<div class="card"><h1>错题本</h1><p class="muted">共 ${list.length} 题，待订正和该复习的 ${todo.length} 题。重做时每题马上告诉你对错；连续做对两次算掌握。</p>
+  page(`<div class="card"><h1>错题本</h1><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
       <div class="actions">${todo.length ? `<button class="btn primary" id="redo">重做 ${Math.min(todo.length, 30)} 道错题</button>` : '<span class="tag ok">全部订正过了</span>'}</div></div>
     ${Object.entries(groups).map(([g, ms]) => `<div class="card"><h2>${esc(g)} <span class="small muted">${ms.length} 题</span></h2>
       ${ms.map((m) => `<details class="mk"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> ${esc(m.label)}<span class="small muted"> · 错 ${m.wrong_n} 次</span></summary>

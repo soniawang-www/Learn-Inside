@@ -308,7 +308,7 @@ const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&qu
 $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").matches,cur=document.documentElement.dataset.theme||(dark?"dark":"light"),nx=cur==="dark"?"light":"dark";document.documentElement.dataset.theme=nx;store.set("li-theme",nx)};
 {const t=store.get("li-theme","");if(t)document.documentElement.dataset.theme=t}
 /* 继续上次：登录过的才显示。没做完的模考（本地记录，向服务器确认还没交卷、没过期）> 最近一次成绩；再加两科待订正的错题数 */
-(async()=>{let tok=null,st=null;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null")}catch(e){}
+window.__liResume=(async()=>{let tok=null,st=null;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null")}catch(e){}
 if(!tok||!st||!st.id)return;
 const get=async u=>{try{const r=await fetch(u,{headers:{authorization:"Bearer "+tok}});return r.ok?await r.json():null}catch(e){return null}};
 const keys=[];try{for(let i=0;i<localStorage.length;i++)keys.push(localStorage.key(i))}catch(e){}
@@ -321,16 +321,17 @@ ss.forEach((d,i)=>{if(d&&d.session&&!d.session.submitted&&d.session.deadline_at>
 const last=[...((pm&&pm.sessions)||[]).map(x=>({...x,sub:"math"})),...((pc&&pc.sessions)||[]).map(x=>({...x,sub:"chinese"}))].sort((a,b)=>b.submitted_at-a.submitted_at)[0];
 const todo=(arr)=>(arr||[]).filter(m=>m.status==="pending"||m.status==="due").length;
 const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);
+window.__liHasRecord=!!(live||last);
 if(!live&&!last&&!mm&&!mz)return;
 const base=x=>x.sub==="math"?"math/":"chinese/";
 const day=t=>{const d=new Date(t);return`${d.getMonth()+1} 月 ${d.getDate()} 日`};
 let main="";
-if(live)main=`<div class="rs-main"><div><b>${esc(live.title)}</b><small>上次没做完，接着答题</small></div><a class="rs-go ${live.sub==="chinese"?"zh":""}" href="${base(live)}#/exam/${encodeURIComponent(live.sid)}">继续答题 ›</a></div>`;
+if(live)main=`<div class="rs-main"><div><b>${esc(live.title)}</b></div><a class="rs-go ${live.sub==="chinese"?"zh":""}" href="${base(live)}#/exam/${encodeURIComponent(live.sid)}">继续答题 ›</a></div>`;
 else if(last)main=`<div class="rs-main"><div><b>${esc(last.title||"")}</b><small>${day(last.submitted_at)} · 得分 ${last.score} / ${last.total}</small></div><a class="rs-go ${last.sub==="chinese"?"zh":""}" href="${base(last)}#/review/${encodeURIComponent(last.id)}">看成绩和解析 ›</a></div>`;
 const chips=[mm?`<a href="math/#/mistakes">数学错题待订正 <b>${mm}</b> ›</a>`:"",mz?`<a href="chinese/#/mistakes">语文错题待订正 <b>${mz}</b> ›</a>`:""].join("");
 const R=$("resume");R.innerHTML=`<h2>${esc(String(st.nickname||""))}，继续上次</h2>${main}${chips?`<div class="rs-chips">${chips}</div>`:""}`;R.hidden=false})();
 
-/* 首页弹窗：每次打开首页都弹出 */
+/* 首页弹窗：没登录、或还没做过题的才弹；做过题的看「继续上次」 */
 {const P=$("promo"),T=$("promo-track"),dots=[...document.querySelectorAll("[data-slide]")];
 const open=()=>{P.hidden=false;document.body.style.overflow="hidden";P.querySelector(".promo-box").focus({preventScroll:true})};
 const close=()=>{P.hidden=true;document.body.style.overflow=""};
@@ -339,7 +340,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!P.hidden)close()})
 
 dots.forEach(b=>b.onclick=()=>T.scrollTo({left:T.clientWidth*+b.dataset.slide}));
 T.addEventListener("scroll",()=>{const i=Math.round(T.scrollLeft/T.clientWidth);dots.forEach((b,k)=>b.classList.toggle("on",k===i))},{passive:true});
-open()}
+window.__liResume.then(()=>{if(!window.__liHasRecord)open()},()=>open())}
 /* 账号：已登录显示孩子昵称 */
 {try{const st=JSON.parse(localStorage.getItem("li.student")||"null");if(st&&st.nickname){const n=String(st.nickname);$("me").innerHTML=`<span class="av">${esc(n.slice(0,1))}</span>${esc(n)}`}}catch(e){}}
 /* 联系客服：后台上传的微信二维码 */
