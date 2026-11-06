@@ -187,7 +187,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     vis.innerHTML = ''; side.innerHTML = '';
     if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html}</div>`);
     turn.hidden = !(interactive(s) && !solved.has(i));
-    if (s.grid && s.type !== 'grid') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
+    if (s.grid && s.type !== 'grid' && s.sim !== 'toggles') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
     if (s.fig) vis.insertAdjacentHTML('beforeend', `<div class="lp-fig">${s.fig}</div>`);
     if (s.type === 'sim') {
       const box = document.createElement('div');
