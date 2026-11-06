@@ -1,7 +1,7 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
-import { sideNav } from '/assets/sidenav.js?v=20261106f';
+import { sideNav } from '/assets/sidenav.js?v=20261106g';
 import { loadStart } from '/assets/loadcomic.js?v=20261106i';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
@@ -536,6 +536,8 @@ async function renderDashboard() {
   const tasks = [ // 错题在页面最上面的「继续」条里，这里只列要补的知识项
     ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><i class="kg-sw lv-weak"></i><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span></a>`),
   ].filter(Boolean);
+  const startFam = fams.find((x) => x.id === dashFam && x.exams) || fams.find((x) => x.exams);
+  if (!tasks.length && startFam) tasks.push(`<a class="task" href="#/contest/${enc(startFam.id)}"><i class="ico">›</i><span>做一套真题<small>${esc(startFam.name)}</small></span></a>`);
   // 没做完的模考：浏览器里存着答题进度的会话，向服务器确认还没交卷、没过期
   let live = null;
   for (const k of Object.keys(localStorage).filter((k) => k.startsWith('amc8.s.')).slice(0, 5)) {
@@ -556,7 +558,7 @@ async function renderDashboard() {
         <b>${esc(x.name)}</b><span>${x.exams ? `${x.exams} 套真题` : '录入中'}</span>
         <small>${x.last ? `最近 ${x.last.score} 分` : ''}</small><i>›</i></a>`).join('')}</div>
     </section>
-    ${tasks.length || sessions.length ? `<div class="dash-grid">
+    <div class="dash-grid">
       <section class="card todo">
         <div class="card-h"><h2>今天做什么</h2></div>
         ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>`
@@ -568,9 +570,9 @@ async function renderDashboard() {
         ${sessions.length ? `<div class="scores">${sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${x.mode === 'exam' ? '模考' : '练习'} · ${fmtDate(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>`
-        : '<p class="muted">还没有成绩。</p>'}
+        : '<p class="muted">还没有成绩</p>'}
       </section>
-    </div>` : ''}
+    </div>
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });

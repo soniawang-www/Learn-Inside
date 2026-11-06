@@ -63,7 +63,7 @@ body.net-wait::before { content: ""; position: fixed; top: 0; left: 0; height: 3
 .lg-tile{fill:var(--lg-tile)} .lg-dot{fill:var(--lg-dot)} .lg-ink{fill:var(--lg-ink)} .lg-jade{fill:var(--lg-jade)} .lg-plum{fill:var(--lg-plum)} .lg-sub{fill:var(--lg-sub)}
 
 /* 页面和卡片 */
-.page { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+.page { width: 100%; box-sizing: border-box; max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
 .page.narrow { max-width: 480px; }
 .hero { padding: 8px 4px 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; }
@@ -197,3 +197,30 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 @media (hover: hover) { a.fam-card:hover { border-color: var(--accent); } }
 @media (max-width: 860px) { .fam-cards { grid-template-columns: minmax(0, 1fr); gap: 10px; } .fam-card { padding: 14px 40px 12px 16px; } }
 .back { display: inline-block; margin: 0 0 6px; color: var(--accent); }
+
+/* 语文首页下半部分：今天做什么 / 最近成绩（和数学首页同样的样子） */
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.dash-grid > .card { margin: 0; }
+.card-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.card-h h2 { margin: 0; }
+.tasks { display: grid; gap: 8px; }
+.task { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); text-decoration: none; color: var(--text); }
+.task > b { font-size: 26px; color: var(--bad); min-width: 1.6em; text-align: center; font-variant-numeric: tabular-nums; }
+.task small { display: block; color: var(--muted); font-size: 12px; }
+.task .ico { color: var(--accent); display: grid; place-items: center; min-width: 1.6em; font-style: normal; font-size: 22px; }
+.mm-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text); text-decoration: none; }
+.mm-line > span:first-child { font-weight: 600; }
+.scores { display: grid; }
+.score-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(60px, 26%) 4.5em; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); text-decoration: none; color: var(--text); }
+.score-row:first-child { border-top: 0; }
+.sr-t small { display: block; color: var(--muted); font-size: 12px; }
+.sr-bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+.sr-bar i { display: block; height: 100%; background: var(--accent); }
+.score-row b { text-align: right; font-size: 18px; font-variant-numeric: tabular-nums; }
+.score-row b small { font-size: 12px; color: var(--muted); font-weight: 400; }
+@media (max-width: 860px) { .dash-grid { grid-template-columns: minmax(0, 1fr); } }
+/* 语文首页、汉字小达人页：和数学首页一样宽、标题一样大 */
+.page.wide { max-width: 1120px; padding: 24px 38px 64px; }
+.page.wide .hero { padding: 6px 0 20px; }
+.page.wide .hero h1 { font-size: 30px; margin: 0; }
+@media (max-width: 860px) { .page.wide { padding: 20px 16px 56px; } .page.wide .hero h1 { font-size: 24px; } }

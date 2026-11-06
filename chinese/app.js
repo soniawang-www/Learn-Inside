@@ -3,7 +3,7 @@
 //       #/mistakes（错题本）  #/join（登录 / 注册）
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261106f';
+import { sideNav } from '/assets/sidenav.js?v=20261106g';
 import { loadStart } from '/assets/loadcomic.js?v=20261106i';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
@@ -78,7 +78,7 @@ async function showSupport() {
     <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
-const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page">${html}</main>`; window.scrollTo(0, 0); };
+const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page${active === 'home' ? ' wide' : ''}">${html}</main>`; window.scrollTo(0, 0); };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
 // ───────── 路由 ─────────
@@ -160,23 +160,38 @@ async function renderHome() {
     api(`/api/students/${enc(st.id)}/profile?subject=chinese`).catch(() => ({ sessions: [] })),
     isGuest() ? { mistakes: [] } : api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
   ]);
-  // 今天做什么：没做完的模考、待订正 / 该复习的错题
+  // 最上面的「继续」条只放没做完的模考；今天做什么：下一套没做过的卷子 + 错题
   const unfinished = exams.filter((e) => store.get(`hz.cur.${e.id}`));
   const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
+  const strip = unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`);
+  const next = exams.find((e) => !e.id.endsWith('-mock') && !e.last_session && !store.get(`hz.cur.${e.id}`)) || exams.find((e) => !e.last_session && !store.get(`hz.cur.${e.id}`));
   const tasks = [
-    ...unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`),
-    todo && `<a class="cont-go alt" href="#/mistakes"><b>${todo} 道错题</b><span>待订正</span><i>›</i></a>`,
+    todo && `<a class="task" href="#/mistakes"><b>${todo}</b><span>订正错题<small>错题本</small></span></a>`,
+    next && `<a class="task" href="#/intro/${enc(next.id)}"><i class="ico">›</i><span>做一套${next.id.endsWith('-mock') ? '模拟题' : '真题'}<small>${esc(next.title)}</small></span></a>`,
   ].filter(Boolean);
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
   const lastScore = sessions[0] ? `最近 ${sessions[0].score ?? '–'} 分` : '';
+  const allMk = (mk.mistakes || []).length;
   page(`<div class="hero"><h1>语文竞赛真题</h1></div>
-    ${tasks.length ? `<div class="cont-strip">${tasks.join('')}</div>` : ''}
+    ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <div class="fam-cards">
       <a class="fam-card" href="#/hanzi"><b>汉字小达人</b><span>${exams.length ? `${exams.length} 套真题和模拟题` : '录入中'}</span><small>${lastScore}</small><i>›</i></a>
       <div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>
     </div>
-    ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
-      ${sessions.slice(0, 8).map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}`, 'home');
+    <div class="dash-grid">
+      <section class="card">
+        <div class="card-h"><h2>今天做什么</h2></div>
+        ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>` : '<p class="muted">暂无</p>'}
+        <a class="mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">${isGuest() ? '注册后可用' : `共 ${allMk} 题${todo ? ` · 待订正 ${todo}` : ''}`} ›</span></a>
+      </section>
+      <section class="card">
+        <div class="card-h"><h2>最近成绩</h2></div>
+        ${sessions.length ? `<div class="scores">${sessions.slice(0, 6).map((x) => `<a class="score-row" href="#/review/${x.id}">
+          <span class="sr-t">${esc(x.title)}<small>${day(x.submitted_at)}</small></span>
+          <span class="sr-bar"><i style="width:${x.total ? ((x.score || 0) / x.total) * 100 : 0}%"></i></span><b>${x.score ?? '–'}<small>/${x.total}</small></b></a>`).join('')}</div>`
+        : '<p class="muted">还没有成绩</p>'}
+      </section>
+    </div>`, 'home');
 }
 
 async function renderHanzi() {
