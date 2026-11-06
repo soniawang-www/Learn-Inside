@@ -143,8 +143,6 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .subj-c{font-size:.92rem;opacity:.92}
 .subj-go{align-self:flex-start;margin-top:6px;padding:5px 14px;border-radius:999px;background:var(--card);color:var(--jade);font-family:var(--display);font-weight:600;font-size:.95rem;position:relative;z-index:1}
 .subj.zh .subj-go{color:var(--plum)}
-.howto-link{align-self:flex-start;margin:2px 2px 0;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--jade);font:inherit;font-weight:600;cursor:pointer}
-@media (hover:hover){.howto-link:hover{border-color:var(--jade)}}
 @media (max-width:520px){.subjects{grid-template-columns:minmax(0,1fr)}.subj{padding:16px 18px}.subj b{font-size:1.3rem}}
 /* 首页弹窗：四格漫画，左右滑动看数学 / 语文 */
 .promo{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:16px;padding-top:max(16px,env(safe-area-inset-top,0px));background:rgba(10,20,18,.55)}
@@ -249,7 +247,6 @@ body{font-size:1rem}
     </a>
   </section>
 
-  <button class="howto-link" id="howto-open">怎么用这个网站备考 ›</button>
 
   <div class="foot">
     <span>learn-inside · 知里才知理</span>
@@ -283,13 +280,13 @@ const store={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").matches,cur=document.documentElement.dataset.theme||(dark?"dark":"light"),nx=cur==="dark"?"light":"dark";document.documentElement.dataset.theme=nx;store.set("li-theme",nx)};
 {const t=store.get("li-theme","");if(t)document.documentElement.dataset.theme=t}
-/* 首页弹窗：打开首页时弹出；关掉后 7 天内不再自动弹出，「怎么用这个网站备考」随时打开 */
+/* 首页弹窗：打开首页时弹出；关掉后 7 天内不再自动弹出， */
 {const P=$("promo"),T=$("promo-track"),dots=[...document.querySelectorAll("[data-slide]")],KEY="li-promo-closed";
 const open=()=>{P.hidden=false;document.body.style.overflow="hidden";P.querySelector(".promo-box").focus({preventScroll:true})};
 const close=()=>{P.hidden=true;document.body.style.overflow="";store.set(KEY,String(Date.now()))};
 $("promo-x").onclick=close;P.addEventListener("click",e=>{if(e.target===P)close()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!P.hidden)close()});
-$("howto-open").onclick=open;
+
 dots.forEach(b=>b.onclick=()=>T.scrollTo({left:T.clientWidth*+b.dataset.slide}));
 T.addEventListener("scroll",()=>{const i=Math.round(T.scrollLeft/T.clientWidth);dots.forEach((b,k)=>b.classList.toggle("on",k===i))},{passive:true});
 if(Date.now()-Number(store.get(KEY,"0"))>7*864e5)open()}
