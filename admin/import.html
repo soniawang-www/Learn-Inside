@@ -49,12 +49,25 @@
   $('go').onclick = async () => {
     const key = $('key').value.trim();
     try { sessionStorage.setItem('amc8.adminKey', key); } catch {}
-    $('go').disabled = true; $('out').textContent = '导入中…';
-    try {
-      const r = await fetch('/math/api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ exams, knowledge: { points, edges, prune: !!edges } }) });
-      const d = await r.json();
-      $('out').textContent = r.ok ? `导入成功：${[d.points ? `知识点 ${d.points} 个` : '', d.pruned ? `删除旧知识点 ${d.pruned} 个` : '', ...d.exams, d.recomputed ? `重算了 ${d.recomputed} 个学生的画像` : ''].filter(Boolean).join('、')}。` : `导入失败：${d.error}`;
-    } catch (e) { $('out').textContent = '导入失败：' + e.message; }
+    $('go').disabled = true;
+    // 一次一个请求：知识点先导，试卷一套一套导（一次全发太大，服务器会中断连接）；最后一个请求再重算画像
+    const jobs = [];
+    if (points.length) jobs.push({ label: '知识点', body: { knowledge: { points, edges, prune: !!edges } } });
+    for (const e of exams) jobs.push({ label: e.title || e.id, body: { exams: [e] } });
+    const out = []; let ok = 0;
+    const show = (tail = '') => { $('out').style.whiteSpace = 'pre-wrap'; $('out').textContent = out.join('\n') + tail; };
+    for (let i = 0; i < jobs.length; i++) {
+      const j = jobs[i], last = i === jobs.length - 1;
+      show(`\n导入中（${i + 1} / ${jobs.length}）：${j.label}…`);
+      try {
+        const r = await fetch('/math/api/admin/import', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ ...j.body, recompute: last }) });
+        const d = await r.json().catch(() => ({ error: `服务器返回 ${r.status}` }));
+        if (!r.ok) { out.push(`✗ ${j.label}：${d.error}`); if (r.status === 403) break; continue; }
+        ok++;
+        out.push(`✓ ${[d.points ? `知识点 ${d.points} 个` : '', d.pruned ? `删除旧知识点 ${d.pruned} 个` : '', ...(d.exams || []), d.recomputed ? `重算了 ${d.recomputed} 个学生的画像` : ''].filter(Boolean).join('、') || j.label}`);
+      } catch (e) { out.push(`✗ ${j.label}：${e.message}（网络中断，可以只选这个文件再试一次）`); }
+    }
+    show(`\n完成：成功 ${ok} / ${jobs.length}`);
     $('go').disabled = false;
   };
 </script>

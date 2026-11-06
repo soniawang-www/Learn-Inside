@@ -129,8 +129,12 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .sub-t b{white-space:nowrap}
 .sub-t span{color:var(--soft);font-size:.85rem;line-height:1.5;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sec{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:10px 4px 0;letter-spacing:.06em;scroll-margin-top:12px}
-@media (hover:hover){.quick a:hover,.sub-t:hover{border-color:var(--jade)}.feat:hover .feat-go{background:var(--card);color:var(--jade);border-color:var(--card)}}
-@media (max-width:700px){.portal{grid-template-columns:minmax(0,1fr)}.quick{grid-template-rows:none;grid-template-columns:repeat(3,minmax(0,1fr))}.quick a{grid-template-columns:minmax(0,1fr);padding:10px 12px}.quick a::after{display:none}.subs{grid-template-columns:repeat(3,minmax(0,1fr))}.sub-t{padding:10px 12px}.feat{padding:18px}.feat-t{font-size:1.6rem}}
+.feat.zh{background:var(--plum)}
+.feat.zh .feat-free{color:var(--plum)}
+.quick.two{grid-template-rows:repeat(2,1fr)}
+.quick.two a::after{color:var(--plum)}
+@media (hover:hover){.quick a:hover,.sub-t:hover{border-color:var(--jade)}.quick.two a:hover{border-color:var(--plum)}.feat:hover .feat-go{background:var(--card);color:var(--jade);border-color:var(--card)}.feat.zh:hover .feat-go{color:var(--plum)}}
+@media (max-width:700px){.portal{grid-template-columns:minmax(0,1fr)}.quick{grid-template-rows:none;grid-template-columns:repeat(3,minmax(0,1fr))}.quick.two{grid-template-columns:repeat(2,minmax(0,1fr))}.quick a{grid-template-columns:minmax(0,1fr);padding:10px 12px}.quick a::after{display:none}.subs{grid-template-columns:repeat(3,minmax(0,1fr))}.sub-t{padding:10px 12px}.feat{padding:18px}.feat-t{font-size:1.6rem}}
 @media (max-width:380px){.quick a,.sub-t{padding:10px 9px}.quick b,.sub-t b{letter-spacing:0}.quick b{font-size:1rem}.quick small{font-size:.78rem}}
 @media (max-width:360px){.lockup{zoom:.88}}
 .dlg{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px}
@@ -204,6 +208,19 @@ body{font-size:1rem}
       <a href="math/#/exams"><b>真题模考</b></a>
       <a href="math/#/graph"><b>知识图谱</b></a>
       <a href="math/#/mistakes"><b>错题本</b></a>
+    </div>
+  </section>
+
+  <section class="portal" aria-label="语文">
+    <a class="feat zh" href="chinese/">
+      <span class="feat-k">语文</span>
+      <b class="feat-t">汉字小达人真题模考</b>
+      <span class="feat-d">上海市「美丽汉字小达人」历届真题和官方模拟题：一页一题，和比赛的答题界面一样；交卷马上出分，每题都有解析。</span>
+      <span class="feat-row"><span class="feat-free">真题 + 模拟题 · 免注册直接练</span><span class="feat-go">进入语文 ›</span></span>
+    </a>
+    <div class="quick two">
+      <a href="chinese/"><b>真题模考</b></a>
+      <a href="chinese/#/mistakes"><b>错题本</b></a>
     </div>
   </section>
 

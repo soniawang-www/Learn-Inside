@@ -850,8 +850,8 @@ route('POST', '/api/admin/import', async (req, env) => {
   try {
     const result = await importContent(env.DB, { schema: SCHEMA, exams, points, edges, prune });
     statsCache = {};
-    // 考点或知识体系变了：所有学生的画像按新的考点重算
-    if (points.length || exams.length) {
+    // 考点或知识体系变了：所有学生的画像按新的考点重算（分批导入时前面几批传 recompute: false，最后一批再重算）
+    if ((points.length || exams.length) && payload.recompute !== false) {
       const { results: sts } = await env.DB.prepare('SELECT DISTINCT student_id AS id FROM attempt_event').all();
       for (const st of sts) await recomputeMastery(env.DB, st.id);
       result.recomputed = sts.length;
