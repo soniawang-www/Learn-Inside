@@ -260,6 +260,8 @@ function regWall(title) {
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
 let joinTab = store.get('li.hadAccount') ? 'login' : 'register';
 let joinPrefill = null;
+// 从别的板块（语文）跳来登录的，登录 / 注册 / 游客进入后回到原来的页面
+function goBack() { const b = store.get('li.back'); if (!b) return false; store.del('li.back'); if (!/^\/(chinese|math)\//.test(b)) return false; location.href = b; return true; }
 function renderJoin() {
   const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
@@ -295,7 +297,7 @@ function renderJoin() {
   $app.querySelectorAll('[data-tab]').forEach((t) => (t.onclick = () => { joinTab = t.dataset.tab; renderJoin(); }));
   document.getElementById('guest').onclick = async (e) => {
     e.target.disabled = true;
-    try { const r = await api('/api/auth/guest', { method: 'POST', body: {} }); auth.save(r.token, r.student); location.hash = '#/'; router(); }
+    try { const r = await api('/api/auth/guest', { method: 'POST', body: {} }); auth.save(r.token, r.student); if (goBack()) return; location.hash = '#/'; router(); }
     catch (x) { document.getElementById('err').textContent = x.message; e.target.disabled = false; }
   };
   $app.querySelector('.eye').onclick = (e) => {
@@ -319,6 +321,7 @@ function renderJoin() {
     try {
       const r = await api(`/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
       auth.save(r.token, r.student); store.set('li.hadAccount', true);
+      if (goBack()) return;
       location.hash = '#/'; router();
     } catch (x) {
       if (reg && /已经注册过/.test(x.message)) { joinTab = 'login'; joinPrefill = { phone: f.phone, msg: '这个手机号已经注册过，输入密码直接登录' }; return renderJoin(); } // 注册过的手机号：直接换到登录
@@ -500,7 +503,7 @@ async function askUnlock(item, what, credits, then) {
 
 // ───────── 首页：掌握地图 + 今天做什么 + 最近成绩 ─────────
 const LV = { strong: '掌握较好', ok: '基本掌握', weak: '薄弱', insufficient: '数据不足', none: '还没做过' };
-let dashFam = null; // 数学首页选中的考试
+let dashFam = store.get('math.fam'); // 数学首页选中的考试（记住上次的）
 async function renderDashboard() {
   const me = await api('/math/api/me');
   lastMe = me;
@@ -533,28 +536,38 @@ async function renderDashboard() {
   const pending = ms.filter((m) => m.status === 'pending').length, due = ms.filter((m) => m.status === 'due').length;
   const sessions = (fd.sessions || []).slice(0, 5);
   const doneN = (fd.sessions || []).filter((x) => x.mode === 'exam').length;
-  const tasks = [
-    pending && `<a class="task" href="#/mistakes"><b>${pending}</b><span>道错题待订正<small>看解析后重做，做对就算订正</small></span></a>`,
-    due && `<a class="task" href="#/mistakes"><b>${due}</b><span>道错题该复习了<small>订正满一周，再做一遍</small></span></a>`,
+  const tasks = [ // 错题在页面最上面的「继续」条里，这里只列要补的知识项
     ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><i class="kg-sw lv-weak"></i><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span></a>`),
   ].filter(Boolean);
   const f = fd.family;
   const { html: grid } = examGrid(f, exams, dashFam, 6);
+  // 没做完的模考：浏览器里存着答题进度的会话，向服务器确认还没交卷、没过期
+  let live = null;
+  for (const k of Object.keys(localStorage).filter((k) => k.startsWith('amc8.s.')).slice(0, 5)) {
+    const d = await api(`/math/api/sessions/${enc(k.slice(7))}`).catch(() => null);
+    if (d && !d.session.submitted && d.session.deadline_at > d.session.server_now) { live = { sid: d.session.id, title: d.exam.title }; break; }
+  }
+  const strip = [
+    live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)} · 上次没做完</span><i>›</i></a>`,
+    pending + due ? `<a class="cont-go alt" href="#/mistakes"><b>${pending + due} 道错题</b><span>${pending ? `${pending} 道待订正` : ''}${pending && due ? '，' : ''}${due ? `${due} 道该复习` : ''}</span><i>›</i></a>` : '',
+  ].filter(Boolean);
   const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
   $app.innerHTML = `${topnav()}<main class="page dash">
     <header class="ph"><div><h1>数学竞赛真题</h1>
       <p class="muted">选一套开始模考，交卷自动判分；做完三套左右，就能看出哪些知识项薄弱。</p></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
+    ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <section class="dash-exams" aria-label="考试">
       <div class="fam-tabs" role="tablist">${fams.map((x) => `<button role="tab" class="${x.id === dashFam ? 'on' : ''}" data-fam="${x.id}"><b>${esc(x.name)}</b><small>${x.exams ? `${x.exams} 套` : '录入中'}</small></button>`).join('')}</div>
       <p class="small muted fam-desc">${esc(f.desc || '')} <a href="#/contest/${enc(dashFam)}/stats">考情 ›</a></p>
+      <p class="small mode-tip"><b>练习</b>不计时，可以看提示；<b>模考</b>限时，和正式比赛一样，交卷后出分。</p>
       ${grid}
     </section>
     <div class="dash-grid">
       <section class="card todo">
         <div class="card-h"><h2>今天做什么</h2></div>
         ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>`
-          : `<p class="muted">${doneN ? '错题都处理完了，可以再挑一套没做过的真题。' : '还没做过整套真题。先从上面挑一套模考，交卷后这里会列出要订正的错题和要补的知识项。'}</p>`}
+          : `<p class="muted">${doneN ? '暂时没有特别薄弱的知识项，可以再挑一套没做过的真题。' : '还没做过整套真题。先从上面挑一套模考，交卷后这里会列出要补的知识项。'}</p>`}
         ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">${tried ? '' : '做过的题会算进去'} ›</span></a>`}
       </section>
       <section class="card recent">
@@ -568,8 +581,8 @@ async function renderDashboard() {
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
-  $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { dashFam = b.dataset.fam; renderDashboard(); }));
-  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[dashFam] = +b.dataset.grade; renderDashboard(); }));
+  $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { dashFam = b.dataset.fam; store.set('math.fam', dashFam); renderDashboard(); }));
+  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[dashFam] = +b.dataset.grade; saveGrade(); renderDashboard(); }));
   $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode)));
 }
 
@@ -596,7 +609,8 @@ async function renderHome() {
 
 // ───────── 一种考试：试卷 / 考情 / 成绩记录 ─────────
 const GRADE = { 1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级', 5: '五年级', 6: '六年级', 7: '初一', 8: '初二' };
-const contestGrade = {}; // 分年级的考试：每种考试记住选的年级
+const contestGrade = store.get('math.grade', {}) || {}; // 分年级的考试：每种考试记住选的年级（存在浏览器里，下次打开还在）
+const saveGrade = () => store.set('math.grade', contestGrade);
 // 一种考试的试卷格子（分年级的先选年级）：考试页和数学首页共用。limit 只在首页用，多的给「全部」链接
 function examGrid(f, allExams, fid, limit = 0) {
   const grades = f.grades ? [...new Set(allExams.map((e) => e.grade).filter(Boolean))].sort((a, b) => a - b) : [];
@@ -658,7 +672,7 @@ async function renderContest(fid, tab = 'exams') {
     ${body}
   </main>`;
   $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode)));
-  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[fid] = +b.dataset.grade; renderContest(fid, tab); }));
+  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[fid] = +b.dataset.grade; saveGrade(); renderContest(fid, tab); }));
 }
 
 function showInstructions(exam, mode) {

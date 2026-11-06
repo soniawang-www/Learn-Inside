@@ -86,8 +86,10 @@ async function router() {
   const [path] = h.split('?');
   const parts = path.split('/').filter(Boolean);
   try {
-    if (parts[0] === 'join') return renderJoin();
-    if (!auth.token) return renderJoin();
+    if (parts[0] === 'join' || !auth.token) { // 登录 / 注册统一在全站账号页，登录后回到这里
+      store.set('li.back', location.pathname + (parts[0] === 'join' ? '#/' : location.hash));
+      location.replace('/account/'); return;
+    }
     if (!me) me = await api('/api/me');
     if (!parts.length) return renderHome();
     if (parts[0] === 'intro') return renderIntro(parts[1]);
@@ -159,8 +161,8 @@ async function renderHome() {
   const unfinished = exams.filter((e) => store.get(`hz.cur.${e.id}`));
   const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
   const tasks = [
-    ...unfinished.map((e) => `<a class="task" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续</b><span>${esc(e.title)}<small>上次没做完，接着答题</small></span></a>`),
-    todo && `<a class="task" href="#/mistakes"><b>${todo}</b><span>道错题待订正<small>重做时每题马上告诉你对错</small></span></a>`,
+    ...unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)} · 上次没做完</span><i>›</i></a>`),
+    todo && `<a class="cont-go alt" href="#/mistakes"><b>${todo} 道错题</b><span>待订正，重做时每题马上告诉你对错</span><i>›</i></a>`,
   ].filter(Boolean);
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
   const row = (e) => `<div class="exam-row">
@@ -170,8 +172,8 @@ async function renderHome() {
   const real = exams.filter((e) => !e.id.endsWith('-mock')), mock = exams.filter((e) => e.id.endsWith('-mock'));
   const cards = real.length ? real.map(row).join('') : '<p class="muted">试卷整理中，很快上线。</p>';
   page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1><p class="muted small">选一套开始，答题界面和比赛一样。</p></div>
+    ${tasks.length ? `<div class="cont-strip">${tasks.join('')}</div>` : ''}
     <div class="card"><h2>真题</h2>${cards}</div>
-    ${tasks.length ? `<div class="card"><h2>今天做什么</h2><div class="tasks">${tasks.join('')}</div></div>` : ''}
     ${mock.length ? `<div class="card"><h2>模拟题</h2><p class="small muted">《中文自修》每年七八月合刊的官方模拟题，题量比正式比赛大，适合分几次练。</p>${mock.map(row).join('')}</div>` : ''}
     ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
       ${sessions.map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}
