@@ -1,9 +1,10 @@
 // 语文 · 汉字小达人真题模考（learn-inside.com/chinese/）· 前端（原生 JS，无构建步骤）
-// 路由：#/（首页：试卷、成绩）  #/intro/:examId（考前须知）  #/exam/:sid（答题）  #/review/:sid（成绩和解析）
+// 路由：#/（首页：比赛入口、成绩）  #/hanzi（汉字小达人试卷）  #/intro/:examId（考前须知）  #/exam/:sid（答题）  #/review/:sid（成绩和解析）
 //       #/mistakes（错题本）  #/join（登录 / 注册）
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
 import { sideNav } from '/assets/sidenav.js?v=20261106f';
+import { loadStart } from '/assets/loadcomic.js?v=20261106i';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -85,19 +86,21 @@ async function router() {
   const h = location.hash.replace(/^#/, '') || '/';
   const [path] = h.split('?');
   const parts = path.split('/').filter(Boolean);
+  const loaded = loadStart();
   try {
     if (parts[0] === 'join' || !auth.token) { // 登录 / 注册统一在全站账号页，登录后回到这里
       store.set('li.back', location.pathname + (parts[0] === 'join' ? '#/' : location.hash));
       location.replace('/account/'); return;
     }
     if (!me) me = await api('/api/me');
-    if (!parts.length) return renderHome();
-    if (parts[0] === 'intro') return renderIntro(parts[1]);
-    if (parts[0] === 'exam') return renderExam(parts[1]);
-    if (parts[0] === 'review') return renderReview(parts[1]);
-    if (parts[0] === 'mistakes') return renderMistakes();
+    if (!parts.length) return await renderHome();
+    if (parts[0] === 'hanzi') return await renderHanzi();
+    if (parts[0] === 'intro') return await renderIntro(parts[1]);
+    if (parts[0] === 'exam') return await renderExam(parts[1]);
+    if (parts[0] === 'review') return await renderReview(parts[1]);
+    if (parts[0] === 'mistakes') return await renderMistakes();
     location.hash = '#/';
-  } catch (e) { errorPage(e.message); }
+  } catch (e) { errorPage(e.message); } finally { loaded(); }
 }
 window.addEventListener('hashchange', router);
 
@@ -165,18 +168,30 @@ async function renderHome() {
     todo && `<a class="cont-go alt" href="#/mistakes"><b>${todo} 道错题</b><span>待订正</span><i>›</i></a>`,
   ].filter(Boolean);
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
+  const lastScore = sessions[0] ? `最近 ${sessions[0].score ?? '–'} 分` : '';
+  page(`<div class="hero"><h1>语文竞赛真题</h1></div>
+    ${tasks.length ? `<div class="cont-strip">${tasks.join('')}</div>` : ''}
+    <div class="fam-cards">
+      <a class="fam-card" href="#/hanzi"><b>汉字小达人</b><span>${exams.length ? `${exams.length} 套真题和模拟题` : '录入中'}</span><small>${lastScore}</small><i>›</i></a>
+      <div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>
+    </div>
+    ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
+      ${sessions.slice(0, 8).map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}`, 'home');
+}
+
+async function renderHanzi() {
+  const st = auth.student;
+  const exams = await api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`);
   const row = (e) => `<div class="exam-row">
       <div><b>${esc(e.title)}</b><div class="small muted">${e.year ?? ''} 年 · ${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div></div>
       <div class="exam-act">${e.last_session ? `<a class="small" href="#/review/${e.last_session}">上次 ${e.last_score} 分</a>` : ''}
         <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const real = exams.filter((e) => !e.id.endsWith('-mock')), mock = exams.filter((e) => e.id.endsWith('-mock'));
-  const cards = real.length ? real.map(row).join('') : '<p class="muted">试卷整理中，很快上线。</p>';
-  page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1></div>
-    ${tasks.length ? `<div class="cont-strip">${tasks.join('')}</div>` : ''}
+  const cards = real.length ? real.map(row).join('') : '<p class="muted">录入中</p>';
+  page(`<a class="small back" href="#/">← 语文首页</a>
+    <div class="hero"><h1>汉字小达人</h1></div>
     <div class="card"><h2>真题</h2>${cards}</div>
     ${mock.length ? `<div class="card"><h2>模拟题</h2>${mock.map(row).join('')}</div>` : ''}
-    ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
-      ${sessions.map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}
     <p class="small muted center">题目来源：《中文自修》「美丽汉字小达人」历届活动</p>`, 'home');
 }
 

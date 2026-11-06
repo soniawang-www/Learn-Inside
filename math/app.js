@@ -2,6 +2,7 @@
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { sideNav } from '/assets/sidenav.js?v=20261106f';
+import { loadStart } from '/assets/loadcomic.js?v=20261106i';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
@@ -210,6 +211,7 @@ async function router() {
   $modal.innerHTML = '';
   const [, page, id, sub] = (location.hash.slice(1) || '/').split('?')[0].split('/');
   const dim = setTimeout(() => $app.classList.add('page-wait'), 150); // 换页时旧页面变淡、不能点
+  const loaded = loadStart();
   try {
     const printTok = new URLSearchParams(location.search).get('print');
     if (printTok) return await renderPrintLink(printTok);
@@ -230,7 +232,7 @@ async function router() {
     return await renderDashboard();
   } catch (e) {
     $app.innerHTML = `${topnav()}<main class="page"><div class="card"><p class="error-msg">${esc(e.message)}</p><a href="#/">返回首页</a></div></main>`;
-  } finally { clearTimeout(dim); $app.classList.remove('page-wait'); }
+  } finally { clearTimeout(dim); $app.classList.remove('page-wait'); loaded(); }
 }
 window.addEventListener('hashchange', router);
 // 从支付宝点「返回」时浏览器会恢复旧页面（按钮停在点过的样子）：重新加载一次，拿最新的订单状态

@@ -145,6 +145,8 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .subj.zh .subj-go{color:var(--plum)}
 @media (max-width:520px){.subjects{grid-template-columns:minmax(0,1fr)}.subj{padding:16px 18px}.subj b{font-size:1.3rem}}
 .subj-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.subj-soon{grid-column:1/-1;display:flex;align-items:baseline;gap:12px;padding:14px 20px;border-radius:20px;border:1.5px dashed var(--line);color:var(--soft)}
+.subj-soon b{font-family:var(--display);font-weight:600;font-size:1.1rem;letter-spacing:.04em}
 .subj-col .subj{flex:1}
 .subj-links{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
 .subj-links a{display:flex;align-items:center;justify-content:center;padding:10px 6px;border-radius:14px;background:var(--card);border:1.5px solid var(--line);color:var(--ink);text-decoration:none;font-family:var(--display);font-weight:600;font-size:1rem;white-space:nowrap}
@@ -266,12 +268,13 @@ body{font-size:1rem}
     <div class="subj-col">
     <a class="subj zh" href="chinese/">
       <span class="subj-k">语文</span>
-      <b>汉字小达人真题</b>
-      <span class="subj-c">历届市级、区级真题 · 官方模拟题</span>
+      <b>语文竞赛真题</b>
+      <span class="subj-c">汉字小达人 · 古诗文大会</span>
       <span class="subj-go">进入语文 ›</span>
     </a>
-    <nav class="subj-links zh" aria-label="语文"><a href="chinese/">真题模考</a><a href="chinese/#/mistakes">错题本</a></nav>
+    <nav class="subj-links zh" aria-label="语文"><a href="chinese/#/hanzi">汉字小达人</a><a href="chinese/#/mistakes">错题本</a></nav>
     </div>
+    <div class="subj-soon" aria-disabled="true"><span class="subj-k">英语</span><b>即将上线</b></div>
   </section>
 
 
