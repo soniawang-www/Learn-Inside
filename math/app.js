@@ -195,7 +195,7 @@ function topnav() {
     ['#/graph', '知识图谱', 'graph', /^#\/(graph|kp)/],
     ['#/mistakes', '错题本', 'mistakes', /^#\/(mistakes|problem)/],
   ] : [];
-  const memb = lastMe ? (lastMe.guest ? '游客 · 点这里注册' : lastMe.free_mode ? '试用期全部免费' : lastMe.premium ? '会员' : `免费次数 ${lastMe.credits}`) : '';
+  const memb = lastMe ? (lastMe.guest ? '注册送 10 次互动解析' : lastMe.free_mode ? '试用期全部免费' : lastMe.premium ? '会员' : `免费次数 ${lastMe.credits}`) : '';
   return sideNav({ section: SECTION, sub: SUB.map(([href, n, ic, re]) => [href, n, ic, re.test(h)]), who: { name: s.nickname, note: memb } });
 }
 
@@ -565,7 +565,7 @@ async function renderDashboard() {
         : '<p class="muted">还没有成绩。</p>'}
       </section>
     </div>
-    ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="${ACCOUNT_URL}">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
+    ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
   $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { dashFam = b.dataset.fam; renderDashboard(); }));
