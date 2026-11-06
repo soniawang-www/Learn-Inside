@@ -328,16 +328,16 @@ else if(last)main=`<div class="rs-main"><div><b>${esc(last.title||"")}</b><small
 const chips=[mm?`<a href="math/#/mistakes">数学错题待订正 <b>${mm}</b> ›</a>`:"",mz?`<a href="chinese/#/mistakes">语文错题待订正 <b>${mz}</b> ›</a>`:""].join("");
 const R=$("resume");R.innerHTML=`<h2>${esc(String(st.nickname||""))}，继续上次</h2>${main}${chips?`<div class="rs-chips">${chips}</div>`:""}`;R.hidden=false})();
 
-/* 首页弹窗：打开首页时弹出；关掉后 7 天内不再自动弹出， */
-{const P=$("promo"),T=$("promo-track"),dots=[...document.querySelectorAll("[data-slide]")],KEY="li-promo-closed";
+/* 首页弹窗：每次打开首页都弹出 */
+{const P=$("promo"),T=$("promo-track"),dots=[...document.querySelectorAll("[data-slide]")];
 const open=()=>{P.hidden=false;document.body.style.overflow="hidden";P.querySelector(".promo-box").focus({preventScroll:true})};
-const close=()=>{P.hidden=true;document.body.style.overflow="";store.set(KEY,String(Date.now()))};
+const close=()=>{P.hidden=true;document.body.style.overflow=""};
 $("promo-x").onclick=close;P.addEventListener("click",e=>{if(e.target===P)close()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!P.hidden)close()});
 
 dots.forEach(b=>b.onclick=()=>T.scrollTo({left:T.clientWidth*+b.dataset.slide}));
 T.addEventListener("scroll",()=>{const i=Math.round(T.scrollLeft/T.clientWidth);dots.forEach((b,k)=>b.classList.toggle("on",k===i))},{passive:true});
-if(Date.now()-Number(store.get(KEY,"0"))>7*864e5)open()}
+open()}
 /* 账号：已登录显示孩子昵称 */
 {try{const st=JSON.parse(localStorage.getItem("li.student")||"null");if(st&&st.nickname){const n=String(st.nickname);$("me").innerHTML=`<span class="av">${esc(n.slice(0,1))}</span>${esc(n)}`}}catch(e){}}
 /* 联系客服：后台上传的微信二维码 */
