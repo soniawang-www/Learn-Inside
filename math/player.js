@@ -15,6 +15,20 @@
 import { SIMS } from './sims.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// 公式里的 < > 在 HTML 字段里会被当成标签吃掉：换成 \lt \gt
+const ltgt = (h) => (typeof h === 'string' && h.includes('$') ? h.replace(/\$[^$]+\$/g, (m) => m.replace(/</g, '\\lt ').replace(/>/g, '\\gt ')) : h);
+// 选择题选项按固定顺序打乱（同一步每次打开顺序一样）；带编号的选项、「以上都…」不动
+const hash = (t) => { let x = 2166136261; for (const c of t) x = Math.imul(x ^ c.codePointAt(0), 16777619); return x >>> 0; };
+function optOrder(s, seed) {
+  const idx = s.opts.map((_, k) => k);
+  if (s.opts.length < 2 || s.keep_order || s.opts.some((o) => /^\s*(选项\s*\d|[A-Ea-e][.、:：）)]|[①②③④⑤])/.test(o)) || /选项|上面|下面|前一个|后一个/.test((s.q || '') + (s.say || ''))) return idx;
+  const free = idx.filter((k) => !/以上|都不对|都对/.test(s.opts[k]));
+  let x = hash(seed + s.opts.join('|')) || 1;
+  const perm = free.slice();
+  for (let k = perm.length - 1; k > 0; k--) { x = Math.imul(x ^ (x >>> 15), 2246822507) >>> 0; const j = x % (k + 1); [perm[k], perm[j]] = [perm[j], perm[k]]; }
+  free.forEach((k, n) => { idx[k] = perm[n]; });
+  return idx;
+}
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 const typeset = (el) => { if (window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false }); };
 const reduce = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -127,6 +141,12 @@ function gridWidget(cfg, onSolved, setSay) {
 // ───────── 播放器 ─────────
 export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onClose } = {}) {
   const steps = (lesson.steps || lesson).map((s) => (s.type ? s : { type: 'info', say: s.body, html: s.title ? `<div class="lp-h">${md(s.title)}</div>` : '' }));
+  steps.forEach((s, k) => {
+    if (s.html) s.html = ltgt(s.html);
+    if (s.tabs) s.tabs.forEach((t) => { if (t.html) t.html = ltgt(t.html); });
+    if (s.sim === 'frames' && s.frames) s.frames.forEach((f) => { if (f.info) f.info = ltgt(f.info); });
+    if ((s.type === 'quiz' || s.type === 'pick2') && s.opts && !s._order) s._order = optOrder(s, `${lesson.title || ''}#${k}`);
+  });
   let i = 0, playing = false, solved = new Set();
   root.innerHTML = `<div class="lp">
     ${lesson.title ? `<div class="lp-title"><span>${md(lesson.title)}</span>${onClose ? '<button class="lp-x" aria-label="关闭">✕</button>' : ''}</div>` : ''}
@@ -218,7 +238,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     if (s.type === 'quiz' || s.type === 'pick2') {
       const box = document.createElement('div');
       box.className = 'lp-quiz' + (s.type === 'pick2' ? ' two' : '');
-      box.innerHTML = (s.q ? `<div class="lp-q">${md(s.q)}</div>` : '') + `<div class="lp-opts">${s.opts.map((o, k) => `<button class="lp-opt" data-k="${k}">${md(o)}</button>`).join('')}</div>`;
+      box.innerHTML = (s.q ? `<div class="lp-q">${md(s.q)}</div>` : '') + `<div class="lp-opts">${(s._order || s.opts.map((_, k) => k)).map((k) => `<button class="lp-opt" data-k="${k}">${md(s.opts[k])}</button>`).join('')}</div>`;
       main.appendChild(box);
       box.addEventListener('click', (e) => {
         const b = e.target.closest('.lp-opt');
