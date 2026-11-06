@@ -48,7 +48,7 @@ export const FEATURES = [
     { id: 'B1-1', name: '考试种类（AMC 8、思维 100、希望数学）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,swb100,hope') },
     { id: 'B1-2', name: 'AMC 8 试卷数', run: async (c) => (await c.get(`/math/api/exams?student=${c.sid}&family=amc8`)).data.length, expect: same(26) },
     { id: 'B1-3', name: 'AMC 8 考情（大类占比、知识项）', run: async (c) => { const d = (await c.get(`/math/api/families/amc8?student=${c.sid}`)).data; return d.stats.exams === 26 && d.stats.units.length === 30; }, expect: same(true) },
-    { id: 'B1-4', name: '思维 100 暂无真题', run: async (c) => (await c.get(`/math/api/families/swb100?student=${c.sid}`)).data.stats.exams, expect: same(0) },
+    { id: 'B1-4', name: '思维 100 有真题', run: async (c) => (await c.get(`/math/api/families/swb100?student=${c.sid}`)).data.stats.exams > 0, expect: same(true) },
   ] },
   { id: 'B2', area: '考试', name: '模考', cases: [
     { id: 'B2-1', name: '开始模考，题目不含答案、不给提示', run: async (c) => { const r = await c.post('/math/api/sessions', { exam_id: 'amc8-2024', student_id: c.sid, mode: 'exam' }); c.examS = r.data; return r.data.problems.length === 25 && r.data.problems.every((p) => !('answer' in p) && p.hint_count === 0); }, expect: same(true) },
@@ -108,7 +108,7 @@ export const FEATURES = [
     { id: 'D1-1', name: '知识项页（前置、题型、相关真题）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}`); if (r.status !== 200) return r.status; const d = r.data; return d.prerequisites?.length > 0 && d.types?.length > 0 && d.problems?.length > 0; }, expect: { guest: 403, user: true, member: true } },
     { id: 'D1-2', name: '突击的锁标记（普通知识项）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}`); return r.status !== 200 ? r.status : r.data.drill.locked ? 'locked' : 'open'; }, expect: { guest: 403, user: 'locked', member: 'open' } },
     { id: 'D1-3', name: '样板知识项不锁', run: async (c) => { const r = await c.get(`/math/api/kp/${SAMPLE_KP}?student=${c.sid}`); return r.status !== 200 ? r.status : r.data.drill.locked; }, expect: { guest: 403, user: false, member: false } },
-    { id: 'D1-4', name: '按考试切换考情（思维 100 暂无）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}&family=swb100`); return r.status !== 200 ? r.status : r.data.stats; }, expect: { guest: 403, user: null, member: null } },
+    { id: 'D1-4', name: '按考试切换考情（思维 100）', run: async (c) => { const r = await c.get(`/math/api/kp/${KP}?student=${c.sid}&family=swb100`); return r.status !== 200 ? r.status : !!r.data.stats; }, expect: { guest: 403, user: true, member: true } },
     { id: 'D1-5', name: '不存在的知识项', run: async (c) => st(await c.get(`/math/api/kp/nope?student=${c.sid}`)), expect: { guest: 403, user: 404, member: 404 } },
   ] },
   { id: 'D2', area: '知识项', name: '真题突击', cases: [

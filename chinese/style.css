@@ -223,4 +223,4 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 .page.wide { max-width: 1120px; padding: 24px 38px 64px; }
 .page.wide .hero { padding: 6px 0 20px; }
 .page.wide .hero h1 { font-size: 30px; margin: 0; }
-@media (max-width: 860px) { .page.wide { padding: 20px 16px 56px; } .page.wide .hero h1 { font-size: 24px; } }
+@media (max-width: 860px) { .page.wide { padding: 20px 14px 56px; } .page.wide .hero h1 { font-size: 24px; } }

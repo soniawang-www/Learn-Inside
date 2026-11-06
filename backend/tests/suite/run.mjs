@@ -107,7 +107,8 @@ if (WITH_UI) {
   const require = createRequire(import.meta.url);
   const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
   const browser = await chromium.launch();
-  const PAGES = ['#/', '#/exams', '#/contest/amc8', '#/contest/amc8/stats', '#/contest/amc8/records', '#/graph', '#/graph/geo.area', '#/mistakes', '#/kp/geo.area', '#/kp/cnt.perm?family=swb100', '#/account', '#/problem/amc8-2025-p01'];
+  // 全站页面：数学、语文、账号、网站首页（地址以 / 开头的是完整路径，以 # 开头的是数学页）
+  const PAGES = ['#/', '#/contest/amc8', '#/contest/amc8/stats', '#/contest/amc8/records', '#/contest/hope', '#/contest/swb100', '#/graph', '#/graph/geo.area', '#/mistakes', '#/kp/geo.area', '#/kp/cnt.perm?family=swb100', '#/problem/amc8-2025-p01', '/account/', '/chinese/', '/chinese/#/hanzi', '/chinese/#/intro/hanzi-2021-city', '/chinese/#/mistakes', '/'];
   for (const role of Object.keys(ROLES)) {
     const c = await makeContext(role, outsider);
     const login = async (pg) => { await pg.goto(BASE + '/math/'); await pg.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: ROLES[role] }]); };
@@ -115,15 +116,22 @@ if (WITH_UI) {
     const errs = []; page.on('pageerror', (e) => errs.push(e.message)); c.errs = errs;
     await login(page);
     c.base = BASE;
-    c.go = async (hash) => { await page.goto(BASE + '/math/' + hash); await page.reload(); await page.waitForTimeout(900); };
+    const url = (t) => BASE + (t === '#/account' ? '/account/' : t.startsWith('/') ? t : '/math/' + t);
+    // 等页面稳定：加载漫画、换页变淡都结束
+    const settle = async (pg) => { await pg.waitForTimeout(400); await pg.waitForFunction(() => !document.querySelector('body > .li-load, #app > .li-load') && !document.getElementById('app')?.classList.contains('page-wait'), null, { timeout: 15000 }).catch(() => {}); await pg.waitForTimeout(300); };
+    const open = async (pg, t) => { await pg.goto(url(t)); await pg.reload().catch(() => {}); await settle(pg); };
+    c.role = role; c.settle = () => settle(page);
+    c.go = (t) => open(page, t);
     c.text = async (sel) => (await page.locator(sel).first().textContent({ timeout: 3000 }).catch(() => '')) || '';
     c.sweep = async (w, h, scheme) => {
       const pg = await browser.newPage({ viewport: { width: w, height: h }, colorScheme: scheme });
       const e2 = []; pg.on('pageerror', (e) => e2.push(e.message));
       await login(pg);
-      const bad = [];
+      const bad = []; const shape = {};
       for (const hsh of [...PAGES, `#/review/${c.session}`]) {
-        await pg.goto(BASE + '/math/' + hsh); await pg.reload(); await pg.waitForTimeout(700);
+        await open(pg, hsh);
+        // 版面一致：有左侧导航的页面，内容区宽度、标题大小和左边位置都要一样
+        if (w >= 1024) { const s = await pg.evaluate(() => { const m = document.querySelector('#app > main'), h = document.querySelector('#app > main h1'); if (!document.querySelector('#app > .side') || !m || !h) return null; const r = m.getBoundingClientRect(); return `内容区 ${Math.round(r.x)}+${Math.round(r.width)}，标题 ${getComputedStyle(h).fontSize} 在 ${Math.round(h.getBoundingClientRect().x)}`; }); if (s) (shape[s] ||= []).push(hsh); }
         const ov = await pg.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         if (ov > 1) bad.push(`${hsh} 溢出 ${ov}px`);
         // 版面检查：文字被截断（容器裁掉内容）、按钮文字折成多行、卡片里的标签被挤到折行
@@ -137,7 +145,7 @@ if (WITH_UI) {
             if (cs.overflowX !== 'visible' && cs.textOverflow !== 'ellipsis' && el.scrollWidth > el.clientWidth + 2 && !el.matches('.katex, .katex *, .katex-display, .katex-display *, svg, svg *, .kg-wrap, .kg-wrap *, #kg, #kg *, .ctabs, .utable, table')) out.push(`截断 ${name(el)}「${el.textContent.trim().slice(0, 10)}」`);
           }
           // 同一段文字被折成两行（按钮、标签、价格这类本该一行的东西）
-          for (const el of document.querySelectorAll('.btn, .tag, .kg-chip, .mm-tile, .side-nav a span, .plan .price, .plan .pname, .et-year, .ph-stats dd')) {
+          for (const el of document.querySelectorAll('.btn, .tag, .kg-chip, .mm-tile, .sn-nav a span, .plan .price, .plan .pname, .et-year, .ph-stats dd')) {
             if (!vis(el) || el.matches('.block')) continue;
             const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
             for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -152,6 +160,8 @@ if (WITH_UI) {
         if (issues.length) bad.push(`${hsh} ${issues.join('、')}`);
       }
       await pg.close();
+      const shapes = Object.entries(shape).sort((a, b) => b[1].length - a[1].length);
+      for (const [s, hs] of shapes.slice(1)) bad.push(`版面和其他页不一样（${s}）：${hs.join(' ')}`);
       return bad.length || e2.length ? [...bad, ...e2.slice(0, 2)].join('；') : 'ok';
     };
     for (const f of FEATURES.filter((x) => x.id.startsWith('U'))) for (const t of f.cases) await record(t, role, async () => { const r = await t.run(page, c); await page.keyboard.press('Escape').catch(() => {}); return r; });

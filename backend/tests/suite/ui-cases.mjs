@@ -6,10 +6,13 @@ const WX_ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; V2309A Build/UP1A.231005.
 const WX_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.50';
 
 export const UI_FEATURES = [
-  { id: 'U1', area: '界面', name: '首页', cases: [
-    { id: 'U1-1', name: '首页掌握地图（游客换成注册后可用的功能）', run: async (p, c) => { await c.go('#/'); if (!(await c.text('h1')).includes('的数学')) return 'no-h1'; return (await p.locator('.mm .reg-feats').count()) ? '注册提示' : await p.locator('.mm-tile').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
-    { id: 'U1-2', name: '顶部「注册就送 10 次互动解析」', run: async (p, c) => { await c.go('#/'); return (await p.locator('.gift-tip').count()) > 0; }, expect: { guest: true, user: false, member: false } },
-    { id: 'U1-3', name: '侧栏身份', run: async (p, c) => { await c.go('#/'); const t = await c.text('.side-who small'); return t.includes('游客') ? '游客' : t.includes('会员') ? '会员' : t.replace(/\s/g, ''); }, expect: { guest: '游客', user: '免费次数10', member: '会员' } },
+  { id: 'U1', area: '界面', name: '数学首页', cases: [
+    { id: 'U1-1', name: '只放竞赛入口卡片（AMC 8 / 思维 100 / 希望数学），不铺试卷', run: async (p, c) => { await c.go('#/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('.exam-tile').count()}`; }, expect: same('3/0') },
+    { id: 'U1-2', name: '点竞赛卡片进到这个竞赛的试卷', run: async (p, c) => { await c.go('#/'); await p.locator('a.fam-card', { hasText: 'AMC 8' }).click(); await c.settle(); return `${p.url().endsWith('#/contest/amc8')}/${await p.locator('.exam-tile').count()}`; }, expect: same('true/26') },
+    { id: 'U1-3', name: '「今天做什么」「最近成绩」一直显示', run: async (p, c) => { await c.go('#/'); return p.locator('.dash-grid > .card').count(); }, expect: same(2) },
+    { id: 'U1-4', name: '侧栏底部身份（游客是注册提示）', run: async (p, c) => { await c.go('#/'); const t = await c.text('.sn-who small'); return t.includes('注册送') ? '注册提示' : t.includes('会员') ? '会员' : t.replace(/\s/g, ''); }, expect: { guest: '注册提示', user: '免费次数10', member: '会员' } },
+    { id: 'U1-5', name: '知识图谱页最上面的掌握地图（游客换成注册提示）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('.mm-tile').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
+    { id: 'U1-6', name: '选过的竞赛和年级记住：希望数学选四年级，刷新后还是四年级', run: async (p, c) => { await c.go('#/contest/hope'); await p.locator('[data-grade="4"]').click(); await c.settle(); await c.go('#/contest/hope'); return c.text('.grade-tabs button.on'); }, expect: same('四年级') },
   ] },
   { id: 'U7', area: '界面', name: '注册要输两遍密码', cases: [
     { id: 'U7-1', name: '注册页：两次密码不一样不能提交，一样才行', run: async (p, c) => {
@@ -50,6 +53,7 @@ export const UI_FEATURES = [
   ] },
   { id: 'U9', area: '界面', name: '等服务器时不能重复点', cases: [
     { id: 'U9-1', name: '网慢时连点「兑换」：按钮转圈、只发一次请求、顶部有进度条', run: async (p, c) => {
+      if (c.role === 'guest') return 'skip';
       let n = 0;
       await p.route('**/api/redeem', async (route) => { n++; await new Promise((r) => setTimeout(r, 1200)); await route.continue(); });
       await c.go('#/account'); await p.fill('#redeem input', 'NOTACODE00');
@@ -59,7 +63,7 @@ export const UI_FEATURES = [
       await p.waitForTimeout(1800); await p.unroute('**/api/redeem');
       const done = !(await b.evaluate((x) => x.classList.contains('busy')));
       return `${busy}/${bar}/${n}/${done}`;
-    }, expect: same('true/true/1/true') },
+    }, expect: { guest: 'skip', user: 'true/true/1/true', member: 'true/true/1/true' } },
     { id: 'U9-2', name: '换页时数据没回来：旧页面变淡、不能点', run: async (p, c) => {
       await c.go('#/'); await p.route('**/math/api/families**', async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
       await p.evaluate(() => { location.hash = '#/exams'; }); await p.waitForTimeout(400);
@@ -74,7 +78,8 @@ export const UI_FEATURES = [
     { id: 'U2-2', name: '考情：大类占比 + 知识项表', run: async (p, c) => { await c.go('#/contest/amc8/stats'); return (await p.locator('.mrow').count()) === 8 && (await p.locator('.utable tr').count()) > 20; }, expect: same(true) },
     { id: 'U2-3', name: '点「模考」出现考前须知', run: async (p, c) => { await c.go('#/contest/amc8'); await p.locator('[data-mode="exam"]').first().click(); await p.waitForTimeout(400); return (await p.locator('.modal').count()) > 0; }, expect: same(true) },
     { id: 'U2-4', name: '希望数学：按年级列卷，填空题是输入框，没有语言切换', run: async (p, c) => {
-      await c.go('#/contest/hope'); const tabs = await p.locator('.grade-tabs button').count();
+      await c.go('#/contest/hope'); const tabs = (await p.locator('.grade-tabs button').count()) > 1 ? 1 : 0;
+      await p.locator('[data-grade="4"]').click(); await c.settle();
       await p.locator('[data-start="hope-2019w-g4"][data-mode="practice"]').click(); await p.waitForSelector('#go'); await p.click('#go'); await p.waitForSelector('.ez-q');
       const r = `${tabs}/${await p.locator('#fill').count()}/${await p.locator('#lang').count()}`;
       await p.fill('#fill', '4'); const prog = await p.textContent('.ez-prow span:last-child');
@@ -136,7 +141,7 @@ export const UI_FEATURES = [
   { id: 'U5', area: '界面', name: '账号页', cases: [
     { id: 'U5-1', name: '会员卡片显示', run: async (p, c) => { await c.go('#/account'); const t = await c.text('.col-main'); return t.includes('数学会员 到') || t.includes('数学会员到') ? '数学会员' : t.includes('注册就送 10 次') ? '注册礼' : t.includes('剩余免费次数 10 次') ? '剩 10 次' : '?'; }, expect: { guest: '注册礼', user: '剩 10 次', member: '数学会员' } },
     { id: 'U5-2', name: '套餐按钮', run: async (p, c) => { await c.go('#/account'); const n = async (s) => p.locator(s).count(); return `${await n('[data-plan]')}开通/${await n('.plan [data-support]')}找客服/${await n('[data-goreg]')}注册后开通`; }, expect: { guest: '0开通/0找客服/3注册后开通', user: '2开通/1找客服/0注册后开通', member: '2开通/1找客服/0注册后开通' } },
-    { id: 'U5-3', name: '激活码提示注册', run: async (p, c) => { await c.go('#/account'); return (await c.text('.col-side')).includes('注册后才能兑换'); }, expect: { guest: true, user: false, member: false } },
+    { id: 'U5-3', name: '激活码：游客输入框不能用、提示注册后可兑换', run: async (p, c) => { await c.go('#/account'); const i = p.locator('#redeem input'); return `${await i.isDisabled()}/${await i.getAttribute('placeholder')}`; }, expect: { guest: 'true/注册后可兑换', user: 'false/输入激活码', member: 'false/输入激活码' } },
     { id: 'U5-4', name: '账号卡片：游客在最上面注册，注册用户在右栏看登录方式', run: async (p, c) => { await c.go('#/account'); const t = await c.text(c.role === 'guest' ? '.col-main > .card:first-child' : '.col-side'); return t.includes('注册账号') ? '注册账号' : t.includes('登录方式') ? '登录方式' : '?'; }, expect: { guest: '注册账号', user: '登录方式', member: '登录方式' } },
     { id: 'U5-5', name: '联系客服弹出二维码说明', run: async (p, c) => { await c.go('#/account'); await p.locator('[data-support]').first().click(); await p.waitForTimeout(500); return (await p.locator('.support').count()) > 0; }, expect: same(true) },
     { id: 'U5-6', name: '活动期间套餐显示原价划线和活动价，手机上不挤', run: async (p, c) => {
@@ -173,6 +178,56 @@ export const UI_FEATURES = [
     { id: 'U6-6', name: '最窄 320（或手机调大字号）：同上', run: async (p, c) => c.sweep(320, 640, 'light'), expect: same('ok') },
     { id: 'U6-7', name: '平板 768：同上', run: async (p, c) => c.sweep(768, 1024, 'light'), expect: same('ok') },
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
+  ] },
+  { id: 'U11', area: '界面', name: '语文', cases: [
+    { id: 'U11-1', name: '语文首页：汉字小达人卡片 + 古诗文大会「即将上线」（不能点）', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${(await c.text('.fam-card.soon')).replace(/\s/g, '')}`; }, expect: same('1/古诗文大会即将上线') },
+    { id: 'U11-2', name: '语文首页：「今天做什么」「最近成绩」一直显示，今天做什么推荐一套没做过的卷子', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('.dash-grid > .card').count()}/${await p.locator('.tasks a[href^="#/intro/"]').count()}`; }, expect: same('2/1') },
+    { id: 'U11-3', name: '点汉字小达人进到试卷列表（真题 + 模拟题）', run: async (p, c) => { await c.go('/chinese/'); await p.locator('a.fam-card').click(); await c.settle(); return `${p.url().endsWith('#/hanzi')}/${await p.locator('.exam-row').count()}`; }, expect: same('true/6') },
+    { id: 'U11-4', name: '考前须知：标题是试卷名、5 条规则、有「开始答题」', run: async (p, c) => { await c.go('/chinese/#/intro/hanzi-2021-city'); return `${(await c.text('main h1')).includes('第八届')}/${await p.locator('.rules li').count()}/${await p.locator('main button, main a').filter({ hasText: '开始答题' }).count()}`; }, expect: same('true/5/1') },
+    { id: 'U11-5', name: '语文错题本（游客是注册提示）', run: async (p, c) => { await c.go('/chinese/#/mistakes'); const h = await c.text('main h2'); return h.includes('注册') ? '注册提示' : h.includes('还没有错题') ? '还没有错题' : (await p.locator('.mk').count()) > 0 ? '有错题' : '?'; }, expect: { guest: '注册提示', user: '还没有错题', member: '还没有错题' } },
+    { id: 'U11-6', name: '语文登录统一在账号页：没登录打开语文 → 账号页 → 游客进入后回到语文', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage();
+      await q.goto(c.base + '/chinese/#/hanzi'); await q.waitForURL(/\/account\//, { timeout: 10000 }); await q.getByText('先不注册，直接试试').click();
+      await q.waitForURL(/\/chinese\//, { timeout: 15000 }); const r = q.url().endsWith('/chinese/#/hanzi'); await ctx.close(); return r;
+    }, expect: { guest: true, user: 'skip', member: 'skip' } },
+  ] },
+  { id: 'U12', area: '界面', name: '左侧导航', cases: [
+    { id: 'U12-1', name: '导航项：首页 / 数学 / 语文 / 英语（即将上线，不能点）/ 账号 + 联系客服', run: async (p, c) => { await c.go('#/'); const a = (await p.locator('.side .sn-nav > a span').allTextContents()).join('/'); return `${a}/${(await c.text('.side .sn-soon')).replace(/\s/g, '')}/${await p.locator('.side .sn-help').count()}`; }, expect: same('首页/数学/语文/账号/英语即将上线/1') },
+    { id: 'U12-2', name: '数学、语文、账号页都有同一个导航（首页没有）', run: async (p, c) => { const n = []; for (const u of ['#/', '/chinese/', '/account/', '/']) { await c.go(u); n.push(await p.locator('.side').count()); } return n.join(''); }, expect: same('1110') },
+    { id: 'U12-3', name: '电脑：收起导航，刷新后还是收起的', run: async (p, c) => { await c.go('#/'); await p.click('[data-sidefold]'); await c.go('#/'); const mini = await p.evaluate(() => document.documentElement.classList.contains('side-mini')); await p.click('[data-sidefold]'); return `${mini}/${await p.evaluate(() => document.documentElement.classList.contains('side-mini'))}`; }, expect: same('true/false') },
+    { id: 'U12-4', name: '手机：菜单在左上角、logo 在右上角，导航从左边滑出，点遮罩关上', run: async (p, c) => {
+      await p.setViewportSize({ width: 390, height: 844 }); await c.go('#/');
+      const m = await p.locator('.sn-menu').boundingBox(), l = await p.locator('.sn-bar .sn-logo').boundingBox();
+      await p.click('.sn-menu'); await p.waitForTimeout(400); const open = Math.round((await p.locator('.side').boundingBox()).x) === 0;
+      await p.locator('.sn-mask').click({ position: { x: 370, y: 400 } }); await p.waitForTimeout(400); const shut = (await p.locator('.side').boundingBox()).x < 0;
+      await p.setViewportSize({ width: 1366, height: 860 });
+      return `${m.x < 60}/${l.x + l.width > 330}/${open}/${shut}`;
+    }, expect: same('true/true/true/true') },
+  ] },
+  { id: 'U13', area: '界面', name: '加载时的漫画', cases: [
+    { id: 'U13-1', name: '数学换页时数据慢：屏幕正中弹出四格漫画，加载完自动关', run: async (p, c) => {
+      await c.go('#/contest/amc8'); await p.route('**/math/api/families**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
+      await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1300);
+      const shown = await p.locator('body > .li-load .li-load-in').isVisible(), n = await p.locator('body > .li-load figure').count();
+      await p.waitForTimeout(4500); await p.unroute('**/math/api/families**');
+      return `${shown}/${n}/${(await p.locator('body > .li-load').count()) === 0}`;
+    }, expect: same('true/4/true') },
+    { id: 'U13-2', name: '语文换页时数据慢：弹出语文的四格漫画', run: async (p, c) => {
+      await c.go('/chinese/#/hanzi'); await p.route('**/api/exams**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
+      await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1300);
+      const zh = await p.locator('body > .li-load.zh .li-load-in').isVisible();
+      await p.waitForTimeout(4500); await p.unroute('**/api/exams**');
+      return `${zh}/${(await p.locator('body > .li-load').count()) === 0}`;
+    }, expect: same('true/true') },
+    { id: 'U13-3', name: '网快时不弹', run: async (p, c) => { await c.go('#/contest/amc8'); await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(250); return p.locator('body > .li-load').count(); }, expect: same(0) },
+  ] },
+  { id: 'U14', area: '界面', name: '网站首页', cases: [
+    { id: 'U14-1', name: '数学、语文两张科目卡片 + 英语「即将上线」', run: async (p, c) => { await c.go('/'); return `${await p.locator('a.subj').count()}/${(await c.text('.subj-soon')).replace(/\s/g, '')}`; }, expect: same('2/英语即将上线') },
+    { id: 'U14-2', name: '漫画弹窗：新访客弹，做过题的不弹（看「继续上次」）', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(c.base + '/'); await q.waitForTimeout(1200);
+      const fresh = await q.locator('#promo').isVisible(); await ctx.close();
+      await c.go('/'); await p.waitForTimeout(800); return `${fresh}/${await p.locator('#promo').isVisible()}`;
+    }, expect: same('true/false') },
   ] },
   { id: 'U10', area: '界面', name: '在线支付的各种情况', cases: [
     { id: 'U10-1', name: '点「开通」：先确认订单，再全屏遮罩跳支付宝（页面不能点）', run: async (p, c) => {

@@ -190,7 +190,7 @@ async function showSupport(title = '联系客服') {
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-support]'); if (a) { e.preventDefault(); showSupport(a.dataset.support || '联系客服'); } });
 function topnav() {
   const s = auth.student;
-  if (!s) return `<nav class="topnav">${BRAND}</nav>`;
+  if (!s) return sideNav({ section: SECTION, sub: [], who: null });
   const h = location.hash || '#/';
   const SUB = SECTION === 'math' ? [
     ['#/graph', '知识图谱', 'graph', /^#\/(graph|kp)/],
@@ -240,21 +240,24 @@ window.addEventListener('pageshow', (e) => { if (e.persisted) { document.querySe
 // 「去错题本订正」带上知识项筛选
 document.addEventListener('click', (e) => { const a = e.target.closest('[data-mskp]'); if (a) { msKp = a.dataset.mskp; msFam = ''; msFilter = 'todo'; msMore = false; } });
 
+// 账号页绑定 / 注册表单的「显示密码」
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('#bind .eye'); if (!b) return;
+  const i = b.previousElementSibling; const show = i.type === 'password';
+  i.type = show ? 'text' : 'password'; b.textContent = show ? '隐藏' : '显示';
+  const i2 = document.querySelector('#bind [name=password2]'); if (i2) i2.type = i.type;
+});
+
 // 注册礼：在登录页、游客提示、账号页、复盘页统一用这一块
-const GIFT = (more = '') => `<div class="gift"><span class="gift-n"><span>10<small>次</small></span></span><span><b>注册就送 10 次互动解析</b>
-  <small>会员才有的一步步讲解；解锁一道题用 1 次，之后随时重看${more}</small></span></div>`;
+const GIFT = () => `<div class="gift"><span class="gift-n"><span>10<small>次</small></span></span><span><b>注册就送 10 次互动解析</b></span></div>`;
 
 // 游客只能考试、看对错和答案；错题本、知识图谱、知识项要注册
 const isGuest = () => !!lastMe?.guest;
 async function ensureMe() { if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {} return lastMe; }
-const REG_FEATS = `<ul class="reg-feats">
-    <li><b>错题本</b><span>做错和没做的题自动收集，订正之后隔一周提醒复习</span></li>
-    <li><b>知识图谱</b><span>每次考试都算进去，哪些知识项掌握得好、哪些薄弱一眼看清</span></li>
-    <li><b>知识项突击</b><span>挑出薄弱的知识项，用历年真题集中练</span></li></ul>`;
+const REG_FEATS = `<ul class="reg-feats"><li><b>错题本</b></li><li><b>知识图谱</b></li><li><b>知识项突击</b></li></ul>`;
 function regWall(title) {
   $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1></div></header>
-    <div class="cols"><div class="col-main"><div class="card reg-wall"><h2>免费注册，解锁这些功能</h2>${REG_FEATS}
-      <p class="small muted">现在做过的题都会保留，注册后马上算进错题本和知识图谱。</p>
+    <div class="cols"><div class="col-main"><div class="card reg-wall"><h2>注册后可以使用</h2>${REG_FEATS}
       <a class="btn primary" href="#/account">免费注册</a></div></div>
     <aside class="col-side"><a class="card gift-link" href="#/account">${GIFT()}</a></aside></div></main>`;
 }
@@ -301,7 +304,7 @@ function renderJoin() {
     try { const r = await api('/api/auth/guest', { method: 'POST', body: {} }); auth.save(r.token, r.student); if (goBack()) return; location.hash = '#/'; router(); }
     catch (x) { document.getElementById('err').textContent = x.message; e.target.disabled = false; }
   };
-  $app.querySelector('.eye').onclick = (e) => {
+  $app.querySelector('#join .eye').onclick = (e) => {
     const i = e.target.previousElementSibling; const show = i.type === 'password';
     i.type = show ? 'text' : 'password'; e.target.textContent = show ? '隐藏' : '显示';
     const i2 = document.querySelector('#join [name=password2]'); if (i2) i2.type = i.type;
@@ -349,10 +352,12 @@ async function renderAccount() {
           <label class="field"><span>新密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
           <label class="field"><span>再输一遍新密码</span><input type="password" name="password2" autocomplete="new-password"></label>
           <button class="btn">保存</button><div class="error-msg" id="perr"></div></form></details>`
-      : `${a.guest ? `${GIFT()}<p class="small">注册后解锁错题本、知识图谱和知识项突击，现在做过的题会自动算进去。</p>` : '<p class="small">绑定手机号后，换手机、换电脑都能登录，做题记录不会丢。</p>'}
-        <form id="bind"><label class="field"><span>手机号</span><input type="tel" name="phone" inputmode="numeric" maxlength="13" autocomplete="username"></label>
-          <label class="field"><span>设置密码（至少 6 位）</span><input type="password" name="password" autocomplete="new-password"></label>
-          <label class="field"><span>再输一遍密码</span><input type="password" name="password2" autocomplete="new-password"></label>
+      : `${a.guest ? GIFT() : ''}
+        <form id="bind"><label class="field"><span>手机号</span>
+          <div class="input-group"><span class="prefix">+86</span><input type="tel" name="phone" inputmode="numeric" maxlength="11" placeholder="请输入手机号" autocomplete="username"></div></label>
+          <label class="field"><span>设置密码</span>
+          <div class="input-group"><input type="password" name="password" placeholder="至少 6 位" autocomplete="new-password"><button type="button" class="eye" aria-label="显示密码">显示</button></div></label>
+          <label class="field"><span>再输一遍密码</span><input type="password" name="password2" placeholder="和上面一样" autocomplete="new-password"></label>
           ${a.guest ? `<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
           <button class="btn primary">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
 `}
@@ -372,8 +377,8 @@ async function renderAccount() {
       
       ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
     </div>
-    </div><aside class="col-side"><div class="card"><h2>激活码</h2>${a.guest ? '<p class="small muted">注册后才能兑换。</p>' : ''}
-      <form id="redeem" class="row"><input type="text" name="code" placeholder="输入激活码" autocomplete="off" style="flex:1;min-width:160px"><button class="btn primary">兑换</button></form>
+    </div><aside class="col-side"><div class="card"><h2>激活码</h2>
+      <form id="redeem" class="row"><input type="text" name="code" placeholder="${a.guest ? '注册后可兑换' : '输入激活码'}" autocomplete="off" style="flex:1;min-width:160px"${a.guest ? ' disabled' : ''}><button class="btn primary"${a.guest ? ' disabled' : ''}>兑换</button></form>
       <div class="error-msg" id="rerr"></div>
     </div>
     ${a.guest ? '' : acctCard}
@@ -573,32 +578,12 @@ async function renderDashboard() {
         : '<p class="muted">还没有成绩</p>'}
       </section>
     </div>
-    ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
+    ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>还没绑定手机号</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
 }
 
 // ───────── 考试列表 ─────────
-async function renderHome() {
-  const me = await api('/math/api/me');
-  lastMe = me;
-  if (!auth.student || !me.students.find((s) => s.id === auth.student.id)) auth.setStudent(me.students[0]);
-  const st = auth.student;
-  const fams = await apiList(`/math/api/families?student=${st.id}`);
-  $app.innerHTML = `${topnav()}<div class="page">
-    <header class="ph"><div><h1>考试</h1></div></header>
-    ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="#/account">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
-    ${me.students.length > 1 ? `<div class="card row"><span class="muted">当前学生</span>
-      <select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select></div>` : ''}
-    <div class="fam-list">${fams.map((f) => `<a class="card fam" href="#/contest/${f.id}">
-        <div><h2>${esc(f.name)}</h2><p class="small muted">${esc(f.desc)}</p></div>
-        <div class="fam-meta">${f.exams ? `<span><b>${f.exams}</b> 套真题</span>` : '<span class="muted">真题待录入</span>'}
-          ${f.sessions ? `<span>做过 <b>${f.sessions}</b> 次 · 最近 ${f.last.score} 分</span>` : ''}<span class="go">进入 ›</span></div></a>`).join('')}</div>
-    
-  </div>`;
-  document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
-}
-
 // ───────── 一种考试：试卷 / 考情 / 成绩记录 ─────────
 const GRADE = { 1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级', 5: '五年级', 6: '六年级', 7: '初一', 8: '初二' };
 const contestGrade = store.get('math.grade', {}) || {}; // 分年级的考试：每种考试记住选的年级（存在浏览器里，下次打开还在）

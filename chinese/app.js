@@ -78,7 +78,7 @@ async function showSupport() {
     <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
-const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page${active === 'home' ? ' wide' : ''}">${html}</main>`; window.scrollTo(0, 0); };
+const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`; window.scrollTo(0, 0); };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
 // ───────── 路由 ─────────
@@ -103,54 +103,6 @@ async function router() {
   } catch (e) { errorPage(e.message); } finally { loaded(); }
 }
 window.addEventListener('hashchange', router);
-
-// ───────── 登录 / 注册 / 游客 ─────────
-let joinTab = 'register';
-function renderJoin() {
-  const reg = joinTab === 'register';
-  document.body.className = '';
-  $app.innerHTML = `${topnav()}<main class="page narrow">
-    <div class="hero"><h1>汉字小达人 · 真题模考</h1><p class="muted">150 题，40 分钟，一页一题，和比赛的答题界面一样。交卷马上出分，每题都有解析。</p></div>
-    <div class="card">
-      <div class="tabs"><button data-tab="register" class="${reg ? 'on' : ''}">注册</button><button data-tab="login" class="${reg ? '' : 'on'}">登录</button></div>
-      <form id="join" autocomplete="on">
-        <label class="field"><span>手机号</span><input name="phone" type="tel" inputmode="numeric" maxlength="13" autocomplete="tel" required></label>
-        <label class="field"><span>密码</span><input name="password" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}" required></label>
-        ${reg ? `<label class="field"><span>再输一次密码</span><input name="password2" type="password" autocomplete="new-password" required></label>
-        <label class="field"><span>孩子的昵称</span><input name="nickname" maxlength="20" placeholder="例如：小桐" required></label>` : ''}
-        <button class="btn primary block" type="submit">${reg ? '注册' : '登录'}</button>
-        <p class="err" id="err"></p>
-      </form>
-      <p class="small muted">数学、语文用同一个账号。</p>
-    </div>
-    <div class="card center"><button class="btn block" id="guest">先不注册，直接试试</button>
-      <p class="small muted">游客可以模考、看成绩和解析；错题本要注册后才能用，做过的题会自动算进去。</p></div>
-  </main>`;
-  $app.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { joinTab = b.dataset.tab; renderJoin(); }));
-  const err = $app.querySelector('#err');
-  $app.querySelector('#join').onsubmit = async (e) => {
-    e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
-    f.phone = String(f.phone || '').replace(/\D/g, '');
-    if (!/^1\d{10}$/.test(f.phone)) return (err.textContent = '请输入正确的 11 位手机号');
-    if (!f.password || (reg && f.password.length < 6)) return (err.textContent = reg ? '密码至少 6 位' : '请输入密码');
-    if (reg && f.password !== f.password2) return (err.textContent = '两次输入的密码不一样');
-    delete f.password2;
-    const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; err.textContent = '';
-    try {
-      const r = await api(`/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
-      auth.save(r.token, r.student); me = null; location.hash = '#/'; router();
-    } catch (x) {
-      if (reg && /已经注册过/.test(x.message)) { joinTab = 'login'; renderJoin(); $app.querySelector('[name=phone]').value = f.phone; $app.querySelector('#err').textContent = '这个手机号已经注册过，输入密码直接登录'; return; }
-      err.textContent = x.message; btn.disabled = false;
-    }
-  };
-  $app.querySelector('#guest').onclick = async (e) => {
-    e.target.disabled = true;
-    try { const r = await api('/api/auth/guest', { method: 'POST', body: {} }); auth.save(r.token, r.student); me = null; location.hash = '#/'; router(); }
-    catch (x) { err.textContent = x.message; e.target.disabled = false; }
-  };
-}
 
 // ───────── 首页：试卷和成绩 ─────────
 async function renderHome() {
@@ -216,7 +168,9 @@ async function renderIntro(examId) {
   const e = exams.find((x) => x.id === examId);
   if (!e) return errorPage('试卷不存在');
   const saved = store.get(`hz.cur.${examId}`);
-  page(`<div class="card intro"><h1>${esc(e.title)}</h1>
+  page(`<a class="small back" href="#/hanzi">← 汉字小达人</a>
+    <div class="hero"><h1>${esc(e.title)}</h1></div>
+    <div class="card intro">
     <ol class="rules">
       <li>共 ${e.problem_count} 题，每题 1 分。时间 ${Math.round(e.duration_sec / 60)} 分钟，左上角倒计时；时间到会自动交卷。</li>
       <li>做完一题点「下一页」；<b>没做完不能进入下一页，也不能返回上一页</b>。</li>
@@ -353,9 +307,11 @@ async function renderReview(sid) {
       <div class="rv-ans">${x.correct ? `<span class="tag ok">✓ 对</span> ${fill ? esc(mine) : ''}` : `<span class="tag bad">✗ ${x.choice == null ? '未作答' : '错'}</span>${x.choice != null ? ` 你的答案：<s>${esc(mine)}</s>　` : ' '}正确答案：<b>${esc(right)}</b>`}</div>
       ${x.basic ? `<div class="rv-sol">${txt(x.basic)}</div>` : ''}</div>`;
   };
-  page(`<div class="card score">
+  page(`<a class="small back" href="#/hanzi">← 汉字小达人</a>
+    <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
+    <div class="card score">
       <div class="score-big"><b>${score}</b><span> / ${items.length} 分</span></div>
-      <p class="muted">${esc(r.exam.title)} · 用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
+      <p class="muted">用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
       ${bySec.length ? `<table class="tbl"><tr><th>大题</th><th>得分</th><th>正确率</th></tr>${bySec.map((s) => `<tr><td>${'一二三四五六七八九十'[s.no - 1] || s.no}、${esc(s.name)}</td><td class="num">${s.ok} / ${s.n}</td><td><span class="bar"><i style="width:${Math.round((100 * s.ok) / s.n)}%"></i></span> ${Math.round((100 * s.ok) / s.n)}%</td></tr>`).join('')}</table>` : ''}
       <div class="actions">${isGuest() ? '<a class="btn" href="/account/">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
     <div class="card"><div class="rv-head"><h2>逐题解析</h2>${wrong.length ? `<label class="small"><input type="checkbox" id="only" checked> 只看错题（${wrong.length}）</label>` : ''}</div>
@@ -369,15 +325,15 @@ async function renderReview(sid) {
 // ───────── 错题本 ─────────
 const STATUS = { pending: '待订正', due: '该复习了', fixed: '已订正', mastered: '已掌握' };
 async function renderMistakes() {
-  if (isGuest()) return page(`<div class="card center"><h2>注册后可以使用错题本</h2>
-    <a class="btn primary" href="/account/">去注册（数学、语文通用）</a></div>`, 'mistakes');
+  if (isGuest()) return page(`<div class="hero"><h1>错题本</h1></div><div class="card"><h2>注册后可以使用</h2>
+    <a class="btn primary" href="/account/">免费注册</a></div>`, 'mistakes');
   const r = await api(`/api/students/${enc(auth.student.id)}/mistakes?subject=chinese`);
   const list = r.mistakes;
-  if (!list.length) return page('<div class="card center"><h2>还没有错题</h2><a class="btn primary" href="#/">去模考</a></div>', 'mistakes');
+  if (!list.length) return page('<div class="hero"><h1>错题本</h1></div><div class="card"><h2>还没有错题</h2><a class="btn primary" href="#/hanzi">去模考</a></div>', 'mistakes');
   const todo = list.filter((m) => m.status === 'pending' || m.status === 'due');
   const groups = {};
   for (const m of list) (groups[m.section_name || '其他'] ||= []).push(m);
-  page(`<div class="card"><h1>错题本</h1><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
+  page(`<div class="hero"><h1>错题本</h1></div><div class="card"><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
       <div class="actions">${todo.length ? `<button class="btn primary" id="redo">重做 ${Math.min(todo.length, 30)} 道错题</button>` : '<span class="tag ok">全部订正过了</span>'}</div></div>
     ${Object.entries(groups).map(([g, ms]) => `<div class="card"><h2>${esc(g)} <span class="small muted">${ms.length} 题</span></h2>
       ${ms.map((m) => `<details class="mk"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> ${esc(m.label)}<span class="small muted"> · 错 ${m.wrong_n} 次</span></summary>
