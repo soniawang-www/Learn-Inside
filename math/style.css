@@ -1261,3 +1261,9 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .so-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
 .so-c { min-width:48px; height:52px; padding:0 10px; border:2px solid var(--lp-line); background:var(--lp-card); color:var(--lp-ink); border-radius:10px; font-size:1.1rem; font-weight:700; cursor:pointer; }
 .so-c.on { border-color:var(--lp-plum); background:var(--lp-plum-soft); color:var(--lp-plum); }
+/* 题目语言：English | 中文 | 双语，当前的高亮 */
+.lang-seg { display:inline-flex; align-items:center; gap:2px; padding:2px; border:1px solid var(--border); border-radius:999px; background:var(--surface); white-space:nowrap; }
+.lang-seg > svg { margin:0 4px 0 6px; color:var(--muted); }
+.lang-seg button { border:0; background:none; color:var(--text); font:inherit; font-size:13px; padding:3px 10px; border-radius:999px; cursor:pointer; }
+.lang-seg button[aria-pressed="true"] { background:var(--accent); color:var(--surface); }
+.lang-seg button:hover:not([aria-pressed="true"]) { color:var(--accent); }

@@ -85,6 +85,9 @@ const isFig = (v) => /^\s*<(svg|img)\b/i.test(String(v || ''));
 
 // ── 题目语言：en 英文 / zh 中文 / both 双语（中区考试可选语言） ──
 const LANGS = { en: 'English', zh: '中文', both: '双语' };
+// 语言切换：三个选项并排，当前的高亮（原来是一个按钮显示「当前语言」，孩子以为点它就切到那个语言，看着像标反了）
+const langSeg = () => `<span class="lang-seg" id="lang" role="group" aria-label="题目语言">${icon('globe', 15)}${Object.entries(LANGS).map(([k, v]) => `<button data-lang="${k}" aria-pressed="${lang.get() === k}">${v}</button>`).join('')}</span>`;
+const onLang = (root, redraw) => root.querySelector('#lang')?.addEventListener('click', (e) => { const b = e.target.closest('[data-lang]'); if (b && b.dataset.lang !== lang.get()) { lang.set(b.dataset.lang); redraw(); } });
 const lang = { get: () => store.get('amc8.lang', 'en'), set: (v) => store.set('amc8.lang', v), next() { const ks = Object.keys(LANGS); const n = ks[(ks.indexOf(this.get()) + 1) % ks.length]; store.set('amc8.lang', n); return n; } };
 function stemHtml(p) {
   const L = lang.get();
@@ -729,7 +732,7 @@ async function renderExam(sid) {
         <span class="ez-user">${icon('account', 15)}${esc(auth.student?.nickname || '')}</span>
         <span class="ez-title">${esc(data.exam.title)}${practice ? '<span class="ez-mode">练习</span>' : ''}</span>
         <span class="ez-sp"></span>
-        ${en ? `<button class="ez-tool" id="lang" title="切换题目语言">${icon('globe', 15)}${LANGS[lang.get()]}</button>` : ''}
+        ${en ? langSeg() : ''}
         <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
         <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
         <span class="ez-timer" id="timer">剩余时间 <b>--:--</b></span>
@@ -784,7 +787,7 @@ async function renderExam(sid) {
     $app.querySelector('#flag').onclick = () => { S.flags[p.id] ? delete S.flags[p.id] : (S.flags[p.id] = true); save(); draw(); };
     $app.querySelector('#refresh').onclick = () => { flushTime(); save(); location.reload(); };
     $app.querySelector('#font').onclick = () => { S.big = !S.big; save(); draw(); };
-    $app.querySelector('#lang')?.addEventListener('click', () => { lang.next(); draw(); });
+    onLang($app, draw);
     $app.querySelector('#cardbtn').onclick = () => { cardOpen = !cardOpen; draw(); };
     $app.querySelector('#mask')?.addEventListener('click', () => { cardOpen = false; draw(); });
     $app.querySelector('#submit').onclick = confirmSubmit;
@@ -856,7 +859,7 @@ async function renderReview(sid) {
   const en = hasEn(r.items);
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.mode === 'exam' ? '模考' : '练习'} · ${fmtDate(r.session.submitted_at)}</p></div>
-      ${en ? `<div class="row"><button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button></div>` : ''}</header>
+      ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
@@ -897,7 +900,7 @@ async function renderReview(sid) {
   }));
   bindKpCards($app);
   $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv)));
-  $app.querySelector('#lang')?.addEventListener('click', () => { lang.next(); router(); });
+  onLang($app, router);
 }
 /** 填空题的作答结果 */
 const fillResult = (mine, ans, ok) => `<div class="fill-res"><div class="${ok ? 'ok' : mine === null ? '' : 'bad'}"><span>你的答案</span><b>${mine === null ? '未作答' : esc(mine)}</b></div>${ok ? '' : `<div class="ok"><span>正确答案</span><b>${esc(ans)}</b></div>`}</div>`;
@@ -1099,7 +1102,7 @@ async function renderProblem(id) {
   const done = p.attempted;
   $app.innerHTML = `${topnav()}<main class="page">
     <a href="javascript:history.back()" class="small">← 返回</a>
-    <header class="ph"><div><h1>${esc(p.label)}</h1></div>${p.stem_zh ? `<button class="btn" id="lang">${icon('globe', 16)}${LANGS[lang.get()]}</button>` : ''}</header>
+    <header class="ph"><div><h1>${esc(p.label)}</h1></div>${p.stem_zh ? langSeg() : ''}</header>
     <div class="cols half"><div class="card">
       <div class="stem">${stemHtml(p)}${p.figure ? `<div class="figure">${p.figure}</div>` : ''}</div>
       ${isFillP(p) ? (done ? fillResult(p.last.choice, p.answer, p.last.correct) : '') : `<ul class="choices ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="choice ${done && k === p.answer ? 'correct' : done && k === p.last.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(p, k)}</span></li>`).join('')}</ul>`}
@@ -1115,7 +1118,7 @@ async function renderProblem(id) {
   typeset($app);
   bindKpCards($app);
   $app.querySelector('[data-adv]')?.addEventListener('click', (e) => openAdvanced(e.currentTarget.dataset.adv));
-  $app.querySelector('#lang')?.addEventListener('click', () => { lang.next(); router(); });
+  onLang($app, router);
   $app.querySelector('#try').onclick = async () => {
     if (isGuest()) return modal(`<h2>注册后可以单题练习</h2>${REG_FEATS}<div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account">免费注册</a></div>`);
     const r = await api('/math/api/sessions', { method: 'POST', body: { problem_ids: [p.problem_id], student_id: auth.student.id } });
