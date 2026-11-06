@@ -39,8 +39,8 @@ export function sideNav({ section = 'math', sub = [], who = null } = {}) {
     <a class="sn-help" href="javascript:" data-support title="联系客服">${ic('chat')}<span>联系客服</span></a>
     <a class="sn-who" href="/account/" title="${name}"><i class="sn-av">${esc((who?.name || '我').slice(0, 1))}</i><span><b>${name}</b>${who?.note ? `<small>${esc(who.note)}</small>` : ''}</span></a>
   </aside>
-  <header class="sn-bar"><a class="sn-logo" href="/">${LOGO}<b>${NAMES[section] || ''}</b></a>
-    <button class="sn-menu" type="button" data-sideopen aria-label="打开导航">${ic('menu')}</button></header>
+  <header class="sn-bar"><button class="sn-menu" type="button" data-sideopen aria-label="打开导航">${ic('menu')}</button>
+    <a class="sn-logo" href="/"><b>${NAMES[section] || ''}</b>${LOGO}</a></header>
   <div class="sn-mask" data-sideclose></div>`;
 }
 
