@@ -594,15 +594,22 @@ function examGrid(f, allExams, fid, limit = 0) {
   if (grades.length && !grades.includes(contestGrade[fid])) contestGrade[fid] = grades[0];
   const exams = grades.length ? allExams.filter((e) => e.grade === contestGrade[fid]) : allExams;
   const shown = limit ? exams.slice(0, limit) : exams;
-  const html = exams.length ? `${grades.length ? `<div class="ms-tabs grade-tabs">${grades.map((g) => `<button class="${g === contestGrade[fid] ? 'on' : ''}" data-grade="${g}">${GRADE[g] || g + ' 年级'}</button>`).join('')}</div>` : ''}<div class="exam-grid">
-      ${shown.map((e) => `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
-        <div class="et-top"><span class="et-year">${f.grades ? esc(e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/\s+/g, ' ').trim()) : e.year || ''}</span>
+  // 分年级的考试：卷名去掉考试名和年级，大字只放「年份 场次」，其余（个人战 / 决赛 / 回忆版）放到下一行
+  const label = (e) => {
+    if (!f.grades) return { t: e.year || '', sub: '' };
+    const s = e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/（(.+?)）/g, ' $1').replace(/\s+/g, ' ').trim();
+    const m = s.match(/^(\d{4}\s*\S+)\s*(.*)$/);
+    return m ? { t: m[1], sub: m[2].split(' ').filter(Boolean).join(' · ') } : { t: s, sub: '' };
+  };
+  const html = exams.length ? `${grades.length ? `<div class="ms-tabs grade-tabs">${grades.map((g) => `<button class="${g === contestGrade[fid] ? 'on' : ''}" data-grade="${g}">${GRADE[g] || g + ' 年级'}</button>`).join('')}</div>` : ''}<div class="exam-grid${f.grades ? ' long' : ''}">
+      ${shown.map((e) => { const lb = label(e); return `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
+        <div class="et-top"><span class="et-year${f.grades ? ' cn' : ''}">${esc(lb.t)}</span>
           ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
-        <div class="small muted">${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div>
+        <div class="small muted">${lb.sub ? `${esc(lb.sub)} · ` : ''}${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div>
         <div class="et-btns">
           <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
           <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
-        </div></div>`).join('')}
+        </div></div>`; }).join('')}
     </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
   return { html, exams };
 }

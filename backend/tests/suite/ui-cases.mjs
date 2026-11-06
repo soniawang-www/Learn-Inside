@@ -46,7 +46,7 @@ export const UI_FEATURES = [
     { id: 'U8-2', name: '微信里点「开通」：提示到浏览器打开，不跳支付宝', run: async (p, c) => {
       const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, userAgent: WX_UA }); const q = await ctx.newPage();
       await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: '微信' }]);
-      await q.goto(c.base + '/math/#/account'); await q.reload(); await q.waitForTimeout(1000);
+      await q.goto(c.base + '/account/'); await q.waitForTimeout(1500);
       await q.locator('[data-plan]').first().click(); await q.waitForTimeout(700);
       const r = `${(await q.locator('.modal').textContent().catch(() => '')).includes('在浏览器')}/${q.url().includes('alipay')}`; await ctx.close(); return r;
     }, expect: { guest: 'skip', user: 'true/false', member: 'true/false' } },

@@ -89,10 +89,25 @@ const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS print_job (token TEXT PRIMARY KEY, student_id TEXT NOT NULL REFERENCES student(id),
      payload TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)`,
   ...BILLING_MIGRATIONS,
+  // 索引：按常用查询条件建，避免每次把整张表扫一遍（D1 按读到的行数计费 / 限额）
+  'CREATE INDEX IF NOT EXISTS idx_ae_session ON attempt_event(session_id)',
+  'CREATE INDEX IF NOT EXISTS idx_ae_student_problem ON attempt_event(student_id, problem_id, created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_session_student ON exam_session(student_id, submitted_at)',
+  'CREATE INDEX IF NOT EXISTS idx_session_student_exam ON exam_session(student_id, exam_id, submitted_at)',
+  'CREATE INDEX IF NOT EXISTS idx_solution_problem ON solution(problem_id, kind)',
+  'CREATE INDEX IF NOT EXISTS idx_pk_kp ON problem_kp(kp_id)',
+  'CREATE INDEX IF NOT EXISTS idx_student_account ON student(account_id)',
+  'CREATE INDEX IF NOT EXISTS idx_entitlement_account ON entitlement(account_id)',
+  'CREATE INDEX IF NOT EXISTS idx_order_account ON pay_order(account_id, created_at)',
+  // 每套卷的题数（导入时算好，试卷列表不用每次数题）
+  'ALTER TABLE exam ADD COLUMN problem_count INTEGER',
+  // 考情统计等「所有人都一样、只在导入题目时变」的结果，算一次存起来
+  'CREATE TABLE IF NOT EXISTS stat_cache (key TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL)',
 ];
 // 每次都执行的数据修正（幂等）
 const FIXUPS = [
   "UPDATE exam SET published = 0 WHERE id = 'sample-2026'", // 示例卷下线
+  'UPDATE exam SET problem_count = (SELECT COUNT(*) FROM problem p WHERE p.exam_id = exam.id) WHERE problem_count IS NULL', // 旧库补题数（之后只扫 exam 表）
   "INSERT OR IGNORE INTO exam (id, title, year, source, duration_sec, published) VALUES ('drill', '知识点突击', NULL, 'system', 0, 0)", // 突击会话挂在这个隐藏试卷下
 ];
 
@@ -173,6 +188,7 @@ export async function importContent(db, { schema, exams = [], points = [], edges
       db.prepare(`DELETE FROM ${t} WHERE problem_id IN (SELECT id FROM problem WHERE exam_id = ?)`).bind(ex.id)));
   }
   await writeRows(db, rows);
+  await afterContent(db, exams.map((e) => e.id));
   return { rows: rows.length, points: points.length, edges: Array.isArray(edges) ? edges.length : undefined, pruned, exams: exams.map((e) => `${e.id}（${e.problems.length} 题）`) };
 }
 
@@ -181,7 +197,16 @@ export async function seedDatabase(db, { schema, knowledge, exams }) {
   await ensureSchema(db, schema);
   const rows = buildRows(knowledge, exams);
   await writeRows(db, rows);
+  await afterContent(db, exams.map((e) => e.id));
   return { rows: rows.length, exams: exams.map((e) => e.id) };
+}
+
+/** 题目变了之后：更新这些卷的题数，清掉考情等统计缓存（下次打开时重算一次） */
+async function afterContent(db, examIds) {
+  try {
+    if (examIds.length) await db.batch(examIds.map((id) => db.prepare('UPDATE exam SET problem_count = (SELECT COUNT(*) FROM problem p WHERE p.exam_id = ?) WHERE id = ?').bind(id, id)));
+    await db.prepare('DELETE FROM stat_cache').run();
+  } catch (e) { if (!/no such (table|column)/i.test(String(e.message))) throw e; }
 }
 
 /** 生成可在 wrangler d1 execute 中执行的 SQL 文本 */

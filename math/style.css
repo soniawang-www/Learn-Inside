@@ -963,6 +963,8 @@ body:not(.exam-mode) { background: var(--paper); }
 .exam-tile.done { border-color: #B9D6CA; }
 .et-top { display: flex; justify-content: space-between; align-items: baseline; }
 .et-year { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.et-year.cn { font-size: 22px; white-space: nowrap; } /* 分年级的卷名：年份 + 场次 */
+.et-top { gap: 8px; }
 .et-score { font-size: 20px; font-weight: 700; color: var(--accent); text-decoration: none; font-variant-numeric: tabular-nums; }
 .et-score small { font-size: 12px; color: var(--muted); font-weight: 400; }
 .et-new { font-size: 12px; color: var(--muted); border: 1px dashed var(--border); border-radius: 999px; padding: 1px 8px; }
@@ -1009,6 +1011,7 @@ body:not(.exam-mode) { background: var(--paper); }
   .exam-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .exam-tile { padding: 12px; }
   .et-year { font-size: 24px; }
+  .et-year.cn { font-size: 20px; }
   .cols.rev .rev-side .qgrid { grid-template-columns: repeat(5, 1fr); }
 }
 .support { text-align: center; }
@@ -1231,3 +1234,5 @@ body.exam-li .ez-btn.next { background: var(--accent); border-color: var(--accen
 body.exam-li .ez-fill input { border-radius: 10px; font-family: var(--serif); }
 body.exam-li .ez-pin.on { border-radius: 999px; }
 body.exam-li .ez.big .ez-stem { font-size: 22px; }
+
+@media (max-width: 520px) { .exam-grid.long { grid-template-columns: minmax(0, 1fr); } } /* 手机上分年级的卷名较长，一行一张 */

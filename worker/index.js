@@ -115,17 +115,19 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
   const acc = await requireAccount(req, env);
   const studentId = url.searchParams.get('student');
   if (studentId) await requireStudent(env, acc, studentId);
+  const fam = url.searchParams.get('family');
+  const prefix = fam ? FAMILIES.find((f) => f.id === fam)?.prefix : null;
+  // 题数用导入时存好的 problem_count；按考试筛选放在查询里（只看这一种考试的卷）
   const { results } = await env.DB
     .prepare(
       `SELECT e.id, e.title, e.year, e.grade, e.source, e.duration_sec,
-              (SELECT COUNT(*) FROM problem p WHERE p.exam_id = e.id) AS problem_count,
-              (SELECT s.score FROM exam_session s WHERE s.exam_id = e.id AND s.student_id = ? AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_score,
-              (SELECT s.id FROM exam_session s WHERE s.exam_id = e.id AND s.student_id = ? AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session
-         FROM exam e WHERE e.published = 1 ORDER BY e.year DESC, e.grade, e.id`
+              COALESCE(e.problem_count, (SELECT COUNT(*) FROM problem p WHERE p.exam_id = e.id)) AS problem_count,
+              (SELECT s.score FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_score,
+              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session
+         FROM exam e WHERE e.published = 1${prefix ? ' AND e.id LIKE ?' : ''} ORDER BY e.year DESC, e.grade, e.id`
     )
-    .bind(studentId, studentId)
+    .bind(studentId, studentId, ...(prefix ? [prefix + '%'] : []))
     .all();
-  const fam = url.searchParams.get('family');
   return json(fam ? results.filter((e) => familyOf(e.id)?.id === fam) : results);
 });
 
@@ -514,6 +516,10 @@ async function kpStats(env, family = 'amc8') {
   const fam = FAMILIES.find((f) => f.id === family) || FAMILIES[0];
   const hit = statsCache[fam.id];
   if (hit && now() - hit.at < 600000) return hit.data;
+  // 存在数据库里的结果（导入题目时清掉）：读 1 行，不用每次扫题目表
+  const key = `kpstats:${fam.id}`;
+  const saved = await env.DB.prepare('SELECT data FROM stat_cache WHERE key = ?').bind(key).first().catch(() => null);
+  if (saved) { const data = JSON.parse(saved.data); statsCache[fam.id] = { at: now(), data }; return data; }
   const like = fam.prefix + '%';
   const { results: exams } = await env.DB.prepare("SELECT year FROM exam WHERE published = 1 AND source = 'official' AND year IS NOT NULL AND id LIKE ? ORDER BY year").bind(like).all();
   const nExams = exams.length || 1;
@@ -577,6 +583,7 @@ async function kpStats(env, family = 'amc8') {
   data.types = Object.fromEntries(Object.entries(tacc).map(([k, a]) => [k, {
     total: a.n, per_exam: Math.round((a.n / nExams) * 100) / 100, rate: Math.round((a.ys.size / years.length) * 100) }]));
   statsCache[fam.id] = { at: now(), data };
+  await env.DB.prepare('INSERT OR REPLACE INTO stat_cache (key, data, at) VALUES (?, ?, ?)').bind(key, JSON.stringify(data), now()).run().catch(() => {});
   return data;
 }
 

@@ -37,16 +37,18 @@ export async function recomputeMastery(db, studentId) {
   const { results: events } = await db
     .prepare(
       `SELECT ae.problem_id, ae.choice, ae.correct, ae.hints_used, ae.error_reason,
-              p.number, p.difficulty,
-              (SELECT COUNT(*) FROM problem p2 WHERE p2.exam_id = p.exam_id) AS total
-         FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id
+              p.number, p.difficulty, COALESCE(e.problem_count, (SELECT COUNT(*) FROM problem p2 WHERE p2.exam_id = p.exam_id)) AS total
+         FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id JOIN exam e ON e.id = p.exam_id
         WHERE ae.student_id = ?
         ORDER BY ae.created_at, ae.id`
     )
     .bind(studentId)
     .all();
 
-  const { results: tags } = await db.prepare('SELECT problem_id, kp_id, weight FROM problem_kp').all();
+  // 只取这个学生做过的题的考点（不读整张表）
+  const { results: tags } = await db
+    .prepare('SELECT problem_id, kp_id, weight FROM problem_kp WHERE problem_id IN (SELECT DISTINCT problem_id FROM attempt_event WHERE student_id = ?)')
+    .bind(studentId).all();
   const tagMap = new Map();
   for (const t of tags) {
     if (!tagMap.has(t.problem_id)) tagMap.set(t.problem_id, []);
