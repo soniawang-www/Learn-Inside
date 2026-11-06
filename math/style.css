@@ -1240,7 +1240,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tgsvg .tg-i { cursor:pointer; }
 .tgsvg .tg-c { stroke:var(--lp-ink); stroke-width:1.4; transition:fill .12s; }
 .tgsvg .tg-i:hover .tg-c { stroke:var(--lp-plum); stroke-width:2.2; }
-.tg-bad, .gf-bad { stroke:var(--lp-plum) !important; stroke-width:3.2 !important; }
+.tg-bad, .gf-bad { stroke:var(--lp-warn) !important; stroke-width:3.4 !important; stroke-dasharray:5 3; }
 .lp-sim .st.tg-on { fill:var(--lp-card); font-weight:700; }
 .stp { display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; }
 .stp-code { align-self:stretch; text-align:left; margin:0; padding:8px 10px; background:var(--lp-card); border:1px solid var(--lp-line); border-radius:8px; font-size:.85rem; line-height:1.55; overflow-x:auto; color:var(--lp-ink); }
