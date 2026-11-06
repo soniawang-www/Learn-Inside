@@ -895,6 +895,19 @@ body:not(.exam-mode) { background: var(--paper); }
 .col-main > .card:last-child, .col-side > .card:last-child { margin-bottom: 0; }
 
 /* 首页 */
+/* 首页最上面的「考试」：每个竞赛一张卡片 */
+.dash-exams { margin-bottom: 20px; }
+.dash-exams .card-h { margin-bottom: 10px; }
+.ex-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.ex-tile { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px; border-radius: var(--radius); background: var(--surface); border: 1.5px solid var(--border); border-top: 4px solid var(--accent); color: var(--text); text-decoration: none; min-width: 0; }
+.ex-tile:first-child { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.ex-tile b { font-family: var(--display); font-weight: 600; font-size: 20px; letter-spacing: .03em; }
+.ex-tile span { font-size: 14px; }
+.ex-tile small { font-size: 12px; opacity: .75; min-height: 1.4em; }
+.ex-tile .go { font-style: normal; font-weight: 600; font-size: 14px; color: var(--accent); margin-top: 6px; }
+.ex-tile:first-child .go { color: var(--surface); }
+@media (hover: hover) { .ex-tile:hover { border-color: var(--accent); } }
+@media (max-width: 640px) { .ex-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .ex-tile { padding: 12px 10px; } .ex-tile b { font-size: 16px; } .ex-tile small { display: none; } }
 .dash-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
 .dash-grid > .card { margin: 0; }
 .mm-sum { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }

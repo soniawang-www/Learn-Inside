@@ -129,6 +129,9 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .sub-t b{white-space:nowrap}
 .sub-t span{color:var(--soft);font-size:.85rem;line-height:1.5;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sec{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:10px 4px 0;letter-spacing:.06em;scroll-margin-top:12px}
+.contests{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:-4px 2px 0;font-size:.9rem;color:var(--soft)}
+.contests a{padding:3px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;white-space:nowrap}
+@media (hover:hover){.contests a:hover{border-color:var(--jade);color:var(--jade)}}
 .feat.zh{background:var(--plum)}
 .feat.zh .feat-free{color:var(--plum)}
 .quick.two{grid-template-rows:repeat(2,1fr)}
@@ -200,8 +203,8 @@ body{font-size:1rem}
   <section class="portal" aria-label="导航">
     <a class="feat" href="math/">
       <span class="feat-k">数学</span>
-      <b class="feat-t">AMC 8 真题模考</b>
-      <span class="feat-d">历年真题限时模考，交卷自动判对错；错题自动收集，再按知识点看考情，找出薄弱的地方。</span>
+      <b class="feat-t">数学竞赛真题模考</b>
+      <span class="feat-d">AMC 8、希望数学、思维 100 历年真题限时模考，交卷自动判对错；错题自动收集，再按知识点看考情，找出薄弱的地方。</span>
       <span class="feat-row"><span class="feat-free">2026 年真题 · 免注册直接练</span><span class="feat-go">进入数学 ›</span></span>
     </a>
     <div class="quick">
@@ -210,6 +213,7 @@ body{font-size:1rem}
       <a href="math/#/mistakes"><b>错题本</b></a>
     </div>
   </section>
+  <nav class="contests" aria-label="数学竞赛"><span>数学竞赛：</span><a href="math/#/contest/amc8">AMC 8</a><a href="math/#/contest/hope">希望数学</a><a href="math/#/contest/swb100">思维 100</a></nav>
 
   <section class="portal" aria-label="语文">
     <a class="feat zh" href="chinese/">

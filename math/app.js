@@ -543,6 +543,14 @@ async function renderDashboard() {
     <header class="ph"><div><h1>${esc(st.nickname)}的数学</h1>
       <p class="muted">做过 ${done} 套真题${guest ? '' : ` · ${count('weak')} 个薄弱知识项 · ${pending + due} 道错题要处理`}</p></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
+    <section class="dash-exams" aria-label="考试">
+      <div class="card-h"><h2>考试</h2><a href="#/exams">全部 ›</a></div>
+      <div class="ex-tiles">${[...fams].sort((a, b) => (b.exams > 0) - (a.exams > 0)).map((f) => `<a class="ex-tile" href="#/contest/${f.id}">
+        <b>${esc(f.name)}</b>
+        <span>${f.exams ? `${f.exams} 套真题` : '真题待录入'}</span>
+        <small>${f.sessions ? `做过 ${f.sessions} 次 · 最近 ${f.last.score} 分` : f.exams ? '还没做过' : ''}</small>
+        <i class="go">${f.exams ? '去模考 ›' : '看看 ›'}</i></a>`).join('')}</div>
+    </section>
     ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="#/account">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     <div class="dash-grid">
       ${guest ? `<section class="card mm reg-wall"><div class="card-h"><h2>掌握地图</h2></div>
@@ -563,10 +571,6 @@ async function renderDashboard() {
           <span class="sr-t">${esc(x.title)}<small>${x.mode === 'exam' ? '模考' : '练习'} · ${fmtDate(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>`
         : `<p class="muted">还没做过整套真题。</p>${next ? `<a class="btn primary" href="#/contest/amc8">去做 ${esc(next.title)}</a>` : ''}`}
-      </section>
-      <section class="card fams">
-        <div class="card-h"><h2>考试</h2><a href="#/exams">全部 ›</a></div>
-        ${fams.map((f) => `<a class="fam-mini" href="#/contest/${f.id}"><b>${esc(f.name)}</b><span class="muted">${f.exams ? `${f.exams} 套真题` : '真题待录入'}</span></a>`).join('')}
       </section>
     </div>
   </main>`;

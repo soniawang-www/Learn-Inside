@@ -151,13 +151,12 @@ async function renderHome() {
         <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const real = exams.filter((e) => !e.id.endsWith('-mock')), mock = exams.filter((e) => e.id.endsWith('-mock'));
   const cards = real.length ? real.map(row).join('') : '<p class="muted">试卷整理中，很快上线。</p>';
-  page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1>
-      <p class="muted">上海市小学生「美丽汉字小达人」市级活动：150 题、每题 1 分、40 分钟。这里的答题界面和比赛一样：一页一题，做完才能进下一页，不能返回，也不显示还剩几题。</p></div>
+  page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1><p class="muted small">选一套开始，答题界面和比赛一样。</p></div>
     <div class="card"><h2>真题</h2>${cards}</div>
     ${mock.length ? `<div class="card"><h2>模拟题</h2><p class="small muted">《中文自修》每年七八月合刊的官方模拟题，题量比正式比赛大，适合分几次练。</p>${mock.map(row).join('')}</div>` : ''}
     ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
       ${sessions.map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}
-    <div class="card small muted">题目来源：《中文自修》「美丽汉字小达人」历届市级活动，仅供练习。比赛通知以《中文自修》官网和公众号「魔都语文课代表」为准。</div>`, 'home');
+    <div class="card small muted"><p style="margin-top:0">比赛规则：上海市小学生「美丽汉字小达人」市级活动 150 题、每题 1 分、40 分钟。这里的答题界面和比赛一样：一页一题，做完才能进下一页，不能返回，也不显示还剩几题。</p>题目来源：《中文自修》「美丽汉字小达人」历届市级活动，仅供练习。比赛通知以《中文自修》官网和公众号「魔都语文课代表」为准。</div>`, 'home');
 }
 
 // ───────── 考前须知 ─────────
