@@ -1001,12 +1001,25 @@ function graphList(d, MODN) {
       <span class="go">›</span></a>`; }).join('')}</div></div>`;
   document.querySelectorAll('[data-gomap]').forEach((a) => a.addEventListener('click', () => { graphView = 'map'; }));
 }
+// 掌握地图：按模块列出所有知识项，颜色是掌握程度，角标是待订正的错题数（知识图谱页最上面）
+function masteryMap(g) {
+  const lv = (n) => n.mastery?.level || 'none';
+  const count = (k) => g.nodes.filter((n) => lv(n) === k).length;
+  return `<section class="card mm">
+    <div class="card-h"><h2>掌握地图</h2></div>
+    <div class="mm-sum">${['strong', 'ok', 'weak', 'insufficient', 'none'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</div>
+    <div class="mm-rows">${g.modules.map((m) => `<div class="mm-row"><span class="mm-mod">${esc(m.name)}</span><div class="mm-tiles">
+      ${g.nodes.filter((n) => n.module === m.id).map((n) => `<a class="mm-tile lv-${lv(n)}" href="#/graph/${enc(n.id)}" title="${esc(n.name)}：${LV[lv(n)]}">${esc(n.name)}${n.wrong?.todo ? `<i>${n.wrong.todo}</i>` : ''}</a>`).join('')}
+    </div></div>`).join('')}</div>
+  </section>`;
+}
 async function renderGraphPage(focusId) {
   if ((await ensureMe())?.guest) return regWall('知识图谱');
   const d = await api(`/math/api/students/${auth.student.id}/graph`);
   const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
   $app.innerHTML = `${topnav()}<div class="page wide">
     <header class="ph"><div><h1>${esc(d.student.nickname)}的知识图谱</h1></div></header>
+    ${masteryMap(d)}
     <div class="ctabs"><a class="${graphView === 'map' ? 'on' : ''}" data-view="map">图</a><a class="${graphView === 'list' ? 'on' : ''}" data-view="list">列表（薄弱在前）</a></div>
     <div id="kg"></div></div>`;
   $app.querySelectorAll('[data-view]').forEach((a) => (a.onclick = () => { graphView = a.dataset.view; renderGraphPage(focusId); }));
