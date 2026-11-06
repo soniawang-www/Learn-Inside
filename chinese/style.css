@@ -93,6 +93,14 @@ body.net-wait::before { content: ""; position: fixed; top: 0; left: 0; height: 3
 .rules { padding-left: 1.3em; }
 .rules li { margin-bottom: 6px; }
 
+/* 今天做什么 */
+.tasks { display: grid; gap: 8px; }
+.task { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); text-decoration: none; }
+.task > b { font-family: var(--display); font-size: 18px; color: var(--bad); min-width: 2.2em; }
+.task span { display: flex; flex-direction: column; }
+.task small { color: var(--muted); font-size: 12px; }
+@media (hover: hover) { .task:hover { border-color: var(--accent); } }
+
 /* 成绩 */
 .score-big { font-family: var(--display); }
 .score-big b { font-size: 48px; color: var(--accent); }

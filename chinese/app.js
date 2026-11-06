@@ -65,7 +65,8 @@ function topnav(active = '') {
   return `<nav class="topnav">${BRAND}<span class="spacer"></span>
     <a class="navlink ${active === 'home' ? 'on' : ''}" href="#/">试卷</a>
     <a class="navlink ${active === 'mistakes' ? 'on' : ''}" href="#/mistakes">错题本</a>
-    <a class="navlink" href="${me ? (me.guest ? '/math/#/account' : '/math/#/account') : '#/join'}">${who}</a></nav>`;
+    <a class="navlink" href="/math/">数学</a>
+    <a class="navlink" href="${me ? '/account/' : '#/join'}">${who}</a></nav>`;
 }
 const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page">${html}</main>`; window.scrollTo(0, 0); };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
@@ -140,10 +141,18 @@ function renderJoin() {
 // ───────── 首页：试卷和成绩 ─────────
 async function renderHome() {
   const st = auth.student;
-  const [exams, prof] = await Promise.all([
+  const [exams, prof, mk] = await Promise.all([
     api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`),
     api(`/api/students/${enc(st.id)}/profile?subject=chinese`).catch(() => ({ sessions: [] })),
+    isGuest() ? { mistakes: [] } : api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
   ]);
+  // 今天做什么：没做完的模考、待订正 / 该复习的错题
+  const unfinished = exams.filter((e) => store.get(`hz.cur.${e.id}`));
+  const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
+  const tasks = [
+    ...unfinished.map((e) => `<a class="task" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续</b><span>${esc(e.title)}<small>上次没做完，接着答题</small></span></a>`),
+    todo && `<a class="task" href="#/mistakes"><b>${todo}</b><span>道错题待订正<small>重做时每题马上告诉你对错</small></span></a>`,
+  ].filter(Boolean);
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
   const row = (e) => `<div class="exam-row">
       <div><b>${esc(e.title)}</b><div class="small muted">${e.year ?? ''} 年 · ${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div></div>
@@ -153,6 +162,7 @@ async function renderHome() {
   const cards = real.length ? real.map(row).join('') : '<p class="muted">试卷整理中，很快上线。</p>';
   page(`<div class="hero"><h1>汉字小达人 · 真题模考</h1><p class="muted small">选一套开始，答题界面和比赛一样。</p></div>
     <div class="card"><h2>真题</h2>${cards}</div>
+    ${tasks.length ? `<div class="card"><h2>今天做什么</h2><div class="tasks">${tasks.join('')}</div></div>` : ''}
     ${mock.length ? `<div class="card"><h2>模拟题</h2><p class="small muted">《中文自修》每年七八月合刊的官方模拟题，题量比正式比赛大，适合分几次练。</p>${mock.map(row).join('')}</div>` : ''}
     ${sessions.length ? `<div class="card"><h2>我的成绩</h2><table class="tbl"><tr><th>试卷</th><th>得分</th><th>日期</th><th></th></tr>
       ${sessions.map((s) => `<tr><td>${esc(s.title)}</td><td class="num">${s.score ?? '–'} / ${s.total}</td><td>${day(s.submitted_at)}</td><td><a href="#/review/${s.id}">查看</a></td></tr>`).join('')}</table></div>` : ''}
@@ -306,7 +316,7 @@ async function renderReview(sid) {
       <div class="score-big"><b>${score}</b><span> / ${items.length} 分</span></div>
       <p class="muted">${esc(r.exam.title)} · 用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
       ${bySec.length ? `<table class="tbl"><tr><th>大题</th><th>得分</th><th>正确率</th></tr>${bySec.map((s) => `<tr><td>${'一二三四五六七八九十'[s.no - 1] || s.no}、${esc(s.name)}</td><td class="num">${s.ok} / ${s.n}</td><td><span class="bar"><i style="width:${Math.round((100 * s.ok) / s.n)}%"></i></span> ${Math.round((100 * s.ok) / s.n)}%</td></tr>`).join('')}</table>` : ''}
-      <div class="actions">${isGuest() ? '<a class="btn" href="/math/#/account">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
+      <div class="actions">${isGuest() ? '<a class="btn" href="/account/">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
     <div class="card"><div class="rv-head"><h2>逐题解析</h2>${wrong.length ? `<label class="small"><input type="checkbox" id="only" checked> 只看错题（${wrong.length}）</label>` : ''}</div>
       <div id="rv">${items.map(itemHtml).join('')}</div></div>`, 'home');
   const apply = () => $app.querySelectorAll('.rv-item').forEach((el) => el.classList.toggle('hidden', only && el.dataset.ok === '1'));
@@ -319,7 +329,7 @@ async function renderReview(sid) {
 const STATUS = { pending: '待订正', due: '该复习了', fixed: '已订正', mastered: '已掌握' };
 async function renderMistakes() {
   if (isGuest()) return page(`<div class="card center"><h2>错题本要注册后才能用</h2><p class="muted">注册后，做过的题会自动收进错题本，按大题分类，可以随时重做。</p>
-    <a class="btn primary" href="/math/#/account">去注册（数学、语文通用）</a></div>`, 'mistakes');
+    <a class="btn primary" href="/account/">去注册（数学、语文通用）</a></div>`, 'mistakes');
   const r = await api(`/api/students/${enc(auth.student.id)}/mistakes?subject=chinese`);
   const list = r.mistakes;
   if (!list.length) return page('<div class="card center"><h2>还没有错题</h2><p class="muted">做完一套模考，做错的题会自动收进来。</p><a class="btn primary" href="#/">去模考</a></div>', 'mistakes');

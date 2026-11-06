@@ -5,6 +5,9 @@ import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
 
+// 同一份前端两种用法：/math/ 数学板块；/account/ 全站账号页（账号、会员、激活码，数学语文通用）
+const SECTION = window.LI_SECTION === 'account' ? 'account' : 'math';
+const ACCOUNT_URL = '/account/';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -145,7 +148,7 @@ function modal(html, onMount) {
   return close;
 }
 
-const BRAND = `<a class="brandbar" href="../" aria-label="回到 learn-inside 首页"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="28.0" height="28.0" aria-hidden="true"><rect width="120" height="120" rx="30" class="lg-tile"/><path d="M40 32V84H86" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M64 58V68" stroke="#fff" stroke-width="10" stroke-linecap="round"/><circle cx="64" cy="42" r="6.5" class="lg-dot"/></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -73 570 75" width="96.9" height="12.8" aria-hidden="true"><path d="M23.2 1Q14.9 1 10.7 -3.75Q6.5 -8.5 6.5 -17.7V-65Q6.5 -68.1 8.1 -69.7Q9.7 -71.3 12.7 -71.3Q15.7 -71.3 17.35 -69.7Q19 -68.1 19 -65V-18.3Q19 -13.7 20.95 -11.5Q22.9 -9.3 26.5 -9.3Q27.3 -9.3 28 -9.35Q28.7 -9.4 29.4 -9.5Q30.8 -9.7 31.3 -8.75Q31.8 -7.8 31.8 -4.9Q31.8 -2.4 30.8 -1Q29.8 0.4 27.5 0.7Q26.5 0.8 25.4 0.9Q24.3 1 23.2 1Z M64 1Q55.7 1 49.7 -2.1Q43.7 -5.2 40.45 -10.9Q37.2 -16.6 37.2 -24.4Q37.2 -32 40.35 -37.7Q43.5 -43.4 49.05 -46.65Q54.6 -49.9 61.7 -49.9Q66.9 -49.9 71.05 -48.2Q75.2 -46.5 78.15 -43.3Q81.1 -40.1 82.65 -35.55Q84.2 -31 84.2 -25.3Q84.2 -23.5 82.95 -22.55Q81.7 -21.6 79.4 -21.6H47.3V-28.8H75.4L73.8 -27.3Q73.8 -31.9 72.45 -35Q71.1 -38.1 68.55 -39.75Q66 -41.4 62.2 -41.4Q58 -41.4 55.05 -39.45Q52.1 -37.5 50.55 -33.95Q49 -30.4 49 -25.5V-24.8Q49 -16.6 52.85 -12.55Q56.7 -8.5 64.2 -8.5Q66.8 -8.5 70.05 -9.15Q73.3 -9.8 76.2 -11.4Q78.3 -12.6 79.9 -12.45Q81.5 -12.3 82.45 -11.3Q83.4 -10.3 83.6 -8.85Q83.8 -7.4 83.05 -5.9Q82.3 -4.4 80.5 -3.3Q77 -1.1 72.45 -0.05Q67.9 1 64 1Z M111.7 1Q106.4 1 102.25 -1.05Q98.1 -3.1 95.75 -6.6Q93.4 -10.1 93.4 -14.5Q93.4 -19.9 96.2 -23.05Q99 -26.2 105.3 -27.6Q111.6 -29 122.2 -29H127.2V-21.8H122.3Q116.1 -21.8 112.4 -21.2Q108.7 -20.6 107.15 -19.15Q105.6 -17.7 105.6 -15.1Q105.6 -11.8 107.9 -9.7Q110.2 -7.6 114.3 -7.6Q117.6 -7.6 120.15 -9.15Q122.7 -10.7 124.2 -13.4Q125.7 -16.1 125.7 -19.6V-31.1Q125.7 -36.1 123.5 -38.3Q121.3 -40.5 116.1 -40.5Q113.2 -40.5 109.85 -39.8Q106.5 -39.1 102.8 -37.4Q100.9 -36.5 99.45 -36.9Q98 -37.3 97.2 -38.55Q96.4 -39.8 96.4 -41.3Q96.4 -42.8 97.2 -44.25Q98 -45.7 99.9 -46.4Q104.5 -48.3 108.75 -49.1Q113 -49.9 116.5 -49.9Q123.7 -49.9 128.35 -47.7Q133 -45.5 135.3 -41.05Q137.6 -36.6 137.6 -29.6V-5.6Q137.6 -2.5 136.1 -0.85Q134.6 0.8 131.8 0.8Q129 0.8 127.45 -0.85Q125.9 -2.5 125.9 -5.6V-10.4H126.7Q126 -6.9 123.95 -4.35Q121.9 -1.8 118.8 -0.4Q115.7 1 111.7 1Z M158.2 0.8Q155.1 0.8 153.45 -0.85Q151.8 -2.5 151.8 -5.6V-43.4Q151.8 -46.5 153.4 -48.1Q155 -49.7 157.9 -49.7Q160.8 -49.7 162.4 -48.1Q164 -46.5 164 -43.4V-37.1H163Q164.4 -43.1 168.5 -46.2Q172.6 -49.3 179.4 -49.9Q181.5 -50.1 182.75 -48.85Q184 -47.6 184.2 -45Q184.4 -42.5 183.05 -40.95Q181.7 -39.4 179 -39.1L176.8 -38.9Q170.7 -38.3 167.6 -35.15Q164.5 -32 164.5 -26.3V-5.6Q164.5 -2.5 162.9 -0.85Q161.3 0.8 158.2 0.8Z M198.7 0.8Q195.7 0.8 194.1 -0.85Q192.5 -2.5 192.5 -5.6V-43.4Q192.5 -46.5 194.1 -48.1Q195.7 -49.7 198.6 -49.7Q201.5 -49.7 203.1 -48.1Q204.7 -46.5 204.7 -43.4V-36.6L203.6 -39.1Q205.8 -44.4 210.45 -47.15Q215.1 -49.9 221 -49.9Q226.9 -49.9 230.7 -47.7Q234.5 -45.5 236.4 -41.05Q238.3 -36.6 238.3 -29.8V-5.6Q238.3 -2.5 236.7 -0.85Q235.1 0.8 232.1 0.8Q229.1 0.8 227.45 -0.85Q225.8 -2.5 225.8 -5.6V-29.2Q225.8 -34.9 223.65 -37.5Q221.5 -40.1 217 -40.1Q211.5 -40.1 208.25 -36.65Q205 -33.2 205 -27.5V-5.6Q205 0.8 198.7 0.8Z M303.6 0.7Q300.6 0.7 299 -1.1Q297.4 -2.9 297.4 -6.1V-42.8Q297.4 -46.1 299 -47.85Q300.6 -49.6 303.6 -49.6Q306.6 -49.6 308.25 -47.85Q309.9 -46.1 309.9 -42.8V-6.1Q309.9 -2.9 308.3 -1.1Q306.7 0.7 303.6 0.7Z M330.6 0.8Q327.6 0.8 326 -0.85Q324.4 -2.5 324.4 -5.6V-43.4Q324.4 -46.5 326 -48.1Q327.6 -49.7 330.5 -49.7Q333.4 -49.7 335 -48.1Q336.6 -46.5 336.6 -43.4V-36.6L335.5 -39.1Q337.7 -44.4 342.35 -47.15Q347 -49.9 352.9 -49.9Q358.8 -49.9 362.6 -47.7Q366.4 -45.5 368.3 -41.05Q370.2 -36.6 370.2 -29.8V-5.6Q370.2 -2.5 368.6 -0.85Q367 0.8 364 0.8Q361 0.8 359.35 -0.85Q357.7 -2.5 357.7 -5.6V-29.2Q357.7 -34.9 355.55 -37.5Q353.4 -40.1 348.9 -40.1Q343.4 -40.1 340.15 -36.65Q336.9 -33.2 336.9 -27.5V-5.6Q336.9 0.8 330.6 0.8Z M402.3 1Q398 1 393.2 0.1Q388.4 -0.8 384.6 -3Q383 -4 382.35 -5.35Q381.7 -6.7 381.85 -8.05Q382 -9.4 382.85 -10.4Q383.7 -11.4 385.05 -11.7Q386.4 -12 388 -11.2Q392 -9.3 395.5 -8.55Q399 -7.8 402.4 -7.8Q407.2 -7.8 409.55 -9.45Q411.9 -11.1 411.9 -13.8Q411.9 -16.1 410.35 -17.35Q408.8 -18.6 405.7 -19.2L395.7 -21.1Q389.5 -22.3 386.25 -25.65Q383 -29 383 -34.3Q383 -39.1 385.65 -42.6Q388.3 -46.1 393 -48Q397.7 -49.9 403.8 -49.9Q408.2 -49.9 412.05 -48.95Q415.9 -48 419.5 -46Q421 -45.2 421.55 -43.9Q422.1 -42.6 421.8 -41.25Q421.5 -39.9 420.6 -38.85Q419.7 -37.8 418.35 -37.55Q417 -37.3 415.3 -38.1Q412.2 -39.7 409.35 -40.4Q406.5 -41.1 403.9 -41.1Q399 -41.1 396.65 -39.4Q394.3 -37.7 394.3 -34.9Q394.3 -32.8 395.7 -31.4Q397.1 -30 400 -29.5L410 -27.6Q416.5 -26.4 419.85 -23.2Q423.2 -20 423.2 -14.6Q423.2 -7.3 417.5 -3.15Q411.8 1 402.3 1Z M440.9 0.7Q437.9 0.7 436.3 -1.1Q434.7 -2.9 434.7 -6.1V-42.8Q434.7 -46.1 436.3 -47.85Q437.9 -49.6 440.9 -49.6Q443.9 -49.6 445.55 -47.85Q447.2 -46.1 447.2 -42.8V-6.1Q447.2 -2.9 445.6 -1.1Q444 0.7 440.9 0.7Z M480.5 1Q474.1 1 469.25 -2.1Q464.4 -5.2 461.7 -10.95Q459 -16.7 459 -24.5Q459 -32.4 461.7 -38.05Q464.4 -43.7 469.25 -46.8Q474.1 -49.9 480.5 -49.9Q486.6 -49.9 491.15 -46.9Q495.7 -43.9 497.3 -39H496.2V-65Q496.2 -68.1 497.8 -69.7Q499.4 -71.3 502.4 -71.3Q505.4 -71.3 507.05 -69.7Q508.7 -68.1 508.7 -65V-5.6Q508.7 -2.5 507.1 -0.85Q505.5 0.8 502.5 0.8Q499.5 0.8 497.9 -0.85Q496.3 -2.5 496.3 -5.6V-13.4L497.4 -10.4Q495.9 -5.2 491.3 -2.1Q486.7 1 480.5 1ZM484 -8.5Q487.7 -8.5 490.5 -10.3Q493.3 -12.1 494.85 -15.65Q496.4 -19.2 496.4 -24.5Q496.4 -32.5 493 -36.45Q489.6 -40.4 484 -40.4Q480.3 -40.4 477.5 -38.65Q474.7 -36.9 473.15 -33.35Q471.6 -29.8 471.6 -24.5Q471.6 -16.6 475 -12.55Q478.4 -8.5 484 -8.5Z M547.3 1Q539 1 533 -2.1Q527 -5.2 523.75 -10.9Q520.5 -16.6 520.5 -24.4Q520.5 -32 523.65 -37.7Q526.8 -43.4 532.35 -46.65Q537.9 -49.9 545 -49.9Q550.2 -49.9 554.35 -48.2Q558.5 -46.5 561.45 -43.3Q564.4 -40.1 565.95 -35.55Q567.5 -31 567.5 -25.3Q567.5 -23.5 566.25 -22.55Q565 -21.6 562.7 -21.6H530.6V-28.8H558.7L557.1 -27.3Q557.1 -31.9 555.75 -35Q554.4 -38.1 551.85 -39.75Q549.3 -41.4 545.5 -41.4Q541.3 -41.4 538.35 -39.45Q535.4 -37.5 533.85 -33.95Q532.3 -30.4 532.3 -25.5V-24.8Q532.3 -16.6 536.15 -12.55Q540 -8.5 547.5 -8.5Q550.1 -8.5 553.35 -9.15Q556.6 -9.8 559.5 -11.4Q561.6 -12.6 563.2 -12.45Q564.8 -12.3 565.75 -11.3Q566.7 -10.3 566.9 -8.85Q567.1 -7.4 566.35 -5.9Q565.6 -4.4 563.8 -3.3Q560.3 -1.1 555.75 -0.05Q551.2 1 547.3 1Z M440.9 -58.9Q437.4 -58.9 435.45 -60.65Q433.5 -62.4 433.5 -65.5Q433.5 -68.7 435.45 -70.4Q437.4 -72.1 440.9 -72.1Q444.5 -72.1 446.4 -70.4Q448.3 -68.7 448.3 -65.5Q448.3 -62.4 446.4 -60.65Q444.5 -58.9 440.9 -58.9Z" class="lg-ink"/><path d="M257.1 -21.8Q254.9 -21.8 253.45 -23.25Q252 -24.7 252 -26.8Q252 -29 253.45 -30.4Q254.9 -31.8 257.1 -31.8H278.4Q280.5 -31.8 281.95 -30.4Q283.4 -29 283.4 -26.8Q283.4 -24.7 281.95 -23.25Q280.5 -21.8 278.4 -21.8Z" class="lg-jade"/><path d="M303.6 -58.9Q300.1 -58.9 298.15 -60.65Q296.2 -62.4 296.2 -65.5Q296.2 -68.7 298.15 -70.4Q300.1 -72.1 303.6 -72.1Q307.2 -72.1 309.1 -70.4Q311 -68.7 311 -65.5Q311 -62.4 309.1 -60.65Q307.2 -58.9 303.6 -58.9Z" class="lg-dot"/></svg></a><span class="brandbar"><span class="bdiv"></span><span class="bname">数学</span></span>`;
+const BRAND = `<a class="brandbar" href="../" aria-label="回到 learn-inside 首页"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="28.0" height="28.0" aria-hidden="true"><rect width="120" height="120" rx="30" class="lg-tile"/><path d="M40 32V84H86" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M64 58V68" stroke="#fff" stroke-width="10" stroke-linecap="round"/><circle cx="64" cy="42" r="6.5" class="lg-dot"/></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -73 570 75" width="96.9" height="12.8" aria-hidden="true"><path d="M23.2 1Q14.9 1 10.7 -3.75Q6.5 -8.5 6.5 -17.7V-65Q6.5 -68.1 8.1 -69.7Q9.7 -71.3 12.7 -71.3Q15.7 -71.3 17.35 -69.7Q19 -68.1 19 -65V-18.3Q19 -13.7 20.95 -11.5Q22.9 -9.3 26.5 -9.3Q27.3 -9.3 28 -9.35Q28.7 -9.4 29.4 -9.5Q30.8 -9.7 31.3 -8.75Q31.8 -7.8 31.8 -4.9Q31.8 -2.4 30.8 -1Q29.8 0.4 27.5 0.7Q26.5 0.8 25.4 0.9Q24.3 1 23.2 1Z M64 1Q55.7 1 49.7 -2.1Q43.7 -5.2 40.45 -10.9Q37.2 -16.6 37.2 -24.4Q37.2 -32 40.35 -37.7Q43.5 -43.4 49.05 -46.65Q54.6 -49.9 61.7 -49.9Q66.9 -49.9 71.05 -48.2Q75.2 -46.5 78.15 -43.3Q81.1 -40.1 82.65 -35.55Q84.2 -31 84.2 -25.3Q84.2 -23.5 82.95 -22.55Q81.7 -21.6 79.4 -21.6H47.3V-28.8H75.4L73.8 -27.3Q73.8 -31.9 72.45 -35Q71.1 -38.1 68.55 -39.75Q66 -41.4 62.2 -41.4Q58 -41.4 55.05 -39.45Q52.1 -37.5 50.55 -33.95Q49 -30.4 49 -25.5V-24.8Q49 -16.6 52.85 -12.55Q56.7 -8.5 64.2 -8.5Q66.8 -8.5 70.05 -9.15Q73.3 -9.8 76.2 -11.4Q78.3 -12.6 79.9 -12.45Q81.5 -12.3 82.45 -11.3Q83.4 -10.3 83.6 -8.85Q83.8 -7.4 83.05 -5.9Q82.3 -4.4 80.5 -3.3Q77 -1.1 72.45 -0.05Q67.9 1 64 1Z M111.7 1Q106.4 1 102.25 -1.05Q98.1 -3.1 95.75 -6.6Q93.4 -10.1 93.4 -14.5Q93.4 -19.9 96.2 -23.05Q99 -26.2 105.3 -27.6Q111.6 -29 122.2 -29H127.2V-21.8H122.3Q116.1 -21.8 112.4 -21.2Q108.7 -20.6 107.15 -19.15Q105.6 -17.7 105.6 -15.1Q105.6 -11.8 107.9 -9.7Q110.2 -7.6 114.3 -7.6Q117.6 -7.6 120.15 -9.15Q122.7 -10.7 124.2 -13.4Q125.7 -16.1 125.7 -19.6V-31.1Q125.7 -36.1 123.5 -38.3Q121.3 -40.5 116.1 -40.5Q113.2 -40.5 109.85 -39.8Q106.5 -39.1 102.8 -37.4Q100.9 -36.5 99.45 -36.9Q98 -37.3 97.2 -38.55Q96.4 -39.8 96.4 -41.3Q96.4 -42.8 97.2 -44.25Q98 -45.7 99.9 -46.4Q104.5 -48.3 108.75 -49.1Q113 -49.9 116.5 -49.9Q123.7 -49.9 128.35 -47.7Q133 -45.5 135.3 -41.05Q137.6 -36.6 137.6 -29.6V-5.6Q137.6 -2.5 136.1 -0.85Q134.6 0.8 131.8 0.8Q129 0.8 127.45 -0.85Q125.9 -2.5 125.9 -5.6V-10.4H126.7Q126 -6.9 123.95 -4.35Q121.9 -1.8 118.8 -0.4Q115.7 1 111.7 1Z M158.2 0.8Q155.1 0.8 153.45 -0.85Q151.8 -2.5 151.8 -5.6V-43.4Q151.8 -46.5 153.4 -48.1Q155 -49.7 157.9 -49.7Q160.8 -49.7 162.4 -48.1Q164 -46.5 164 -43.4V-37.1H163Q164.4 -43.1 168.5 -46.2Q172.6 -49.3 179.4 -49.9Q181.5 -50.1 182.75 -48.85Q184 -47.6 184.2 -45Q184.4 -42.5 183.05 -40.95Q181.7 -39.4 179 -39.1L176.8 -38.9Q170.7 -38.3 167.6 -35.15Q164.5 -32 164.5 -26.3V-5.6Q164.5 -2.5 162.9 -0.85Q161.3 0.8 158.2 0.8Z M198.7 0.8Q195.7 0.8 194.1 -0.85Q192.5 -2.5 192.5 -5.6V-43.4Q192.5 -46.5 194.1 -48.1Q195.7 -49.7 198.6 -49.7Q201.5 -49.7 203.1 -48.1Q204.7 -46.5 204.7 -43.4V-36.6L203.6 -39.1Q205.8 -44.4 210.45 -47.15Q215.1 -49.9 221 -49.9Q226.9 -49.9 230.7 -47.7Q234.5 -45.5 236.4 -41.05Q238.3 -36.6 238.3 -29.8V-5.6Q238.3 -2.5 236.7 -0.85Q235.1 0.8 232.1 0.8Q229.1 0.8 227.45 -0.85Q225.8 -2.5 225.8 -5.6V-29.2Q225.8 -34.9 223.65 -37.5Q221.5 -40.1 217 -40.1Q211.5 -40.1 208.25 -36.65Q205 -33.2 205 -27.5V-5.6Q205 0.8 198.7 0.8Z M303.6 0.7Q300.6 0.7 299 -1.1Q297.4 -2.9 297.4 -6.1V-42.8Q297.4 -46.1 299 -47.85Q300.6 -49.6 303.6 -49.6Q306.6 -49.6 308.25 -47.85Q309.9 -46.1 309.9 -42.8V-6.1Q309.9 -2.9 308.3 -1.1Q306.7 0.7 303.6 0.7Z M330.6 0.8Q327.6 0.8 326 -0.85Q324.4 -2.5 324.4 -5.6V-43.4Q324.4 -46.5 326 -48.1Q327.6 -49.7 330.5 -49.7Q333.4 -49.7 335 -48.1Q336.6 -46.5 336.6 -43.4V-36.6L335.5 -39.1Q337.7 -44.4 342.35 -47.15Q347 -49.9 352.9 -49.9Q358.8 -49.9 362.6 -47.7Q366.4 -45.5 368.3 -41.05Q370.2 -36.6 370.2 -29.8V-5.6Q370.2 -2.5 368.6 -0.85Q367 0.8 364 0.8Q361 0.8 359.35 -0.85Q357.7 -2.5 357.7 -5.6V-29.2Q357.7 -34.9 355.55 -37.5Q353.4 -40.1 348.9 -40.1Q343.4 -40.1 340.15 -36.65Q336.9 -33.2 336.9 -27.5V-5.6Q336.9 0.8 330.6 0.8Z M402.3 1Q398 1 393.2 0.1Q388.4 -0.8 384.6 -3Q383 -4 382.35 -5.35Q381.7 -6.7 381.85 -8.05Q382 -9.4 382.85 -10.4Q383.7 -11.4 385.05 -11.7Q386.4 -12 388 -11.2Q392 -9.3 395.5 -8.55Q399 -7.8 402.4 -7.8Q407.2 -7.8 409.55 -9.45Q411.9 -11.1 411.9 -13.8Q411.9 -16.1 410.35 -17.35Q408.8 -18.6 405.7 -19.2L395.7 -21.1Q389.5 -22.3 386.25 -25.65Q383 -29 383 -34.3Q383 -39.1 385.65 -42.6Q388.3 -46.1 393 -48Q397.7 -49.9 403.8 -49.9Q408.2 -49.9 412.05 -48.95Q415.9 -48 419.5 -46Q421 -45.2 421.55 -43.9Q422.1 -42.6 421.8 -41.25Q421.5 -39.9 420.6 -38.85Q419.7 -37.8 418.35 -37.55Q417 -37.3 415.3 -38.1Q412.2 -39.7 409.35 -40.4Q406.5 -41.1 403.9 -41.1Q399 -41.1 396.65 -39.4Q394.3 -37.7 394.3 -34.9Q394.3 -32.8 395.7 -31.4Q397.1 -30 400 -29.5L410 -27.6Q416.5 -26.4 419.85 -23.2Q423.2 -20 423.2 -14.6Q423.2 -7.3 417.5 -3.15Q411.8 1 402.3 1Z M440.9 0.7Q437.9 0.7 436.3 -1.1Q434.7 -2.9 434.7 -6.1V-42.8Q434.7 -46.1 436.3 -47.85Q437.9 -49.6 440.9 -49.6Q443.9 -49.6 445.55 -47.85Q447.2 -46.1 447.2 -42.8V-6.1Q447.2 -2.9 445.6 -1.1Q444 0.7 440.9 0.7Z M480.5 1Q474.1 1 469.25 -2.1Q464.4 -5.2 461.7 -10.95Q459 -16.7 459 -24.5Q459 -32.4 461.7 -38.05Q464.4 -43.7 469.25 -46.8Q474.1 -49.9 480.5 -49.9Q486.6 -49.9 491.15 -46.9Q495.7 -43.9 497.3 -39H496.2V-65Q496.2 -68.1 497.8 -69.7Q499.4 -71.3 502.4 -71.3Q505.4 -71.3 507.05 -69.7Q508.7 -68.1 508.7 -65V-5.6Q508.7 -2.5 507.1 -0.85Q505.5 0.8 502.5 0.8Q499.5 0.8 497.9 -0.85Q496.3 -2.5 496.3 -5.6V-13.4L497.4 -10.4Q495.9 -5.2 491.3 -2.1Q486.7 1 480.5 1ZM484 -8.5Q487.7 -8.5 490.5 -10.3Q493.3 -12.1 494.85 -15.65Q496.4 -19.2 496.4 -24.5Q496.4 -32.5 493 -36.45Q489.6 -40.4 484 -40.4Q480.3 -40.4 477.5 -38.65Q474.7 -36.9 473.15 -33.35Q471.6 -29.8 471.6 -24.5Q471.6 -16.6 475 -12.55Q478.4 -8.5 484 -8.5Z M547.3 1Q539 1 533 -2.1Q527 -5.2 523.75 -10.9Q520.5 -16.6 520.5 -24.4Q520.5 -32 523.65 -37.7Q526.8 -43.4 532.35 -46.65Q537.9 -49.9 545 -49.9Q550.2 -49.9 554.35 -48.2Q558.5 -46.5 561.45 -43.3Q564.4 -40.1 565.95 -35.55Q567.5 -31 567.5 -25.3Q567.5 -23.5 566.25 -22.55Q565 -21.6 562.7 -21.6H530.6V-28.8H558.7L557.1 -27.3Q557.1 -31.9 555.75 -35Q554.4 -38.1 551.85 -39.75Q549.3 -41.4 545.5 -41.4Q541.3 -41.4 538.35 -39.45Q535.4 -37.5 533.85 -33.95Q532.3 -30.4 532.3 -25.5V-24.8Q532.3 -16.6 536.15 -12.55Q540 -8.5 547.5 -8.5Q550.1 -8.5 553.35 -9.15Q556.6 -9.8 559.5 -11.4Q561.6 -12.6 563.2 -12.45Q564.8 -12.3 565.75 -11.3Q566.7 -10.3 566.9 -8.85Q567.1 -7.4 566.35 -5.9Q565.6 -4.4 563.8 -3.3Q560.3 -1.1 555.75 -0.05Q551.2 1 547.3 1Z M440.9 -58.9Q437.4 -58.9 435.45 -60.65Q433.5 -62.4 433.5 -65.5Q433.5 -68.7 435.45 -70.4Q437.4 -72.1 440.9 -72.1Q444.5 -72.1 446.4 -70.4Q448.3 -68.7 448.3 -65.5Q448.3 -62.4 446.4 -60.65Q444.5 -58.9 440.9 -58.9Z" class="lg-ink"/><path d="M257.1 -21.8Q254.9 -21.8 253.45 -23.25Q252 -24.7 252 -26.8Q252 -29 253.45 -30.4Q254.9 -31.8 257.1 -31.8H278.4Q280.5 -31.8 281.95 -30.4Q283.4 -29 283.4 -26.8Q283.4 -24.7 281.95 -23.25Q280.5 -21.8 278.4 -21.8Z" class="lg-jade"/><path d="M303.6 -58.9Q300.1 -58.9 298.15 -60.65Q296.2 -62.4 296.2 -65.5Q296.2 -68.7 298.15 -70.4Q300.1 -72.1 303.6 -72.1Q307.2 -72.1 309.1 -70.4Q311 -68.7 311 -65.5Q311 -62.4 309.1 -60.65Q307.2 -58.9 303.6 -58.9Z" class="lg-dot"/></svg></a><span class="brandbar"><span class="bdiv"></span><span class="bname">${SECTION === 'account' ? '账号' : '数学'}</span></span>`;
 // 导航：电脑上左侧黑板绿侧栏，手机上底部标签栏；未登录只有顶部品牌条
 const ICON = {
   print: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M7 14h10v6H7z"/>',
@@ -187,21 +190,27 @@ function topnav() {
   const s = auth.student;
   if (!s) return `<nav class="topnav">${BRAND}</nav>`;
   const h = location.hash || '#/';
-  const NAV = [
+  const NAV = SECTION === 'account' ? [
+    ['/', '网站首页', 'home', /^$/],
+    ['/math/', '数学', 'exam', /^$/],
+    ['/chinese/', '语文', 'exam', /^$/],
+    ['#/account', '账号', 'account', /^#\/(account)?/],
+  ] : [
     ['#/', '首页', 'home', /^#\/?$/],
     ['#/exams', '考试', 'exam', /^#\/(exams|contest|review)/],
     ['#/graph', '知识图谱', 'graph', /^#\/(graph|kp)/],
     ['#/mistakes', '错题本', 'mistakes', /^#\/(mistakes|problem)/],
-    ['#/account', '账号', 'account', /^#\/account/],
+    [ACCOUNT_URL, '账号', 'account', /^#\/account/],
   ];
   const memb = lastMe ? (lastMe.guest ? '游客 · 点这里注册' : lastMe.free_mode ? '试用期全部免费' : lastMe.premium ? '会员' : `免费次数 ${lastMe.credits}`) : '';
   return `<aside class="side">
     <div class="side-brand">${BRAND}</div>
     <nav class="side-nav">${NAV.map(([href, n, ic, re]) => `<a class="${re.test(h) ? 'on' : ''}" href="${href}">${icon(ic)}<span>${n}</span></a>`).join('')}</nav>
     <a class="side-help" href="javascript:" data-support>${icon('chat')}<span>联系客服</span></a>
-    <a class="side-who" href="#/account"><span class="avatar">${esc(s.nickname.slice(0, 1))}</span><span><b>${esc(s.nickname)}</b><small>${esc(memb)}</small></span></a>
+    ${SECTION === 'math' ? '<a class="side-switch" href="/chinese/">去语文 ›</a>' : ''}
+    <a class="side-who" href="${ACCOUNT_URL}"><span class="avatar">${esc(s.nickname.slice(0, 1))}</span><span><b>${esc(s.nickname)}</b><small>${esc(memb)}</small></span></a>
   </aside>
-  <header class="mtop">${BRAND}<span><a class="mtop-who" href="javascript:" data-support>客服</a><a class="mtop-who" href="#/account">${esc(s.nickname)}${lastMe?.premium && !lastMe.free_mode ? '<i class="vip">会员</i>' : ''}</a></span></header>`;
+  <header class="mtop">${BRAND}<span><a class="mtop-who" href="javascript:" data-support>客服</a>${SECTION === 'math' ? '<a class="mtop-who" href="/chinese/">语文</a>' : ''}<a class="mtop-who" href="${ACCOUNT_URL}">${esc(s.nickname)}${lastMe?.premium && !lastMe.free_mode ? '<i class="vip">会员</i>' : ''}</a></span></header>`;
 }
 
 // ───────── 路由 ─────────
@@ -219,6 +228,8 @@ async function router() {
     const printTok = new URLSearchParams(location.search).get('print');
     if (printTok) return await renderPrintLink(printTok);
     if (!auth.token) return renderJoin();
+    if (SECTION === 'account') return await (page === 'account' && id === 'paid' ? renderPaid(sub) : renderAccount());
+    if (page === 'account' && id !== 'paid') { location.replace(ACCOUNT_URL); return; } // 账号是全站的，在 /account/
     if (page === 'exam') return await renderExam(id);
     if (page === 'review') return await renderReview(id);
     if (page === 'kp') return await renderKp(id);
@@ -503,16 +514,20 @@ async function askUnlock(item, what, credits, then) {
 
 // ───────── 首页：掌握地图 + 今天做什么 + 最近成绩 ─────────
 const LV = { strong: '掌握较好', ok: '基本掌握', weak: '薄弱', insufficient: '数据不足', none: '还没做过' };
+let dashFam = null; // 数学首页选中的考试
 async function renderDashboard() {
   const me = await api('/math/api/me');
   lastMe = me;
   if (!auth.student || !me.students.find((s) => s.id === auth.student.id)) auth.setStudent(me.students[0]);
   const st = auth.student;
   const guest = !!me.guest; // 游客没有知识图谱和错题本
-  const [g, fams, prof, amc, exams] = await Promise.all([
-    guest ? { nodes: [], edges: [], modules: [] } : api(`/math/api/students/${st.id}/graph`), apiList(`/math/api/families?student=${st.id}`),
-    guest ? { mistakes: [] } : api(`/math/api/students/${st.id}/profile`), api(`/math/api/families/amc8?student=${st.id}`),
-    apiList(`/math/api/exams?student=${st.id}&family=amc8`),
+  const fams = (await apiList(`/math/api/families?student=${st.id}`)).sort((a, b) => (b.exams > 0) - (a.exams > 0));
+  if (!fams.some((f) => f.id === dashFam)) dashFam = (fams.find((f) => f.exams) || fams[0])?.id;
+  const [g, prof, fd, exams] = await Promise.all([
+    guest ? { nodes: [], edges: [], modules: [] } : api(`/math/api/students/${st.id}/graph`),
+    guest ? { mistakes: [] } : api(`/math/api/students/${st.id}/profile`),
+    api(`/math/api/families/${enc(dashFam)}?student=${st.id}`),
+    apiList(`/math/api/exams?student=${st.id}&family=${enc(dashFam)}`),
   ]);
   const lv = (n) => n.mastery?.level || 'none';
   const byId = Object.fromEntries(g.nodes.map((n) => [n.id, n]));
@@ -530,51 +545,46 @@ async function renderDashboard() {
   }
   const ms = prof.mistakes || [];
   const pending = ms.filter((m) => m.status === 'pending').length, due = ms.filter((m) => m.status === 'due').length;
-  const next = exams.find((e) => e.last_score === null);
-  const done = exams.filter((e) => e.last_score !== null).length;
-  const sessions = (amc.sessions || []).slice(0, 6);
+  const sessions = (fd.sessions || []).slice(0, 5);
+  const doneN = (fd.sessions || []).filter((x) => x.mode === 'exam').length;
   const tasks = [
     pending && `<a class="task" href="#/mistakes"><b>${pending}</b><span>道错题待订正<small>看解析后重做，做对就算订正</small></span></a>`,
     due && `<a class="task" href="#/mistakes"><b>${due}</b><span>道错题该复习了<small>订正满一周，再做一遍</small></span></a>`,
     ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><i class="kg-sw lv-weak"></i><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span></a>`),
-    next && `<a class="task" href="#/contest/amc8"><i class="ico">${icon('exam')}</i><span>做一套 ${esc(next.title)}<small>还没做过，按正式考试计时</small></span></a>`,
   ].filter(Boolean);
+  const f = fd.family;
+  const { html: grid } = examGrid(f, exams, dashFam, 6);
+  const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
   $app.innerHTML = `${topnav()}<main class="page dash">
-    <header class="ph"><div><h1>${esc(st.nickname)}的数学</h1>
-      <p class="muted">做过 ${done} 套真题${guest ? '' : ` · ${count('weak')} 个薄弱知识项 · ${pending + due} 道错题要处理`}</p></div>
+    <header class="ph"><div><h1>数学竞赛真题</h1>
+      <p class="muted">选一套开始模考，交卷自动判分；做完三套左右，就能看出哪些知识项薄弱。</p></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
     <section class="dash-exams" aria-label="考试">
-      <div class="card-h"><h2>考试</h2><a href="#/exams">全部 ›</a></div>
-      <div class="ex-tiles">${[...fams].sort((a, b) => (b.exams > 0) - (a.exams > 0)).map((f) => `<a class="ex-tile" href="#/contest/${f.id}">
-        <b>${esc(f.name)}</b>
-        <span>${f.exams ? `${f.exams} 套真题` : '真题待录入'}</span>
-        <small>${f.sessions ? `做过 ${f.sessions} 次 · 最近 ${f.last.score} 分` : f.exams ? '还没做过' : ''}</small>
-        <i class="go">${f.exams ? '去模考 ›' : '看看 ›'}</i></a>`).join('')}</div>
+      <div class="fam-tabs" role="tablist">${fams.map((x) => `<button role="tab" class="${x.id === dashFam ? 'on' : ''}" data-fam="${x.id}"><b>${esc(x.name)}</b><small>${x.exams ? `${x.exams} 套` : '录入中'}</small></button>`).join('')}</div>
+      <p class="small muted fam-desc">${esc(f.desc || '')} <a href="#/contest/${enc(dashFam)}/stats">考情 ›</a></p>
+      ${grid}
     </section>
-    ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="#/account">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : '<a class="card bind-tip" href="#/account"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>'}
     <div class="dash-grid">
-      ${guest ? `<section class="card mm reg-wall"><div class="card-h"><h2>掌握地图</h2></div>
-        <p class="small muted">注册后，考过的题会算进知识图谱和错题本：</p>${REG_FEATS}<a class="btn primary" href="#/account">免费注册</a></section>` : `<section class="card mm">
-        <div class="card-h"><h2>掌握地图</h2><a href="#/graph">看知识图谱 ›</a></div>
-        <div class="mm-sum">${['strong', 'ok', 'weak', 'insufficient', 'none'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</div>
-        <div class="mm-rows">${g.modules.map((m) => `<div class="mm-row"><span class="mm-mod">${esc(m.name)}</span><div class="mm-tiles">
-          ${g.nodes.filter((n) => n.module === m.id).map((n) => `<a class="mm-tile lv-${lv(n)}" href="#/graph/${enc(n.id)}" title="${esc(n.name)}：${LV[lv(n)]}">${esc(n.name)}${n.wrong?.todo ? `<i>${n.wrong.todo}</i>` : ''}</a>`).join('')}
-        </div></div>`).join('')}</div>
-      </section>`}
       <section class="card todo">
         <div class="card-h"><h2>今天做什么</h2></div>
-        ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>` : '<p class="muted">都处理完了。可以挑一套没做过的真题模考。</p>'}
+        ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>`
+          : `<p class="muted">${doneN ? '错题都处理完了，可以再挑一套没做过的真题。' : '还没做过整套真题。先从上面挑一套模考，交卷后这里会列出要订正的错题和要补的知识项。'}</p>`}
+        ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">${tried ? '' : '做过的题会算进去'} ›</span></a>`}
       </section>
       <section class="card recent">
-        <div class="card-h"><h2>最近成绩</h2><a href="#/contest/amc8/records">全部 ›</a></div>
+        <div class="card-h"><h2>最近成绩</h2>${sessions.length ? `<a href="#/contest/${enc(dashFam)}/records">全部 ›</a>` : ''}</div>
         ${sessions.length ? `<div class="scores">${sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${x.mode === 'exam' ? '模考' : '练习'} · ${fmtDate(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>`
-        : `<p class="muted">还没做过整套真题。</p>${next ? `<a class="btn primary" href="#/contest/amc8">去做 ${esc(next.title)}</a>` : ''}`}
+        : '<p class="muted">还没有成绩。</p>'}
       </section>
     </div>
+    ${me.has_phone ? '' : me.guest ? `<a class="card bind-tip gift-tip" href="${ACCOUNT_URL}">${GIFT('；现在的做题记录也会保留，换设备也能接着用')}<b>去注册 ›</b></a>` : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>绑定手机号，换手机、换电脑都能登录，做题记录不会丢。</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
+  $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { dashFam = b.dataset.fam; renderDashboard(); }));
+  $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[dashFam] = +b.dataset.grade; renderDashboard(); }));
+  $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode)));
 }
 
 // ───────── 考试列表 ─────────
@@ -601,6 +611,24 @@ async function renderHome() {
 // ───────── 一种考试：试卷 / 考情 / 成绩记录 ─────────
 const GRADE = { 1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级', 5: '五年级', 6: '六年级', 7: '初一', 8: '初二' };
 const contestGrade = {}; // 分年级的考试：每种考试记住选的年级
+// 一种考试的试卷格子（分年级的先选年级）：考试页和数学首页共用。limit 只在首页用，多的给「全部」链接
+function examGrid(f, allExams, fid, limit = 0) {
+  const grades = f.grades ? [...new Set(allExams.map((e) => e.grade).filter(Boolean))].sort((a, b) => a - b) : [];
+  if (grades.length && !grades.includes(contestGrade[fid])) contestGrade[fid] = grades[0];
+  const exams = grades.length ? allExams.filter((e) => e.grade === contestGrade[fid]) : allExams;
+  const shown = limit ? exams.slice(0, limit) : exams;
+  const html = exams.length ? `${grades.length ? `<div class="ms-tabs grade-tabs">${grades.map((g) => `<button class="${g === contestGrade[fid] ? 'on' : ''}" data-grade="${g}">${GRADE[g] || g + ' 年级'}</button>`).join('')}</div>` : ''}<div class="exam-grid">
+      ${shown.map((e) => `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
+        <div class="et-top"><span class="et-year">${f.grades ? esc(e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/\s+/g, ' ').trim()) : e.year || ''}</span>
+          ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
+        <div class="small muted">${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div>
+        <div class="et-btns">
+          <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
+          <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
+        </div></div>`).join('')}
+    </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
+  return { html, exams };
+}
 async function renderContest(fid, tab = 'exams') {
   const st = auth.student;
   const d = await api(`/math/api/families/${enc(fid)}?student=${st.id}`);
@@ -609,20 +637,9 @@ async function renderContest(fid, tab = 'exams') {
   tab = TABS.some((t) => t[0] === tab) ? tab : 'exams';
   let body = '';
   const allExams = await apiList(`/math/api/exams?student=${st.id}&family=${enc(fid)}`);
-  const grades = f.grades ? [...new Set(allExams.map((e) => e.grade).filter(Boolean))].sort((a, b) => a - b) : [];
-  if (grades.length && !grades.includes(contestGrade[fid])) contestGrade[fid] = grades[0];
-  const exams = grades.length ? allExams.filter((e) => e.grade === contestGrade[fid]) : allExams;
+  const { html: gridHtml, exams } = examGrid(f, allExams, fid);
   if (tab === 'exams') {
-    body = exams.length ? `${grades.length ? `<div class="ms-tabs grade-tabs">${grades.map((g) => `<button class="${g === contestGrade[fid] ? 'on' : ''}" data-grade="${g}">${GRADE[g] || g + ' 年级'}</button>`).join('')}</div>` : ''}<div class="exam-grid">
-      ${exams.map((e) => `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
-        <div class="et-top"><span class="et-year">${f.grades ? esc(e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/\s+/g, ' ').trim()) : e.year || ''}</span>
-          ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
-        <div class="small muted">${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div>
-        <div class="et-btns">
-          <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
-          <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
-        </div></div>`).join('')}
-    </div>` : '<div class="card"><p class="muted">这种考试的真题还没有录入。</p></div>';
+    body = gridHtml;
   } else if (tab === 'stats') {
     const S = d.stats;
     if (!S.exams) body = '<div class="card"><p class="muted">这种考试的真题还没有录入，暂时没有考情。</p></div>';
