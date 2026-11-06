@@ -238,7 +238,7 @@ export const UI_FEATURES = [
     }, expect: same('1/true/true/true/true') },
     { id: 'U15-2', name: '做了 3 题后刷新：从第 4 题接着做', run: async (p, c) => {
       for (let n = 1; n <= 3; n++) await c.zhAnswer(n, n === 1 ? 'wrong' : 'right');
-      await p.reload(); await p.locator('.ex-q').waitFor({ timeout: 15000 }); return (await p.locator('.ex-q').innerText()).trim().startsWith('4.');
+      await p.reload(); await p.locator('.ex-q').waitFor({ timeout: 15000 }); return ((await p.locator('.ex-q').innerText()).match(/(\d+)\./) || [])[1] === '4';
     }, expect: same(true) },
     { id: 'U15-3', name: '手机 390 深色模式下答题页不溢出、选项按钮完整', run: async (p, c) => {
       await p.setViewportSize({ width: 390, height: 844 }); await p.emulateMedia({ colorScheme: 'dark' }); await p.waitForTimeout(300);
@@ -246,7 +246,7 @@ export const UI_FEATURES = [
       await p.emulateMedia({ colorScheme: 'light' }); await p.setViewportSize({ width: 1366, height: 860 }); return r;
     }, expect: same('true/true') },
     { id: 'U15-4', name: '做完整套（第 1 题故意做错）：交卷得 149 分，成绩页有各大题得分', run: async (p, c) => {
-      const n0 = +((await p.locator('.ex-q').innerText()).match(/^(\d+)\./) || [])[1];
+      const n0 = +((await p.locator('.ex-q').innerText()).match(/(\d+)\./) || [])[1];
       for (let n = n0; n <= c.zhKey.length; n++) await c.zhAnswer(n, 'right');
       await p.locator('.score-big').waitFor({ timeout: 20000 });
       return `${await c.text('.score-big b')}/${(await p.locator('.score .tbl tr').count()) > 1}`;

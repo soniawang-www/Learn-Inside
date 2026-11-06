@@ -424,7 +424,7 @@ async function renderAccount() {
   form('bind', '/api/account/bind', 'berr', async (r) => {
     const me = await api('/math/api/me'); lastMe = me;
     const s = me.students.find((x) => x.id === auth.student?.id) || me.students[0]; if (s) auth.setStudent(s);
-    if (r.credits_added) modal(`<div class="support"><div class="gift-big">${icon('gift', 44)}</div><h2>注册成功，已送你 ${r.credits_added} 次互动解析</h2><p>在复盘页或题目页点「互动解析」就能用，每道题用 1 次，之后随时重看；也可以用来开一个知识项的真题突击。以后用手机号登录就能接着用。</p></div><div class="actions" style="justify-content:center"><button class="btn primary" data-close>好的</button></div>`);
+    if (r.credits_added) modal(`<div class="support"><div class="gift-big">${icon('gift', 44)}</div><h2>注册成功，已送你 ${r.credits_added} 次互动解析</h2></div><div class="actions" style="justify-content:center"><button class="btn primary" data-close>好的</button></div>`);
     renderAccount();
   });
   form('pw', '/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
@@ -861,7 +861,6 @@ async function renderReview(sid) {
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
-      ${wrong.length && isGuest() ? '<p class="small muted">注册后，错题会自动进错题本。</p>' : ''}
       ${wrong.length && lastMe?.guest ? `<a class="gift-link" href="#/account">${GIFT()}</a>` : ''}
       <div class="rev-btns">${isGuest() ? '<a class="btn primary" href="#/account">免费注册</a><a class="btn" href="#/">再做一套</a>' : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>

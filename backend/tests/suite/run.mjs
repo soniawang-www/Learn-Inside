@@ -188,7 +188,7 @@ if (WITH_UI) {
         for (const hsh of [...PAGES, ...extra]) {
           await open(pg, hsh);
           const H = Math.min(2400, await pg.evaluate(() => document.documentElement.scrollHeight));
-          const name = `${role}-${w}-${hsh.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'home'}.png`;
+          const name = `${role}-${w}-${hsh.startsWith('/') ? 'site' : 'math'}_${hsh.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'home'}.png`;
           await pg.screenshot({ path: `${SHOTS}/${name}`, clip: { x: 0, y: 0, width: w, height: H }, fullPage: true });
           shotList.push({ role, w, page: hsh, name });
         }
