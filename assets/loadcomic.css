@@ -1,37 +1,46 @@
-/* 数学 / 语文 / 账号页加载时显示的四格漫画：和首页弹窗一样的浮层卡片，深色模式也保持浅色漫画 */
+/* 数学 / 语文 / 账号页加载时：屏幕正中一个圆，四格漫画各占一个扇形，外圈是加载进度（转一圈 = 四步讲完，循环） */
 .li-load {
   --card: #FFFFFF; --ink: #18302A; --soft: #5E726C; --line: #E4E0D6;
   --jade: #1D5C4D; --jade-soft: #E3ECE7; --plum: #B04A6F; --plum-soft: #F6E7EC; --warn: #A85A2A;
+  --ring: var(--jade);
   position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px;
-  text-align: left; background: rgba(10, 20, 18, .55); opacity: 0; animation: li-fade .25s ease .3s forwards;
+  background: rgba(10, 20, 18, .55); opacity: 0; animation: li-fade .25s ease .3s forwards;
 }
-.li-load-in {
-  width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; background: var(--card); color: var(--ink);
-  border-radius: 22px; padding: 18px 18px 14px; box-shadow: 0 20px 50px rgba(0, 0, 0, .3);
-  display: flex; flex-direction: column; gap: 10px; color-scheme: light;
-  transform: translateY(24px) scale(.96); animation: li-pop .45s cubic-bezier(.2, .9, .3, 1.15) .3s forwards;
-}
-.li-load-in h2 { margin: 0; font-family: var(--display, serif); font-weight: 600; font-size: 1.2rem; letter-spacing: .04em; color: var(--ink); }
-.li-load-k { margin: 0; color: var(--jade); font-weight: 600; font-size: .9rem; }
-.li-load.zh .li-load-k { color: var(--plum); }
-.li-load .comic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.li-load .comic figure { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; opacity: 0; animation: 5s ease .45s infinite both; }
-.li-load .comic figure:nth-child(1) { animation-name: li-c1; }
-.li-load .comic figure:nth-child(2) { animation-name: li-c2; }
-.li-load .comic figure:nth-child(3) { animation-name: li-c3; }
-.li-load .comic figure:nth-child(4) { animation-name: li-c4; }
-/* 一轮 5 秒：1、2、3、4 依次出现，停一下一起淡出，再从 1 开始 */
-@keyframes li-c1 { 0% { opacity: 0; transform: translateY(10px); } 7%, 88% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; } }
-@keyframes li-c2 { 0%, 18% { opacity: 0; transform: translateY(10px); } 25%, 88% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; } }
-@keyframes li-c3 { 0%, 36% { opacity: 0; transform: translateY(10px); } 43%, 88% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; } }
-@keyframes li-c4 { 0%, 54% { opacity: 0; transform: translateY(10px); } 61%, 88% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; } }
-.li-load .comic svg { display: block; width: 100%; height: auto; }
-.li-load .comic figcaption { display: flex; align-items: center; gap: 6px; font-family: var(--display, serif); font-weight: 600; font-size: .92rem; line-height: 1.35; color: var(--ink); }
-.li-load .comic figcaption i { flex: none; display: inline-grid; place-items: center; width: 1.45em; height: 1.45em; border-radius: 50%; background: var(--jade); color: var(--card); font-style: normal; font-size: .8rem; }
-.li-load.zh .comic figcaption i { background: var(--plum); }
-#app.page-wait:has(> .li-load) { opacity: 1; }
+.li-load.zh { --ring: var(--plum); }
+.li-ring { display: block; width: min(560px, 92vw, 80vh); height: auto; overflow: visible; color-scheme: light;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, .3)); transform: scale(.94); animation: li-pop .45s cubic-bezier(.2, .9, .3, 1.15) .3s forwards; }
+.li-ring .lr-cap { font: 600 14px var(--display, serif); fill: var(--ink); letter-spacing: .04em; }
+.li-ring .lr-n { fill: var(--ring); }
+.li-ring .lr-nt { font: 700 13px system-ui, sans-serif; fill: #fff; text-anchor: middle; }
+.li-ring .lr-track { fill: none; stroke: rgba(255, 255, 255, .28); stroke-width: 8; }
+.li-ring .lr-prog { fill: none; stroke: var(--ring); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100;
+  animation: li-prog 5s linear .45s infinite; }
+.li-load .lr-prog { stroke: #7FD1B6; }
+.li-load.zh .lr-prog { stroke: #F29BBB; }
+/* 外圈走到哪个扇形，那一格就出现；转完一圈停一下，一起淡出，再从第 1 格开始 */
+.li-ring .seg { opacity: .12; animation: 5s ease .45s infinite both; }
+.li-ring .s1 { animation-name: li-c1; } .li-ring .s2 { animation-name: li-c2; } .li-ring .s3 { animation-name: li-c3; } .li-ring .s4 { animation-name: li-c4; }
+@keyframes li-c1 { 0% { opacity: .12; } 6%, 88% { opacity: 1; } 97%, 100% { opacity: .12; } }
+@keyframes li-c2 { 0%, 18% { opacity: .12; } 24%, 88% { opacity: 1; } 97%, 100% { opacity: .12; } }
+@keyframes li-c3 { 0%, 36% { opacity: .12; } 42%, 88% { opacity: 1; } 97%, 100% { opacity: .12; } }
+@keyframes li-c4 { 0%, 54% { opacity: .12; } 60%, 88% { opacity: 1; } 97%, 100% { opacity: .12; } }
+@keyframes li-prog { 0% { stroke-dashoffset: 100; opacity: 1; } 72% { stroke-dashoffset: 0; opacity: 1; } 88% { stroke-dashoffset: 0; opacity: 1; } 97% { stroke-dashoffset: 0; opacity: 0; } 100% { stroke-dashoffset: 100; opacity: 0; } }
 @keyframes li-fade { to { opacity: 1; } }
 @keyframes li-pop { to { transform: none; } }
+#app.page-wait:has(> .li-load) { opacity: 1; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .li-load { background: rgba(0, 0, 0, .7); } }
 :root[data-theme="dark"] .li-load { background: rgba(0, 0, 0, .7); }
-@media (prefers-reduced-motion: reduce) { .li-load, .li-load-in { animation-duration: .01s; animation-delay: 0s; } .li-load .comic figure { animation: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .li-load, .li-ring { animation-duration: .01s; animation-delay: 0s; } .li-ring .seg { animation: none; opacity: 1; } .li-ring .lr-prog { animation-duration: 20s; } }
+
+/* 站内换页时的骨架：标题条 + 一排卡片 + 两块内容，灰色块上有一道微光扫过 */
+.sk { display: grid; gap: 16px; padding-top: 6px; }
+.sk-b { border-radius: 14px; background: linear-gradient(90deg, var(--surface-2, #F1EFE9) 0%, var(--border, #E4E0D6) 50%, var(--surface-2, #F1EFE9) 100%); background-size: 200% 100%; animation: sk-shine 1.2s ease-in-out infinite; }
+.sk-h1 { width: min(280px, 60%); height: 34px; border-radius: 10px; }
+.sk-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sk-card { height: 104px; }
+.sk-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; }
+.sk-big { height: 220px; } .sk-side { height: 160px; }
+@media (max-width: 860px) { .sk-row, .sk-grid { grid-template-columns: minmax(0, 1fr); } .sk-row .sk-card:nth-child(n+3), .sk-side { display: none; } .sk-card { height: 84px; } .sk-big { height: 180px; } }
+@keyframes sk-shine { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+#app.page-wait:has(.sk) { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .sk-b { animation: none; } }

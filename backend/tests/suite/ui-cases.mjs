@@ -204,22 +204,31 @@ export const UI_FEATURES = [
       return `${m.x < 60}/${l.x + l.width > 330}/${open}/${shut}`;
     }, expect: same('true/true/true/true') },
   ] },
-  { id: 'U13', area: '界面', name: '加载时的漫画', cases: [
-    { id: 'U13-1', name: '数学换页时数据慢：屏幕正中弹出四格漫画，加载完自动关', run: async (p, c) => {
+  { id: 'U13', area: '界面', name: '加载时的样子', cases: [
+    { id: 'U13-1', name: '第一次打开（数据慢）：屏幕正中弹出圆形四格漫画，外圈是加载进度，加载完自动关', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 } }); const q = await ctx.newPage();
+      await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: '慢' }]);
+      await q.route('**/math/api/**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
+      await q.goto(c.base + '/math/'); await q.waitForTimeout(1300);
+      const shown = await q.locator('#app > .li-load .li-ring').isVisible(), n = await q.locator('#app > .li-load .seg').count(), ring = await q.locator('#app > .li-load .lr-prog').count();
+      await q.waitForSelector('.fam-card', { timeout: 30000 }); const gone = (await q.locator('.li-load').count()) === 0; await ctx.close();
+      return `${shown}/${n}/${ring}/${gone}`;
+    }, expect: same('true/4/1/true') },
+    { id: 'U13-2', name: '数学站内换页（数据慢）：不弹漫画；内容区原地显示骨架，导航不动，顶部进度条在走；加载完换成内容', run: async (p, c) => {
       await c.go('#/contest/amc8'); await p.route('**/math/api/families**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
-      await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1300);
-      const shown = await p.locator('body > .li-load .li-load-in').isVisible(), n = await p.locator('body > .li-load figure').count();
-      await p.waitForTimeout(4500); await p.unroute('**/math/api/families**');
-      return `${shown}/${n}/${(await p.locator('body > .li-load').count()) === 0}`;
-    }, expect: same('true/4/true') },
-    { id: 'U13-2', name: '语文换页时数据慢：弹出语文的四格漫画', run: async (p, c) => {
+      await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1000);
+      const sk = await p.locator('#app > main .sk').isVisible(), comic = await p.locator('.li-load').count(), nav = await p.locator('#app > .side').count(), bar = await p.evaluate(() => document.body.classList.contains('net-wait'));
+      await p.waitForSelector('.fam-card', { timeout: 15000 }); await p.unroute('**/math/api/families**');
+      return `${sk}/${comic}/${nav}/${bar}/${(await p.locator('.sk').count()) === 0}`;
+    }, expect: same('true/0/1/true/true') },
+    { id: 'U13-3', name: '语文站内换页（数据慢）：同样显示骨架', run: async (p, c) => {
       await c.go('/chinese/#/hanzi'); await p.route('**/api/exams**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
-      await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1300);
-      const zh = await p.locator('body > .li-load.zh .li-load-in').isVisible();
-      await p.waitForTimeout(4500); await p.unroute('**/api/exams**');
-      return `${zh}/${(await p.locator('body > .li-load').count()) === 0}`;
-    }, expect: same('true/true') },
-    { id: 'U13-3', name: '网快时不弹', run: async (p, c) => { await c.go('#/contest/amc8'); await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(250); return p.locator('body > .li-load').count(); }, expect: same(0) },
+      await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1000);
+      const sk = await p.locator('#app > main .sk').isVisible(), comic = await p.locator('.li-load').count();
+      await p.waitForSelector('.fam-card', { timeout: 15000 }); await p.unroute('**/api/exams**');
+      return `${sk}/${comic}/${(await p.locator('.sk').count()) === 0}`;
+    }, expect: same('true/0/true') },
+    { id: 'U13-4', name: '网快时换页：不出骨架也不弹漫画', run: async (p, c) => { await c.go('#/contest/amc8'); await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(250); return `${await p.locator('.sk').count()}/${await p.locator('.li-load').count()}`; }, expect: same('0/0') },
   ] },
   { id: 'U14', area: '界面', name: '网站首页', cases: [
     { id: 'U14-1', name: '数学、语文两张科目卡片 + 英语「即将上线」', run: async (p, c) => { await c.go('/'); return `${await p.locator('a.subj').count()}/${(await c.text('.subj-soon')).replace(/\s/g, '')}`; }, expect: same('2/英语即将上线') },

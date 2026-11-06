@@ -1,21 +1,17 @@
-// 数学 / 语文页切换页面时，超过 0.3 秒就弹出和首次打开一样的四格漫画（样式见 loadcomic.css）
-const TPL = document.querySelector('#app > .li-load')?.outerHTML || '';
-let el = null;
-let open = 0;
+// 数学 / 语文页在站内换页时：数据 0.3 秒内没回来，内容区原地换成灰色骨架（导航不动，顶部细进度条照常走）。
+// 第一次打开网站时的圆形漫画写在各页 index.html 里，不经过这里。
+const SKELETON = `<div class="sk" role="status" aria-label="加载中">
+  <div class="sk-b sk-h1"></div>
+  <div class="sk-row"><div class="sk-b sk-card"></div><div class="sk-b sk-card"></div><div class="sk-b sk-card"></div></div>
+  <div class="sk-grid"><div class="sk-b sk-big"></div><div class="sk-b sk-side"></div></div>
+</div>`;
 
 export function loadStart() {
-  if (!TPL || document.querySelector('#app > .li-load')) return () => {}; // 首次打开时页面里已经有一份
-  open++;
-  if (!el) {
-    const box = document.createElement('div');
-    box.innerHTML = TPL;
-    el = box.firstElementChild;
-    document.body.appendChild(el);
-  }
-  let done = false;
-  return () => {
-    if (done) return;
-    done = true;
-    if (--open <= 0) { open = 0; el?.remove(); el = null; }
-  };
+  const app = document.getElementById('app');
+  if (!app || app.querySelector(':scope > .li-load')) return () => {}; // 第一次打开：已经有漫画了
+  const timer = setTimeout(() => {
+    const main = app.querySelector(':scope > main, :scope > .page');
+    if (main && !main.querySelector(':scope > .sk')) { main.innerHTML = SKELETON; window.scrollTo(0, 0); }
+  }, 300);
+  return () => clearTimeout(timer);
 }
