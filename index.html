@@ -144,6 +144,23 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .subj-go{align-self:flex-start;margin-top:6px;padding:5px 14px;border-radius:999px;background:var(--card);color:var(--jade);font-family:var(--display);font-weight:600;font-size:.95rem;position:relative;z-index:1}
 .subj.zh .subj-go{color:var(--plum)}
 @media (max-width:520px){.subjects{grid-template-columns:minmax(0,1fr)}.subj{padding:16px 18px}.subj b{font-size:1.3rem}}
+.subj-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.subj-col .subj{flex:1}
+.subj-links{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
+.subj-links a{display:flex;align-items:center;justify-content:center;padding:10px 6px;border-radius:14px;background:var(--card);border:1.5px solid var(--line);color:var(--ink);text-decoration:none;font-family:var(--display);font-weight:600;font-size:1rem;white-space:nowrap}
+@media (hover:hover){.subj-links a:hover{border-color:var(--jade);color:var(--jade)}.subj-links.zh a:hover{border-color:var(--plum);color:var(--plum)}}
+.resume{display:flex;flex-direction:column;gap:10px;padding:16px 18px;border-radius:20px;background:var(--card);border:1.5px solid var(--line)}
+.resume[hidden]{display:none}
+.resume h2{margin:0;font-family:var(--display);font-weight:600;font-size:1.15rem;letter-spacing:.04em}
+.rs-main{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px}
+.rs-main div{display:flex;flex-direction:column;min-width:0}
+.rs-main b{font-size:1.02rem}
+.rs-main small{color:var(--soft);font-size:.86rem}
+.rs-go{padding:8px 18px;border-radius:999px;background:var(--jade);color:var(--card);text-decoration:none;font-family:var(--display);font-weight:600;white-space:nowrap}
+.rs-go.zh{background:var(--plum)}
+.rs-chips{display:flex;flex-wrap:wrap;gap:8px}
+.rs-chips a{padding:5px 12px;border-radius:999px;border:1.5px solid var(--line);color:var(--ink);text-decoration:none;font-size:.9rem}
+.rs-chips a b{color:var(--plum)}
 /* 首页弹窗：四格漫画，左右滑动看数学 / 语文 */
 .promo{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:16px;padding-top:max(16px,env(safe-area-inset-top,0px));background:rgba(10,20,18,.55)}
 .promo[hidden]{display:none}
@@ -232,19 +249,27 @@ body{font-size:1rem}
     <nav class="who" aria-label="账号"><button class="pill" id="sup">联系客服</button><a class="pill me" id="me" href="/account/">登录 / 注册</a></nav>
   </header>
 
+  <section class="resume" id="resume" hidden aria-label="继续上次"></section>
+
   <section class="subjects" aria-label="科目">
+    <div class="subj-col">
     <a class="subj" href="math/">
       <span class="subj-k">数学</span>
       <b>数学竞赛真题</b>
       <span class="subj-c">AMC 8 · 希望数学 · 思维 100</span>
       <span class="subj-go">进入数学 ›</span>
     </a>
+    <nav class="subj-links" aria-label="数学"><a href="math/#/exams">真题模考</a><a href="math/#/graph">知识图谱</a><a href="math/#/mistakes">错题本</a></nav>
+    </div>
+    <div class="subj-col">
     <a class="subj zh" href="chinese/">
       <span class="subj-k">语文</span>
       <b>汉字小达人真题</b>
       <span class="subj-c">历届市级、区级真题 · 官方模拟题</span>
       <span class="subj-go">进入语文 ›</span>
     </a>
+    <nav class="subj-links zh" aria-label="语文"><a href="chinese/">真题模考</a><a href="chinese/#/mistakes">错题本</a></nav>
+    </div>
   </section>
 
 
@@ -280,6 +305,29 @@ const store={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").matches,cur=document.documentElement.dataset.theme||(dark?"dark":"light"),nx=cur==="dark"?"light":"dark";document.documentElement.dataset.theme=nx;store.set("li-theme",nx)};
 {const t=store.get("li-theme","");if(t)document.documentElement.dataset.theme=t}
+/* 继续上次：登录过的才显示。没做完的模考（本地记录，向服务器确认还没交卷、没过期）> 最近一次成绩；再加两科待订正的错题数 */
+(async()=>{let tok=null,st=null;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null")}catch(e){}
+if(!tok||!st||!st.id)return;
+const get=async u=>{try{const r=await fetch(u,{headers:{authorization:"Bearer "+tok}});return r.ok?await r.json():null}catch(e){return null}};
+const keys=[];try{for(let i=0;i<localStorage.length;i++)keys.push(localStorage.key(i))}catch(e){}
+const pend=[...keys.filter(k=>/^amc8\.s\./.test(k)).map(k=>({sid:k.slice(7),sub:"math"})),...keys.filter(k=>/^hz\.cur\./.test(k)).map(k=>{let v=null;try{v=JSON.parse(localStorage.getItem(k))}catch(e){}return{sid:v,sub:"chinese"}}).filter(x=>x.sid)];
+const id=encodeURIComponent(st.id);
+const [me,pm,pc,mc,...ss]=await Promise.all([get("/api/me"),get(`/api/students/${id}/profile`),get(`/api/students/${id}/profile?subject=chinese`),get(`/api/students/${id}/mistakes?subject=chinese`),...pend.slice(0,6).map(x=>get(`/${x.sub==="math"?"math/":""}api/sessions/${encodeURIComponent(x.sid)}`))]);
+if(!me)return;
+const now=Date.now();let live=null;
+ss.forEach((d,i)=>{if(d&&d.session&&!d.session.submitted&&d.session.deadline_at>(d.session.server_now||now)&&!live)live={...pend[i],title:d.exam&&d.exam.title||"上次的试卷"}});
+const last=[...((pm&&pm.sessions)||[]).map(x=>({...x,sub:"math"})),...((pc&&pc.sessions)||[]).map(x=>({...x,sub:"chinese"}))].sort((a,b)=>b.submitted_at-a.submitted_at)[0];
+const todo=(arr)=>(arr||[]).filter(m=>m.status==="pending"||m.status==="due").length;
+const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);
+if(!live&&!last&&!mm&&!mz)return;
+const base=x=>x.sub==="math"?"math/":"chinese/";
+const day=t=>{const d=new Date(t);return`${d.getMonth()+1} 月 ${d.getDate()} 日`};
+let main="";
+if(live)main=`<div class="rs-main"><div><b>${esc(live.title)}</b><small>上次没做完，接着答题</small></div><a class="rs-go ${live.sub==="chinese"?"zh":""}" href="${base(live)}#/exam/${encodeURIComponent(live.sid)}">继续答题 ›</a></div>`;
+else if(last)main=`<div class="rs-main"><div><b>${esc(last.title||"")}</b><small>${day(last.submitted_at)} · 得分 ${last.score} / ${last.total}</small></div><a class="rs-go ${last.sub==="chinese"?"zh":""}" href="${base(last)}#/review/${encodeURIComponent(last.id)}">看成绩和解析 ›</a></div>`;
+const chips=[mm?`<a href="math/#/mistakes">数学错题待订正 <b>${mm}</b> ›</a>`:"",mz?`<a href="chinese/#/mistakes">语文错题待订正 <b>${mz}</b> ›</a>`:""].join("");
+const R=$("resume");R.innerHTML=`<h2>${esc(String(st.nickname||""))}，继续上次</h2>${main}${chips?`<div class="rs-chips">${chips}</div>`:""}`;R.hidden=false})();
+
 /* 首页弹窗：打开首页时弹出；关掉后 7 天内不再自动弹出， */
 {const P=$("promo"),T=$("promo-track"),dots=[...document.querySelectorAll("[data-slide]")],KEY="li-promo-closed";
 const open=()=>{P.hidden=false;document.body.style.overflow="hidden";P.querySelector(".promo-box").focus({preventScroll:true})};
