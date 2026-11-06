@@ -30,7 +30,12 @@ function slider(box, p, api) {
   const draw = () => {
     if (view) box.querySelector('.sl-g').innerHTML = view(v, H);
     box.querySelectorAll('.sl-v').forEach((e) => { e.textContent = fmt(v[e.dataset.k]); });
-    if (info) box.querySelector('.sl-info').innerHTML = info(v, H);
+    if (info) {
+      const el = box.querySelector('.sl-info'), h = info(v, H);
+      el.innerHTML = h;
+      // 说明行里可以写 $公式$
+      if (h.includes('$') && window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false });
+    }
     if (tip) { const t = tip(v, H); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
     if (goal && goal(v, H)) ok();
   };
