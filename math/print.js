@@ -11,18 +11,18 @@ const JADE = '#1D5C4D', PLUM = '#B04A6F', INK = '#1E2B28', SOFT = '#5D6A65', LIN
 
 export const SHEET_CSS = `.sheet{font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;font-size:12pt;line-height:1.6;color:${INK};background:#fff;max-width:${CSS_W}px;margin:0 auto}
 .sheet .head{display:flex;justify-content:space-between;align-items:flex-end;gap:6px 16px;flex-wrap:wrap;border-bottom:2px solid ${JADE};padding-bottom:8px;margin-bottom:4px}
-.sheet h1{font-family:"Songti SC","STSong","Noto Serif SC","Noto Serif CJK SC","SimSun",serif;font-weight:600;font-size:21pt;line-height:1.3;letter-spacing:.12em;margin:0;display:block;color:${INK}}
+.sheet h1{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-weight:600;font-size:21pt;line-height:1.3;letter-spacing:.12em;margin:0;display:block;color:${INK}}
 .sheet .head span{font-size:10.5pt;color:${SOFT}}
 .sheet .it{display:flex;gap:4px;padding:10px 0 12px;border-bottom:1px dashed ${LINE};break-inside:avoid;page-break-inside:avoid}
 .sheet .sn{flex:none;min-width:2em;color:${JADE};font-weight:800}
 .sheet .sq{flex:1;min-width:0}
 .sheet .src{display:block;font-size:9pt;color:${SOFT};margin-bottom:2px}
-.sheet .stx{font-family:"Times New Roman","Songti SC","STSong","Noto Serif CJK SC",serif;font-size:12.5pt;line-height:1.65;overflow-wrap:anywhere}
+.sheet .stx{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:12.5pt;line-height:1.65;overflow-wrap:anywhere}
 .sheet .stx .zh,.sheet .ai .zh{margin-top:4px;padding-top:0;border-top:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;font-size:11pt;color:#3A4743}
 .sheet .fg{display:flex;flex-direction:column;align-items:center;gap:6px;margin:8px 0 2px;color:${INK}}
 .sheet .fg svg{width:min(260px,100%);height:auto}
 .sheet .fg img{max-width:min(320px,100%);height:auto;display:block}
-.sheet .op{display:flex;flex-wrap:wrap;gap:3px 2.2em;margin-top:6px;font-family:"Times New Roman","Songti SC","Noto Serif CJK SC",serif;font-size:12pt;color:#3A4743}
+.sheet .op{display:flex;flex-wrap:wrap;gap:3px 2.2em;margin-top:6px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:12pt;color:#3A4743}
 .sheet .op b{font-family:-apple-system,"PingFang SC",sans-serif;font-weight:700;color:${JADE};margin-right:.35em}
 .sheet .op .zi{color:${SOFT};font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;font-size:10pt;margin-left:.4em}
 .sheet .op.figs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 14px}

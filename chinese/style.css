@@ -5,7 +5,7 @@
   --accent: #1D5C4D; --accent-soft: #E3ECE7;
   --ok: #1D5C4D; --ok-soft: #E3ECE7; --bad: #B04A6F; --bad-soft: #F6E7EC;
   --radius: 12px;
-  --display: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+  --display: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --lg-tile:#1D5C4D; --lg-dot:#E07C9F; --lg-ink:#18302A; --lg-jade:#2E8B74; --lg-plum:#B04A6F; --lg-sub:#4E6A62;
   /* 比赛答题页 */
