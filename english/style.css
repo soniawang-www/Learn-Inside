@@ -416,3 +416,5 @@ mark { background: color-mix(in srgb, var(--en) 18%, transparent); color: inheri
 .fr-row small { color: var(--muted); }
 @media (min-width: 861px) { .modes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 641px) and (max-width: 860px) { .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.wr .topic { font-size: 19px; line-height: 1.5; white-space: normal; }
+@media (max-width: 640px) { .wr .topic { font-size: 17px; } }

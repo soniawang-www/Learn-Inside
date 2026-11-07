@@ -15,7 +15,10 @@ import { createRequire } from 'node:module';
 const args = process.argv.slice(2);
 // --ui 同时跑界面用例（需要 playwright；PLAYWRIGHT=playwright 模块路径）；--ui-only 只跑界面
 const WITH_UI = args.includes('--ui') || args.includes('--ui-only') || args.includes('--plan');
-const FEATURES = [...(args.includes('--ui-only') ? [] : API_FEATURES), ...(WITH_UI ? UI_FEATURES : [])];
+// 只跑一部分（机器内存紧时用）：UI_CASES=界面用例编号正则（如 '^U(6|12|14|16)'），PAGES_FILTER=页面地址正则（如 'english|^/$'）
+const UI_RE = process.env.UI_CASES ? new RegExp(process.env.UI_CASES) : null;
+const UI_PICK = UI_RE ? UI_FEATURES.map((f) => ({ ...f, cases: f.cases.filter((t) => UI_RE.test(t.id)) })).filter((f) => f.cases.length) : UI_FEATURES;
+const FEATURES = [...(args.includes('--ui-only') ? [] : API_FEATURES), ...(WITH_UI ? UI_PICK : [])];
 const caseCount = () => FEATURES.reduce((n, f) => n + f.cases.length, 0);
 const show = (v) => (v === 'skip' ? '—' : typeof v === 'string' ? v : JSON.stringify(v));
 
@@ -112,6 +115,7 @@ if (WITH_UI) {
   const browser = await chromium.launch();
   // 全站页面：数学、语文、账号、网站首页（地址以 / 开头的是完整路径，以 # 开头的是数学页）
   const PAGES = ['#/', '#/contest/amc8', '#/contest/amc8/stats', '#/contest/amc8/records', '#/contest/hope', '#/contest/swb100', '#/graph', '#/graph/geo.area', '#/mistakes', '#/kp/geo.area', '#/kp/cnt.perm?family=swb100', '#/problem/amc8-2025-p01', '/account/', '/chinese/', '/chinese/#/hanzi', '/chinese/#/intro/hanzi-2021-city', '/chinese/#/mistakes', '/english/', '/english/#/esdp', '/english/#/bank/esdp-speak-low?s=2', '/english/#/learn/esdp-speak-low-p01', '/english/#/learn/esdp-speak-high-p05', '/english/#/speech/esdp-speak-high-p05', '/english/#/interview', '/english/#/write/esdp-write-low-p01', '/english/#/phrases', '/'];
+  if (process.env.PAGES_FILTER) { const re = new RegExp(process.env.PAGES_FILTER); PAGES.splice(0, PAGES.length, ...PAGES.filter((x) => re.test(x))); }
   for (const role of Object.keys(ROLES)) {
     const c = await makeContext(role, outsider);
     const login = async (pg) => { await pg.goto(BASE + '/math/'); await pg.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: ROLES[role] }]); };

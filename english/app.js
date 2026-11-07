@@ -290,7 +290,7 @@ async function renderLearn(id) {
   page(`<a class="small back" href="${backTo}">← ${write ? '写作' : ROUNDS[d.section]} · ${g.name}</a>
     <div class="card learn-top">
       <div class="spk-top"><span class="tag ok">${write ? '写作' : ROUNDS[d.section]}</span><span class="small muted">第 ${d.number} 题${write ? ` · ${g.words} 词以内` : ''}</span>${realTag(d)}</div>
-      <h1 class="topic" lang="en">${txt(d.stem)}</h1>
+      <h2 class="topic" lang="en">${txt(d.stem)}</h2>
       <p class="topic-zh">${esc(d.stem_zh || '')}</p>
     </div>
     <div class="steps">
@@ -395,7 +395,7 @@ async function renderSpeech(id) {
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
       <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}</div>
-      <h1 class="topic" lang="en">${esc(d.stem)}</h1>
+      <h2 class="topic" lang="en">${esc(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
       <div id="stage"></div>
@@ -475,7 +475,7 @@ async function renderFinal(d) {
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
       <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}</div>
-      <h1 class="topic" lang="en">${esc(d.stem)}</h1>
+      <h2 class="topic" lang="en">${esc(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
       <div id="stage"><ol class="rules">
@@ -552,7 +552,7 @@ async function renderInterview() {
     const show = () => {
       $s.innerHTML = `<div class="clock talk" id="clock"><span>${r ? '<i class="rec-dot"></i>录音中' : '计时'} · 第 ${i + 1} / ${qs.length} 题</span><b id="clk">0:00</b><small>共 ${ms(total)}</small>
         <div class="lim"><i id="lim"></i></div></div>
-        <h1 class="topic" lang="en">${esc(qs[i].stem)}</h1>
+        <h2 class="topic" lang="en">${esc(qs[i].stem)}</h2>
         <div class="actions"><button class="btn primary big" id="nx">${i < qs.length - 1 ? '下一题' : '答完了'}</button></div>`;
       $s.querySelector('#nx').onclick = async (e) => {
         marks.push((performance.now() - t0) / 1000);
@@ -604,8 +604,8 @@ async function renderWrite(id) {
     <div class="card wr">
       <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}
         <span class="wclock num" id="wclk">${ms(limitSec)}</span></div>
-      <div class="prep-pick" id="wmin"><span class="small muted">时长</span>${[[30, '30 分钟（初选）'], [45, '45 分钟（复选、决选）']].map(([m, n]) => `<button class="chip${m === wmin ? ' on' : ''}" data-wmin="${m}">${n}</button>`).join('')}</div>
-      <h1 class="topic" lang="en">${txt(d.stem)}</h1>
+      <div class="prep-pick" id="wmin"><span class="small muted">时长</span>${[[30, '30 分钟'], [45, '45 分钟']].map(([m, n]) => `<button class="chip${m === wmin ? ' on' : ''}" data-wmin="${m}">${n}</button>`).join('')}</div>
+      <h2 class="topic" lang="en">${txt(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
       <textarea id="txt" lang="en" spellcheck="false" autocapitalize="sentences" placeholder="Write here..." rows="10">${esc(store.get(key, ''))}</textarea>
@@ -651,7 +651,7 @@ async function renderWrite(id) {
       clearInterval(timer);
       const words = r.words ?? countWords(text);
       $app.querySelector('.wr').innerHTML = `<div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题</span></div>
-        <h1 class="topic" lang="en">${txt(d.stem)}</h1>
+        <h2 class="topic" lang="en">${txt(d.stem)}</h2>
         <div class="result ${words > g.words ? 'over' : 'good'}"><b>${words} 词</b><span>${words > g.words ? `超出 ${words - g.words} 词，比赛要求 ${g.words} 词以内` : `在 ${g.words} 词以内`}${sec ? ` · 用时 ${ms(sec)}` : ''}</span></div>
         <p lang="en" class="essay">${txt(text)}</p>
         ${checks(['第一段直接回应题目', '每段围绕一个意思，有理由或例子', '有结尾段', '句首字母大写，句末有标点', '单词拼写正确，没有中式表达']).replace('听一遍', '读一遍')}
