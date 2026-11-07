@@ -160,7 +160,7 @@ export const FEATURES = [
   { id: 'H1', area: '会员', name: '会员状态', cases: [
     { id: 'H1-1', name: '/me 是否会员', run: async (c) => (await c.get('/math/api/me')).data.premium, expect: { guest: false, user: false, member: true } },
     { id: 'H1-2', name: '账号页会员种类', run: async (c) => Object.keys((await c.get('/api/account')).data.memberships).join(',') || '无', expect: { guest: '无', user: '无', member: 'math' } },
-    { id: 'H1-3', name: '套餐列表（只有数学 3 档，全科暂不开放）', run: async (c) => (await c.get('/api/account')).data.plans.map((p) => p.id).join(','), expect: same('math.month,math.quarter,math.year') },
+    { id: 'H1-3', name: '套餐列表（数学、英语各 3 档，全科暂不开放）', run: async (c) => (await c.get('/api/account')).data.plans.map((p) => p.id).join(','), expect: same('math.month,math.quarter,math.year,english.month,english.quarter,english.year') },
   ] },
   { id: 'H2', area: '会员', name: '激活码', cases: [
     { id: 'H2-1', name: '兑换 31 天数学会员激活码', run: async (c) => { const code = await c.makeCode('days', 31, 'math'); const r = await c.post('/api/redeem', { code }); c.lastCode = code; return st(r); }, expect: { guest: 403, user: 200, member: 200 } },

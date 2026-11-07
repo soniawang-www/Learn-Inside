@@ -186,8 +186,14 @@ if (WITH_UI) {
       for (const [w, h] of [[390, 844], [1440, 900]]) {
         const pg = await browser.newPage({ viewport: { width: w, height: h } }); await login(pg);
         for (const hsh of [...PAGES, ...extra]) {
-          await open(pg, hsh);
-          const H = Math.min(2400, await pg.evaluate(() => document.documentElement.scrollHeight));
+          // 页面偶尔在截图前又跳了一次（重定向、换页），量高度失败就重新打开一次
+          let H;
+          for (let k = 0; k < 3 && H === undefined; k++) {
+            await open(pg, hsh);
+            H = await pg.evaluate(() => document.documentElement.scrollHeight).then((v) => Math.min(2400, v), () => undefined);
+          }
+          if (H === undefined) { console.log(`  截图跳过：${hsh}（页面一直在跳转）`); continue; }
+          console.log(`  截图 ${role} ${w} ${hsh} → ${pg.url().replace(BASE, '')}`);
           const name = `${role}-${w}-${hsh.startsWith('/') ? 'site' : 'math'}_${hsh.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'home'}.png`;
           await pg.screenshot({ path: `${SHOTS}/${name}`, clip: { x: 0, y: 0, width: w, height: H }, fullPage: true });
           shotList.push({ role, w, page: hsh, name });

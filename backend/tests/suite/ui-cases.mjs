@@ -55,7 +55,7 @@ export const UI_FEATURES = [
     { id: 'U9-1', name: '网慢时连点「兑换」：按钮转圈、只发一次请求、顶部有进度条', run: async (p, c) => {
       if (c.role === 'guest') return 'skip';
       let n = 0;
-      await p.route('**/api/redeem', async (route) => { n++; await new Promise((r) => setTimeout(r, 1200)); await route.continue(); });
+      await p.route('**/api/redeem', async (route) => { n++; await new Promise((r) => setTimeout(r, 1200)); await route.continue().catch(() => {}); });
       await c.go('#/account'); await p.fill('#redeem input', 'NOTACODE00');
       const b = p.locator('#redeem button'); await b.click(); await p.waitForTimeout(250);
       const busy = await b.evaluate((x) => x.classList.contains('busy')); const bar = await p.evaluate(() => document.body.classList.contains('net-wait'));
@@ -65,7 +65,7 @@ export const UI_FEATURES = [
       return `${busy}/${bar}/${n}/${done}`;
     }, expect: { guest: 'skip', user: 'true/true/1/true', member: 'true/true/1/true' } },
     { id: 'U9-2', name: '换页时数据没回来：旧页面变淡、不能点', run: async (p, c) => {
-      await c.go('#/'); await p.route('**/math/api/families**', async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue(); });
+      await c.go('#/'); await p.route('**/math/api/families**', async (route) => { await new Promise((r) => setTimeout(r, 1000)); await route.continue().catch(() => {}); });
       await p.evaluate(() => { location.hash = '#/exams'; }); await p.waitForTimeout(400);
       const dim = await p.evaluate(() => document.getElementById('app').classList.contains('page-wait'));
       await p.waitForTimeout(1500); await p.unroute('**/math/api/families**');
@@ -219,21 +219,21 @@ export const UI_FEATURES = [
     { id: 'U13-1', name: '第一次打开（数据慢）：屏幕正中弹出圆形四格漫画，外圈是加载进度，加载完自动关', run: async (p, c) => {
       const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 } }); const q = await ctx.newPage();
       await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: '慢' }]);
-      await q.route('**/math/api/**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
+      await q.route('**/math/api/**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue().catch(() => {}); });
       await q.goto(c.base + '/math/'); await q.waitForTimeout(1300);
       const shown = await q.locator('#app > .li-load .li-ring').isVisible(), n = await q.locator('#app > .li-load .seg').count(), ring = await q.locator('#app > .li-load .lr-prog').count();
       await q.waitForSelector('.fam-card', { timeout: 30000 }); const gone = (await q.locator('.li-load').count()) === 0; await ctx.close();
       return `${shown}/${n}/${ring}/${gone}`;
     }, expect: same('true/4/1/true') },
     { id: 'U13-2', name: '数学站内换页（数据慢）：不弹漫画；内容区原地显示骨架，导航不动，顶部进度条在走；加载完换成内容', run: async (p, c) => {
-      await c.go('#/contest/amc8'); await p.route('**/math/api/families**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
+      await c.go('#/contest/amc8'); await p.route('**/math/api/families**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue().catch(() => {}); });
       await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1000);
       const sk = await p.locator('#app > main .sk').isVisible(), comic = await p.locator('.li-load').count(), nav = await p.locator('#app > .side').count(), bar = await p.evaluate(() => document.body.classList.contains('net-wait'));
       await p.waitForSelector('.fam-card', { timeout: 15000 }); await p.unroute('**/math/api/families**');
       return `${sk}/${comic}/${nav}/${bar}/${(await p.locator('.sk').count()) === 0}`;
     }, expect: same('true/0/1/true/true') },
     { id: 'U13-3', name: '语文站内换页（数据慢）：同样显示骨架', run: async (p, c) => {
-      await c.go('/chinese/#/hanzi'); await p.route('**/api/exams**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue(); });
+      await c.go('/chinese/#/hanzi'); await p.route('**/api/exams**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue().catch(() => {}); });
       await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1000);
       const sk = await p.locator('#app > main .sk').isVisible(), comic = await p.locator('.li-load').count();
       await p.waitForSelector('.fam-card', { timeout: 15000 }); await p.unroute('**/api/exams**');
@@ -283,7 +283,7 @@ export const UI_FEATURES = [
       c.mockPaid('0.00'); await c.go('#/account'); await p.locator('[data-plan="math.month"]').click(); await p.waitForTimeout(400);
       const confirm = (await c.text('.modal')).includes('确认开通') && (await c.text('.pay-total')).includes('¥');
       await p.route('**/gateway.do**', (route) => route.fulfill({ status: 200, body: 'mock alipay' }));
-      await p.route('**/api/pay/create', async (route) => { await new Promise((r) => setTimeout(r, 800)); await route.continue(); });
+      await p.route('**/api/pay/create', async (route) => { await new Promise((r) => setTimeout(r, 800)); await route.continue().catch(() => {}); });
       await p.click('#gopay'); await p.waitForTimeout(300);
       const overlay = (await p.locator('.pay-overlay').count()) > 0;
       await p.waitForURL(/gateway/, { timeout: 8000 }).catch(() => {}); await p.unroute('**/gateway.do**'); await p.unroute('**/api/pay/create');
