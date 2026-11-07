@@ -113,6 +113,7 @@ if (WITH_UI) {
   const require = createRequire(import.meta.url);
   const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
   const browser = await chromium.launch();
+  const shotJobs = [];
   // 全站页面：数学、语文、账号、网站首页（地址以 / 开头的是完整路径，以 # 开头的是数学页）
   const PAGES = ['#/', '#/contest/amc8', '#/contest/amc8/stats', '#/contest/amc8/records', '#/contest/hope', '#/contest/swb100', '#/graph', '#/graph/geo.area', '#/mistakes', '#/kp/geo.area', '#/kp/cnt.perm?family=swb100', '#/problem/amc8-2025-p01', '/account/', '/chinese/', '/chinese/#/hanzi', '/chinese/#/intro/hanzi-2021-city', '/chinese/#/mistakes', '/english/', '/english/#/esdp', '/english/#/bank/esdp-speak-low?s=2', '/english/#/learn/esdp-speak-low-p01', '/english/#/learn/esdp-speak-high-p05', '/english/#/speech/esdp-speak-high-p05', '/english/#/interview', '/english/#/write/esdp-write-low-p01', '/english/#/phrases', '/'];
   if (process.env.PAGES_FILTER) { const re = new RegExp(process.env.PAGES_FILTER); PAGES.splice(0, PAGES.length, ...PAGES.filter((x) => re.test(x))); }
@@ -183,8 +184,13 @@ if (WITH_UI) {
       return bad.length || e2.length ? [...bad, ...e2.slice(0, 2)].join('；') : 'ok';
     };
     for (const f of FEATURES.filter((x) => x.id.startsWith('U'))) for (const t of f.cases) await record(t, role, async () => { const r = await t.run(page, c); await page.keyboard.press('Escape').catch(() => {}); return r; });
+    if (SHOTS) shotJobs.push([role, c, login, open]);
+    await page.close();
+  }
+  // 先出报告，再截图：截图阶段内存不够被杀时，用例结果不会丢
+  report(false);
     // 截图总览：每个页面手机 390 / 电脑 1440 各一张（整页，最长截到 2400px）
-    if (SHOTS) {
+  const takeShots = async (role, c, login, open) => {
       mkdirSync(SHOTS, { recursive: true });
       const extra = [`#/review/${c.session}`, ...(c.zhExam ? [`/chinese/#/review/${c.zhExam}`] : [])];
       for (const [w, h] of [[390, 844], [1440, 900]]) {
@@ -204,9 +210,8 @@ if (WITH_UI) {
         }
         await pg.close();
       }
-    }
-    await page.close();
-  }
+    };
+  for (const job of shotJobs) await takeShots(...job);
   await browser.close();
 }
 
@@ -220,7 +225,13 @@ ${pages.map((pg) => `<section><h2>${esc(pg)}</h2><div class="row">${shotList.fil
   console.log(`截图 ${shotList.length} 张：${SHOTS}/index.html`);
 }
 
+report(true);
+
 // ───────── 报告 ─────────
+// final=false：用例跑完、截图之前先写一次；final=true：最后再打印汇总并退出
+var reported; // var：上面 UI 段先调用 report(false)，用 let 会在声明前访问报错
+function report(final) {
+  if (reported != null) { if (final) process.exit(reported ? 1 : 0); return; }
 let pass = 0, fail = 0, skip = 0;
 const cell = (r) => (!r ? '' : r.skip ? '—' : r.ok ? `✓ ${show(r.actual)}` : `✗ 实际 ${show(r.actual)}，应为 ${show(r.expect)}`);
 const lines = [`# 标准测试报告`, '', `被测：${BASE}　时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`, ''];
@@ -249,4 +260,7 @@ for (const f of FEATURES) for (const t of f.cases) {
   if (mark.includes('✗')) console.log(`  ✗ ${t.id} ${t.name}\n      ${Object.entries(ROLES).map(([k, n]) => `${n}：${cell(r[k])}`).join('\n      ')}`);
 }
 console.log(`\n${fail ? `失败 ${fail}` : '全部通过'}：执行 ${pass + fail} 次，通过 ${pass}，失败 ${fail}，不适用 ${skip}　（${roleSum}）`);
-process.exit(fail ? 1 : 0);
+  reported = fail;
+  if (final) process.exit(fail ? 1 : 0);
+}
+
