@@ -1,7 +1,7 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
-import { sideNav } from '/assets/sidenav.js?v=20261106g';
+import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261107b';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';

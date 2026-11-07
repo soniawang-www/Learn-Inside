@@ -7,6 +7,7 @@ import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 import { registerBilling, SAMPLES } from './billing.js';
 import { judge, normalizeInput } from './answers.js';
+import { registerEnglish } from './english.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
@@ -17,10 +18,12 @@ const FAMILIES = [
   { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true, subject: 'math' },
   // 语文（learn-inside.com/chinese）
   { id: 'hanzi', name: '汉字小达人', prefix: 'hanzi-', desc: '上海市小学生「美丽汉字小达人」：150 题，40 分钟', subject: 'chinese' },
+  // 英语（learn-inside.com/english）：口语 / 写作练习题库，不走考试流程（接口在 worker/english.js）
+  { id: 'esdp', name: 'ESDP', prefix: 'esdp-', desc: '全国中小学生英语演讲与辩论五项大赛：口语、写作', subject: 'english' },
 ];
 const familyOf = (examOrProblemId) => FAMILIES.find((f) => String(examOrProblemId).startsWith(f.prefix)) || null;
 // 科目：数学、语文的成绩和错题分开（画像、知识图谱目前只有数学）
-const SUBJECTS = ['math', 'chinese'];
+const SUBJECTS = ['math', 'chinese', 'english'];
 const subjectOf = (examOrProblemId) => familyOf(examOrProblemId)?.subject || 'math';
 const subjectParam = (url) => (SUBJECTS.includes(url?.searchParams.get('subject')) ? url.searchParams.get('subject') : 'math');
 let migrated = null;
@@ -76,6 +79,7 @@ const route = (method, pattern, handler) => {
 };
 
 const billing = registerBilling({ route, json, HttpError, body, requireAccount, uid, now });
+registerEnglish({ route, json, HttpError, body, requireAccount, requireStudent, billing, uid, now });
 
 // 加入试用：邀请码 + 孩子昵称 → 返回 token
 route('POST', '/api/auth/join', async (req, env) => {
@@ -141,6 +145,8 @@ route('POST', '/api/sessions', async (req, env) => {
   const acc = await requireAccount(req, env);
   const { exam_id, student_id, mode = 'exam', kp_id, problem_ids, purpose } = await body(req);
   await requireStudent(env, acc, student_id);
+  // 英语题库是练习用的，不能当试卷开考
+  if ([exam_id, ...(Array.isArray(problem_ids) ? problem_ids : [])].some((x) => familyOf(x ?? '')?.subject === 'english')) throw new HttpError(400, '英语题库不能开考');
   const id = uid();
   const t = now();
   if (kp_id || problem_ids) {

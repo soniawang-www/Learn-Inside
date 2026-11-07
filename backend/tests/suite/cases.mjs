@@ -15,6 +15,8 @@ const SAMPLE = 'amc8-2026-p01'; // 免费样板（2026 年互动解析）
 const SAMPLE_KP = 'geo.area'; // 免费样板知识项突击
 const KP = 'cnt.perm'; // 普通知识项
 const HOPE = 'hope-2019w-g4'; // 希望数学试点卷
+const EN_BANK = 'esdp-speak-low'; // 英语 ESDP 小低口语题库
+const EN_ITEM = `${EN_BANK}-p05`; // 普通题（不是免费样题）
 const same = (v) => ({ guest: v, user: v, member: v });
 const st = (r) => r.status;
 
@@ -203,6 +205,28 @@ export const FEATURES = [
       return got.join(',') === want ? 'ok' : `应在 ${want}，实际在 ${got.join(',') || '无'}`;
     }, expect: same('ok') },
     { id: 'I1-3', name: '不能自己改价格（下单只认套餐 id）', run: async (c) => st(await c.post('/api/pay/create', { plan: 'math.month', amount: '0.01', price: 0.01 })), expect: { guest: 403, user: 200, member: 200 } },
+  ] },
+
+  // ───────── E 英语 · ESDP（题目和思路免费；提纲、参考句子、背诵按英语会员 / 次数解锁；数学会员不含英语） ─────────
+  { id: 'E1', area: '英语', name: 'ESDP 题库与练习记录', cases: [
+    { id: 'E1-1', name: '题库列表有小低、小高两个口语题库', run: async (c) => (await c.get(`/api/english/banks?student=${c.sid}`)).data.banks.filter((b) => b.id.startsWith('esdp-speak-')).length, expect: same(2) },
+    { id: 'E1-2', name: '小低口语题库有题，分复赛问答 / 即兴演讲两类', run: async (c) => { const d = (await c.get(`/api/english/banks/${EN_BANK}?student=${c.sid}`)).data; return d.items.length > 50 && [1, 2].every((s) => d.items.some((x) => x.section === s)); }, expect: same(true) },
+    { id: 'E1-3', name: '题目和思路免费', run: async (c) => { const d = (await c.get(`/api/english/items/${EN_ITEM}`)).data; return !!(d.stem && d.stem_zh && d.tips); }, expect: same(true) },
+    { id: 'E1-4', name: '样题（第 1 题）的提纲和参考句子免费', run: async (c) => { const m = (await c.get(`/api/english/items/${EN_BANK}-p01`)).data.model; return m.locked ? 'locked' : m.paras?.length ? 'open' : 'empty'; }, expect: same('open') },
+    { id: 'E1-5', name: '普通题的提纲和参考句子锁着（数学会员也不含英语）', run: async (c) => (await c.get(`/api/english/items/${EN_ITEM}`)).data.model.locked ? 'locked' : 'open', expect: same('locked') },
+    { id: 'E1-6', name: '英语题库不能当试卷开考', run: async (c) => st(await c.post('/math/api/sessions', { exam_id: EN_BANK, student_id: c.sid, mode: 'exam' })), expect: same(400) },
+    { id: 'E1-7', name: '记一次口语练习，题库里显示练过', run: async (c) => { await c.post('/api/english/practice', { student_id: c.sid, problem_id: EN_ITEM, kind: 'speak', seconds: 75 }); const d = (await c.get(`/api/english/banks/${EN_BANK}?student=${c.sid}`)).data; return d.items.find((x) => x.id === EN_ITEM).practiced; }, expect: same(1) },
+    { id: 'E1-8', name: '10 秒内重复提交只记一次', run: async (c) => { await c.post('/api/english/practice', { student_id: c.sid, problem_id: EN_ITEM, kind: 'speak', seconds: 75 }); return (await c.get(`/api/english/items/${EN_ITEM}?student=${c.sid}`)).data.practiced; }, expect: same(1) },
+    { id: 'E1-9', name: '「背会了」单独计数', run: async (c) => { await c.post('/api/english/practice', { student_id: c.sid, problem_id: `${EN_BANK}-p03`, kind: 'learn' }); const d = (await c.get(`/api/english/banks?student=${c.sid}`)).data; return d.banks.find((b) => b.id === EN_BANK).learned; }, expect: same(1) },
+    { id: 'E1-10', name: '写作按英文单词计字数', run: async (c) => (await c.post('/api/english/practice', { student_id: c.sid, problem_id: `${EN_BANK}-p04`, kind: 'write', text: "I like my school. It's big!" })).data.words, expect: same(6) },
+    { id: 'E1-11', name: '不能给别人家的孩子记练习', run: async (c) => st(await c.post('/api/english/practice', { student_id: c.outsider.sid, problem_id: EN_ITEM, kind: 'speak', seconds: 10 })), expect: same(404) },
+    { id: 'E1-12', name: '练习类型和题目校验', run: async (c) => `${st(await c.post('/api/english/practice', { student_id: c.sid, problem_id: EN_ITEM, kind: 'hack' }))}/${st(await c.post('/api/english/practice', { student_id: c.sid, problem_id: 'amc8-2024-p01', kind: 'speak' }))}`, expect: same('400/400') },
+  ] },
+  { id: 'E2', area: '英语', name: 'ESDP 示范回答解锁', cases: [
+    { id: 'E2-1', name: '用 1 次免费次数解锁一道英语题', run: async (c) => { if (c.role !== 'guest') await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_credits', value: 1, reason: '标准测试：英语解锁' }); return st(await c.post('/api/unlock', { item: `adv:${EN_ITEM}` })); }, expect: { guest: 402, user: 200, member: 200 } },
+    { id: 'E2-2', name: '解锁后能看提纲和参考句子', run: async (c) => { const m = (await c.get(`/api/english/items/${EN_ITEM}`)).data.model; return m.locked ? 'locked' : m.paras?.length ? 'open' : 'empty'; }, expect: { guest: 'locked', user: 'open', member: 'open' } },
+    { id: 'E2-3', name: '英语会员能看所有题', run: async (c) => { if (c.role === 'member') await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'english', reason: '标准测试：英语会员' }); return (await c.get(`/api/english/items/${EN_BANK}-p40`)).data.model.locked ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
+    { id: 'E2-4', name: '账号页有英语会员套餐', run: async (c) => (await c.get('/api/account')).data.plans.some((p) => p.scope === 'english'), expect: same(true) },
   ] },
 
   // ───────── J 游客转正（只对游客，最后执行） ─────────

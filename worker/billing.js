@@ -6,7 +6,7 @@
 //   会员有效期内 → 全部放开
 //   用过 1 次解锁的内容（unlock 表）→ 永久可看
 //   其余：用 1 次免费次数解锁（新账号送 FREE_CREDITS 次），次数用完提示开通会员
-// 解锁项：adv:<题目 id> 一道题的互动解析；drill:<知识项 id> 一个知识项的真题突击（都属于数学）
+// 解锁项：adv:<题目 id> 一道题的互动解析（esdp- 开头的是英语示范回答）；drill:<知识项 id> 一个知识项的真题突击（数学）
 //
 // 全站一套账号；会员分科目（entitlement.tier = math / chinese）和全科（all），全科包含所有科目。
 // 免费次数全站共用。接口在 /api/ 下（/math/api/ 也能访问，兼容旧页面）。
@@ -14,11 +14,14 @@
 import { payUrl, verifyNotify, queryTrade, refundTrade, refundQuery, closeTrade, keyStatus } from './alipay.js';
 
 export const FREE_CREDITS = 10;
-export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio'] };
+// 英语：每个题库前 2 题的提纲、参考句子、背诵免费（让家长看到完整的学习流程）
+export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio'],
+  items: ['esdp-speak-low-p01', 'esdp-speak-low-p02', 'esdp-speak-high-p01', 'esdp-speak-high-p02', 'esdp-write-low-p01', 'esdp-write-low-p02', 'esdp-write-high-p01', 'esdp-write-high-p02'] };
 // 会员种类：live = 已经上线、账号页显示套餐
 export const SCOPES = [
   { id: 'math', name: '数学', live: true },
   { id: 'chinese', name: '语文', live: false },
+  { id: 'english', name: '英语', live: true }, // 价格在控制台加 PRICE_ENGLISH_MONTH / QUARTER / YEAR
   { id: 'all', name: '全科', live: false }, // 现在只有数学，全科先不卖；开语文时一起打开
 ];
 export const PERIODS = [
@@ -26,8 +29,8 @@ export const PERIODS = [
   { id: 'quarter', name: '季卡', days: 92 },
   { id: 'year', name: '年卡', days: 366 },
 ];
-// 解锁项属于哪个科目
-const KIND_SUBJECT = { adv: 'math', drill: 'math' };
+// 解锁项属于哪个科目：adv:<题目 id> 按题目前缀分（esdp- 是英语的示范回答），drill 是数学知识项
+const itemSubject = (kind, id) => (kind === 'adv' && String(id).startsWith('esdp-') ? 'english' : 'math');
 const SUBJECTS = SCOPES.filter((x) => x.id !== 'all').map((x) => x.id);
 const DAY = 86400000;
 
@@ -116,7 +119,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
   }
   const isSample = (item) => {
     const [kind, id] = item.split(':');
-    if (kind === 'adv') return SAMPLES.exams.some((e) => id.startsWith(e + '-p'));
+    if (kind === 'adv') return SAMPLES.exams.some((e) => id.startsWith(e + '-p')) || SAMPLES.items.includes(id);
     if (kind === 'drill') return SAMPLES.drills.includes(id);
     return false;
   };
@@ -271,7 +274,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     } else if (kind === 'drill') {
       if (!(await env.DB.prepare('SELECT 1 FROM knowledge_point WHERE id = ?').bind(id).first())) throw new HttpError(404, '知识项不存在');
     } else throw new HttpError(400, '解锁项不合法');
-    const ctx = await accessCtx(env, acc, KIND_SUBJECT[kind]);
+    const ctx = await accessCtx(env, acc, itemSubject(kind, id));
     if (ctx.can(item)) return json({ ok: true, charged: false, credits: ctx.credits });
     const r = await env.DB.prepare('UPDATE account SET credits = credits - 1 WHERE id = ? AND credits > 0').bind(acc.id).run();
     if (!r.meta.changes) return json({ error: '免费次数用完了', need: 'member', credits: 0 }, 402);

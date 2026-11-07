@@ -3,7 +3,7 @@
 //       #/mistakes（错题本）  #/join（登录 / 注册）
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261106g';
+import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261107b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');

@@ -191,8 +191,17 @@ export const UI_FEATURES = [
       await q.waitForURL(/\/chinese\//, { timeout: 15000 }); const r = q.url().endsWith('/chinese/#/hanzi'); await ctx.close(); return r;
     }, expect: { guest: true, user: 'skip', member: 'skip' } },
   ] },
+  { id: 'U16', area: '英语', name: '英语 · ESDP', cases: [
+    { id: 'U16-1', name: '英语首页：ESDP 卡片', run: async (p, c) => { await c.go('/english/'); return await p.locator('a.fam-card[href="#/esdp"]').count(); }, expect: same(1) },
+    { id: 'U16-2', name: 'ESDP 页：组别切换、3 个模拟比赛、按话题学 4 行', run: async (p, c) => { await c.go('/english/#/esdp'); return `${await p.locator('.seg button').count()}/${await p.locator('.mode').count()}/${await p.locator('.learn-row').count()}`; }, expect: same('2/3/4') },
+    { id: 'U16-3', name: '学习页样题：一步步打开提示 → 提纲 → 参考句子 → 背诵', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p01'); const n0 = await p.locator('.step.shut').count(); await p.locator('[data-reveal="4"]').click(); return `${n0}/${await p.locator('.step.shut').count()}/${await p.locator('.recite .rc').count() > 0}`; }, expect: same('4/0/true') },
+    { id: 'U16-4', name: '背诵：挖空模式能点开空', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p01'); await p.locator('[data-reveal="4"]').click(); await p.locator('[data-mode="holes"]').click(); const h = p.locator('.hole').first(); await h.click(); return await h.evaluate((e) => e.classList.contains('open')); }, expect: same(true) },
+    { id: 'U16-5', name: '没解锁的题：显示解锁按钮', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p30'); return await p.locator('[data-unlock]').count(); }, expect: same(1) },
+    { id: 'U16-6', name: '模拟半决赛：选不准备 → 开始说 → 计时 → 说完了出结果', run: async (p, c) => { await c.go('/english/#/speech/esdp-speak-high-p05'); await p.locator('[data-prep="0"]').click(); await p.locator('#go').click(); await p.locator('#stop').waitFor(); await p.waitForTimeout(1200); await p.locator('#stop').click(); await p.locator('.result').waitFor(); return await p.locator('.checks label').count(); }, expect: same(5) },
+    { id: 'U16-7', name: '模拟复赛：连答 3 题出结果', run: async (p, c) => { await c.go('/english/#/interview'); await p.locator('#go').click(); for (let i = 0; i < 3; i++) { await p.locator('#nx').waitFor(); await p.locator('#nx').click(); } await p.locator('.result').waitFor(); return await p.locator('.iv-list .q-row').count(); }, expect: same(3) },
+  ] },
   { id: 'U12', area: '界面', name: '左侧导航', cases: [
-    { id: 'U12-1', name: '导航项：首页 / 数学 / 语文 / 英语（即将上线，不能点）/ 账号 + 联系客服', run: async (p, c) => { await c.go('#/'); const a = (await p.locator('.side .sn-nav > a span').allTextContents()).join('/'); return `${a}/${(await c.text('.side .sn-soon')).replace(/\s/g, '')}/${await p.locator('.side .sn-help').count()}`; }, expect: same('首页/数学/语文/账号/英语即将上线/1') },
+    { id: 'U12-1', name: '导航项：首页 / 数学 / 语文 / 英语 / 账号 + 联系客服', run: async (p, c) => { await c.go('#/'); const a = (await p.locator('.side .sn-nav > a span').allTextContents()).join('/'); return `${a}/${await p.locator('.side .sn-soon').count()}/${await p.locator('.side .sn-help').count()}`; }, expect: same('首页/数学/语文/英语/账号/0/1') },
     { id: 'U12-2', name: '数学、语文、账号页都有同一个导航（首页没有）', run: async (p, c) => { const n = []; for (const u of ['#/', '/chinese/', '/account/', '/']) { await c.go(u); n.push(await p.locator('.side').count()); } return n.join(''); }, expect: same('1110') },
     { id: 'U12-3', name: '电脑：收起导航，刷新后还是收起的', run: async (p, c) => { await c.go('#/'); await p.click('[data-sidefold]'); await c.go('#/'); const mini = await p.evaluate(() => document.documentElement.classList.contains('side-mini')); await p.click('[data-sidefold]'); return `${mini}/${await p.evaluate(() => document.documentElement.classList.contains('side-mini'))}`; }, expect: same('true/false') },
     { id: 'U12-4', name: '手机：菜单在左上角、logo 在右上角，导航从左边滑出，点遮罩关上', run: async (p, c) => {
@@ -231,7 +240,7 @@ export const UI_FEATURES = [
     { id: 'U13-4', name: '网快时换页：不出骨架也不弹漫画', run: async (p, c) => { await c.go('#/contest/amc8'); await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(250); return `${await p.locator('.sk').count()}/${await p.locator('.li-load').count()}`; }, expect: same('0/0') },
   ] },
   { id: 'U14', area: '界面', name: '网站首页', cases: [
-    { id: 'U14-1', name: '数学、语文两张科目卡片 + 英语「即将上线」', run: async (p, c) => { await c.go('/'); return `${await p.locator('a.subj').count()}/${(await c.text('.subj-soon')).replace(/\s/g, '')}`; }, expect: same('2/英语即将上线') },
+    { id: 'U14-1', name: '数学、语文、英语三张科目卡片', run: async (p, c) => { await c.go('/'); return `${await p.locator('a.subj').count()}/${await p.locator('.subj-soon').count()}`; }, expect: same('3/0') },
     { id: 'U14-2', name: '漫画弹窗：新访客弹，做过题的不弹（看「继续上次」）', run: async (p, c) => {
       const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(c.base + '/'); await q.waitForTimeout(1200);
       const fresh = await q.locator('#promo').isVisible(); await ctx.close();

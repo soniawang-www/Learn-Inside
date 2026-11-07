@@ -5,3 +5,5 @@
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
+/english/*
+  Cache-Control: no-cache
