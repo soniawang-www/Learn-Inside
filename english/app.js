@@ -2,6 +2,7 @@
 // 两条线：模拟比赛（按赛制限时）和按话题学（提示 → 提纲 → 参考句子 → 背诵）。
 // 路由：#/（英语首页）  #/esdp（ESDP：组别、模拟比赛、按话题学、赛制）  #/bank/:id?s=轮次（话题列表）
 //       #/learn/:题目 id（学一个话题）  #/interview（模拟复赛：连问几题）  #/speech/:题目 id（模拟半决赛：准备 → 限时演讲）
+//       （决赛定题的题目进 #/speech 时走模拟决赛：准备 5 分钟 → 演讲 2 分钟 → 评委 2 问）
 //       #/write/:题目 id（模拟写作）  #/draw/:题库?s=轮次（抽一题）  #/phrases（句型和名言）  #/join（登录 / 注册，在全站账号页）
 // 账号全站通用：和数学、语文共用 li.token / li.student。接口在 /api/english/（worker/english.js）。
 
@@ -67,11 +68,13 @@ const GROUPS = [
   { id: 'low', name: '小低组', grades: '1–3 年级', limit: 90, words: 100 },
   { id: 'high', name: '小高组', grades: '4–5 年级', limit: 120, words: 150 },
 ];
-const ROUNDS = { 1: '复赛问答', 2: '即兴演讲' };
+const ROUNDS = { 1: '复赛问答', 2: '即兴演讲', 3: '决赛定题' };
 const grpOf = (bankOrItemId) => (String(bankOrItemId).includes('-high') ? GROUPS[1] : GROUPS[0]);
 const isWrite = (id) => String(id).startsWith('esdp-write-');
 const curGroup = () => GROUPS.find((g) => g.id === store.get('en.grp')) || GROUPS[0];
 const TAG = { open: '开头', body: '展开', example: '举例', close: '结尾' };
+const isReal = (x) => (x.tags || []).some((t) => t.id === 'real');
+const realTag = (x, full = true) => (x.tags || []).filter((t) => t.id === 'real').map((t) => `<span class="tag real">真题${full ? ` · ${esc(t.name)}` : ''}</span>`).join('');
 
 function topnav(active = '') {
   const who = me ? { name: me.guest ? '游客 · 注册' : auth.student?.nickname || '账号', note: me.guest ? '注册送 10 次' : '' } : null;
@@ -150,9 +153,11 @@ const recentCard = (recent) => (recent?.length ? `<section class="card"><div cla
     <small>${r.kind === 'write' ? `${r.words ?? 0} 词` : ms(r.seconds || 0)} · ${day(r.created_at)}</small></a>`).join('')}</div></section>` : '');
 
 // ───────── ESDP 页：练习（按赛制模拟）+ 学习（按话题） ─────────
-// 赛制（按讲义和往年经验；以当届通知为准）：复赛 = 评委连续问几个个人问题，总时长约 2 分钟；
-// 半决赛 = 抽题即兴演讲，小低 1.5 分钟、小高 2 分钟；写作 = 小低 100 词、小高 150 词以内。
-const MOCK = { interviewQs: 3, interviewSec: 120, speechPrep: 60, writeMin: 20 };
+// 赛制（上海赛区官方通知，以当届通知为准）：
+//   复选 = 面试，无准备，含评委提问不超过 2 分钟；半决选 = 5 秒读题 + 15 秒构思，即兴演讲不超过 1.5 分钟；
+//   决选第 2 轮 = 定题演讲，准备 5 分钟，讲 2 分钟，再答评委 2 个问题（共 1.5 分钟）；
+//   写作 = 初选 30 分钟、复选和决选 45 分钟，小低约 100 词、小高约 150 词。
+const MOCK = { interviewQs: 3, interviewSec: 120, speechPrep: 15, speechSec: 90, finalPrep: 300, finalSec: 120, finalQaSec: 90 };
 async function renderEsdp() {
   const g = curGroup();
   const d = await api(`/api/english/banks?student=${enc(auth.student.id)}`);
@@ -172,30 +177,33 @@ async function renderEsdp() {
     <h2 class="sec-h">模拟比赛</h2>
     <div class="modes">
       ${mock('复赛', `评委连问 ${MOCK.interviewQs} 题，即问即答，共 ${ms(MOCK.interviewSec)}`, '#/interview', of(sb, 1).length)}
-      ${mock('半决赛', `抽题，准备 ${MOCK.speechPrep} 秒，演讲限时 ${ms(g.limit)}`, `#/draw/${sid}?s=2`, of(sb, 2).length)}
-      ${mock('写作', `抽题，${MOCK.writeMin} 分钟，${g.words} 词以内`, `#/draw/${wid}`, of(wb).length)}
+      ${mock('半决赛', `抽题，${MOCK.speechPrep} 秒构思，即兴演讲 ${ms(MOCK.speechSec)}`, `#/draw/${sid}?s=2`, of(sb, 2).length)}
+      ${mock('决赛', `定题演讲：准备 ${MOCK.finalPrep / 60} 分钟，讲 ${ms(MOCK.finalSec)}，再答评委 2 问`, `#/draw/${sid}?s=3`, of(sb, 3).length)}
+      ${mock('写作', `抽题，30 或 45 分钟，${g.words} 词左右`, `#/draw/${wid}`, of(wb).length)}
     </div>
     <h2 class="sec-h">按话题学</h2>
     <div class="card learn-list">
       ${learn('复赛问答', `#/bank/${sid}?s=1`, of(sb, 1))}
       ${learn('即兴演讲', `#/bank/${sid}?s=2`, of(sb, 2))}
+      ${learn('决赛定题', `#/bank/${sid}?s=3`, of(sb, 3))}
       ${learn('写作', `#/bank/${wid}`, of(wb))}
       <a class="learn-row" href="#/phrases"><b>句型和名言</b><span class="lr-n">「总-分-总」句型 · 10 句百搭名言</span><span></span><small></small><i class="go">›</i></a>
     </div>
     <section class="card">
       <div class="card-h"><h2>赛制</h2></div>
       <table class="tbl rules-t"><tbody>
-        <tr><th>复赛</th><td>线上面试，评委就个人学习、生活、兴趣即时问答</td><td class="num">11–12 月</td></tr>
-        <tr><th>半决赛</th><td>当场抽题即兴演讲，从「谈自己」到「发表观点」</td><td class="num">12–1 月</td></tr>
-        <tr><th>决赛</th><td>当场给定主题演讲，题目更宏大、更看重思辨</td><td class="num">12–1 月</td></tr>
-        <tr><th>写作季</th><td>小低 100 词、小高 150 词以内</td><td class="num">1–3 月</td></tr>
+        <tr><th>初选</th><td>自拟题目原创演讲，不超过 1.5 分钟</td><td class="num">10–11 月</td></tr>
+        <tr><th>复选</th><td>线上面试，评委就学习、生活、兴趣即时提问；没有准备时间，含提问不超过 2 分钟</td><td class="num">11 月</td></tr>
+        <tr><th>半决选</th><td>屏幕出题，5 秒读题 + 15 秒构思，即兴演讲不超过 1.5 分钟</td><td class="num">12 月</td></tr>
+        <tr><th>决选</th><td>第 1 轮即兴演讲；第 2 轮定题演讲，准备 5 分钟、讲 2 分钟，再答评委 2 个问题</td><td class="num">12–1 月</td></tr>
+        <tr><th>写作季</th><td>当场出题，初选 30 分钟，复选和决选 45 分钟；小低约 100 词，小高约 150 词</td><td class="num">1–3 月</td></tr>
       </tbody></table>
       <div class="crit">
-        <div><b>口语</b><span>听懂问题，发音清楚，语调自然，流利，语速适中</span></div>
-        <div><b>逻辑</b><span>观点明确，结构清楚，推荐「总-分-总」</span></div>
-        <div><b>礼仪</b><span>自信大方，微笑，和评委有眼神交流</span></div>
+        <div><b>内容 60</b><span>结构清晰，表达完整，素材得当</span></div>
+        <div><b>语言 20</b><span>发音、语调、停顿、流利、用词</span></div>
+        <div><b>台风 20</b><span>仪态、表情、肢体、眼神交流</span></div>
       </div>
-      <p class="small muted">时间和时长以当届比赛通知为准。</p>
+      <p class="small muted">赛制按上海赛区往届通知，评分比例为云南赛区公布；以当届比赛通知为准。</p>
     </section>`, 'home');
   $app.querySelectorAll('[data-grp]').forEach((b) => (b.onclick = () => { store.set('en.grp', b.dataset.grp); renderEsdp(); }));
 }
@@ -224,7 +232,8 @@ async function renderBank(bankId, q) {
   const f = q.get('f') || '';
   const write = isWrite(bankId);
   const all = d.items.filter((x) => !s || String(x.section) === s);
-  const list = all.filter((x) => (f === 'new' ? !x.learned : f === 'done' ? x.learned : true));
+  const list = all.filter((x) => (f === 'new' ? !x.learned : f === 'done' ? x.learned : f === 'real' ? isReal(x) : true));
+  const nReal = all.filter(isReal).length;
   const g = grpOf(bankId);
   const title = write ? '写作' : ROUNDS[s] || '口语';
   const base = `#/bank/${bankId}${s ? `?s=${s}&` : '?'}`;
@@ -234,11 +243,12 @@ async function renderBank(bankId, q) {
       <a class="chip${!f ? ' on' : ''}" href="${base}">全部</a>
       <a class="chip${f === 'new' ? ' on' : ''}" href="${base}f=new">没背会</a>
       <a class="chip${f === 'done' ? ' on' : ''}" href="${base}f=done">背会了 ${all.filter((x) => x.learned).length}</a>
+      ${nReal ? `<a class="chip${f === 'real' ? ' on' : ''}" href="${base}f=real">真题 ${nReal}</a>` : ''}
     </div>
     <div class="card qlist">${list.length ? list.map((x) => `<a class="q-row" href="#/learn/${enc(x.id)}">
       <span class="q-n">${x.number}</span>
       <span class="q-t"><span lang="en">${esc(x.stem)}</span><small>${esc(x.stem_zh || '')}</small></span>
-      <span class="q-m">${x.learned ? '<i class="tag ok">背会</i>' : ''}${x.practiced ? `<i class="tag">练 ${x.practiced}</i>` : ''}</span></a>`).join('') : '<p class="muted">暂无</p>'}</div>
+      <span class="q-m">${realTag(x, false)}${x.learned ? '<i class="tag ok">背会</i>' : ''}${x.practiced ? `<i class="tag">练 ${x.practiced}</i>` : ''}</span></a>`).join('') : '<p class="muted">暂无</p>'}</div>
     <p class="small muted center">${esc(d.bank.origin || '')}</p>`, 'home');
 }
 
@@ -279,7 +289,7 @@ async function renderLearn(id) {
       <button class="link-btn" data-show="${i}">看英文</button></div>`).join('') : '';
   page(`<a class="small back" href="${backTo}">← ${write ? '写作' : ROUNDS[d.section]} · ${g.name}</a>
     <div class="card learn-top">
-      <div class="spk-top"><span class="tag ok">${write ? '写作' : ROUNDS[d.section]}</span><span class="small muted">第 ${d.number} 题${write ? ` · ${g.words} 词以内` : ''}</span></div>
+      <div class="spk-top"><span class="tag ok">${write ? '写作' : ROUNDS[d.section]}</span><span class="small muted">第 ${d.number} 题${write ? ` · ${g.words} 词以内` : ''}</span>${realTag(d)}</div>
       <h1 class="topic" lang="en">${txt(d.stem)}</h1>
       <p class="topic-zh">${esc(d.stem_zh || '')}</p>
     </div>
@@ -372,18 +382,19 @@ async function startRec() {
 }
 
 // ───────── 模拟半决赛：抽题 → 准备 → 限时演讲 → 回放 ─────────
-const PREPS = [[0, '不准备'], [30, '30 秒'], [60, '1 分钟'], [120, '2 分钟']];
+const PREPS = [[15, '15 秒'], [60, '1 分钟'], [120, '2 分钟'], [0, '不准备']];
 async function renderSpeech(id) {
   const d = await api(`/api/english/items/${enc(id)}?student=${enc(auth.student.id)}`);
+  if (d.section === 3) return renderFinal(d);
   const g = grpOf(d.bank);
-  const limit = g.limit;
+  const limit = MOCK.speechSec;
   let prep = store.get('en.prep', MOCK.speechPrep);
   if (!PREPS.some(([s]) => s === prep)) prep = MOCK.speechPrep;
   const drawn = /[?&]draw=/.test(location.hash);
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
-      <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span></div>
+      <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}</div>
       <h1 class="topic" lang="en">${esc(d.stem)}</h1>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
@@ -450,6 +461,69 @@ async function renderSpeech(id) {
   stageReady();
 }
 const checks = (list) => `<div class="checks"><b>听一遍，对照检查</b>${list.map((c) => `<label><input type="checkbox"> ${c}</label>`).join('')}</div>`;
+
+// ───────── 模拟决赛：定题演讲，准备 5 分钟 → 演讲 2 分钟 → 评委 2 个问题（共 1.5 分钟） ─────────
+// 第 1 问针对演讲内容（思路里「评委可能追问」的那句，没有就用通用追问），第 2 问是开放问题（从复赛问答里抽）
+const FOLLOW_UPS = ['Why did you choose this example?', 'What did you learn from this experience?', 'Can you tell us more about the most important point in your speech?'];
+async function renderFinal(d) {
+  const g = grpOf(d.bank);
+  const bank = await loadBank(d.bank);
+  const fromTips = (d.tips || '').match(/[A-Z][^。！？\n]*\?/g) || [];
+  const q1 = fromTips[0] || FOLLOW_UPS[Math.floor(Math.random() * FOLLOW_UPS.length)];
+  const [q2] = pickFrom(bank.items.filter((x) => x.section === 1));
+  let timer = null, r = null, audioUrl = null;
+  page(`<a class="small back" href="#/esdp">← ESDP</a>
+    <div class="spk card">
+      <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}</div>
+      <h1 class="topic" lang="en">${esc(d.stem)}</h1>
+      <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
+      <button class="link-btn" id="zh">看中文意思</button>
+      <div id="stage"><ol class="rules">
+        <li>准备 ${MOCK.finalPrep / 60} 分钟，可以在纸上列提纲。</li>
+        <li>演讲 ${ms(MOCK.finalSec)}，脱稿。</li>
+        <li>讲完评委问 2 个问题：一个关于你的演讲，一个开放问题，两题共 ${ms(MOCK.finalQaSec)}。</li></ol>
+        <div class="actions"><button class="btn primary big" id="go">开始准备</button></div></div>
+    </div>`, 'home');
+  cleanup = () => { clearInterval(timer); r?.kill(); if (audioUrl) URL.revokeObjectURL(audioUrl); };
+  const $s = $app.querySelector('#stage');
+  $app.querySelector('#zh').onclick = (e) => { const p = $app.querySelector('.topic-zh'); p.hidden = !p.hidden; e.target.textContent = p.hidden ? '看中文意思' : '收起中文'; };
+  // 一段计时：倒计时（准备）或正计时（演讲、答问），返回用时
+  const clock = (label, sec, down, btn, extra = '') => new Promise((resolve) => {
+    $s.innerHTML = `<div class="clock ${down ? 'prep' : 'talk'}" id="clock"><span>${label}</span><b id="clk">${ms(down ? sec : 0)}</b><small>${down ? '' : `限时 ${ms(sec)}`}</small>
+      <div class="lim"><i id="lim"></i></div></div>${extra}
+      <div class="actions"><button class="btn primary big" id="nx">${btn}</button></div>`;
+    const t0 = performance.now();
+    const tick = () => {
+      const el = (performance.now() - t0) / 1000;
+      const c = $s.querySelector('#clock'); if (!c) return el;
+      $s.querySelector('#clk').textContent = ms(down ? Math.ceil(Math.max(0, sec - el)) : el);
+      $s.querySelector('#lim').style.width = `${Math.min(100, (el / sec) * 100)}%`;
+      if (!down) { c.classList.toggle('near', el >= sec - 15 && el < sec); c.classList.toggle('over', el >= sec); }
+      if (down && el >= sec) { clearInterval(timer); resolve(el); }
+      return el;
+    };
+    timer = setInterval(tick, 200);
+    $s.querySelector('#nx').onclick = () => { clearInterval(timer); resolve(tick()); };
+  });
+  $s.querySelector('#go').onclick = async () => {
+    await clock('准备', MOCK.finalPrep, true, '准备好了，开始演讲');
+    r = await startRec();
+    const rec = r ? '<i class="rec-dot"></i>录音中 · ' : '';
+    const talk = await clock(`${rec}演讲`, MOCK.finalSec, false, '讲完了');
+    const t1 = performance.now();
+    const qa1 = await clock(`${rec}评委提问 1 / 2`, MOCK.finalQaSec, false, '下一个问题', `<h2 class="topic qa" lang="en">${esc(q1)}</h2>`);
+    const qa2 = await clock(`${rec}评委提问 2 / 2`, Math.max(15, MOCK.finalQaSec - qa1), false, '答完了', `<h2 class="topic qa" lang="en">${esc(q2?.stem || FOLLOW_UPS[2])}</h2>`);
+    audioUrl = r ? await r.stop() : null; r = null;
+    const qa = (performance.now() - t1) / 1000;
+    api('/api/english/practice', { method: 'POST', body: { student_id: auth.student.id, problem_id: d.id, kind: 'speak', seconds: talk } }).catch(() => {});
+    practiced(d);
+    const row = (n, sec, lim) => `<div class="fr-row"><span>${n}</span><b class="num ${sec > lim ? 'over' : ''}">${ms(sec)}</b><small>/ ${ms(lim)}</small></div>`;
+    $s.innerHTML = `<div class="fin-res">${row('演讲', talk, MOCK.finalSec)}${row('答问', qa, MOCK.finalQaSec)}</div>
+      ${audioUrl ? `<audio controls src="${audioUrl}" class="play"></audio>` : ''}
+      ${checks(['开头点题，观点或主题一句话说清', '有一个打动人的具体故事或细节', '结尾升华，回到题目', '答问时先直接回答，再补一个理由或例子', '眼神看镜头，自信、有表情'])}
+      <div class="actions">${learnLink(d.id)}<a class="btn primary" href="#/draw/${d.bank}?s=3">换一题</a></div>`;
+  };
+}
 
 // ───────── 模拟复赛：评委连问几题，即问即答，总时长限时 ─────────
 async function renderInterview() {
@@ -523,11 +597,14 @@ async function renderWrite(id) {
   const g = grpOf(d.bank);
   const key = `en.draft.${id}`;
   const drawn = /[?&]draw=/.test(location.hash);
-  const limitSec = MOCK.writeMin * 60;
+  let wmin = store.get('en.wmin', 30);
+  if (![30, 45].includes(wmin)) wmin = 30;
+  let limitSec = wmin * 60;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="card wr">
-      <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词以内</span>
+      <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}
         <span class="wclock num" id="wclk">${ms(limitSec)}</span></div>
+      <div class="prep-pick" id="wmin"><span class="small muted">时长</span>${[[30, '30 分钟（初选）'], [45, '45 分钟（复选、决选）']].map(([m, n]) => `<button class="chip${m === wmin ? ' on' : ''}" data-wmin="${m}">${n}</button>`).join('')}</div>
       <h1 class="topic" lang="en">${txt(d.stem)}</h1>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
@@ -555,7 +632,12 @@ async function renderWrite(id) {
     $app.querySelector('.wc').classList.toggle('over', n > g.words);
     store.set(key, $t.value);
   };
-  $t.oninput = () => { if (t0 === null) t0 = performance.now(); upd(); };
+  $app.querySelectorAll('[data-wmin]').forEach((b) => (b.onclick = () => {
+    wmin = +b.dataset.wmin; store.set('en.wmin', wmin); limitSec = wmin * 60;
+    $app.querySelectorAll('[data-wmin]').forEach((x) => x.classList.toggle('on', x === b));
+    $app.querySelector('#wclk').textContent = ms(limitSec);
+  }));
+  $t.oninput = () => { if (t0 === null) { t0 = performance.now(); $app.querySelector('#wmin')?.remove(); } upd(); };
   upd();
   $app.querySelector('#done').onclick = async (e) => {
     const text = $t.value.trim();
