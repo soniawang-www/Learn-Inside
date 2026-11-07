@@ -150,7 +150,7 @@ function toggles(box, p, api) {
       const txt = st.text ?? it.label ?? '';
       g += `<g class="tg-i" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}">${esc(txt)}</text>` : ''}${it.sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.y + it.h) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(it.sub)}</text>` : ''}</g>`;
     }
-    g += run(F.fg, v, '') || '';
+    g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.tg-g').innerHTML = g;
     if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, v, ''); tex(el); }
     if (tip) { const t = run(tip, v, ''); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
@@ -230,7 +230,7 @@ function gridfill(box, p, api) {
       const cls = block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`;
       g += `<g class="gf-i" data-k="${k}"><rect x="${x}" y="${y}" width="${c}" height="${c}" class="${cls}"/>${val !== null && val !== undefined ? `<text x="${x + c / 2}" y="${y + c / 2 + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : ''}</g>`;
     }
-    g += run(F.fg, v, '') || '';
+    g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.gf-g').innerHTML = g;
     if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, v, ''); tex(el); }
     if (run(F.goal, v, false)) ok();
