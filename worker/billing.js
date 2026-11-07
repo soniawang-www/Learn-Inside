@@ -432,18 +432,27 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       last_active: last?.t || null, unlocked: un.n,
     };
   }
+  // type：member 会员（有没到期的会员）/ user 注册（绑了手机号、不是会员）/ guest 未注册（游客，没绑手机号）；不填 = 全部
   route('GET', '/api/admin/accounts', async (req, env, _p, url) => {
     requireAdmin(req, env);
     const q = (url.searchParams.get('q') || '').trim();
     const like = `%${q}%`;
+    const tiers = SCOPES.map((x) => x.id);
+    const isMember = `EXISTS (SELECT 1 FROM entitlement e WHERE e.account_id = a.id AND (e.expires_at IS NULL OR e.expires_at > ?) AND e.tier IN (${tiers.map(() => '?').join(',')}))`;
+    const TYPES = { member: isMember, user: `a.phone IS NOT NULL AND NOT ${isMember}`, guest: `a.phone IS NULL AND NOT ${isMember}` };
+    const type = TYPES[url.searchParams.get('type')] ? url.searchParams.get('type') : '';
+    const t = now();
     const { results } = await env.DB.prepare(
       `SELECT DISTINCT a.* FROM account a LEFT JOIN student s ON s.account_id = a.id
-        WHERE ? = '' OR a.phone LIKE ? OR s.nickname LIKE ? OR a.id = ? OR a.note LIKE ?
-        ORDER BY a.created_at DESC LIMIT 100`).bind(q, like, like, q, like).all();
+        WHERE (? = '' OR a.phone LIKE ? OR s.nickname LIKE ? OR a.id = ? OR a.note LIKE ?)${type ? ` AND ${TYPES[type]}` : ''}
+        ORDER BY a.created_at DESC LIMIT 100`).bind(q, like, like, q, like, ...(type ? [t, ...tiers] : [])).all();
     const out = [];
     for (const a of results) out.push(await accountRow(env, a));
-    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM account').first();
-    return json({ total: total.n, accounts: out });
+    const c = await env.DB.prepare(
+      `SELECT COUNT(*) AS total, SUM(m) AS member, SUM(CASE WHEN m = 0 AND phone IS NOT NULL THEN 1 ELSE 0 END) AS user
+        FROM (SELECT a.phone, ${isMember} AS m FROM account a)`).bind(t, ...tiers).first();
+    const counts = { member: c.member || 0, user: c.user || 0, guest: c.total - (c.member || 0) - (c.user || 0) };
+    return json({ total: c.total, counts, type, accounts: out });
   });
 
   // { action, value }：add_days 加会员天数（接在原到期日后）/ set_expiry 改到期日（YYYY-MM-DD，北京时间当天结束）/

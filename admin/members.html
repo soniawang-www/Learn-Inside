@@ -15,7 +15,8 @@
     .acc .ops { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .acc .ops input { width: 8em; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
     .acc .ops .btn { padding: 4px 12px; font-size: 13px; }
-    .tabs2 { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tabs2 { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .tabs2 .btn { white-space: nowrap; }
     .btn.danger { background: transparent; border-color: var(--bad, #b42318); color: var(--bad, #b42318); }
     .member { color: var(--ok, #1d7a46); font-weight: 600; }
     table.codes { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -33,6 +34,7 @@
 
     <div id="tab-acc">
       <div class="card">
+        <div class="tabs2" id="types"><button class="btn primary" data-type="">全部</button><button class="btn" data-type="member">会员</button><button class="btn" data-type="user">注册</button><button class="btn" data-type="guest">未注册</button></div>
         <form id="search" class="row"><input type="text" id="q" placeholder="手机号、孩子昵称或备注，留空看最新 100 个" style="flex:1;min-width:200px"><button class="btn primary">搜索</button></form>
         <p class="small muted" id="total"></p>
         <div id="list"></div>
@@ -115,7 +117,7 @@
     return `<div class="acc" data-id="${a.id}">
       <div class="head"><b>${esc(a.phone || '（未绑定手机号）')}</b><span>${esc(a.students.join('、'))}</span>${memberText(a)}
         <span class="small">剩 ${a.credits} 次 · 已解锁 ${a.unlocked}</span>
-        <span class="small muted">注册 ${day(a.created_at)} · 最近做题 ${time(a.last_active)}</span></div>
+        <span class="small muted">${a.phone ? '注册' : '首次访问'} ${day(a.created_at)} · 最近做题 ${time(a.last_active)}</span></div>
       ${a.note ? `<div class="small">备注：${esc(a.note)}</div>` : ''}
       <details><summary class="small">操作</summary><div class="ops" style="margin-top:8px">
         <select data-tier>${scopeOpts()}</select>
@@ -129,14 +131,24 @@
       </div></details><span class="small kl-warn" data-msg></span></div>`;
   }
   const NAMES = { refund: '退款', refund_pending: '退款待确认', support: '修改客服', delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码', promo: '设置活动价', promo_end: '结束活动' };
+  // 账号分类：全部 / 会员 / 注册（绑了手机号的非会员）/ 未注册（游客）
+  const TYPES = { '': '全部', member: '会员', user: '注册', guest: '未注册' };
+  let accType = '';
   async function search() {
     try {
-      const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()));
-      $('total').textContent = `共 ${d.total} 个账号，显示 ${d.accounts.length} 个`;
+      const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()) + '&type=' + accType);
+      document.querySelectorAll('[data-type]').forEach((b) => { const k = b.dataset.type; b.textContent = `${TYPES[k]} ${k ? d.counts[k] : d.total}`; });
+      $('total').textContent = `${TYPES[accType]}账号显示 ${d.accounts.length} 个${d.accounts.length >= 100 ? '（最新 100 个，可以搜索）' : ''}`;
       $('list').innerHTML = d.accounts.map(accHtml).join('') || '<p class="muted small">没找到</p>';
     } catch (e) { $('total').textContent = e.message; }
   }
   $('search').onsubmit = (e) => { e.preventDefault(); search(); };
+  $('types').onclick = (e) => {
+    const b = e.target.closest('[data-type]'); if (!b) return;
+    accType = b.dataset.type;
+    document.querySelectorAll('[data-type]').forEach((x) => x.classList.toggle('primary', x === b));
+    search();
+  };
   $('list').onclick = async (e) => {
     const del = e.target.closest('[data-del]');
     if (del) {

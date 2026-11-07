@@ -192,6 +192,16 @@ export const FEATURES = [
   { id: 'I1', area: '其他', name: '客服与后台权限', cases: [
     { id: 'I1-1', name: '客服二维码信息', run: async (c) => st(await c.get('/api/support')), expect: same(200) },
     { id: 'I1-2', name: '普通登录凭证进不了后台', run: async (c) => `${st(await c.get('/api/admin/accounts'))}/${st(await c.post('/api/admin/codes', { kind: 'days', amount: 31 }))}/${st(await c.post(`/api/admin/accounts/${c.aid}`, { action: 'add_days', value: 999 }))}`, expect: same('403/403/403') },
+    { id: 'I1-4', name: '后台账号分类：会员 / 注册 / 未注册加起来等于全部，自己的账号分在对的类里', run: async (c) => {
+      const all = (await c.admin('/api/admin/accounts')).data, n = all.counts;
+      if (n.member + n.user + n.guest !== all.total) return `合计不符 ${JSON.stringify(n)} ≠ ${all.total}`;
+      if (!c.phone) return 'ok';
+      const me = (await c.admin(`/api/admin/accounts?q=${c.phone}`)).data.accounts[0];
+      const want = Object.keys(me.memberships).length ? 'member' : 'user';
+      const got = [];
+      for (const t of ['member', 'user', 'guest']) if ((await c.admin(`/api/admin/accounts?type=${t}&q=${c.phone}`)).data.accounts.some((a) => a.id === me.id)) got.push(t);
+      return got.join(',') === want ? 'ok' : `应在 ${want}，实际在 ${got.join(',') || '无'}`;
+    }, expect: same('ok') },
     { id: 'I1-3', name: '不能自己改价格（下单只认套餐 id）', run: async (c) => st(await c.post('/api/pay/create', { plan: 'math.month', amount: '0.01', price: 0.01 })), expect: { guest: 403, user: 200, member: 200 } },
   ] },
 
