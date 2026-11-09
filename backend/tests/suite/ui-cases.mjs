@@ -180,9 +180,9 @@ export const UI_FEATURES = [
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
   ] },
   { id: 'U11', area: '界面', name: '语文', cases: [
-    { id: 'U11-1', name: '语文首页：汉字小达人卡片 + 古诗文大会「即将上线」（不能点）', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${(await c.text('.fam-card.soon')).replace(/\s/g, '')}`; }, expect: same('1/古诗文大会即将上线') },
+    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会两张比赛卡片都能点', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}`; }, expect: same('2/1/1') },
     { id: 'U11-2', name: '语文首页：「今天做什么」「最近成绩」一直显示，今天做什么推荐一套没做过的卷子', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('.dash-grid > .card').count()}/${await p.locator('.tasks a[href^="#/intro/"]').count()}`; }, expect: same('2/1') },
-    { id: 'U11-3', name: '点汉字小达人进到试卷列表（真题 + 模拟题）', run: async (p, c) => { await c.go('/chinese/'); await p.locator('a.fam-card').click(); await c.settle(); return `${p.url().endsWith('#/hanzi')}/${await p.locator('.exam-row').count()}`; }, expect: same('true/6') },
+    { id: 'U11-3', name: '点汉字小达人进到试卷列表（真题 + 模拟题）', run: async (p, c) => { await c.go('/chinese/'); await p.locator('a.fam-card[href="#/hanzi"]').click(); await c.settle(); return `${p.url().endsWith('#/hanzi')}/${await p.locator('.exam-row').count()}`; }, expect: same('true/6') },
     { id: 'U11-4', name: '考前须知：标题是试卷名、5 条规则、有「开始答题」', run: async (p, c) => { await c.go('/chinese/#/intro/hanzi-2021-city'); return `${(await c.text('main h1')).includes('第八届')}/${await p.locator('.rules li').count()}/${await p.locator('main button, main a').filter({ hasText: '开始答题' }).count()}`; }, expect: same('true/5/1') },
     { id: 'U11-5', name: '语文错题本（游客是注册提示）', run: async (p, c) => { await c.go('/chinese/#/mistakes'); const h = await c.text('main h2'); return h.includes('注册') ? '注册提示' : h.includes('还没有错题') ? '还没有错题' : (await p.locator('.mk').count()) > 0 ? '有错题' : '?'; }, expect: { guest: '注册提示', user: '还没有错题', member: '还没有错题' } },
     { id: 'U11-6', name: '语文登录统一在账号页：没登录打开语文 → 账号页 → 游客进入后回到语文', run: async (p, c) => {
@@ -277,6 +277,36 @@ export const UI_FEATURES = [
       const zh = await p.locator('.mk').count(); await c.go('#/mistakes'); const mathHasHanzi = (await c.text('main')).includes('汉字');
       return `${zh}/${mathHasHanzi}`;
     }, expect: { guest: '注册提示', user: '1/false', member: '1/false' } },
+  ] },
+  { id: 'U17', area: '界面', name: '古诗文大会（线上初选 / 复选卷、决选笔试卷）', cases: [
+    { id: 'U17-1', name: '语文首页有古诗文大会入口；卷子页有年级切换和决选 / 复选 / 初选分组', run: async (p, c) => {
+      await c.go('/chinese/#/'); await p.locator('a.fam-card[href="#/gsw"]').waitFor({ timeout: 15000 });
+      await c.go('/chinese/#/gsw'); await p.locator('.seg button').first().waitFor({ timeout: 15000 });
+      const h2 = await p.locator('main .card h2').allInnerTexts();
+      return `${await p.locator('.seg button').count()}/${['决选', '复选', '初选'].every((k) => h2.some((t) => t.startsWith(k)))}`;
+    }, expect: same('3/true') },
+    { id: 'U17-2', name: '复选卷：一屏一题、显示「单选题（1/N）」、能跳到下一题再回上一题、键盘 B 选中', run: async (p, c) => {
+      await c.go('/chinese/#/intro/gsw-2025-fx-g4'); await p.getByText(/开始答题|重新开始/).first().click(); await p.locator('.gx-q').waitFor({ timeout: 15000 });
+      const t1 = await c.text('.gx-type'); await p.click('#next'); const t2 = await c.text('.gx-type'); await p.click('#prev');
+      await p.keyboard.press('b'); const on = await p.locator('.gx-opt.on').getAttribute('data-k');
+      return `${/（1\/\d+）/.test(t1)}/${/（2\/\d+）/.test(t2)}/${on}`;
+    }, expect: same('true/true/B') },
+    { id: 'U17-3', name: '复选卷手机深色模式不溢出，上一题 / 下一题都在', run: async (p, c) => {
+      await p.setViewportSize({ width: 360, height: 760 }); await p.emulateMedia({ colorScheme: 'dark' }); await p.waitForTimeout(300);
+      const r = `${await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)}/${await p.locator('#prev').isVisible()}/${await p.locator('#next').isVisible()}`;
+      await p.emulateMedia({ colorScheme: 'light' }); await p.setViewportSize({ width: 1366, height: 860 }); return r;
+    }, expect: same('true/true/true') },
+    { id: 'U17-4', name: '决选笔试卷：整卷一页，有填空框和简答框，顶部有倒计时和交卷', run: async (p, c) => {
+      await c.go('/chinese/#/intro/gsw-2016-jx-g4'); await p.getByText(/开始答题|重新开始/).first().click(); await p.locator('.pp-q').first().waitFor({ timeout: 15000 });
+      return `${(await p.locator('.pp-q').count()) > 40}/${(await p.locator('.pp-fill').count()) > 0}/${(await p.locator('.pp-text').count()) > 0}/${await p.locator('#clock').isVisible()}/${await p.locator('#hand').isVisible()}`;
+    }, expect: same('true/true/true/true/true') },
+    { id: 'U17-5', name: '决选卷交卷后：成绩页有简答自评，勾一个得分点保存后总分增加', run: async (p, c) => {
+      await p.locator('.pp-text').first().fill('我最喜欢李白'); await p.click('#hand'); await p.click('#sure');
+      await p.locator('#selfcard').waitFor({ timeout: 20000 });
+      const before = +(await c.text('#tot')); const sf = p.locator('.sf').first(); await sf.locator('input[type=checkbox]').first().check();
+      await sf.locator('[data-save]').click(); await p.waitForTimeout(1500);
+      return +(await c.text('#tot')) > before;
+    }, expect: same(true) },
   ] },
   { id: 'U10', area: '界面', name: '在线支付的各种情况', cases: [
     { id: 'U10-1', name: '点「开通」：先确认订单，再全屏遮罩跳支付宝（页面不能点）', run: async (p, c) => {

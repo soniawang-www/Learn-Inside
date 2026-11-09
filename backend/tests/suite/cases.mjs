@@ -16,6 +16,7 @@ const SAMPLE_KP = 'geo.area'; // 免费样板知识项突击
 const KP = 'cnt.perm'; // 普通知识项
 const HOPE = 'hope-2019w-g4'; // 希望数学试点卷
 const EN_BANK = 'esdp-speak-low'; // 英语 ESDP 小低口语题库
+const GSW_JX = 'gsw-2016-jx-g4'; // 古诗文大会决选真卷（有简答自评题）
 const EN_ITEM = `${EN_BANK}-p05`; // 普通题（不是免费样题）
 const same = (v) => ({ guest: v, user: v, member: v });
 const st = (r) => r.status;
@@ -227,6 +228,24 @@ export const FEATURES = [
     { id: 'E2-2', name: '解锁后能看提纲和参考句子', run: async (c) => { const m = (await c.get(`/api/english/items/${EN_ITEM}`)).data.model; return m.locked ? 'locked' : m.paras?.length ? 'open' : 'empty'; }, expect: { guest: 'locked', user: 'open', member: 'open' } },
     { id: 'E2-3', name: '英语会员能看所有题', run: async (c) => { if (c.role === 'member') await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'english', reason: '标准测试：英语会员' }); return (await c.get(`/api/english/items/${EN_BANK}-p40`)).data.model.locked ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
     { id: 'E2-4', name: '账号页有英语会员套餐', run: async (c) => (await c.get('/api/account')).data.plans.some((p) => p.scope === 'english'), expect: same(true) },
+  ] },
+
+  // ───────── G 语文 · 古诗文大会（初选 / 复选线上卷；决选笔试卷：分值不同，简答交卷后自评） ─────────
+  { id: 'GS1', area: '语文', name: '古诗文大会决选笔试卷', cases: [
+    { id: 'GS1-1', name: '古诗文大会有初选、复选、决选三种卷子', run: async (c) => { const ex = (await c.get(`/api/exams?student=${c.sid}&family=gushiwen`)).data; return ['-cx-', '-fx-', '-jx-'].every((k) => ex.some((e) => e.id.includes(k))); }, expect: same(true) },
+    { id: 'GS1-2', name: '开考：题目带题型和分值，不带答案和简答得分点', run: async (c) => {
+      const s = await c.post('/api/sessions', { exam_id: GSW_JX, student_id: c.sid, mode: 'exam' }); c.gswSid = s.data.session.id;
+      const P = (await c.get(`/api/sessions/${c.gswSid}`)).data.problems;
+      const self = P.filter((p) => p.kind === 'self');
+      return `${self.length > 0}/${P.every((p) => p.points > 0)}/${P.some((p) => 'answer' in p || p.extra?.rubric)}`;
+    }, expect: same('true/true/false') },
+    { id: 'GS1-3', name: '交卷前不能自评', run: async (c) => { const P = (await c.get(`/api/sessions/${c.gswSid}`)).data.problems; c.gswSelf = P.find((p) => p.kind === 'self'); return st(await c.post(`/api/sessions/${c.gswSid}/selfscore`, { problem_id: c.gswSelf.id, got: 1 })); }, expect: same(409) },
+    { id: 'GS1-4', name: '空卷交卷 0 分，满分按分值合计是 100', run: async (c) => { const r = (await c.post(`/api/sessions/${c.gswSid}/submit`, { answers: { [c.gswSelf.id]: '我的回答' }, times: {} })).data; return `${r.items.reduce((a, x) => a + x.got, 0)}/${r.items.reduce((a, x) => a + x.points, 0)}`; }, expect: same('0/100') },
+    { id: 'GS1-5', name: '简答自评超过分值按满分记，总分跟着变', run: async (c) => { const r = (await c.post(`/api/sessions/${c.gswSid}/selfscore`, { problem_id: c.gswSelf.id, got: 999 })).data; return r.got === c.gswSelf.points && r.score === c.gswSelf.points; }, expect: same(true) },
+    { id: 'GS1-6', name: '自评按 0.5 分取整，负数按 0', run: async (c) => `${(await c.post(`/api/sessions/${c.gswSid}/selfscore`, { problem_id: c.gswSelf.id, got: 1.3 })).data.got}/${(await c.post(`/api/sessions/${c.gswSid}/selfscore`, { problem_id: c.gswSelf.id, got: -2 })).data.got}`, expect: same('1.5/0') },
+    { id: 'GS1-7', name: '不是简答的题不能自评', run: async (c) => { const it = (await c.get(`/api/sessions/${c.gswSid}/review`)).data.items.find((x) => x.kind !== 'self'); return st(await c.post(`/api/sessions/${c.gswSid}/selfscore`, { problem_id: it.problem_id, got: 2 })); }, expect: same(400) },
+    { id: 'GS1-8', name: '不能给别人的卷子自评', run: async (c) => st(await c.req(`/api/sessions/${c.gswSid}/selfscore`, 'POST', { problem_id: c.gswSelf.id, got: 1 }, c.outsider.T)), expect: same(404) },
+    { id: 'GS1-9', name: '成绩页带参考答案和得分点', run: async (c) => { const it = (await c.get(`/api/sessions/${c.gswSid}/review`)).data.items.find((x) => x.kind === 'self'); return !!(it.answer && it.extra?.rubric?.length); }, expect: same(true) },
   ] },
 
   // ───────── J 游客转正（只对游客，最后执行） ─────────
