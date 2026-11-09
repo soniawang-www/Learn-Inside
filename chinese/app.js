@@ -1,5 +1,5 @@
 // 语文 · 汉字小达人真题模考（learn-inside.com/chinese/）· 前端（原生 JS，无构建步骤）
-// 路由：#/（首页：比赛入口、成绩）  #/hanzi（汉字小达人试卷）  #/intro/:examId（考前须知）  #/exam/:sid（答题）  #/review/:sid（成绩和解析）
+// 路由：#/（首页：比赛入口、成绩）  #/hanzi（汉字小达人试卷）  #/gsw（古诗文大会试卷，按年级）  #/intro/:examId（考前须知）  #/exam/:sid（答题）  #/review/:sid（成绩和解析）
 //       #/mistakes（错题本）  #/join（登录 / 注册）
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
@@ -8,6 +8,11 @@ import { loadStart } from '/assets/loadcomic.js?v=20261107b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
+const GSW = 'gushiwen';
+const isGsw = (id) => String(id || '').startsWith('gsw-');
+const famOf = (id) => (isGsw(id) ? GSW : FAMILY);
+const GRADES = { 3: '三年级', 4: '四年级', 5: '五年级' };
+const stageOf = (id) => (/-fx-/.test(id) ? '复选' : /-cx-/.test(id) ? '初选' : '');
 
 // ───────── 存储 / 账号 ─────────
 const store = {
@@ -95,6 +100,7 @@ async function router() {
     if (!me) me = await api('/api/me');
     if (!parts.length) return await renderHome();
     if (parts[0] === 'hanzi') return await renderHanzi();
+    if (parts[0] === 'gsw') return await renderGsw();
     if (parts[0] === 'intro') return await renderIntro(parts[1]);
     if (parts[0] === 'exam') return await renderExam(parts[1]);
     if (parts[0] === 'review') return await renderReview(parts[1]);
@@ -107,13 +113,14 @@ window.addEventListener('hashchange', router);
 // ───────── 首页：试卷和成绩 ─────────
 async function renderHome() {
   const st = auth.student;
-  const [exams, prof, mk] = await Promise.all([
+  const [exams, gexams, prof, mk] = await Promise.all([
     api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`),
+    api(`/api/exams?student=${enc(st.id)}&family=${GSW}`).catch(() => []),
     api(`/api/students/${enc(st.id)}/profile?subject=chinese`).catch(() => ({ sessions: [] })),
     isGuest() ? { mistakes: [] } : api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
   ]);
   // 最上面的「继续」条只放没做完的模考；今天做什么：下一套没做过的卷子 + 错题
-  const unfinished = exams.filter((e) => store.get(`hz.cur.${e.id}`));
+  const unfinished = [...exams, ...gexams].filter((e) => store.get(`hz.cur.${e.id}`));
   const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
   const strip = unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`);
   const next = exams.find((e) => !e.id.endsWith('-mock') && !e.last_session && !store.get(`hz.cur.${e.id}`)) || exams.find((e) => !e.last_session && !store.get(`hz.cur.${e.id}`));
@@ -128,7 +135,8 @@ async function renderHome() {
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <div class="fam-cards">
       <a class="fam-card" href="#/hanzi"><b>汉字小达人</b><span>${exams.length ? `${exams.length} 套真题和模拟题` : '录入中'}</span><small>${lastScore}</small><i>›</i></a>
-      <div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>
+      ${gexams.length ? `<a class="fam-card" href="#/gsw"><b>古诗文大会</b><span>${gexams.length} 套真题 · 三至五年级</span><small></small><i>›</i></a>`
+        : '<div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>'}
     </div>
     <div class="dash-grid">
       <section class="card">
@@ -162,22 +170,51 @@ async function renderHanzi() {
     <p class="small muted center">题目来源：《中文自修》「美丽汉字小达人」历届活动</p>`, 'home');
 }
 
+async function renderGsw() {
+  const exams = await api(`/api/exams?student=${enc(auth.student.id)}&family=${GSW}`);
+  const grades = [3, 4, 5].filter((g) => exams.some((e) => e.grade === g));
+  let g = store.get('gsw.grade');
+  if (!grades.includes(g)) g = grades[0] || 3;
+  const row = (e) => `<div class="exam-row">
+      <div><b>${esc(e.title)}</b><div class="small muted">${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div></div>
+      <div class="exam-act">${e.last_session ? `<a class="small" href="#/review/${e.last_session}">上次 ${e.last_score} 分</a>` : ''}
+        <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
+  const draw = () => {
+    const list = exams.filter((e) => e.grade === g);
+    const groups = ['复选', '初选'].map((n) => [n, list.filter((e) => stageOf(e.id) === n)]).filter(([, xs]) => xs.length);
+    page(`<a class="small back" href="#/">← 语文首页</a>
+      <div class="hero"><h1>古诗文大会</h1></div>
+      ${grades.length > 1 ? `<div class="seg" role="tablist">${grades.map((x) => `<button role="tab" class="${x === g ? 'on' : ''}" data-g="${x}">${GRADES[x]}</button>`).join('')}</div>` : ''}
+      ${groups.length ? groups.map(([n, xs]) => `<div class="card"><h2>${n}<span class="small muted"> · ${xs.length} 套</span></h2>${xs.map(row).join('')}</div>`).join('') : '<div class="card"><p class="muted">录入中</p></div>'}`, 'home');
+    $app.querySelectorAll('.seg button').forEach((b) => (b.onclick = () => { g = +b.dataset.g; store.set('gsw.grade', g); draw(); }));
+  };
+  draw();
+}
+
 // ───────── 考前须知 ─────────
 async function renderIntro(examId) {
-  const exams = await api(`/api/exams?student=${enc(auth.student.id)}&family=${FAMILY}`);
+  const gsw = isGsw(examId);
+  const exams = await api(`/api/exams?student=${enc(auth.student.id)}&family=${famOf(examId)}`);
   const e = exams.find((x) => x.id === examId);
   if (!e) return errorPage('试卷不存在');
   const saved = store.get(`hz.cur.${examId}`);
-  page(`<a class="small back" href="#/hanzi">← 汉字小达人</a>
+  const per = Math.round(e.duration_sec / Math.max(1, e.problem_count));
+  page(`<a class="small back" href="${gsw ? '#/gsw' : '#/hanzi'}">← ${gsw ? '古诗文大会' : '汉字小达人'}</a>
     <div class="hero"><h1>${esc(e.title)}</h1></div>
     <div class="card intro">
-    <ol class="rules">
+    ${gsw ? `<ol class="rules">
+      <li>共 ${e.problem_count} 题，都是单选，每题 1 分。限时 ${Math.round(e.duration_sec / 60)} 分钟，时间到自动交卷。</li>
+      <li>一屏一题：点选项，再点「下一题」；可以点「上一题」回去改。</li>
+      <li>平均每题只有 <b>${per} 秒</b>，拿不准的先跳过，做到最后再回头看。</li>
+      <li>电脑上可以按键盘 A B C D 选答案，← → 换题。</li>
+      <li>交卷后能看到每题用了几秒，以及各类考点的正确率。</li>
+    </ol>` : `<ol class="rules">
       <li>共 ${e.problem_count} 题，每题 1 分。时间 ${Math.round(e.duration_sec / 60)} 分钟，左上角倒计时；时间到会自动交卷。</li>
       <li>做完一题点「下一页」；<b>没做完不能进入下一页，也不能返回上一页</b>。</li>
       <li><b>不会提示还剩多少题</b>，时间要自己把控，不要在一道题上停太久。</li>
       <li>填空题用输入法打字：不要输入标点；两句诗之间用一个空格分开。</li>
       <li>比赛排名同时看分数和用时，做完可以提前交卷。</li>
-    </ol>
+    </ol>`}
     <div class="actions">${saved ? `<a class="btn primary" href="#/exam/${saved}">继续上次的答题</a>` : ''}
       <button class="btn ${saved ? '' : 'primary'}" id="go">${saved ? '重新开始' : '开始答题'}</button><a class="btn" href="#/">返回</a></div></div>`, 'home');
   $app.querySelector('#go').onclick = async (ev) => {
@@ -199,6 +236,7 @@ async function renderExam(sid) {
   const d = await api(`/api/sessions/${enc(sid)}`);
   if (d.session.submitted) { location.replace(`#/review/${sid}`); return; }
   const practice = d.session.mode === 'practice';
+  const gsw = isGsw(d.exam.id) && !practice; // 古诗文大会：还原线上初选 / 复选的答题页
   const P = d.problems;
   const key = `hz.s.${sid}`;
   const S = Object.assign({ cur: 0, answers: {}, times: {}, checked: {} }, store.get(key, {}));
@@ -210,7 +248,7 @@ async function renderExam(sid) {
   let shownAt = Date.now();
   let submitting = false;
 
-  document.body.className = 'exam-mode';
+  document.body.className = gsw ? 'exam-mode gsw' : 'exam-mode';
   async function submit(auto) {
     if (submitting) return; submitting = true;
     clearInterval(timerId);
@@ -230,12 +268,53 @@ async function renderExam(sid) {
   function tick() {
     const el = $app.querySelector('#clock');
     const l = left();
-    if (el) el.textContent = mmss(l);
+    if (el) el.textContent = gsw ? mmss(l).slice(3) : mmss(l);
+    const bar = $app.querySelector('#gbar');
+    if (bar) bar.style.width = `${Math.max(0, Math.min(100, (100 * l) / d.exam.duration_sec))}%`;
     if (l <= 0 && !practice) submit(true);
   }
   function stamp() { const p = P[S.cur]; if (p) S.times[p.id] = (S.times[p.id] || 0) + (Date.now() - shownAt) / 1000; shownAt = Date.now(); }
 
+  function go(i) { stamp(); S.cur = i; save(); draw(); }
+  function finish() {
+    const blank = P.filter((q) => !S.answers[q.id]).length;
+    if (!blank) return submit(false);
+    modal(`<h2>还有 ${blank} 题没做</h2><p class="muted">剩余 ${mmss(left()).slice(3)}，确定交卷吗？</p>
+      <div class="actions"><button class="btn" data-close>回去检查</button><button class="btn primary" id="sure">交卷</button></div>`,
+    (m, close) => { m.querySelector('#sure').onclick = () => { close(); submit(false); }; });
+  }
+  function drawGsw() {
+    const p = P[S.cur];
+    const ans = S.answers[p.id] ?? '';
+    const last = S.cur === P.length - 1;
+    const l = left();
+    $app.innerHTML = `<div class="gx">
+      <div class="gx-top"><div class="gx-time">答题时间：<b id="clock">${mmss(l).slice(3)}</b></div>
+        <div class="gx-bar"><i id="gbar" style="width:${Math.max(0, Math.min(100, (100 * l) / d.exam.duration_sec))}%"></i></div></div>
+      <div class="gx-type">单选题（${S.cur + 1}/${P.length}）</div>
+      <div class="gx-q">${txt(p.stem)}</div>
+      <div class="gx-opts">${Object.entries(p.choices || {}).map(([k, v]) => `<button type="button" class="gx-opt ${ans === k ? 'on' : ''}" data-k="${k}"><span class="gx-k">${k}</span><span class="gx-v">${esc(v)}</span></button>`).join('')}</div>
+      <div class="gx-nav"><button type="button" class="gx-btn" id="prev" ${S.cur ? '' : 'disabled'}>上一题</button>
+        <button type="button" class="gx-btn" id="next">${last ? '交卷' : '下一题'}</button></div>
+    </div>`;
+    $app.querySelectorAll('.gx-opt').forEach((b) => (b.onclick = () => {
+      S.answers[p.id] = b.dataset.k; save();
+      $app.querySelectorAll('.gx-opt').forEach((x) => x.classList.toggle('on', x === b));
+    }));
+    $app.querySelector('#prev').onclick = () => { if (S.cur) go(S.cur - 1); };
+    $app.querySelector('#next').onclick = () => (last ? (stamp(), save(), finish()) : go(S.cur + 1));
+  }
+  function onKey(e) {
+    if (!gsw || $modal.innerHTML || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toUpperCase();
+    const btn = $app.querySelector(`.gx-opt[data-k="${k === '1' ? 'A' : k === '2' ? 'B' : k === '3' ? 'C' : k === '4' ? 'D' : k}"]`);
+    if (btn) { e.preventDefault(); btn.click(); }
+    else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); $app.querySelector('#next')?.click(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); $app.querySelector('#prev')?.click(); }
+  }
+
   function draw() {
+    if (gsw) return drawGsw();
     const p = P[S.cur];
     const sec = secOf(p), prevSec = S.cur > 0 ? secOf(P[S.cur - 1]) : null;
     const showSec = sec && (S.cur === 0 || sec !== prevSec);
@@ -283,7 +362,8 @@ async function renderExam(sid) {
   }
   draw();
   if (!practice) timerId = setInterval(tick, 1000);
-  window.addEventListener('hashchange', () => { clearInterval(timerId); stamp(); save(); }, { once: true });
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('hashchange', () => { clearInterval(timerId); stamp(); save(); document.removeEventListener('keydown', onKey); }, { once: true });
 }
 
 // ───────── 成绩和解析 ─────────
@@ -296,23 +376,33 @@ async function renderReview(sid) {
   const bySec = secs.map((s) => { const xs = items.filter((x) => x.section === s.no); return { ...s, n: xs.length, ok: xs.filter((x) => x.correct).length }; }).filter((s) => s.n);
   const wrong = items.filter((x) => !x.correct);
   let only = wrong.length > 0;
+  const gsw = isGsw(r.exam.id);
+  // 古诗文：按考点统计正确率；每题用时（线上赛平均每题不到 10 秒，慢题单独数出来）
+  const topics = {};
+  if (gsw) for (const x of items) { const t = x.types?.[0]?.name || '其他'; (topics[t] ||= { n: 0, ok: 0 }).n++; if (x.correct) topics[t].ok++; }
+  const timed = items.filter((x) => x.choice != null && x.time_sec != null);
+  const avg = timed.length ? timed.reduce((a, x) => a + x.time_sec, 0) / timed.length : 0;
+  const per = r.exam.duration_sec / Math.max(1, items.length);
+  const slow = gsw ? timed.filter((x) => x.time_sec > per * 1.5).length : 0;
   const itemHtml = (x) => {
     const fill = isFill(x);
     const mine = x.choice == null ? '未作答' : fill ? x.choice : `${x.choice in x.choices ? x.choices[x.choice] : x.choice}`;
     const right = fill ? x.answer : x.choices[x.answer];
     return `<div class="rv-item ${x.correct ? 'ok' : 'bad'}" data-ok="${x.correct ? 1 : 0}">
-      <div class="rv-q"><span class="rv-n">${x.number}</span>${txt(x.stem)}</div>
+      <div class="rv-q"><span class="rv-n">${x.number}</span>${txt(x.stem)}${gsw && x.choice != null && x.time_sec != null ? `<span class="rv-t ${x.time_sec > per * 1.5 ? 'slow' : ''}">${x.time_sec} 秒</span>` : ''}</div>
       ${x.figure ? `<div class="ex-fig small">${x.figure}</div>` : ''}
       ${fill ? '' : `<ul class="rv-opts">${Object.entries(x.choices).map(([k, v]) => `<li class="${k === x.answer ? 'right' : k === x.choice ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
       <div class="rv-ans">${x.correct ? `<span class="tag ok">✓ 对</span> ${fill ? esc(mine) : ''}` : `<span class="tag bad">✗ ${x.choice == null ? '未作答' : '错'}</span>${x.choice != null ? ` 你的答案：<s>${esc(mine)}</s>　` : ' '}正确答案：<b>${esc(right)}</b>`}</div>
       ${x.basic ? `<div class="rv-sol">${txt(x.basic)}</div>` : ''}</div>`;
   };
-  page(`<a class="small back" href="#/hanzi">← 汉字小达人</a>
+  page(`<a class="small back" href="${gsw ? '#/gsw' : '#/hanzi'}">← ${gsw ? '古诗文大会' : '汉字小达人'}</a>
     <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
     <div class="card score">
       <div class="score-big"><b>${score}</b><span> / ${items.length} 分</span></div>
       <p class="muted">用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
-      ${bySec.length ? `<table class="tbl"><tr><th>大题</th><th>得分</th><th>正确率</th></tr>${bySec.map((s) => `<tr><td>${'一二三四五六七八九十'[s.no - 1] || s.no}、${esc(s.name)}</td><td class="num">${s.ok} / ${s.n}</td><td><span class="bar"><i style="width:${Math.round((100 * s.ok) / s.n)}%"></i></span> ${Math.round((100 * s.ok) / s.n)}%</td></tr>`).join('')}</table>` : ''}
+      ${gsw && timed.length ? `<p class="muted">平均每题 ${avg.toFixed(1)} 秒${slow ? ` · 超过 ${Math.round(per * 1.5)} 秒的题 ${slow} 道` : ''}${items.length - timed.length ? ` · 没做 ${items.length - timed.length} 题` : ''}</p>` : ''}
+      ${gsw ? `<table class="tbl"><tr><th>考点</th><th>得分</th><th>正确率</th></tr>${Object.entries(topics).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n).map(([t, v]) => `<tr><td>${esc(t)}</td><td class="num">${v.ok} / ${v.n}</td><td><span class="bar"><i style="width:${Math.round((100 * v.ok) / v.n)}%"></i></span> ${Math.round((100 * v.ok) / v.n)}%</td></tr>`).join('')}</table>`
+      : bySec.length ? `<table class="tbl"><tr><th>大题</th><th>得分</th><th>正确率</th></tr>${bySec.map((s) => `<tr><td>${'一二三四五六七八九十'[s.no - 1] || s.no}、${esc(s.name)}</td><td class="num">${s.ok} / ${s.n}</td><td><span class="bar"><i style="width:${Math.round((100 * s.ok) / s.n)}%"></i></span> ${Math.round((100 * s.ok) / s.n)}%</td></tr>`).join('')}</table>` : ''}
       <div class="actions">${isGuest() ? '<a class="btn" href="/account/">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
     <div class="card"><div class="rv-head"><h2>逐题解析</h2>${wrong.length ? `<label class="small"><input type="checkbox" id="only" checked> 只看错题（${wrong.length}）</label>` : ''}</div>
       <div id="rv">${items.map(itemHtml).join('')}</div></div>`, 'home');

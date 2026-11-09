@@ -225,3 +225,43 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 .page.wide .hero { padding: 6px 0 20px; }
 .page.wide .hero h1 { font-size: 30px; margin: 0; }
 @media (max-width: 860px) { #app:has(> .side) > .page { padding: 16px 14px 32px; } .page.wide .hero h1 { font-size: 24px; } }
+
+/* 年级切换 */
+.seg { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; }
+.seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 7px 16px; border-radius: 999px; cursor: pointer; }
+.seg button.on { background: var(--accent); color: var(--surface); }
+
+/* 古诗文大会答题页：还原线上初选 / 复选（宣纸底、红色选项方块、上一题 / 下一题） */
+body.exam-mode.gsw {
+  --gx-bg: #E9E6DF; --gx-ink: #2B2B2B; --gx-red: #C8102E; --gx-red-ink: #fff; --gx-line: #1E1E1E; --gx-track: #2B2B2B; --gx-on: #F7E3E5; --gx-card: #F4F2EC;
+  background: var(--gx-bg); color: var(--gx-ink);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body.exam-mode.gsw {
+  --gx-bg: #1B1A18; --gx-ink: #E8E4DA; --gx-red: #D9475C; --gx-red-ink: #fff; --gx-line: #CFC9BC; --gx-track: #4A4740; --gx-on: #3A2328; --gx-card: #24221F; } }
+:root[data-theme="dark"] body.exam-mode.gsw {
+  --gx-bg: #1B1A18; --gx-ink: #E8E4DA; --gx-red: #D9475C; --gx-red-ink: #fff; --gx-line: #CFC9BC; --gx-track: #4A4740; --gx-on: #3A2328; --gx-card: #24221F; }
+.gx { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; min-height: 100vh; }
+.gx-top { position: sticky; top: 0; z-index: 5; background: var(--gx-bg); padding: 8px 0 10px; }
+.gx-time { text-align: center; font-size: 13px; color: var(--gx-red); font-weight: 700; margin-bottom: 6px; }
+.gx-time b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.gx-bar { height: 10px; background: var(--gx-track); border-radius: 2px; overflow: hidden; }
+.gx-bar i { display: block; height: 100%; background: var(--gx-red); transition: width 1s linear; }
+.gx-type { text-align: center; font-size: 14px; margin: 16px 0 18px; }
+.gx-q { font-size: 17px; line-height: 1.7; margin-bottom: 18px; }
+.gx-opts { display: flex; flex-direction: column; gap: 10px; }
+.gx-opt { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; font: inherit; font-size: 16px; color: var(--gx-ink); background: transparent; border: 2px solid transparent; border-radius: 4px; padding: 4px 8px 4px 4px; cursor: pointer; }
+.gx-k { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; background: var(--gx-red); color: var(--gx-red-ink); font-size: 22px; font-weight: 700; border: 2px solid var(--gx-line); }
+.gx-v { line-height: 1.5; }
+@media (hover: hover) { .gx-opt:hover { background: var(--gx-card); } }
+.gx-opt.on { background: var(--gx-on); border-color: var(--gx-red); }
+.gx-opt.on .gx-k { outline: 3px solid var(--gx-red); outline-offset: 2px; }
+.gx-opt:focus-visible { outline: 2px solid var(--gx-red); outline-offset: 2px; }
+.gx-nav { display: flex; justify-content: space-between; gap: 16px; margin-top: 36px; }
+.gx-btn { flex: 1; max-width: 220px; font: inherit; font-size: 20px; font-weight: 700; letter-spacing: .3em; padding: 12px 0 12px .3em; color: var(--gx-ink); background: var(--gx-card); border: 3px solid var(--gx-line); box-shadow: 4px 4px 0 var(--gx-line); cursor: pointer; }
+.gx-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--gx-line); }
+.gx-btn:disabled { opacity: .35; cursor: default; }
+@media (max-width: 480px) { .gx-q { font-size: 16px; } .gx-k { width: 36px; height: 36px; font-size: 20px; } .gx-btn { font-size: 18px; } }
+
+/* 成绩页：每题用时 */
+.rv-t { float: right; margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rv-t.slow { color: var(--bad); font-weight: 600; }

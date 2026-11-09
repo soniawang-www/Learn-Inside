@@ -18,6 +18,7 @@ const FAMILIES = [
   { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true, subject: 'math' },
   // 语文（learn-inside.com/chinese）
   { id: 'hanzi', name: '汉字小达人', prefix: 'hanzi-', desc: '上海市小学生「美丽汉字小达人」：150 题，40 分钟', subject: 'chinese' },
+  { id: 'gushiwen', name: '古诗文大会', prefix: 'gsw-', desc: '上海小学生古诗文大会：线上初选 / 复选单选，按年级分卷', grades: true, subject: 'chinese' },
   // 英语（learn-inside.com/english）：口语 / 写作练习题库，不走考试流程（接口在 worker/english.js）
   { id: 'esdp', name: 'ESDP', prefix: 'esdp-', desc: '全国中小学生英语演讲与辩论五项大赛：口语、写作', subject: 'english' },
 ];
