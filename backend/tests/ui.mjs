@@ -82,7 +82,7 @@ ok((await text('.col-main')).includes('数学会员'), '账号页显示数学会
 await page.fill('#redeem input', code.toLowerCase()); await page.click('#redeem button'); await page.waitForTimeout(1200);
 ok((await text('.modal')).includes('数学会员增加 92 天'), '账号页兑换激活码：数学会员 92 天');
 await page.click('.modal [data-close]'); await go('#/account');
-ok(!(await text('.col-main')).includes('全科会员') && (await admin.locator('#ctier option').count()) === 1, '全科会员暂不开放：账号页没有全科套餐，后台激活码只能选数学');
+ok((await text('.col-main')).includes('全科会员') && (await admin.locator('#ctier option').count()) === 4, '账号页有全科套餐，后台激活码可选数学、语文、英语、全科');
 
 console.log('\n── 套餐按钮与支付跳转');
 const btns = await page.locator('.plan').allTextContents();

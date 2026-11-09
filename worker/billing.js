@@ -8,7 +8,7 @@
 //   其余：用 1 次免费次数解锁（新账号送 FREE_CREDITS 次），次数用完提示开通会员
 // 解锁项：adv:<题目 id> 一道题的互动解析（esdp- 开头的是英语示范回答）；drill:<知识项 id> 一个知识项的真题突击（数学）
 //
-// 全站一套账号；会员分科目（entitlement.tier = math / chinese）和全科（all），全科包含所有科目。
+// 全站一套账号；会员分科目（entitlement.tier = math / chinese / english）和全科（all），全科包含所有科目。
 // 免费次数全站共用。接口在 /api/ 下（/math/api/ 也能访问，兼容旧页面）。
 
 import { payUrl, verifyNotify, queryTrade, refundTrade, refundQuery, closeTrade, keyStatus } from './alipay.js';
@@ -22,7 +22,7 @@ export const SCOPES = [
   { id: 'math', name: '数学', live: true },
   { id: 'chinese', name: '语文', live: true }, // 语文会员：飞花令（其他语文内容免费）；价格在控制台加 PRICE_CHINESE_MONTH / QUARTER / YEAR
   { id: 'english', name: '英语', live: true }, // 价格在控制台加 PRICE_ENGLISH_MONTH / QUARTER / YEAR
-  { id: 'all', name: '全科', live: false }, // 现在只有数学，全科先不卖；开语文时一起打开
+  { id: 'all', name: '全科', live: true }, // 包含数学、语文、英语；价格在控制台加 PRICE_ALL_MONTH / QUARTER / YEAR
 ];
 export const PERIODS = [
   { id: 'month', name: '月卡', days: 31 },
@@ -442,24 +442,30 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const like = `%${q}%`;
     const tiers = SCOPES.map((x) => x.id);
     const isMember = `EXISTS (SELECT 1 FROM entitlement e WHERE e.account_id = a.id AND (e.expires_at IS NULL OR e.expires_at > ?) AND e.tier IN (${tiers.map(() => '?').join(',')}))`;
-    const TYPES = { member: isMember, user: `a.phone IS NOT NULL AND NOT ${isMember}`, guest: `a.phone IS NULL AND NOT ${isMember}` };
+    // 某一种会员（member.math 等）：只看这种会员还在有效期内的账号
+    const isTier = (tr) => `EXISTS (SELECT 1 FROM entitlement e WHERE e.account_id = a.id AND (e.expires_at IS NULL OR e.expires_at > ?) AND e.tier = '${tr}')`;
+    const TYPES = { member: isMember, user: `a.phone IS NOT NULL AND NOT ${isMember}`, guest: `a.phone IS NULL AND NOT ${isMember}`,
+      ...Object.fromEntries(tiers.map((tr) => [`member.${tr}`, isTier(tr)])) };
     const type = TYPES[url.searchParams.get('type')] ? url.searchParams.get('type') : '';
     const t = now();
+    const typeArgs = !type ? [] : type.startsWith('member.') ? [t] : [t, ...tiers];
     const { results } = await env.DB.prepare(
       `SELECT DISTINCT a.* FROM account a LEFT JOIN student s ON s.account_id = a.id
         WHERE (? = '' OR a.phone LIKE ? OR s.nickname LIKE ? OR a.id = ? OR a.note LIKE ?)${type ? ` AND ${TYPES[type]}` : ''}
-        ORDER BY a.created_at DESC LIMIT 100`).bind(q, like, like, q, like, ...(type ? [t, ...tiers] : [])).all();
+        ORDER BY a.created_at DESC LIMIT 100`).bind(q, like, like, q, like, ...typeArgs).all();
     const out = [];
     for (const a of results) out.push(await accountRow(env, a));
     const c = await env.DB.prepare(
-      `SELECT COUNT(*) AS total, SUM(m) AS member, SUM(CASE WHEN m = 0 AND phone IS NOT NULL THEN 1 ELSE 0 END) AS user
-        FROM (SELECT a.phone, ${isMember} AS m FROM account a)`).bind(t, ...tiers).first();
-    const counts = { member: c.member || 0, user: c.user || 0, guest: c.total - (c.member || 0) - (c.user || 0) };
+      `SELECT COUNT(*) AS total, SUM(m) AS member, SUM(CASE WHEN m = 0 AND phone IS NOT NULL THEN 1 ELSE 0 END) AS user,
+        ${tiers.map((tr) => `SUM(m_${tr}) AS m_${tr}`).join(', ')}
+        FROM (SELECT a.phone, ${isMember} AS m, ${tiers.map((tr) => `${isTier(tr)} AS m_${tr}`).join(', ')} FROM account a)`).bind(t, ...tiers, ...tiers.map(() => t)).first();
+    const counts = { member: c.member || 0, user: c.user || 0, guest: c.total - (c.member || 0) - (c.user || 0),
+      ...Object.fromEntries(tiers.map((tr) => [`member.${tr}`, c[`m_${tr}`] || 0])) };
     return json({ total: c.total, counts, type, accounts: out });
   });
 
   // { action, value }：add_days 加会员天数（接在原到期日后）/ set_expiry 改到期日（YYYY-MM-DD，北京时间当天结束）/
-  //   revoke 取消会员 / add_credits（会员相关的操作带 tier：math / chinese / all） 加减次数 / reset_password 重置密码 / note 备注
+  //   revoke 取消会员 / add_credits（会员相关的操作带 tier：math / chinese / english / all） 加减次数 / reset_password 重置密码 / note 备注
   route('POST', '/api/admin/accounts/:id', async (req, env, p) => {
     requireAdmin(req, env);
     const a = await env.DB.prepare('SELECT * FROM account WHERE id = ?').bind(p.id).first();

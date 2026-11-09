@@ -21,7 +21,7 @@
     // 试用期开关以这里为准（每次部署都会用这里的值覆盖控制台）："true" = 全部免费，"false" = 正式收费
     "FREE_MODE": "false",
     "INVITE_CODES": "AMC2026"  // 旧的邀请码加入（现在用手机号注册）；逗号分隔，留空 = 不需要邀请码
-    // 会员价格不写在这里，在 Cloudflare 控制台加变量 PRICE_<MATH / ALL / CHINESE>_<MONTH / QUARTER / YEAR>（元），没设的显示“价格待定”
+    // 会员价格不写在这里，在 Cloudflare 控制台加变量 PRICE_<MATH / CHINESE / ENGLISH / ALL>_<MONTH / QUARTER / YEAR>（元），没设的显示“价格待定”
     // 支付宝：在控制台加 AIPAY_APP_ID（变量）、AIPAY_PRIVATE_KEY 和 AIPAY_ALIPAY_PUBLIC_KEY（Secret），不要写进这里（见 backend/README.md）
   }
 }

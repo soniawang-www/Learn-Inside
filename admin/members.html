@@ -35,6 +35,7 @@
     <div id="tab-acc">
       <div class="card">
         <div class="tabs2" id="types"><button class="btn primary" data-type="">全部</button><button class="btn" data-type="member">会员</button><button class="btn" data-type="user">注册</button><button class="btn" data-type="guest">未注册</button></div>
+        <div class="tabs2" id="mtypes"><button class="btn" data-type="member.math">数学会员</button><button class="btn" data-type="member.chinese">语文会员</button><button class="btn" data-type="member.english">英语会员</button><button class="btn" data-type="member.all">全科会员</button></div>
         <form id="search" class="row"><input type="text" id="q" placeholder="手机号、孩子昵称或备注，留空看最新 100 个" style="flex:1;min-width:200px"><button class="btn primary">搜索</button></form>
         <p class="small muted" id="total"></p>
         <div id="list"></div>
@@ -80,7 +81,7 @@
         <label class="field" style="margin:0;flex:1;min-width:200px"><span>活动名（显示给家长）</span><input type="text" id="ptitle" maxlength="20" placeholder="例如：双十一限时优惠"></label>
         <label class="field" style="margin:0"><span>截止时间</span><input type="datetime-local" id="puntil"></label>
       </div>
-      <div class="row" style="gap:8px;margin:12px 0;align-items:center;flex-wrap:wrap"><span class="small">一键填：全部打</span><input type="number" id="poff" value="8" min="1" max="9.9" step="0.5" style="width:5em;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"><span class="small">折</span><button class="btn" id="pfill">填入</button><button class="btn" id="pclear">清空</button></div>
+      <div class="row" style="gap:8px;margin:12px 0;align-items:center;flex-wrap:wrap"><span class="small">一键填：</span><select id="pscope"><option value="">全部套餐</option><option value="math">数学会员</option><option value="chinese">语文会员</option><option value="english">英语会员</option><option value="all">全科会员</option></select><span class="small">打</span><input type="number" id="poff" value="8" min="1" max="9.9" step="0.5" style="width:5em;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"><span class="small">折</span><button class="btn" id="pfill">填入</button><button class="btn" id="pclear">清空</button></div>
       <table class="codes" id="pplans"></table>
       <div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" id="psave">开始 / 更新活动</button><button class="btn danger" id="pend">立即结束活动</button><span class="small" id="pmsg"></span></div>
     </div></div>
@@ -106,9 +107,9 @@
     if (!r.ok) throw new Error(d.error || `请求失败 (${r.status})`);
     return d;
   }
-  // 会员种类：数学 / 语文 / 全科
-  const SC = { math: '数学', chinese: '语文', all: '全科' };
-  const LIVE = ['math']; // 现在只开放数学会员；开语文 / 全科时加到这里
+  // 会员种类：数学 / 语文 / 英语 / 全科
+  const SC = { math: '数学', chinese: '语文', english: '英语', all: '全科' };
+  const LIVE = ['math', 'chinese', 'english', 'all'];
   const scopeOpts = (sel = 'math') => Object.entries(SC).filter(([k]) => LIVE.includes(k)).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}会员</option>`).join('');
   const memberText = (a) => Object.keys(a.memberships || {}).length
     ? Object.entries(a.memberships).map(([k, u]) => `<span class="member">${SC[k] || k}会员${u === 'forever' ? '永久' : `到 ${day(u)}`}</span>`).join(' ')
@@ -132,18 +133,18 @@
   }
   const NAMES = { refund: '退款', refund_pending: '退款待确认', support: '修改客服', delete: '删除账号', pay: '在线支付', pay_mismatch: '⚠ 支付金额不符', add_days: '加会员', set_expiry: '改到期日', revoke: '取消会员', add_credits: '加次数', reset_password: '重置密码', note: '备注', redeem: '兑换激活码', codes: '生成激活码', promo: '设置活动价', promo_end: '结束活动' };
   // 账号分类：全部 / 会员 / 注册（绑了手机号的非会员）/ 未注册（游客）
-  const TYPES = { '': '全部', member: '会员', user: '注册', guest: '未注册' };
+  const TYPES = { '': '全部', member: '会员', user: '注册', guest: '未注册', ...Object.fromEntries(Object.entries(SC).map(([k, v]) => [`member.${k}`, `${v}会员`])) };
   let accType = '';
   async function search() {
     try {
       const d = await api('accounts?q=' + encodeURIComponent($('q').value.trim()) + '&type=' + accType);
-      document.querySelectorAll('[data-type]').forEach((b) => { const k = b.dataset.type; b.textContent = `${TYPES[k]} ${k ? d.counts[k] : d.total}`; });
+      document.querySelectorAll('[data-type]').forEach((b) => { const k = b.dataset.type; b.textContent = `${TYPES[k]} ${k ? d.counts[k] ?? 0 : d.total}`; });
       $('total').textContent = `${TYPES[accType]}账号显示 ${d.accounts.length} 个${d.accounts.length >= 100 ? '（最新 100 个，可以搜索）' : ''}`;
       $('list').innerHTML = d.accounts.map(accHtml).join('') || '<p class="muted small">没找到</p>';
     } catch (e) { $('total').textContent = e.message; }
   }
   $('search').onsubmit = (e) => { e.preventDefault(); search(); };
-  $('types').onclick = (e) => {
+  $('types').onclick = $('mtypes').onclick = (e) => {
     const b = e.target.closest('[data-type]'); if (!b) return;
     accType = b.dataset.type;
     document.querySelectorAll('[data-type]').forEach((x) => x.classList.toggle('primary', x === b));
@@ -213,7 +214,9 @@
       const d = await api('orders');
       const ST = { pending: '待付款', paid: '<span class="member">已付款</span>', closed: '已关闭', refunding: '退款中', refunded: '已退款' };
       const paid = d.filter((o) => o.status === 'paid');
-      $('orders').innerHTML = `<p class="small">已付款 ${paid.length} 单，合计 ¥${paid.reduce((a, o) => a + Number(o.amount), 0).toFixed(2)}</p>
+      const sum = (l) => l.reduce((a, o) => a + Number(o.amount), 0).toFixed(2);
+      const bySc = Object.keys(SC).map((k) => [k, paid.filter((o) => (o.tier || 'math') === k)]).filter(([, l]) => l.length);
+      $('orders').innerHTML = `<p class="small">已付款 ${paid.length} 单，合计 ¥${sum(paid)}${bySc.length > 1 ? `（${bySc.map(([k, l]) => `${SC[k]} ${l.length} 单 ¥${sum(l)}`).join('，')}）` : ''}</p>
         <table class="codes"><tr><th>时间</th><th>账号</th><th>套餐</th><th>金额</th><th>状态</th><th>订单号 / 支付宝交易号</th><th></th></tr>${d.map((o) => `<tr>
         <td>${time(o.created_at)}</td><td>${esc(o.phone || '未绑定手机号')}</td><td>${SC[o.tier || 'math']}会员 ${o.plan.split('.').pop() === 'month' ? '月卡' : o.plan.split('.').pop() === 'quarter' ? '季卡' : o.plan.split('.').pop() === 'year' ? '年卡' : o.plan}（${o.days} 天）</td><td>¥${o.amount}${o.promo ? `<br><span class="small muted">${esc(o.promo)}</span>` : ''}</td><td>${ST[o.status] || o.status}</td>
         <td class="small">${o.id}${o.trade_no ? `<br>${o.trade_no}` : ''}</td>
@@ -270,7 +273,7 @@
       $('promonow').innerHTML = d.active ? `<span class="member">进行中：${esc(pr.title)}，到 ${new Date(pr.until).toLocaleString('zh-CN')}</span>` : pr ? `<span class="muted">上次的活动「${esc(pr.title)}」已在 ${new Date(pr.until).toLocaleString('zh-CN')} 结束，现在是原价</span>` : '<span class="muted">现在没有活动，都是原价</span>';
       $('ptitle').value = d.active ? pr.title : '';
       if (!$('puntil').value || d.active) { const e = new Date(); e.setDate(e.getDate() + 7); e.setHours(23, 59, 0, 0); $('puntil').value = dtLocal(d.active ? pr.until : e.getTime()); }
-      $('pplans').innerHTML = '<tr><th>套餐</th><th>原价</th><th>活动价（元）</th><th></th></tr>' + promoPlans.map((p) => `<tr><td>${esc(p.name)}（${p.days} 天）</td><td>${p.price ? '¥' + p.price : '<span class="muted">未定价</span>'}</td>
+      $('pplans').innerHTML = '<tr><th>套餐</th><th>原价</th><th>活动价（元）</th><th></th></tr>' + promoPlans.map((p, i) => `${i === 0 || promoPlans[i - 1].id.split('.')[0] !== p.id.split('.')[0] ? `<tr><td colspan="4"><b>${SC[p.id.split('.')[0]] || ''}会员</b></td></tr>` : ''}<tr><td>${esc(p.name)}（${p.days} 天）</td><td>${p.price ? '¥' + p.price : '<span class="muted">未定价</span>'}</td>
         <td><input type="number" step="0.01" min="0.01" data-pp="${p.id}" value="${d.active && pr.prices[p.id] ? pr.prices[p.id] : ''}" style="width:7em;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)"></td><td class="small" data-pn="${p.id}"></td></tr>`).join('');
       $('pplans').querySelectorAll('[data-pp]').forEach((i) => (i.oninput = notePrice)); notePrice();
     } catch (e) { promoPlans = []; $('pplans').innerHTML = ''; $('promonow').innerHTML = `<span class="kl-warn">${esc(e.message)}${/密钥/.test(e.message) ? '：在最上面重新填管理员密钥（Cloudflare 里的 ADMIN_KEY），套餐会自动出来' : ''}</span>`; }
@@ -281,7 +284,7 @@
       n.innerHTML = !v ? '' : p.price && v >= p.price ? '<span class="kl-warn">不低于原价，不会生效</span>' : v > payMax ? `<span class="muted">超过 ¥${payMax}，仍不能在线付</span>` : p.price ? `<span class="member">${(v / p.price * 10).toFixed(1).replace(/\.0$/, '')} 折</span>` : '';
     }
   }
-  $('pfill').onclick = () => { const k = Number($('poff').value) / 10; if (!(k > 0 && k < 1)) return; for (const p of promoPlans) if (p.price) $('pplans').querySelector(`[data-pp="${p.id}"]`).value = (Math.round(p.price * k * 10) / 10).toFixed(1).replace(/\.0$/, ''); notePrice(); };
+  $('pfill').onclick = () => { const k = Number($('poff').value) / 10; if (!(k > 0 && k < 1)) return; const sc = $('pscope').value; for (const p of promoPlans) if (p.price && (!sc || p.id.startsWith(sc + '.'))) $('pplans').querySelector(`[data-pp="${p.id}"]`).value = (Math.round(p.price * k * 10) / 10).toFixed(1).replace(/\.0$/, ''); notePrice(); };
   $('pclear').onclick = () => { $('pplans').querySelectorAll('[data-pp]').forEach((i) => (i.value = '')); notePrice(); };
   $('psave').onclick = async () => {
     if (!promoPlans.length) { $('pmsg').textContent = '套餐还没加载出来，先填对管理员密钥'; return; }
