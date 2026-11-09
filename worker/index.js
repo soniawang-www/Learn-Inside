@@ -228,8 +228,8 @@ async function sessionPayload(env, sessionId) {
   const exam = await examInfo(env, s);
   const drill = s.exam_id === 'drill';
   const results = (await sessionProblems(env, s,
-    'p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.section, p.input_hint, (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count'))
-    .map((p, i) => ({ ...p, label: labelOf(p), seq: i + 1, number: drill ? i + 1 : p.number }));
+    'p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.section, p.input_hint, p.kind, p.points, p.extra, (SELECT COUNT(*) FROM hint h WHERE h.problem_id = p.id) AS hint_count'))
+    .map((p, i) => { const { rubric, ...extra } = parseJ(p.extra, {}) || {}; return { ...p, extra: p.extra ? extra : null, label: labelOf(p), seq: i + 1, number: drill ? i + 1 : p.number }; });
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill },
@@ -272,10 +272,11 @@ route('POST', '/api/sessions/:id/check', async (req, env, p) => {
   const s = await loadSession(env, acc, p.id);
   if (s.mode !== 'practice') throw new HttpError(403, '模考中不能查看答案');
   const { problem_id, answer } = await body(req);
-  const pr = (await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept')).find((x) => x.id === problem_id);
+  const pr = (await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept, p.kind')).find((x) => x.id === problem_id);
   if (!pr) throw new HttpError(404, '这道题不在本次练习里');
   const key = { choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) };
   const sol = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
+  if (pr.kind === 'self') return json({ correct: false, self: true, answer: pr.answer, basic: sol?.content ?? null });
   return json({ correct: judge(key, answer), answer: pr.answer, basic: sol?.content ?? null });
 });
 
@@ -288,7 +289,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const t = now();
   const late = t > s.deadline_at + DEADLINE_GRACE_MS;
 
-  const problems = await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept');
+  const problems = await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept, p.kind, p.points');
   const { results: hintRows } = await env.DB
     .prepare('SELECT problem_id, MAX(level) AS lv FROM session_hint WHERE session_id = ? GROUP BY problem_id')
     .bind(s.id)
@@ -300,23 +301,45 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   for (const pr of problems) {
     // 选择题存字母，填空题存孩子填的内容（规范化后）
     const key = { choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) };
-    const choice = normalizeInput(key.choices, answers[pr.id]);
+    const self = pr.kind === 'self'; // 简答题：交卷后孩子对照参考答案自评（/selfscore），先记 0 分
+    const choice = self ? (String(answers[pr.id] ?? '').trim().slice(0, 400) || null) : normalizeInput(key.choices, answers[pr.id]);
     // 超时（late）仍记录作答，前端提示“超时交卷”；如需严格按官方规则，可在 late 时把 choice 置空
-    const correct = judge(key, choice) ? 1 : 0;
-    score += correct;
+    const correct = !self && judge(key, choice) ? 1 : 0;
+    const got = correct * (pr.points ?? 1);
+    score += got;
     stmts.push(
       env.DB
         .prepare(
-          `INSERT INTO attempt_event (session_id, student_id, problem_id, choice, correct, time_sec, hints_used, flagged, error_reason, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`
+          `INSERT INTO attempt_event (session_id, student_id, problem_id, choice, correct, time_sec, hints_used, flagged, error_reason, created_at, got)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
         )
-        .bind(s.id, s.student_id, pr.id, choice, correct, Math.round(Number(times[pr.id]) || 0), hintMap[pr.id] || 0, flags[pr.id] ? 1 : 0, t)
+        .bind(s.id, s.student_id, pr.id, choice, correct, Math.round(Number(times[pr.id]) || 0), hintMap[pr.id] || 0, flags[pr.id] ? 1 : 0, t, pr.points == null ? null : got)
     );
   }
   stmts.push(env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ? WHERE id = ?').bind(t, score, s.id));
   await env.DB.batch(stmts);
   await recomputeMastery(env.DB, s.student_id);
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
+});
+
+// 简答题自评：交卷后对照参考答案和得分点给自己打分（0 ~ 该题分值，按 0.5 分取整），总分跟着更新
+route('POST', '/api/sessions/:id/selfscore', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  const s = await loadSession(env, acc, p.id);
+  if (!s.submitted_at) throw new HttpError(409, '交卷后才能自评');
+  const { problem_id, got } = await body(req);
+  const pr = await env.DB.prepare('SELECT p.kind, p.points FROM attempt_event a JOIN problem p ON p.id = a.problem_id WHERE a.session_id = ? AND a.problem_id = ?')
+    .bind(s.id, problem_id).first();
+  if (!pr || pr.kind !== 'self') throw new HttpError(400, '这道题不用自评');
+  const full = pr.points ?? 1;
+  const g = Math.max(0, Math.min(full, Math.round((Number(got) || 0) * 2) / 2));
+  await env.DB.batch([
+    env.DB.prepare('UPDATE attempt_event SET got = ?, correct = ? WHERE session_id = ? AND problem_id = ?').bind(g, g >= full ? 1 : 0, s.id, problem_id),
+    env.DB.prepare(`UPDATE exam_session SET score = (SELECT SUM(COALESCE(a.got, a.correct)) FROM attempt_event a WHERE a.session_id = ?) WHERE id = ?`).bind(s.id, s.id),
+  ]);
+  await recomputeMastery(env.DB, s.student_id);
+  const row = await env.DB.prepare('SELECT score FROM exam_session WHERE id = ?').bind(s.id).first();
+  return json({ ok: true, got: g, score: row.score });
 });
 
 /** D1 一条语句最多 100 个参数：ids 很多时（语文一套 150 题）分批查询再合并结果 */
@@ -357,8 +380,8 @@ async function reviewPayload(env, acc, sessionId) {
   const ctx = await billing.accessCtx(env, acc);
   const { results: rows } = await env.DB
     .prepare(
-      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types, p.section, p.input_hint,
-              ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason,
+      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types, p.section, p.input_hint, p.kind, p.points, p.extra,
+              ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason, ae.got,
               sb.content AS basic,
               sa.tier AS adv_tier, e.title AS exam_title
          FROM attempt_event ae
@@ -384,6 +407,7 @@ async function reviewPayload(env, acc, sessionId) {
       advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)) } : null,
       kps: kpByProblem[r.id] || [],
       types: parseJ(r.types, []),
+      kind: r.kind ?? null, points: r.points ?? 1, got: r.got ?? (r.correct ? (r.points ?? 1) : 0), extra: parseJ(r.extra, null),
     })),
   };
 }
@@ -619,7 +643,7 @@ route('GET', '/api/families/:id', async (req, env, p, url) => {
   const stats = await kpStats(env, fam.id);
   const { results: kps } = await env.DB.prepare('SELECT id, parent_id, name FROM knowledge_point ORDER BY sort, id').all();
   const { results: sessions } = studentId ? await env.DB
-    .prepare(`SELECT s.id, s.mode, s.score, s.submitted_at, e.title, (SELECT COUNT(*) FROM attempt_event a WHERE a.session_id = s.id) AS total
+    .prepare(`SELECT s.id, s.mode, s.score, s.submitted_at, e.title, (SELECT COALESCE(SUM(COALESCE(pp.points, 1)), 0) FROM attempt_event a JOIN problem pp ON pp.id = a.problem_id WHERE a.session_id = s.id) AS total
                 FROM exam_session s JOIN exam e ON e.id = s.exam_id
                WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND s.exam_id LIKE ? ORDER BY s.submitted_at DESC LIMIT 50`)
     .bind(studentId, fam.prefix + '%').all() : { results: [] };
@@ -650,7 +674,7 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
   const { results: sessions } = await env.DB
     .prepare(
       `SELECT s.id, s.mode, s.score, s.submitted_at, COALESCE(s.title, e.title) AS title,
-              (SELECT COUNT(*) FROM attempt_event a WHERE a.session_id = s.id) AS total
+              (SELECT COALESCE(SUM(COALESCE(pp.points, 1)), 0) FROM attempt_event a JOIN problem pp ON pp.id = a.problem_id WHERE a.session_id = s.id) AS total
          FROM exam_session s JOIN exam e ON e.id = s.exam_id
         WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND COALESCE(s.subject, 'math') = ? ORDER BY s.submitted_at DESC LIMIT 20`
     )

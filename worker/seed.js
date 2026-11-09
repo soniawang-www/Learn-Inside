@@ -30,6 +30,7 @@ export function buildRows(knowledge, exams) {
         accept: p.accept?.length ? JSON.stringify(p.accept) : null,
         reviewed: p.reviewed === false ? 0 : 1, types: p.types ? JSON.stringify(p.types) : null,
         section: p.section ?? null, input_hint: p.input_hint ?? null,
+        kind: p.kind ?? null, points: p.points ?? null, extra: p.extra ? JSON.stringify(p.extra) : null,
       }]);
       (p.hints ?? []).forEach((h, i) => rows.push(['hint', { problem_id: pid, level: i + 1, content: h }]));
       if (p.basic) rows.push(['solution', { id: `${pid}-basic`, problem_id: pid, kind: 'basic', tier: 'free', content: p.basic, url: null }]);
@@ -84,6 +85,12 @@ const MIGRATIONS = [
   'ALTER TABLE problem ADD COLUMN section INTEGER',
   'ALTER TABLE problem ADD COLUMN input_hint TEXT',
   'ALTER TABLE exam_session ADD COLUMN subject TEXT', // NULL = 数学（旧数据）
+  // 笔试卷（古诗文大会决选）：题型 judge 判断 / self 简答自评；每题分值（NULL = 1 分）；
+  // extra = {disp 显示题号, group 共用材料 {id, text}, rubric 简答得分点 [{text, pts}]}；作答得分 got（NULL = 按对错 0/1）
+  'ALTER TABLE problem ADD COLUMN kind TEXT',
+  'ALTER TABLE problem ADD COLUMN points REAL',
+  'ALTER TABLE problem ADD COLUMN extra TEXT',
+  'ALTER TABLE attempt_event ADD COLUMN got REAL',
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
   // 错题打印链接（微信里不能存文件时，换到浏览器打开；24 小时有效）
