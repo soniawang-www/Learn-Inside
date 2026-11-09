@@ -14,7 +14,7 @@
   <div class="page" style="max-width:640px">
     <h1>题库导入</h1>
     <div class="card">
-      <p class="small muted">选择私有仓库 <code>math-data</code> 里的 JSON 文件导入：<code>exams/</code> 下各考试文件夹里的试卷，、<code>knowledge/units.json</code>（知识项体系：模块、知识项、前置关系、题型、识别信号），和 <code>extras/feihua/feihua.json</code>（飞花令诗库）。导入 units.json 会整体替换前置关系，并删除不在里面的旧知识点；之后所有学生的画像按新考点重算。可以一次多选，反复导入不影响孩子的作答记录。建议先导入 units.json，再导入试卷（也可以一起选）。</p>
+      <p class="small muted">选择私有仓库 <code>math-data</code> 里的 JSON 文件导入：<code>exams/</code> 下各考试文件夹里的试卷，、<code>knowledge/units.json</code>（知识项体系：模块、知识项、前置关系、题型、识别信号），<code>extras/feihua/feihua.json</code>（飞花令诗库），和 <code>extras/gushiwen/poems.json</code>（每日背诗篇目）。导入 units.json 会整体替换前置关系，并删除不在里面的旧知识点；之后所有学生的画像按新考点重算。可以一次多选，反复导入不影响孩子的作答记录。建议先导入 units.json，再导入试卷（也可以一起选）。</p>
       <label class="field"><span>管理员密钥（ADMIN_KEY）</span><input type="text" id="key" autocomplete="off" spellcheck="false"></label>
       <label class="field"><span>文件（可多选）</span><input type="file" id="files" accept=".json,application/json" multiple></label>
       <div id="preview" class="small"></div>
@@ -25,10 +25,10 @@
   </div>
 <script>
   const $ = (id) => document.getElementById(id);
-  let exams = [], points = [], edges = null, feihua = null;
+  let exams = [], points = [], edges = null, feihua = null, poems = null;
   try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
   $('files').onchange = async () => {
-    exams = []; points = []; edges = null; feihua = null; const lines = [];
+    exams = []; points = []; edges = null; feihua = null; poems = null; const lines = [];
     for (const f of $('files').files) {
       try {
         const d = JSON.parse(await f.text());
@@ -42,12 +42,15 @@
         } else if (Array.isArray(d.chars) && Array.isArray(d.poems) && Array.isArray(d.lines)) {
           feihua = d;
           lines.push(`✓ ${f.name}：飞花令诗库（${d.chars.length} 个字、${d.poems.length} 首诗、${d.lines.length} 句）`);
-        } else throw new Error('不是试卷、知识点或飞花令诗库文件');
+        } else if (d.kind === 'gsw-poems' && Array.isArray(d.items)) {
+          poems = d;
+          lines.push(`✓ ${f.name}：每日背诗篇目 ${d.items.length} 篇`);
+        } else throw new Error('不是试卷、知识点、飞花令诗库或背诗篇目文件');
       } catch (e) { lines.push(`✗ ${f.name}：${e.message}`); }
     }
     $('preview').textContent = lines.join('\n');
     $('preview').style.whiteSpace = 'pre-wrap';
-    $('go').disabled = !exams.length && !points.length && !feihua;
+    $('go').disabled = !exams.length && !points.length && !feihua && !poems;
   };
   $('go').onclick = async () => {
     const key = $('key').value.trim();
@@ -57,6 +60,7 @@
     const jobs = [];
     if (points.length) jobs.push({ label: '知识点', body: { knowledge: { points, edges, prune: !!edges } } });
     if (feihua) jobs.push({ label: '飞花令诗库', body: { feihua } });
+    if (poems) jobs.push({ label: '每日背诗篇目', body: poems });
     for (const e of exams) jobs.push({ label: e.title || e.id, body: { exams: [e] } });
     const out = []; let ok = 0;
     const show = (tail = '') => { $('out').style.whiteSpace = 'pre-wrap'; $('out').textContent = out.join('\n') + tail; };
@@ -68,7 +72,7 @@
         const d = await r.json().catch(() => ({ error: `服务器返回 ${r.status}` }));
         if (!r.ok) { out.push(`✗ ${j.label}：${d.error}`); if (r.status === 403) break; continue; }
         ok++;
-        out.push(`✓ ${[d.feihua ? `飞花令诗库 ${d.feihua.chars} 个字、${d.feihua.lines} 句` : '', d.points ? `知识点 ${d.points} 个` : '', d.pruned ? `删除旧知识点 ${d.pruned} 个` : '', ...(d.exams || []), d.recomputed ? `重算了 ${d.recomputed} 个学生的画像` : ''].filter(Boolean).join('、') || j.label}`);
+        out.push(`✓ ${[d.poems ? `每日背诗篇目 ${d.poems} 篇` : '', d.feihua ? `飞花令诗库 ${d.feihua.chars} 个字、${d.feihua.lines} 句` : '', d.points ? `知识点 ${d.points} 个` : '', d.pruned ? `删除旧知识点 ${d.pruned} 个` : '', ...(d.exams || []), d.recomputed ? `重算了 ${d.recomputed} 个学生的画像` : ''].filter(Boolean).join('、') || j.label}`);
       } catch (e) { out.push(`✗ ${j.label}：${e.message}（网络中断，可以只选这个文件再试一次）`); }
     }
     show(`\n完成：成功 ${ok} / ${jobs.length}`);

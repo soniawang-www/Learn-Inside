@@ -180,7 +180,7 @@ export const UI_FEATURES = [
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
   ] },
   { id: 'U11', area: '界面', name: '语文', cases: [
-    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会、飞花令（语文会员）三张卡片', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}/${(await c.text('a.fam-card[href$="feihua.html"] .vip')).trim()}`; }, expect: same('3/1/1/语文会员') },
+    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会、每日背诗、飞花令（语文会员）四张卡片', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}/${(await c.text('a.fam-card[href$="feihua.html"] .vip')).trim()}`; }, expect: same('4/1/1/语文会员') },
     { id: 'U11-6', name: '飞花令会员版：不是语文会员只能试「花」字，有开通入口；原来的免费飞花令页面不受影响', run: async (p, c) => {
       await c.go('/chinese/feihua.html'); await p.locator('#home').waitFor({ timeout: 15000 }); await p.waitForTimeout(1500);
       const gate = (await c.text('.fh-gate')).includes('试「花」字');
@@ -337,6 +337,26 @@ export const UI_FEATURES = [
       const before = +(await c.text('#tot')); const sf = p.locator('.sf').first(); await sf.locator('input[type=checkbox]').first().check();
       await sf.locator('[data-save]').click(); await p.waitForTimeout(1500);
       return +(await c.text('#tot')) > before;
+    }, expect: same(true) },
+  ] },
+  { id: 'U18', area: '界面', name: '每日背诗', cases: [
+    { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {
+      await c.go('/chinese/#/beishi'); await p.locator('.bs-stat').waitFor({ timeout: 15000 });
+      return `${await p.locator('.bs-row').count() >= 2}/${await p.locator('.bs-sec').count() >= 3}`;
+    }, expect: same('true/true') },
+    { id: 'U18-2', name: '背一篇：四步（全文有白话 → 挖空 → 首字 → 3 个提示字），点「背会了」回到列表，这篇不再出现在新学里', run: async (p, c) => {
+      const href = await p.locator('.bs-row').first().getAttribute('href'); await p.locator('.bs-row').first().click(); await p.locator('.ps-text').waitFor({ timeout: 15000 });
+      const plain = await p.locator('.ps-plain').count() > 0;
+      for (let i = 0; i < 3; i++) await p.click('#next');
+      const hints = await p.locator('.ps-hint span').count();
+      await p.click('#learned'); await p.locator('.bs-stat').waitFor({ timeout: 15000 });
+      const still = await p.locator(`.bs-row[href="${href}"]`).count();
+      return `${plain}/${hints}/${still}`;
+    }, expect: same('true/3/0') },
+    { id: 'U18-3', name: '手机 360 深色模式下背诗页不溢出', run: async (p, c) => {
+      await p.setViewportSize({ width: 360, height: 760 }); await p.emulateMedia({ colorScheme: 'dark' }); await c.go('/chinese/#/poem/2'); await p.locator('.ps-text').waitFor({ timeout: 15000 });
+      const r = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+      await p.emulateMedia({ colorScheme: 'light' }); await p.setViewportSize({ width: 1366, height: 860 }); return r;
     }, expect: same(true) },
   ] },
   { id: 'U10', area: '界面', name: '在线支付的各种情况', cases: [

@@ -326,6 +326,49 @@ route('POST', '/api/chinese/feihua/done', async (req, env) => {
   return json({ ok: true, added: a.length, removed: r.length });
 });
 
+// ───────── 每日背诗（免费）：篇目 + 每个孩子的背诵进度，复习间隔 1 / 3 / 7 / 15 / 30 天 ─────────
+let poemsCache = null;
+async function poemsData(env) {
+  if (!poemsCache) {
+    const r = await env.DB.prepare("SELECT value FROM setting WHERE key = 'gsw_poems'").first();
+    if (!r?.value) throw new HttpError(503, '篇目还没导入');
+    poemsCache = JSON.parse(r.value);
+  }
+  return poemsCache;
+}
+const POEM_DAYS = [1, 3, 7, 15, 30];
+route('GET', '/api/chinese/poems', async (req, env) => {
+  await requireAccount(req, env);
+  return json({ items: await poemsData(env) });
+});
+route('GET', '/api/chinese/poems/progress', async (req, env, p, url) => {
+  const acc = await requireAccount(req, env);
+  const sid = url.searchParams.get('student');
+  await requireStudent(env, acc, sid);
+  const { results } = await env.DB.prepare('SELECT poem, stage, due_at, reps, lapses, first_at, updated_at FROM poem_progress WHERE student_id = ?').bind(sid).all();
+  return json({ progress: results, server_now: now() });
+});
+// result: learned 学完四步背会了 / good 复习背出来了 / again 复习没背出来
+route('POST', '/api/chinese/poems/progress', async (req, env) => {
+  const acc = await requireAccount(req, env);
+  const { student_id, poem, result } = await body(req);
+  await requireStudent(env, acc, student_id);
+  const items = await poemsData(env);
+  if (!Number.isInteger(poem) || !items.some((x) => x.idx === poem)) throw new HttpError(400, '没有这一篇');
+  if (!['learned', 'good', 'again'].includes(result)) throw new HttpError(400, '结果不对');
+  const t = now(), DAY = 86400000;
+  const cur = await env.DB.prepare('SELECT * FROM poem_progress WHERE student_id = ? AND poem = ?').bind(student_id, poem).first();
+  let stage = cur?.stage ?? 0, lapses = cur?.lapses ?? 0;
+  if (result === 'again') { stage = 0; lapses++; } else if (result === 'learned') stage = Math.max(stage, 1); else stage = Math.min(stage + 1, POEM_DAYS.length);
+  const due = t + (result === 'again' ? 1 : POEM_DAYS[Math.max(0, stage - 1)]) * DAY;
+  // 「已掌握」：最后一轮（30 天）复习也背出来了，就不再安排复习
+  const done = result === 'good' && cur && cur.stage >= POEM_DAYS.length;
+  await env.DB.prepare(`INSERT INTO poem_progress (student_id, poem, stage, due_at, reps, lapses, first_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+    ON CONFLICT (student_id, poem) DO UPDATE SET stage = excluded.stage, due_at = excluded.due_at, reps = poem_progress.reps + 1, lapses = excluded.lapses, updated_at = excluded.updated_at`)
+    .bind(student_id, poem, stage, done ? null : due, lapses, t, t).run();
+  return json({ ok: true, poem, stage, due_at: done ? null : due, mastered: !!done });
+});
+
 // 交卷：判分、写原始事件、重算画像
 route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const acc = await requireAccount(req, env);
@@ -932,6 +975,13 @@ route('POST', '/api/admin/import', async (req, env) => {
     prune = !!(payload.knowledge?.prune ?? payload.prune);
   }
   // 飞花令诗库（math-data extras/feihua/feihua.json）：整份存进 setting，会员接口 /api/chinese/feihua 下发
+  // 每日背诗篇目（math-data extras/gushiwen/poems.json，{kind: 'gsw-poems', items: [...]}）
+  if (!Array.isArray(payload) && payload.kind === 'gsw-poems' && Array.isArray(payload.items)) {
+    await env.DB.prepare("INSERT INTO setting (key, value, updated_at) VALUES ('gsw_poems', ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+      .bind(JSON.stringify(payload.items), now()).run();
+    poemsCache = null;
+    return json({ ok: true, poems: payload.items.length });
+  }
   if (!Array.isArray(payload) && (payload.feihua || (payload.chars && payload.poems && payload.lines))) { // 后台直接上传 feihua.json 也认
     const d = payload.feihua || payload;
     if (!Array.isArray(d.chars) || !Array.isArray(d.poems) || !Array.isArray(d.lines)) throw new HttpError(400, '飞花令数据格式不对');

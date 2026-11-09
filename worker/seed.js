@@ -92,6 +92,10 @@ const MIGRATIONS = [
   'ALTER TABLE problem ADD COLUMN extra TEXT',
   'ALTER TABLE attempt_event ADD COLUMN got REAL',
   // 飞花令（语文会员版）：孩子点「我会背了」的诗句，跟着账号走
+  // 每日背诗：每篇的背诵进度（stage 0 = 学过没背会，1..5 = 第几轮复习；due_at 下次复习时间）
+  `CREATE TABLE IF NOT EXISTS poem_progress (student_id TEXT NOT NULL REFERENCES student(id), poem INTEGER NOT NULL,
+     stage INTEGER NOT NULL DEFAULT 0, due_at INTEGER, reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0,
+     first_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (student_id, poem))`,
   `CREATE TABLE IF NOT EXISTS feihua_done (student_id TEXT NOT NULL REFERENCES student(id), line TEXT NOT NULL,
      created_at INTEGER NOT NULL, PRIMARY KEY (student_id, line))`,
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),

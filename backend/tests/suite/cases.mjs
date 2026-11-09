@@ -262,6 +262,15 @@ export const FEATURES = [
     { id: 'FH1-5', name: '账号页有语文会员套餐', run: async (c) => (await c.get('/api/account')).data.plans.some((p) => p.scope === 'chinese'), expect: same(true) },
   ] },
 
+  { id: 'BS1', area: '语文', name: '每日背诗（免费）', cases: [
+    { id: 'BS1-1', name: '能拿到必背篇目（原文和白话行数一致）', run: async (c) => { const it = (await c.get('/api/chinese/poems')).data.items; return it.length > 100 && it.every((p) => p.text.length === p.plain.length); }, expect: same(true) },
+    { id: 'BS1-2', name: '背会一篇：1 天后复习', run: async (c) => { const r = (await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 1, result: 'learned' })).data; return `${r.stage}/${Math.round((r.due_at - Date.now()) / 86400000)}`; }, expect: same('1/1') },
+    { id: 'BS1-3', name: '复习背出来：间隔变成 3 天', run: async (c) => { const r = (await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 1, result: 'good' })).data; return `${r.stage}/${Math.round((r.due_at - Date.now()) / 86400000)}`; }, expect: same('2/3') },
+    { id: 'BS1-4', name: '复习没背出：回到第 0 轮，明天再来', run: async (c) => { const r = (await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 1, result: 'again' })).data; return `${r.stage}/${Math.round((r.due_at - Date.now()) / 86400000)}`; }, expect: same('0/1') },
+    { id: 'BS1-5', name: '进度能读回来', run: async (c) => (await c.get(`/api/chinese/poems/progress?student=${c.sid}`)).data.progress.find((x) => x.poem === 1)?.reps, expect: same(3) },
+    { id: 'BS1-6', name: '篇目和结果校验；不能改别人家孩子的进度', run: async (c) => `${st(await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 9999, result: 'learned' }))}/${st(await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 1, result: 'hack' }))}/${st(await c.post('/api/chinese/poems/progress', { student_id: c.outsider.sid, poem: 1, result: 'learned' }))}`, expect: same('400/400/404') },
+  ] },
+
   // ───────── J 游客转正（只对游客，最后执行） ─────────
   { id: 'J1', area: '账号', name: '游客注册', cases: [
     { id: 'J1-1', name: '游客注册送 10 次', run: async (c) => (await c.post('/api/account/bind', { phone: c.newPhone(), password: 'abc123', nickname: '转正' })).data.credits_added, expect: { guest: 10, user: 'skip', member: 'skip' } },
