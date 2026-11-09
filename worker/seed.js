@@ -91,6 +91,9 @@ const MIGRATIONS = [
   'ALTER TABLE problem ADD COLUMN points REAL',
   'ALTER TABLE problem ADD COLUMN extra TEXT',
   'ALTER TABLE attempt_event ADD COLUMN got REAL',
+  // 飞花令（语文会员版）：孩子点「我会背了」的诗句，跟着账号走
+  `CREATE TABLE IF NOT EXISTS feihua_done (student_id TEXT NOT NULL REFERENCES student(id), line TEXT NOT NULL,
+     created_at INTEGER NOT NULL, PRIMARY KEY (student_id, line))`,
   `CREATE TABLE IF NOT EXISTS session_problem (session_id TEXT NOT NULL REFERENCES exam_session(id),
      problem_id TEXT NOT NULL REFERENCES problem(id), ord INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
   // 错题打印链接（微信里不能存文件时，换到浏览器打开；24 小时有效）

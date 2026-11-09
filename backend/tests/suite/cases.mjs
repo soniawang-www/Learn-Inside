@@ -251,8 +251,14 @@ export const FEATURES = [
   { id: 'FH1', area: '语文', name: '飞花令（语文会员专享）', cases: [
     { id: 'FH1-1', name: '不是语文会员：只给「花」一个字试用；语文会员：整个诗库（数学会员不含语文）', run: async (c) => { const d = (await c.get('/api/chinese/feihua')).data; return `${d.member}/${d.data.chars.length}`; }, expect: { guest: 'false/1', user: 'false/1', member: 'false/1' } },
     { id: 'FH1-2', name: '试用的诗句都带「花」字', run: async (c) => { const d = (await c.get('/api/chinese/feihua')).data.data; return d.lines.length > 50 && d.lines.every((l) => l[0].includes('花') && d.poems[l[1]]); }, expect: same(true) },
-    { id: 'FH1-3', name: '开通语文会员后能拿到全部 82 个字', run: async (c) => { if (c.role !== 'member') return 'skip'; await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese', reason: '标准测试：语文会员' }); const d = (await c.get('/api/chinese/feihua')).data; return `${d.member}/${d.data.chars.length}`; }, expect: { guest: 'skip', user: 'skip', member: 'true/82' } },
+    { id: 'FH1-3', name: '开通语文会员后能拿到全部 83 个字（含总决选用字「无」）', run: async (c) => { if (c.role !== 'member') return 'skip'; await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese', reason: '标准测试：语文会员' }); const d = (await c.get('/api/chinese/feihua')).data; return `${d.member}/${d.data.chars.length}`; }, expect: { guest: 'skip', user: 'skip', member: 'true/83' } },
     { id: 'FH1-4', name: '没登录拿不到', run: async (c) => st(await c.anon('/api/chinese/feihua', 'GET')), expect: same(401) },
+    { id: 'FH1-6', name: '会背记录跟账号：加两句、删一句，再读出来是一句', run: async (c) => {
+      await c.post('/api/chinese/feihua/done', { student_id: c.sid, add: ['春眠不觉晓，处处闻啼鸟。', '花落知多少'] });
+      await c.post('/api/chinese/feihua/done', { student_id: c.sid, remove: ['花落知多少'] });
+      return (await c.get(`/api/chinese/feihua/done?student=${c.sid}`)).data.lines.join('|');
+    }, expect: same('春眠不觉晓，处处闻啼鸟。') },
+    { id: 'FH1-7', name: '不能读写别人家孩子的会背记录', run: async (c) => `${st(await c.get(`/api/chinese/feihua/done?student=${c.outsider.sid}`))}/${st(await c.post('/api/chinese/feihua/done', { student_id: c.outsider.sid, add: ['x'] }))}`, expect: same('404/404') },
     { id: 'FH1-5', name: '账号页有语文会员套餐', run: async (c) => (await c.get('/api/account')).data.plans.some((p) => p.scope === 'chinese'), expect: same(true) },
   ] },
 

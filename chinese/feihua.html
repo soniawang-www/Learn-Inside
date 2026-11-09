@@ -29,6 +29,12 @@
 @media print{.brandbar,.lockup{display:none!important}}
 </style><style>
 .fh-gate{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:0 0 16px;padding:12px 16px;border:1.5px solid var(--plum,#B04A6F);border-radius:12px;background:var(--plum-soft,#F6E7EC);color:var(--ink,#18302A)}
+.tlimit{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 14px;font-size:15px}
+.tlimit select{font:inherit;padding:4px 8px;border-radius:8px;border:1.5px solid var(--line,#E4E0D6);background:var(--card,#fff);color:var(--ink,#18302A)}
+.tclock{position:sticky;top:8px;z-index:3;align-self:center;margin:0 auto 10px;padding:6px 18px;border-radius:999px;background:var(--jade-soft,#E3ECE7);color:var(--jade,#1D5C4D);font-size:15px;text-align:center;width:max-content}
+.tclock b{font-size:26px;font-variant-numeric:tabular-nums}
+.tclock.low{background:var(--plum-soft,#F6E7EC);color:var(--plum,#B04A6F)}
+.fh-gate.flash{animation:fhflash .4s 3}@keyframes fhflash{50%{transform:scale(1.03)}}
 .fh-gate b{color:var(--plum,#B04A6F)}
 .fh-gate a{margin-left:auto;padding:6px 14px;border-radius:999px;background:var(--plum,#B04A6F);color:#fff;text-decoration:none;font-weight:600}
 </style></head><body>
@@ -264,11 +270,17 @@ body{font-size:1rem}
   </a>
   <a class="card" href="#full" data-v="full">
     <div class="head"><span class="num">2</span><h2>完整版</h2><span class="pill">拓展练习</span></div>
-    <div class="facts"><span><b>82</b>个常用字</span><span><b>5872</b>句诗词</span><span>拼音索引找字</span></div>
+    <div class="facts"><span><b>83</b>个常用字</span><span><b>5872</b>句诗词</span><span>拼音索引找字</span></div>
     <p>收录课本古诗、千家诗、唐诗三百首、宋词三百首、诗经和唐宋诗选，备赛之外想多背一些时用。</p>
     <span class="go">进入完整版 ›</span>
   </a>
-  <p class="foot">两个版本的“会背”记录是通用的：在备赛版背会的句子，到完整版里也会显示已会背。</p>
+  <a class="card" href="#final" data-v="final">
+    <div class="head"><span class="num">3</span><h2>总决选版</h2><span class="pill">往年赛题</span></div>
+    <div class="facts"><span><b>5</b>个赛题用字</span><span>红 江 无 马 年</span><span>每句限时</span></div>
+    <p>五年级总决选的飞花令是多人轮流、主持人倒数、接不上就淘汰。用往年考过的字练，比一比里设好每句几秒。</p>
+    <span class="go">进入总决选版 ›</span>
+  </a>
+  <p class="foot">几个版本的“会背”记录是通用的：在备赛版背会的句子，到完整版里也会显示已会背。</p>
   <noscript><p class="foot">这个页面需要开启 JavaScript。请用手机或电脑上的浏览器（如 Safari、Chrome、Edge）打开，不要用聊天软件或文件管理器的预览。</p></noscript>
 </div>
 
@@ -329,6 +341,7 @@ body{font-size:1rem}
         <button data-n="30" data-r="2" aria-pressed="false"><span class="stars">★★☆</span>小秀才<small>会 30 句，范围到唐诗三百首</small></button>
         <button data-n="9999" data-r="4" aria-pressed="false"><span class="stars">★★★</span>大诗人<small>整个诗库都会</small></button>
       </div>
+      <label class="tlimit">每句限时 <select id="tLimit"><option value="0">不限时</option><option value="5">5 秒</option><option value="8">8 秒</option><option value="10">10 秒</option><option value="15">15 秒</option><option value="20">20 秒</option></select></label>
       <button class="btn plum" id="startBtn">开始比赛</button>
     </div>
 
@@ -337,6 +350,7 @@ body{font-size:1rem}
         <div><span class="meta">我说了</span><br><strong id="sMe">0</strong> 句</div>
         <div><span class="meta" id="pcName">机器人说了</span><br><strong id="sPc">0</strong> 句</div>
       </div>
+      <div class="tclock" id="tClock" hidden><b id="tSec"></b> 秒</div>
       <div class="log" id="log" aria-live="polite"></div>
       <div class="judge" id="judge" hidden>
         <span>诗库里没有找到这一句。请家长或老师帮忙看看，这句诗对不对？</span>
@@ -404,8 +418,8 @@ body{font-size:1rem}
 <script>
 function startApp(MODE){
 const RAW = window.__FHL;
-const G3S = '小孩乐花秋月海水';
-const DATA = MODE==='g3'
+const G3S = MODE==='final' ? '红江无马年' : '小孩乐花秋月海水';
+const DATA = MODE!=='full'
   ? {chars: [...G3S].map(c=>RAW.chars.find(x=>x[0]===c)).filter(Boolean), poems: RAW.poems, lines: RAW.lines.filter(l=>[...G3S].some(c=>l[0].includes(c)))}
   : RAW;
 const RAWIDX = new Map(RAW.lines.map((l, i)=>[l[0], i]));
@@ -424,19 +438,21 @@ const store = {
   set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} }
 };
 let done = new Set(store.get('fhl-done', []));
-const CURKEY = MODE==='g3' ? 'fhl3-cur' : 'fhl-cur';
+const CURKEY = MODE==='final' ? 'fhlf-cur' : MODE==='g3' ? 'fhl3-cur' : 'fhl-cur';
 let cur = store.get(CURKEY, '花');
-if(!CH.some(c=>c[0]===cur)) cur = '花';
+if(!CH.some(c=>c[0]===cur)) cur = CH.some(c=>c[0]==='花') ? '花' : CH[0][0];
 const poolCache = {};
 const pool = c => poolCache[c] || (poolCache[c] = P.filter(p=>p[0].includes(c)).sort((a,b)=>a[4]-b[4]));
-$('sub').textContent = MODE==='g3'
+$('sub').textContent = MODE==='final'
+  ? '总决选往年赛题用字：红（2022）、江和无（2023）、马和年（2025）。比一比可以设每句限时。'
+  : MODE==='g3'
   ? '三年级备赛专用：小、孩、乐、花、秋、月、海、水，共 8 个字。点下面的字切换。'
   : '诗库收录 '+P.length+' 句，来自课本古诗、千家诗、唐诗三百首、宋词三百首、诗经和唐宋诗选，共 '+CH.length+' 个常用字。';
 $('back').onclick = e=>{ e.preventDefault(); goHome(); };
-{ const seal = MODE==='g3' ? '备赛版' : '诗词馆'; const s = document.querySelector('#app .seal'); s.setAttribute('aria-label', seal); s.innerHTML = [...seal].map(c=>'<span>'+c+'</span>').join(''); }
+{ const seal = MODE==='final' ? '总决选' : MODE==='g3' ? '备赛版' : '诗词馆'; const s = document.querySelector('#app .seal'); s.setAttribute('aria-label', seal); s.innerHTML = [...seal].map(c=>'<span>'+c+'</span>').join(''); }
 // 备赛版：只有 8 个字，直接点字切换，不用拼音索引
 function renderChars8(){
-  if(MODE!=='g3') return;
+  if(MODE==='full') return;
   const box = $('chars8'); box.hidden = false; box.textContent = '';
   CH.forEach(c=>{
     const list = pool(c[0]), k = list.filter(p=>done.has(p[0])).length;
@@ -448,7 +464,7 @@ function renderChars8(){
     box.appendChild(b);
   });
 }
-if(MODE==='g3'){ $('nowCard').hidden = true; $('index').hidden = true; }
+if(MODE!=='full'){ $('nowCard').hidden = true; $('index').hidden = true; }
 
 // 背一背的朗读：手指点按钮时直接发声，不受比赛页“语音自动播放”开关影响
 let readingBtn = null;
@@ -584,7 +600,7 @@ function renderPrep(){
     const ok = document.createElement('button'); ok.className='btn'+(done.has(p[0])?'':' ghost');
     ok.textContent = done.has(p[0])?'已会背':'我会背了';
     ok.onclick = ()=>{
-      done.has(p[0])?done.delete(p[0]):done.add(p[0]); store.set('fhl-done',[...done]);
+      done.has(p[0])?done.delete(p[0]):done.add(p[0]); store.set('fhl-done',[...done]); window.__fhlSync && window.__fhlSync(p[0], done.has(p[0]));
       d.classList.toggle('done', done.has(p[0])); ok.className='btn'+(done.has(p[0])?'':' ghost'); ok.textContent = done.has(p[0])?'已会背':'我会背了';
       renderNow(); renderChars8(); $('prepCount').textContent = '共 '+list.length+' 句，已会背 '+list.filter(p=>done.has(p[0])).length+' 句';
     };
@@ -928,12 +944,28 @@ $('tab-game').onclick = ()=>tab('game');
 
 /* ---------- 比赛 ---------- */
 let G = null, level = 8, lvR = 1, pending = '';
+// 每句限时（总决选版默认 10 秒）：轮到我时开始倒数，最后 3 秒响提示音，到 0 算输
+$('tLimit').value = String(store.get('fhl-tlimit', MODE==='final' ? 10 : 0));
+$('tLimit').onchange = ()=>store.set('fhl-tlimit', +$('tLimit').value);
+let tT = null, tLeft = 0, actx = null;
+function beep(f){ try{ if(!actx) return; const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; o.connect(g); g.connect(actx.destination);
+  g.gain.setValueAtTime(.18, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime+.2); o.start(); o.stop(actx.currentTime+.22); }catch(e){} }
+function stopClock(){ clearInterval(tT); tT = null; $('tClock').hidden = true; }
+function startClock(){
+  stopClock(); const lim = +$('tLimit').value; if(!lim || !G || G.over) return;
+  tLeft = lim; $('tClock').hidden = false; $('tClock').classList.remove('low'); $('tSec').textContent = tLeft;
+  tT = setInterval(()=>{
+    tLeft--; $('tSec').textContent = Math.max(tLeft, 0);
+    if(tLeft <= 3 && tLeft > 0){ $('tClock').classList.add('low'); beep(880); }
+    if(tLeft <= 0){ stopClock(); beep(330); say('sys','时间到！'+lim+' 秒内没有接上。'); end(false); }
+  }, 1000);
+}
 $('levels').querySelectorAll('button').forEach(b=>b.onclick=()=>{
   level = +b.dataset.n; lvR = +b.dataset.r;
   $('levels').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b));
 });
 function resetGame(){
-  G = null; $('ruleChar').textContent = cur;
+  stopClock(); G = null; $('ruleChar').textContent = cur;
   $('setup').hidden = false; $('play').hidden = true;
 }
 function say(who, text, isLine, extra){
@@ -1011,7 +1043,8 @@ $('startBtn').onclick = ()=>{
   $('pcName').textContent = name+'说了';
   say('sys','今天的字是“'+cur+'”。你先说！机器人说的句子，点一下可以再听一遍。');
   unlockTTS();
-  $('hintBtn').textContent='提示'; score(); lock(false); $('answer').value=''; $('answer').focus();
+  try{ actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); }catch(e){}
+  $('hintBtn').textContent='提示'; score(); lock(false); $('answer').value=''; $('answer').focus(); startClock();
 };
 $('againBtn').onclick = resetGame;
 
@@ -1037,13 +1070,14 @@ $('entry').onsubmit = e=>{
     accept(hit[0], hit[1]+'《'+hit[2]+'》', hit[0]);
   }else{
     if(G.usedExtra.has(t)){ $('tip').textContent='这句已经说过了，换一句。'; return; }
-    pending = raw; $('judge').hidden=false; lock(true);
+    pending = raw; stopClock(); $('judge').hidden=false; lock(true);
   }
 };
 $('judgeYes').onclick = ()=>{ $('judge').hidden=true; G.usedExtra.add(norm(pending)); accept(pending, '', null); };
-$('judgeNo').onclick = ()=>{ $('judge').hidden=true; lock(false); $('answer').focus(); };
+$('judgeNo').onclick = ()=>{ $('judge').hidden=true; lock(false); $('answer').focus(); startClock(); };
 
 function accept(text, src, key){
+  stopClock();
   if(key) G.used.add(key);
   G.hint = null; $('hintBtn').textContent='提示';
   G.me++; say('me', text, true, src); score();
@@ -1057,7 +1091,7 @@ function pcTurn(){
   G.used.add(p[0]); G.pc++;
   if(G.hint && G.hint[0]===p[0]){ G.hint = null; $('hintBtn').textContent='提示'; }
   say('pc', p[0], true, p[1]+'《'+p[2]+'》'); score(); speak(p[0]);
-  lock(false); $('answer').focus();
+  lock(false); $('answer').focus(); startClock();
 }
 $('hintBtn').onclick = ()=>{
   // 第一次：给作者、诗名和开头三个字；再点一次：直接给出整句答案
@@ -1075,7 +1109,7 @@ $('hintBtn').onclick = ()=>{
 };
 $('giveBtn').onclick = ()=>{ say('sys','你说：我接不上了。'); end(false); };
 function end(win){
-  G.over = true; lock(true); $('hintBtn').disabled=true;
+  stopClock(); G.over = true; lock(true); $('hintBtn').disabled=true;
   const left = pool(G.c).filter(p=>!G.used.has(p[0]));
   $('result').hidden=false; $('againBtn').hidden=false;
   $('result').textContent = win ? '你赢了！一共说出 '+G.me+' 句。' : G.name+'赢了。你说出了 '+G.me+' 句，再练练就能赢。';
@@ -1094,6 +1128,7 @@ if(window.__fhlPrint){ const t = window.__fhlPrint; window.__fhlPrint = null; se
 // 目录页：点卡片进入版本；返回目录时只是切换显示，换另一个版本时重新加载
 let STARTED = null;
 function openV(m){
+  if(m==='final' && window.__FHL_LOCKFINAL){ const g = document.querySelector('.fh-gate'); if(g){ g.scrollIntoView({block:'center'}); g.classList.add('flash'); setTimeout(()=>g.classList.remove('flash'), 1200); } return; }
   if(STARTED && STARTED !== m){ location.hash = m; location.reload(); return; }
   document.getElementById('home').hidden = true; document.getElementById('app').hidden = false;
   document.body.classList.remove('home');
@@ -1125,10 +1160,29 @@ document.body.classList.add('home');
     document.getElementById('home').insertAdjacentHTML('afterbegin', '<p class="fh-gate">诗库加载失败，请刷新再试。</p>'); return;
   }
   window.__FHL = j.data;
+  window.__FHL_LOCKFINAL = !j.member;
+  if (!j.member) document.querySelector('a[data-v="final"] .pill').textContent = '语文会员';
+  // 会背记录：和账号里的合并（两边都算会背），之后每点一次「我会背了」都同步到账号
+  const sid = (() => { try { return JSON.parse(localStorage.getItem('li.student') || 'null')?.id; } catch (e) { return null; } })();
+  if (sid) {
+    const H = { authorization: 'Bearer ' + tok, 'content-type': 'application/json' };
+    const post = (b) => fetch('/api/chinese/feihua/done', { method: 'POST', headers: H, body: JSON.stringify({ student_id: sid, ...b }) }).catch(() => {});
+    try {
+      const r = await fetch('/api/chinese/feihua/done?student=' + encodeURIComponent(sid), { headers: H });
+      if (r.ok) {
+        const srv = new Set((await r.json()).lines || []);
+        let local = []; try { local = JSON.parse(localStorage.getItem('fhl-done') || '[]'); } catch (e) {}
+        const up = local.filter((x) => !srv.has(x));
+        if (up.length) post({ add: up });
+        localStorage.setItem('fhl-done', JSON.stringify([...new Set([...srv, ...local])]));
+      }
+    } catch (e) {}
+    window.__fhlSync = (line, on) => post(on ? { add: [line] } : { remove: [line] });
+  }
   if (!j.member) document.getElementById('home').insertAdjacentHTML('afterbegin',
     `<div class="fh-gate"><b>语文会员专享</b><span>现在可以试「${j.sample}」字</span><a href="/account/">开通语文会员</a></div>`);
-  const h = location.hash.slice(1); const pm = /^print-(g3|full)-/.exec(h);
-  if(pm){ window.__fhlPrint = h; openV(pm[1]); } else if(h === 'g3' || h === 'full') openV(h);
+  const h = location.hash.slice(1); const pm = /^print-(g3|full|final)-/.exec(h);
+  if(pm){ window.__fhlPrint = h; openV(pm[1]); } else if(h === 'g3' || h === 'full' || h === 'final') openV(h);
 })();
 </script>
 

@@ -190,6 +190,15 @@ export const UI_FEATURES = [
       const old = await p.evaluate(() => !!document.getElementById('fhl-data') && (document.querySelector('.fh-gate') === null));
       return `${gate}/${chars}/${old}`;
     }, expect: same('true/1/true') },
+    { id: 'U11-7', name: '飞花令总决选版：5 个赛题用字，比一比默认每句限时 10 秒，开赛后显示倒数', run: async (p, c) => {
+      if (c.role === 'member') await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese', reason: '标准测试：语文会员' });
+      await c.go('/chinese/feihua.html#final'); await p.waitForTimeout(2000);
+      if (!(await p.locator('#app').isVisible())) return '会员才能进';
+      const n = await p.locator('#chars8 button').count();
+      await p.click('#tab-game'); const lim = await p.locator('#tLimit').inputValue();
+      await p.click('#startBtn'); await p.waitForTimeout(1300);
+      return `${n}/${lim}/${await p.locator('#tClock').isVisible()}`;
+    }, expect: { guest: '会员才能进', user: '会员才能进', member: '5/10/true' } },
     { id: 'U11-2', name: '语文首页：「今天做什么」「最近成绩」一直显示，今天做什么推荐一套没做过的卷子', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('.dash-grid > .card').count()}/${await p.locator('.tasks a[href^="#/intro/"]').count()}`; }, expect: same('2/1') },
     { id: 'U11-3', name: '点汉字小达人进到试卷列表（真题 + 模拟题）', run: async (p, c) => { await c.go('/chinese/'); await p.locator('a.fam-card[href="#/hanzi"]').click(); await c.settle(); return `${p.url().endsWith('#/hanzi')}/${await p.locator('.exam-row').count()}`; }, expect: same('true/6') },
     { id: 'U11-4', name: '考前须知：标题是试卷名、5 条规则、有「开始答题」', run: async (p, c) => { await c.go('/chinese/#/intro/hanzi-2021-city'); return `${(await c.text('main h1')).includes('第八届')}/${await p.locator('.rules li').count()}/${await p.locator('main button, main a').filter({ hasText: '开始答题' }).count()}`; }, expect: same('true/5/1') },

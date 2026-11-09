@@ -304,6 +304,28 @@ route('GET', '/api/chinese/feihua', async (req, env) => {
   return json(ctx.member ? { member: true, data: d } : { member: false, sample: FEIHUA_SAMPLE, data: feihuaSample(d, FEIHUA_SAMPLE) });
 });
 
+// 飞花令会背记录：读全部；add / remove 一次最多 500 句
+route('GET', '/api/chinese/feihua/done', async (req, env, p, url) => {
+  const acc = await requireAccount(req, env);
+  const sid = url.searchParams.get('student');
+  await requireStudent(env, acc, sid);
+  const { results } = await env.DB.prepare('SELECT line FROM feihua_done WHERE student_id = ?').bind(sid).all();
+  return json({ lines: results.map((r) => r.line) });
+});
+route('POST', '/api/chinese/feihua/done', async (req, env) => {
+  const acc = await requireAccount(req, env);
+  const { student_id, add = [], remove = [] } = await body(req);
+  await requireStudent(env, acc, student_id);
+  const ok = (xs) => (Array.isArray(xs) ? xs : []).filter((x) => typeof x === 'string' && x.length > 0 && x.length <= 80).slice(0, 500);
+  const a = ok(add), r = ok(remove), t = now();
+  const stmts = [
+    ...a.map((x) => env.DB.prepare('INSERT OR IGNORE INTO feihua_done (student_id, line, created_at) VALUES (?, ?, ?)').bind(student_id, x, t)),
+    ...r.map((x) => env.DB.prepare('DELETE FROM feihua_done WHERE student_id = ? AND line = ?').bind(student_id, x)),
+  ];
+  for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+  return json({ ok: true, added: a.length, removed: r.length });
+});
+
 // 交卷：判分、写原始事件、重算画像
 route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const acc = await requireAccount(req, env);
