@@ -47,9 +47,6 @@ h2 { font-size: 18px; margin: 0 0 12px; }
 .center { text-align: center; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .err { color: var(--bad); min-height: 1.4em; margin: 8px 0 0; }
-body.net-wait::before { content: ""; position: fixed; top: 0; left: 0; height: 3px; width: 30%; background: var(--accent); z-index: 99; animation: netbar 1s ease-in-out infinite; }
-@keyframes netbar { from { left: -30%; } to { left: 100%; } }
-@media (prefers-reduced-motion: reduce) { body.net-wait::before { animation: none; left: 0; width: 100%; opacity: .5; } }
 
 /* 顶栏 */
 .topnav { display: flex; align-items: center; gap: 6px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }

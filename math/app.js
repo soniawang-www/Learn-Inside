@@ -2,7 +2,7 @@
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
-import { loadStart } from '/assets/loadcomic.js?v=20261107b';
+import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
 import { openPreview, SHEET_CSS } from './print.js';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;

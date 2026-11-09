@@ -234,15 +234,21 @@ export const UI_FEATURES = [
     }, expect: same('true/true/true/true') },
   ] },
   { id: 'U13', area: '界面', name: '加载时的样子', cases: [
-    { id: 'U13-1', name: '第一次打开（数据慢）：屏幕正中弹出圆形四格漫画，外圈是加载进度，加载完自动关', run: async (p, c) => {
+    { id: 'U13-1', name: '第一次打开（数据慢）：不弹漫画；内容区是灰色占位块，顶部进度条在走；加载完换成内容、进度条消失', run: async (p, c) => {
       const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 } }); const q = await ctx.newPage();
       await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: '慢' }]);
       await q.route('**/math/api/**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue().catch(() => {}); });
       await q.goto(c.base + '/math/'); await q.waitForTimeout(1300);
-      const shown = await q.locator('#app > .li-load .li-ring').isVisible(), n = await q.locator('#app > .li-load .seg').count(), ring = await q.locator('#app > .li-load .lr-prog').count();
-      await q.waitForSelector('.fam-card', { timeout: 30000 }); const gone = (await q.locator('.li-load').count()) === 0; await ctx.close();
-      return `${shown}/${n}/${ring}/${gone}`;
-    }, expect: same('true/4/1/true') },
+      const sk = await q.locator('#app .sk').isVisible(), comic = await q.locator('.li-load, .li-ring').count(), bar = await q.evaluate(() => document.body.classList.contains('net-wait'));
+      await q.waitForSelector('.fam-card', { timeout: 30000 }); await q.waitForTimeout(300);
+      const gone = (await q.locator('.sk').count()) === 0, barGone = await q.evaluate(() => !document.body.classList.contains('net-wait')); await ctx.close();
+      return `${sk}/${comic}/${bar}/${gone}/${barGone}`;
+    }, expect: same('true/0/true/true/true') },
+    { id: 'U13-5', name: '各页第一次打开都是同一种加载：数学、语文、英语、账号页先出占位块，没有加载漫画', run: async (p, c) => {
+      const out = [];
+      for (const u of ['/math/', '/chinese/', '/english/', '/account/']) { const h = await (await fetch(c.base + u)).text(); out.push(h.includes('sk-first') && !h.includes('li-load') && h.includes('<body class="net-wait">') ? 1 : 0); }
+      return out.join('');
+    }, expect: same('1111') },
     { id: 'U13-2', name: '数学站内换页（数据慢）：不弹漫画；内容区原地显示骨架，导航不动，顶部进度条在走；加载完换成内容', run: async (p, c) => {
       await c.go('#/contest/amc8'); await p.route('**/math/api/families**', async (r) => { await new Promise((x) => setTimeout(x, 2500)); await r.continue().catch(() => {}); });
       await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1000);
@@ -266,6 +272,13 @@ export const UI_FEATURES = [
       const fresh = await q.locator('#promo').isVisible(); await ctx.close();
       await c.go('/'); await p.waitForTimeout(800); return `${fresh}/${await p.locator('#promo').isVisible()}`;
     }, expect: same('true/false') },
+    { id: 'U14-3', name: '漫画弹窗有数学、语文、英语三页，每页四格；点「英语」滑到英语那页', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 } }); const q = await ctx.newPage(); await q.goto(c.base + '/'); await q.waitForTimeout(1200);
+      const tabs = (await q.locator('.promo-dots button').allInnerTexts()).join(','), figs = await q.$$eval('.promo-slide', (l) => l.map((x) => x.querySelectorAll('.comic figure').length).join(''));
+      await q.click('[data-slide="2"]'); await q.waitForTimeout(900);
+      const on = await q.locator('.promo-dots button.on').innerText(), vis = await q.evaluate(() => { const r = document.querySelector('.promo-slide.en').getBoundingClientRect(), t = document.getElementById('promo-track').getBoundingClientRect(); return Math.abs(r.left - t.left) < 4; });
+      await ctx.close(); return `${tabs}/${figs}/${on}/${vis}`;
+    }, expect: same('数学,语文,英语/444/英语/true') },
   ] },
   { id: 'U15', area: '界面', name: '语文答题（和比赛界面一样）', cases: [
     { id: 'U15-1', name: '开考：一页一题、有倒计时，没作答「下一页」不能点，没有「上一页」，不显示还剩多少题', run: async (p, c) => {

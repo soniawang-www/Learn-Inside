@@ -1122,11 +1122,8 @@ body:not(.exam-mode) { background: var(--paper); }
 .busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 1em; height: 1em; box-sizing: border-box;
   border: 2px solid var(--spin); border-right-color: transparent; border-radius: 50%; animation: busy-spin .7s linear infinite; }
 @keyframes busy-spin { to { transform: rotate(360deg); } }
-body::before { content: ""; position: fixed; z-index: 9999; top: 0; left: 0; height: 3px; width: 0; background: var(--accent); opacity: 0; pointer-events: none; }
-body.net-wait::before { opacity: 1; animation: net-bar 1.6s ease-out infinite; }
-@keyframes net-bar { 0% { width: 0; left: 0; } 60% { width: 70%; left: 15%; } 100% { width: 10%; left: 100%; } }
 #app.page-wait { opacity: .55; pointer-events: none; transition: opacity .15s; }
-@media (prefers-reduced-motion: reduce) { .busy::after { animation-duration: 2s; } body.net-wait::before { animation: none; width: 100%; opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .busy::after { animation-duration: 2s; } }
 
 /* 支付：确认订单、跳转遮罩、待付款提示、支付结果 */
 .pay-sum { display: grid; gap: 8px; margin: 10px 0 14px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2, var(--bg)); border: 1px solid var(--border); }

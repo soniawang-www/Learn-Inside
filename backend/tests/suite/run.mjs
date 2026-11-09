@@ -125,8 +125,8 @@ if (WITH_UI) {
     await login(page);
     c.base = BASE;
     const url = (t) => BASE + (t === '#/account' ? '/account/' : t.startsWith('/') ? t : '/math/' + t);
-    // 等页面稳定：加载漫画、换页变淡都结束
-    const settle = async (pg) => { await pg.waitForTimeout(400); await pg.waitForFunction(() => !document.querySelector('body > .li-load, #app > .li-load') && !document.getElementById('app')?.classList.contains('page-wait'), null, { timeout: 15000 }).catch(() => {}); await pg.waitForTimeout(300); };
+    // 等页面稳定：占位块、换页变淡都结束
+    const settle = async (pg) => { await pg.waitForTimeout(400); await pg.waitForFunction(() => !document.querySelector('.sk') && !document.getElementById('app')?.classList.contains('page-wait'), null, { timeout: 15000 }).catch(() => {}); await pg.waitForTimeout(300); };
     const open = async (pg, t) => { await pg.goto(url(t)); await pg.reload().catch(() => {}); await settle(pg); };
     c.role = role; c.settle = () => settle(page);
     // 语文答题用的标准答案（来自题库仓库 math-data，环境变量 DATA 指定目录）

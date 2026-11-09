@@ -7,7 +7,7 @@
 // 账号全站通用：和数学、语文共用 li.token / li.student。接口在 /api/english/（worker/english.js）。
 
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
-import { loadStart } from '/assets/loadcomic.js?v=20261107b';
+import { loadStart } from '/assets/loadcomic.js?v=20261109';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
