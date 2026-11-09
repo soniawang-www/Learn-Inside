@@ -161,7 +161,7 @@ export const FEATURES = [
   { id: 'H1', area: '会员', name: '会员状态', cases: [
     { id: 'H1-1', name: '/me 是否会员', run: async (c) => (await c.get('/math/api/me')).data.premium, expect: { guest: false, user: false, member: true } },
     { id: 'H1-2', name: '账号页会员种类', run: async (c) => Object.keys((await c.get('/api/account')).data.memberships).join(',') || '无', expect: { guest: '无', user: '无', member: 'math' } },
-    { id: 'H1-3', name: '套餐列表（数学、英语各 3 档，全科暂不开放）', run: async (c) => (await c.get('/api/account')).data.plans.map((p) => p.id).join(','), expect: same('math.month,math.quarter,math.year,english.month,english.quarter,english.year') },
+    { id: 'H1-3', name: '套餐列表（数学、语文、英语各 3 档，全科暂不开放）', run: async (c) => (await c.get('/api/account')).data.plans.map((p) => p.id).join(','), expect: same('math.month,math.quarter,math.year,chinese.month,chinese.quarter,chinese.year,english.month,english.quarter,english.year') },
   ] },
   { id: 'H2', area: '会员', name: '激活码', cases: [
     { id: 'H2-1', name: '兑换 31 天数学会员激活码', run: async (c) => { const code = await c.makeCode('days', 31, 'math'); const r = await c.post('/api/redeem', { code }); c.lastCode = code; return st(r); }, expect: { guest: 403, user: 200, member: 200 } },
@@ -246,6 +246,14 @@ export const FEATURES = [
     { id: 'GS1-7', name: '不是简答的题不能自评', run: async (c) => { const it = (await c.get(`/api/sessions/${c.gswSid}/review`)).data.items.find((x) => x.kind !== 'self'); return st(await c.post(`/api/sessions/${c.gswSid}/selfscore`, { problem_id: it.problem_id, got: 2 })); }, expect: same(400) },
     { id: 'GS1-8', name: '不能给别人的卷子自评', run: async (c) => st(await c.req(`/api/sessions/${c.gswSid}/selfscore`, 'POST', { problem_id: c.gswSelf.id, got: 1 }, c.outsider.T)), expect: same(404) },
     { id: 'GS1-9', name: '成绩页带参考答案和得分点', run: async (c) => { const it = (await c.get(`/api/sessions/${c.gswSid}/review`)).data.items.find((x) => x.kind === 'self'); return !!(it.answer && it.extra?.rubric?.length); }, expect: same(true) },
+  ] },
+
+  { id: 'FH1', area: '语文', name: '飞花令（语文会员专享）', cases: [
+    { id: 'FH1-1', name: '不是语文会员：只给「花」一个字试用；语文会员：整个诗库（数学会员不含语文）', run: async (c) => { const d = (await c.get('/api/chinese/feihua')).data; return `${d.member}/${d.data.chars.length}`; }, expect: { guest: 'false/1', user: 'false/1', member: 'false/1' } },
+    { id: 'FH1-2', name: '试用的诗句都带「花」字', run: async (c) => { const d = (await c.get('/api/chinese/feihua')).data.data; return d.lines.length > 50 && d.lines.every((l) => l[0].includes('花') && d.poems[l[1]]); }, expect: same(true) },
+    { id: 'FH1-3', name: '开通语文会员后能拿到全部 82 个字', run: async (c) => { if (c.role !== 'member') return 'skip'; await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese', reason: '标准测试：语文会员' }); const d = (await c.get('/api/chinese/feihua')).data; return `${d.member}/${d.data.chars.length}`; }, expect: { guest: 'skip', user: 'skip', member: 'true/82' } },
+    { id: 'FH1-4', name: '没登录拿不到', run: async (c) => st(await c.anon('/api/chinese/feihua', 'GET')), expect: same(401) },
+    { id: 'FH1-5', name: '账号页有语文会员套餐', run: async (c) => (await c.get('/api/account')).data.plans.some((p) => p.scope === 'chinese'), expect: same(true) },
   ] },
 
   // ───────── J 游客转正（只对游客，最后执行） ─────────

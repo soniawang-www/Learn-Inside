@@ -20,7 +20,7 @@ export const SAMPLES = { exams: ['amc8-2026'], drills: ['geo.area', 'app.ratio']
 // 会员种类：live = 已经上线、账号页显示套餐
 export const SCOPES = [
   { id: 'math', name: '数学', live: true },
-  { id: 'chinese', name: '语文', live: false },
+  { id: 'chinese', name: '语文', live: true }, // 语文会员：飞花令（其他语文内容免费）；价格在控制台加 PRICE_CHINESE_MONTH / QUARTER / YEAR
   { id: 'english', name: '英语', live: true }, // 价格在控制台加 PRICE_ENGLISH_MONTH / QUARTER / YEAR
   { id: 'all', name: '全科', live: false }, // 现在只有数学，全科先不卖；开语文时一起打开
 ];

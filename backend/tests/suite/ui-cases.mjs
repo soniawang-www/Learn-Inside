@@ -140,7 +140,7 @@ export const UI_FEATURES = [
   ] },
   { id: 'U5', area: '界面', name: '账号页', cases: [
     { id: 'U5-1', name: '会员卡片显示', run: async (p, c) => { await c.go('#/account'); const t = await c.text('.col-main'); return t.includes('数学会员 到') || t.includes('数学会员到') ? '数学会员' : t.includes('注册就送 10 次') ? '注册礼' : t.includes('剩余免费次数 10 次') ? '剩 10 次' : '?'; }, expect: { guest: '注册礼', user: '剩 10 次', member: '数学会员' } },
-    { id: 'U5-2', name: '套餐按钮（测试环境：数学 39/99/299、英语月卡 29，单笔上限 100）', run: async (p, c) => { await c.go('#/account'); const n = async (s) => p.locator(s).count(); return `${await n('[data-plan]')}开通/${await n('.plan [data-support]')}找客服/${await n('[data-goreg]')}注册后开通`; }, expect: { guest: '0开通/0找客服/4注册后开通', user: '3开通/1找客服/0注册后开通', member: '3开通/1找客服/0注册后开通' } },
+    { id: 'U5-2', name: '套餐按钮（测试环境：数学 39/99/299、英语月卡 29、语文月卡 19，单笔上限 100）', run: async (p, c) => { await c.go('#/account'); const n = async (s) => p.locator(s).count(); return `${await n('[data-plan]')}开通/${await n('.plan [data-support]')}找客服/${await n('[data-goreg]')}注册后开通`; }, expect: { guest: '0开通/0找客服/5注册后开通', user: '4开通/1找客服/0注册后开通', member: '4开通/1找客服/0注册后开通' } },
     { id: 'U5-3', name: '激活码：游客输入框不能用、提示注册后可兑换', run: async (p, c) => { await c.go('#/account'); const i = p.locator('#redeem input'); return `${await i.isDisabled()}/${await i.getAttribute('placeholder')}`; }, expect: { guest: 'true/注册后可兑换', user: 'false/输入激活码', member: 'false/输入激活码' } },
     { id: 'U5-4', name: '账号卡片：游客在最上面注册，注册用户在右栏看登录方式', run: async (p, c) => { await c.go('#/account'); const t = await c.text(c.role === 'guest' ? '.col-main > .card:first-child' : '.col-side'); return t.includes('注册账号') ? '注册账号' : t.includes('登录方式') ? '登录方式' : '?'; }, expect: { guest: '注册账号', user: '登录方式', member: '登录方式' } },
     { id: 'U5-5', name: '联系客服弹出二维码说明', run: async (p, c) => { await c.go('#/account'); await p.locator('[data-support]').first().click(); await p.waitForTimeout(500); return (await p.locator('.support').count()) > 0; }, expect: same(true) },
@@ -180,7 +180,16 @@ export const UI_FEATURES = [
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
   ] },
   { id: 'U11', area: '界面', name: '语文', cases: [
-    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会两张比赛卡片都能点', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}`; }, expect: same('2/1/1') },
+    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会、飞花令（语文会员）三张卡片', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}/${(await c.text('a.fam-card[href$="feihua.html"] .vip')).trim()}`; }, expect: same('3/1/1/语文会员') },
+    { id: 'U11-6', name: '飞花令会员版：不是语文会员只能试「花」字，有开通入口；原来的免费飞花令页面不受影响', run: async (p, c) => {
+      await c.go('/chinese/feihua.html'); await p.locator('#home').waitFor({ timeout: 15000 }); await p.waitForTimeout(1500);
+      const gate = (await c.text('.fh-gate')).includes('试「花」字');
+      await c.go('/chinese/feihua.html#full'); await p.waitForTimeout(1500);
+      const chars = await p.evaluate(() => window.__FHL?.chars?.length || 0);
+      await c.go('/chinese/feihualing.html'); await p.waitForTimeout(1000);
+      const old = await p.evaluate(() => !!document.getElementById('fhl-data') && (document.querySelector('.fh-gate') === null));
+      return `${gate}/${chars}/${old}`;
+    }, expect: same('true/1/true') },
     { id: 'U11-2', name: '语文首页：「今天做什么」「最近成绩」一直显示，今天做什么推荐一套没做过的卷子', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('.dash-grid > .card').count()}/${await p.locator('.tasks a[href^="#/intro/"]').count()}`; }, expect: same('2/1') },
     { id: 'U11-3', name: '点汉字小达人进到试卷列表（真题 + 模拟题）', run: async (p, c) => { await c.go('/chinese/'); await p.locator('a.fam-card[href="#/hanzi"]').click(); await c.settle(); return `${p.url().endsWith('#/hanzi')}/${await p.locator('.exam-row').count()}`; }, expect: same('true/6') },
     { id: 'U11-4', name: '考前须知：标题是试卷名、5 条规则、有「开始答题」', run: async (p, c) => { await c.go('/chinese/#/intro/hanzi-2021-city'); return `${(await c.text('main h1')).includes('第八届')}/${await p.locator('.rules li').count()}/${await p.locator('main button, main a').filter({ hasText: '开始答题' }).count()}`; }, expect: same('true/5/1') },

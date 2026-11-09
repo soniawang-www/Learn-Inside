@@ -140,6 +140,7 @@ async function renderHome() {
       <a class="fam-card" href="#/hanzi"><b>汉字小达人</b><span>${exams.length ? `${exams.length} 套真题和模拟题` : '录入中'}</span><small>${lastScore}</small><i>›</i></a>
       ${gexams.length ? `<a class="fam-card" href="#/gsw"><b>古诗文大会</b><span>${gexams.length} 套真题 · 三至五年级</span><small></small><i>›</i></a>`
         : '<div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>'}
+      <a class="fam-card" href="/chinese/feihua.html"><b>飞花令</b><span>82 个常用字 · 5872 句诗词</span><small class="vip">语文会员</small><i>›</i></a>
     </div>
     <div class="dash-grid">
       <section class="card">

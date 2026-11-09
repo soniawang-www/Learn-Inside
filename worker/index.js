@@ -280,6 +280,30 @@ route('POST', '/api/sessions/:id/check', async (req, env, p) => {
   return json({ correct: judge(key, answer), answer: pr.answer, basic: sol?.content ?? null });
 });
 
+// 飞花令（语文会员）：会员拿整个诗库；不是会员只给一个字（花）试用
+const FEIHUA_SAMPLE = '花';
+let feihuaCache = null;
+async function feihuaData(env) {
+  if (!feihuaCache) {
+    const r = await env.DB.prepare("SELECT value FROM setting WHERE key = 'feihua'").first();
+    if (!r?.value) throw new HttpError(503, '飞花令诗库还没导入');
+    feihuaCache = JSON.parse(r.value);
+  }
+  return feihuaCache;
+}
+function feihuaSample(d, ch) {
+  const lines = d.lines.filter((l) => l[0].includes(ch));
+  const keep = [...new Set(lines.map((l) => l[1]))];
+  const map = new Map(keep.map((pi, i) => [pi, i]));
+  return { chars: d.chars.filter((c) => c[0] === ch), poems: keep.map((pi) => d.poems[pi]), lines: lines.map((l) => [l[0], map.get(l[1]), ...l.slice(2)]) };
+}
+route('GET', '/api/chinese/feihua', async (req, env) => {
+  const acc = await requireAccount(req, env);
+  const ctx = await billing.accessCtx(env, acc, 'chinese');
+  const d = await feihuaData(env);
+  return json(ctx.member ? { member: true, data: d } : { member: false, sample: FEIHUA_SAMPLE, data: feihuaSample(d, FEIHUA_SAMPLE) });
+});
+
 // 交卷：判分、写原始事件、重算画像
 route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const acc = await requireAccount(req, env);
@@ -884,6 +908,15 @@ route('POST', '/api/admin/import', async (req, env) => {
     else if (payload.points) points = payload.points;
     edges = payload.knowledge?.edges ?? payload.edges ?? null;
     prune = !!(payload.knowledge?.prune ?? payload.prune);
+  }
+  // 飞花令诗库（math-data extras/feihua/feihua.json）：整份存进 setting，会员接口 /api/chinese/feihua 下发
+  if (!Array.isArray(payload) && (payload.feihua || (payload.chars && payload.poems && payload.lines))) { // 后台直接上传 feihua.json 也认
+    const d = payload.feihua || payload;
+    if (!Array.isArray(d.chars) || !Array.isArray(d.poems) || !Array.isArray(d.lines)) throw new HttpError(400, '飞花令数据格式不对');
+    await env.DB.prepare("INSERT INTO setting (key, value, updated_at) VALUES ('feihua', ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+      .bind(JSON.stringify(d), now()).run();
+    feihuaCache = null;
+    if (!exams.length && !points.length) return json({ ok: true, feihua: { chars: d.chars.length, poems: d.poems.length, lines: d.lines.length } });
   }
   try {
     const result = await importContent(env.DB, { schema: SCHEMA, exams, points, edges, prune });

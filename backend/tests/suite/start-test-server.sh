@@ -21,7 +21,7 @@ cd "$ROOT"
 setsid nohup $WRANGLER dev --local --port 8788 --inspector-port 9330 --persist-to "$WORK/state" \
   --var ADMIN_KEY:localtest --var FREE_MODE:false --var AIPAY_APP_ID:2021000000000001 \
   --var "AIPAY_PRIVATE_KEY:$APPPRIV" --var "AIPAY_ALIPAY_PUBLIC_KEY:$ALIPUB" --var ALIPAY_GATEWAY:http://127.0.0.1:8799/gateway.do \
-  --var PRICE_MATH_MONTH:39 --var PRICE_MATH_QUARTER:99 --var PRICE_MATH_YEAR:299 --var PRICE_ALL_YEAR:599 --var PRICE_ENGLISH_MONTH:29 --var PAY_MAX_AMOUNT:100 \
+  --var PRICE_MATH_MONTH:39 --var PRICE_MATH_QUARTER:99 --var PRICE_MATH_YEAR:299 --var PRICE_ALL_YEAR:599 --var PRICE_ENGLISH_MONTH:29 --var PRICE_CHINESE_MONTH:19 --var PAY_MAX_AMOUNT:100 \
   < /dev/null > "$WORK/wrangler.log" 2>&1 &
 for i in $(seq 1 90); do curl -s -m1 -o /dev/null http://127.0.0.1:8788/ && break; sleep 1; done
 curl -s -m 120 http://127.0.0.1:8788/math/api/admin/seed -H 'x-admin-key: localtest' > /dev/null
