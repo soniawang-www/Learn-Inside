@@ -258,6 +258,12 @@ export const UI_FEATURES = [
       const old = await p.evaluate(() => !!document.getElementById('fhl-data') && (document.querySelector('.fh-gate') === null));
       return `${gate}/${chars}/${old}`;
     }, expect: same('true/1/true') },
+    { id: 'U11-8', name: '飞花令会员版目录只剩完整版和总决选版（三年级备赛版下线），旧的 #g3 链接进完整版', run: async (p, c) => {
+      await c.go('/chinese/feihua.html'); await p.locator('#home').waitFor({ timeout: 15000 }); await p.waitForTimeout(800);
+      const cards = (await p.locator('#home .card h2').allTextContents()).join('/');
+      await c.go('/chinese/feihua.html#g3'); await p.waitForTimeout(1500);
+      return `${cards}/${new URL(p.url()).hash}`;
+    }, expect: same('完整版/总决选版/#full') },
     { id: 'U11-7', name: '飞花令总决选版：5 个赛题用字，比一比默认每句限时 10 秒，开赛后显示倒数', run: async (p, c) => {
       if (c.role === 'member') await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese', reason: '标准测试：语文会员' });
       await c.go('/chinese/feihua.html#final'); await p.waitForTimeout(2000);
@@ -486,7 +492,7 @@ export const UI_FEATURES = [
       const r = `${(await p.locator('#lp .q').count()) > 0}/${await p.locator('#lp .ah').count()}`; await lpClose(p); return r;
     }, expect: { guest: '没有打印', user: 'true/1', member: 'true/1' } },
     { id: 'U22-7', name: '飞花令「打印」：统一打印预览出练习单，切到默写版有横线', run: async (p, c) => {
-      await c.go('/chinese/feihua.html'); await p.locator('#home a[data-v="g3"]').click(); await p.locator('#printBtn').click(); await lpWait(p);
+      await c.go('/chinese/feihua.html'); await p.locator('#home a[data-v="full"]').click(); await p.locator('#printBtn').click(); await lpWait(p);
       const n = await p.locator('#lp .it').count(), t = await p.locator('#lp .lp-title').innerText();
       await p.locator('#lp [data-seg=v][data-v=blank]').click().catch(async () => { await p.click('#lp [data-a=adjust]'); await p.locator('#lp [data-seg=v][data-v=blank]').click(); });
       await p.waitForTimeout(1000); const i = await p.locator('#lp .pl i').count(); await lpClose(p).catch(() => {});

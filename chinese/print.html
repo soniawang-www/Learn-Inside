@@ -15,7 +15,7 @@
 //   #p=篇目号,…&x=选项          古诗（旧链接 #p=…&v=study|blank|hint&o=mna&k=1 也认）
 //   #c=卡片 id,…                 诗人卡、常识卡
 //   #t=打印凭证                  语文卷子、语文错题（要凭证：卷子和错题不公开）
-import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint, unpackOpts } from './print-tpl.js?v=20261111';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint, unpackOpts } from './print-tpl.js?v=20261111u';
 const H = new URLSearchParams(location.hash.slice(1));
 const ids = (k) => (H.get(k) || '').split(',').filter(Boolean);
 const msg = (t) => { document.getElementById('msg').innerHTML = t; };

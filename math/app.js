@@ -5,7 +5,7 @@ import { SIMS } from './sims.js';
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
-import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261111';
+import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261111u';
 import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261111';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
 
@@ -108,6 +108,8 @@ function choiceHtml(p, k) {
 }
 const figChoices = (p) => { const v = Object.values(p.choices || {}); return v.length > 0 && v.every(isFig); };
 /** 填空题：没有选项 */
+// 返回：统一成带左箭头的小按钮（.back）
+const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const isFillP = (p) => !Object.keys(p.choices || {}).length;
 const MODE_NAME = { exam: '模考', practice: '练习', paper: '纸笔' };
 const modeName = (m) => MODE_NAME[m] || '练习';
@@ -282,7 +284,8 @@ function renderJoin() {
       <h1>竞赛真题边练边学</h1>
       <ul>
         <li><b>数学真题</b>AMC 8 · 希望数学 · 思维 100</li>
-        <li><b>语文真题</b>汉字小达人</li>
+        <li><b>语文真题</b>汉字小达人 · 古诗文大会 · 飞花令</li>
+        <li><b>英语演讲备赛</b>ESDP 口语 · 写作</li>
         <li><b>知识图谱 · 错题本</b>数学、语文同一个账号</li>
         <li><b>互动解析</b><em class="hl">注册送 10 次</em></li>
       </ul>
@@ -613,11 +616,11 @@ function examGrid(f, allExams, fid, limit = 0) {
       ${shown.map((e) => { const lb = label(e); return `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
         <div class="et-top"><span class="et-year${f.grades ? ' cn' : ''}">${esc(lb.t)}</span>
           ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
-        <div class="small muted">${lb.sub ? `${esc(lb.sub)} · ` : ''}${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div>
+        <div class="et-meta"><span class="small muted">${lb.sub ? `${esc(lb.sub)} · ` : ''}${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</span>
+          <button class="et-pp" data-paper="${e.id}" aria-label="打印试卷" title="打印试卷">${PRINT_ICON}</button></div>
         <div class="et-btns">
           <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
           <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
-          <button class="btn lp-entry" data-paper="${e.id}">${PRINT_ICON}打印</button>
           ${store.get(paperKey(e.id)) || store.get(printedKey(e.id)) ? `<button class="btn et-fill" data-fill="${e.id}">${store.get(paperKey(e.id)) ? '继续回填' : '回填答案'}</button>` : ''}
         </div></div>`; }).join('')}
     </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
@@ -659,7 +662,7 @@ async function renderContest(fid, tab = 'exams') {
   const best = done.length ? Math.max(...done.map((e) => e.last_score)) : null;
   const avg = d.sessions.length ? (d.sessions.reduce((a, x) => a + x.score, 0) / d.sessions.length).toFixed(1) : null;
   $app.innerHTML = `${topnav()}<main class="page">
-    <a href="#/" class="small">← 数学首页</a>
+    <a href="#/" class="back">${BACK_IC}数学首页</a>
     <header class="ph"><div><h1>${esc(f.name)}</h1><p class="muted">${esc(f.desc)}</p></div>
       <dl class="ph-stats"><div><dt>真题</dt><dd>${exams.length}<small> 套</small></dd></div><div><dt>做过</dt><dd>${done.length}<small> 套</small></dd></div>
         <div><dt>最好成绩</dt><dd>${best ?? '—'}</dd></div><div><dt>平均分</dt><dd>${avg ?? '—'}</dd></div></dl></header>
@@ -775,7 +778,7 @@ function renderPaper(sid, data) {
     ? `<input class="pp-in" data-fill="${esc(p.id)}" type="text" autocomplete="off" autocapitalize="off" enterkeyhint="next" maxlength="40" value="${esc(S.answers[p.id] || '')}" aria-label="第 ${p.number} 题">`
     : `<span class="pp-opts" data-pid="${esc(p.id)}">${Object.keys(p.choices).map((k) => `<button class="pp-opt" data-pick="${k}" aria-pressed="${S.answers[p.id] === k}">${k}</button>`).join('')}</span>`}</div>`;
   $app.innerHTML = `${topnav()}<main class="page">
-    <a href="${fam ? `#/contest/${enc(fam)}` : '#/'}" class="small">← 返回试卷</a>
+    <a href="${fam ? `#/contest/${enc(fam)}` : '#/'}" class="back">${BACK_IC}返回试卷</a>
     <header class="ph"><div><h1>${esc(data.exam.title)}</h1><p class="muted">回填答案</p></div></header>
     <div class="card pp-card">
       <label class="pp-time">用时 <input id="pp-used" type="number" inputmode="numeric" min="0" max="600" value="${esc(S.used)}"> 分钟</label>
@@ -1236,7 +1239,7 @@ async function renderKp(id) {
   (k.my_mistakes || []).forEach((x) => (mine[x.family] ||= []).push(x));
   const ST = { right: ['✓', '做对了'], wrong: ['✗', '做错了'], todo: ['○', '还没做'] };
   $app.innerHTML = `${topnav()}<main class="page">
-    <a href="javascript:history.back()" class="small">← 返回</a>
+    <a href="javascript:history.back()" class="back">${BACK_IC}返回</a>
     <header class="ph"><div><h1>${esc(k.name)} ${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</h1></div></header>
     <div class="cols"><div class="col-main">
     <div class="card">
@@ -1272,7 +1275,7 @@ async function renderProblem(id) {
   const p = await api(`/math/api/problems/${enc(id)}?student=${auth.student.id}`);
   const done = p.attempted;
   $app.innerHTML = `${topnav()}<main class="page">
-    <a href="javascript:history.back()" class="small">← 返回</a>
+    <a href="javascript:history.back()" class="back">${BACK_IC}返回</a>
     <header class="ph"><div><h1>${esc(p.label)}</h1></div>${p.stem_zh ? langSeg() : ''}</header>
     <div class="cols half"><div class="card">
       <div class="stem">${stemHtml(p)}${p.figure ? `<div class="figure">${p.figure}</div>` : ''}</div>

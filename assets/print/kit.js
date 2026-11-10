@@ -63,7 +63,7 @@ body.lp-open{overflow:hidden}
 :where(#lp) button{font-family:inherit;cursor:pointer;color:inherit}
 #lp button:focus-visible{outline:2px solid #B04A6F;outline-offset:2px}
 .lp-top{flex:none;height:56px;padding:0 16px 0 6px;padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:6px;background:#fff;border-bottom:1px solid #E2DDD2}
-.lp-x{width:44px;height:44px;border:0;background:none;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.lp-x{flex:none;height:36px;padding:0 14px 0 8px;margin-left:8px;border:1px solid #E2DDD2;background:#fff;border-radius:999px;display:flex;align-items:center;gap:2px;font-size:14px;color:inherit;text-decoration:none}.lp-x:hover{border-color:#1D5C4D;color:#1D5C4D}
 .lp-tt{display:flex;flex-direction:column;min-width:0}
 .lp-tt b{font-size:16px}
 .lp-tt span{font-size:12px;color:${SOFT};white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -322,7 +322,7 @@ export function openPrint(cfg) {
 
   let pages = [], count = 0, view = 'ctl', sheetOpen = false, pdf = null, linkUrl = null, building = 0, timer = 0;
 
-  root.innerHTML = `<div class="lp-top">${cfg.standalone ? (cfg.home ? `<a class="lp-x" href="${esc(cfg.home)}" aria-label="返回">${IC.back}</a>` : '<span style="width:10px"></span>') : `<button class="lp-x" data-a="close" aria-label="关闭">${IC.x}</button>`}
+  root.innerHTML = `<div class="lp-top">${cfg.standalone ? (cfg.home ? `<a class="lp-x" href="${esc(cfg.home)}">${IC.back}<span>返回</span></a>` : '<span style="width:10px"></span>') : `<button class="lp-x" data-a="close">${IC.back}<span>返回</span></button>`}
       <div class="lp-tt"><b>打印</b><span id="lp-sub"></span></div><span class="lp-pg" id="lp-pg"></span></div>
     ${wx ? '<div class="lp-wx">在微信里不能保存文件：点「去浏览器打开」，在浏览器里打印或存 PDF</div>' : ''}
     <div class="lp-main"><div class="lp-pv" id="lp-pv"><div class="lp-msg">正在排版…</div></div><div class="lp-side" id="lp-side"></div></div>

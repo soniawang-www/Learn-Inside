@@ -5,8 +5,8 @@
 
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
-import { PRINT_ICON } from '/assets/print/kit.js?v=20261111';
-import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261111';
+import { PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261111u';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -88,6 +88,8 @@ async function showSupport() {
     <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
+// 返回：统一成带左箭头的小按钮（.back）
+const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`; window.scrollTo(0, 0); };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
@@ -189,7 +191,7 @@ async function renderHanzi() {
         <button class="btn lp-entry" data-pexam="${esc(e.id)}">${PRINT_ICON}打印</button><a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const real = exams.filter((e) => !e.id.endsWith('-mock')), mock = exams.filter((e) => e.id.endsWith('-mock'));
   const cards = real.length ? real.map(row).join('') : '<p class="muted">录入中</p>';
-  page(`<a class="small back" href="#/">← 语文首页</a>
+  page(`<a class="back" href="#/">${BACK_IC}语文首页</a>
     <div class="hero"><h1>汉字小达人</h1></div>
     <div class="card"><h2>真题</h2>${cards}</div>
     ${mock.length ? `<div class="card"><h2>模拟题</h2>${mock.map(row).join('')}</div>` : ''}
@@ -210,7 +212,7 @@ async function renderGsw() {
     const tp = await api(`/api/chinese/gsw/topics?grade=${g}`).catch(() => ({ topics: [] }));
     const list = exams.filter((e) => e.grade === g || (e.grade == null && g <= 5) || (e.grade === 7 && g >= 6)); // 年级不明的小学真卷每个小学年级都列出；初中通用的两组都列出
     const groups = ['决选', '复选', '初选'].map((n) => [n, list.filter((e) => stageOf(e.id) === n)]).filter(([, xs]) => xs.length);
-    page(`<a class="small back" href="#/">← 语文首页</a>
+    page(`<a class="back" href="#/">${BACK_IC}语文首页</a>
       <div class="hero"><h1>古诗文大会</h1></div>
       ${grades.length > 1 ? `<div class="seg" role="tablist">${grades.map((x) => `<button role="tab" class="${x === g ? 'on' : ''}" data-g="${x}">${GRADES[x]}</button>`).join('')}</div>` : ''}
       <div class="card gp"><h2>练习<span class="small muted"> · 题库 ${tp.total || 0} 道</span></h2>
@@ -238,7 +240,7 @@ async function renderCards(q) {
   const tab = q.get('t') === 'topic' ? 'topic' : 'poet';
   const poets = items.filter((c) => c.kind === 'poet'), topics = items.filter((c) => c.kind === 'topic');
   const dyns = [...new Set(poets.map((c) => c.dynasty))];
-  page(`<a class="small back" href="#/">← 语文首页</a>
+  page(`<a class="back" href="#/">${BACK_IC}语文首页</a>
     <div class="hero"><h1>诗人卡和常识卡</h1></div>
     <div class="kc-top"><div class="seg" role="tablist"><a role="tab" class="${tab === 'poet' ? 'on' : ''}" href="#/cards">诗人 ${poets.length}</a><a role="tab" class="${tab === 'topic' ? 'on' : ''}" href="#/cards?t=topic">常识 ${topics.length}</a></div><button class="btn lp-entry" id="cards-print">${PRINT_ICON}打印</button></div>
     ${tab === 'poet' ? dyns.map((d) => `<section class="card"><h2>${esc(d)}</h2><div class="kc-grid">${poets.filter((c) => c.dynasty === d).map((c) => `<a class="kc-chip" href="#/card/${enc(c.id)}"><b>${esc(c.name)}</b><small>${esc([c.titles?.[0], c.zi && `字${c.zi}`].filter(Boolean).join(' · '))}</small></a>`).join('')}</div></section>`).join('')
@@ -266,7 +268,7 @@ async function renderCard(id) {
       ${c.lines?.length ? `<h3>名句</h3><ul class="kc-lines">${li(c.lines)}</ul>` : ''}`
     : `${c.intro ? `<p class="kc-life">${esc(c.intro)}</p>` : ''}
       <table class="tbl kc-tbl">${(c.rows || []).map((r) => `<tr><th>${esc(r.k)}</th><td>${esc(r.v)}</td></tr>`).join('')}</table>`;
-  page(`<a class="small back" href="#/cards${c.kind === 'topic' ? '?t=topic' : ''}">← 诗人卡和常识卡</a>
+  page(`<a class="back" href="#/cards${c.kind === 'topic' ? '?t=topic' : ''}">${BACK_IC}诗人卡和常识卡</a>
     <div class="hero"><h1>${esc(c.name)}</h1>${c.dynasty ? `<p class="muted">〔${esc(c.dynasty)}〕</p>` : ''}</div>
     <div class="card kc-card">${body}
       ${c.mix?.length ? `<div class="kc-mix"><h3>容易混</h3><ul>${li(c.mix)}</ul></div>` : ''}</div>
@@ -302,7 +304,7 @@ async function renderBeishi() {
   const row = (p, mode) => `<a class="bs-row" href="#/poem/${p.idx}${mode ? `?m=${mode}` : ''}"><b>${esc(p.title)}</b><span class="muted small">${poemTag(p)}</span><i>›</i></a>`;
   const status = (p) => { const x = P.get(p.idx); return !x ? '' : x.due_at === null ? 'ok' : x.stage >= 3 ? 'mid' : 'on'; };
   const secs = [...new Set(items.map((p) => p.section))];
-  page(`<a class="small back" href="#/">← 语文首页</a>
+  page(`<a class="back" href="#/">${BACK_IC}语文首页</a>
     <div class="hero hero-row"><h1>每日背诗</h1><button class="btn lp-entry" id="bs-print">${PRINT_ICON}打印</button></div>
     <div class="dash-grid">
       <section class="card"><div class="card-h"><h2>今天</h2>
@@ -363,7 +365,7 @@ async function renderPoem(idx, q) {
         : `<div class="ps-text">${L.map((l, i) => (l === '—' ? '<div class="ps-gap"></div>' : `<div class="ps-line tap">${step === 2 ? maskLine(l, idx * 131 + i * 17 + 7, 0.4) : firstOnly(l)}</div>`)).join('')}</div>`;
     const steps = ['全文', '挖空', '首字', '提示字'];
     const x = P.get(idx);
-    page(`<a class="small back" href="#/beishi">← 每日背诗</a>
+    page(`<a class="back" href="#/beishi">${BACK_IC}每日背诗</a>
       <div class="hero ps-head hero-row"><div><h1>${esc(p.title)}</h1><p class="muted">${poetCard ? `〔${esc(p.dynasty)}〕<a href="#/card/${enc(poetCard.id)}">${esc(p.author)}</a>` : poemTag(p)}</p></div><button class="btn lp-entry" id="ps-print">${PRINT_ICON}打印</button></div>
       <div class="ps-steps" role="tablist">${steps.map((t, i) => `<button role="tab" class="${step === i + 1 ? 'on' : ''}" data-s="${i + 1}"><b>${i + 1}</b>${t}</button>`).join('')}</div>
       <div class="card ps-card">${body}</div>
@@ -415,7 +417,7 @@ async function renderIntro(examId) {
   if (!e) return errorPage('试卷不存在');
   const saved = store.get(`hz.cur.${examId}`);
   const per = Math.round(e.duration_sec / Math.max(1, e.problem_count));
-  page(`<a class="small back" href="${gsw ? '#/gsw' : '#/hanzi'}">← ${gsw ? '古诗文大会' : '汉字小达人'}</a>
+  page(`<a class="back" href="${gsw ? '#/gsw' : '#/hanzi'}">${BACK_IC}${gsw ? '古诗文大会' : '汉字小达人'}</a>
     <div class="hero"><h1>${esc(e.title)}</h1></div>
     <div class="card intro">
     ${isPaper(examId) ? `<ol class="rules">
@@ -726,7 +728,7 @@ async function renderPaperReview(r, sid) {
       ${rb.length ? `<div class="sf-rb">${rb.map((it, i) => `<label class="sf-it"><input type="checkbox" data-i="${i}" data-pts="${it.pts}"><span>${esc(it.text)}</span><b>${pts(it.pts)} 分</b></label>`).join('')}</div>`
         : `<div class="sf-rb"><label class="sf-it">得分 <input type="number" class="sf-num" min="0" max="${x.points ?? 1}" step="0.5" value="${x.got ?? 0}"> / ${pts(x.points ?? 1)} 分</label></div>`}
       <div class="sf-foot"><span class="muted small">这题得 <b class="sf-got">${pts(x.got ?? 0)}</b> 分</span><button class="btn" data-save>保存</button></div></div>`; }).join('')}</div>` : '';
-  page(`<a class="small back" href="#/gsw">← 古诗文大会</a>
+  page(`<a class="back" href="#/gsw">${BACK_IC}古诗文大会</a>
     <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
     <div class="card score">
       <div class="score-big"><b id="tot">${pts(score())}</b><span> / ${pts(total)} 分</span></div>
@@ -782,7 +784,7 @@ async function renderReview(sid) {
       <div class="rv-ans">${x.correct ? `<span class="tag ok">✓ 对</span> ${fill ? esc(mine) : ''}` : `<span class="tag bad">✗ ${x.choice == null ? '未作答' : '错'}</span>${x.choice != null ? ` 你的答案：<s>${esc(mine)}</s>　` : ' '}正确答案：<b>${esc(right)}</b>`}</div>
       ${x.basic ? `<div class="rv-sol">${txt(x.basic)}</div>` : ''}</div>`;
   };
-  page(`<a class="small back" href="${gsw ? '#/gsw' : '#/hanzi'}">← ${gsw ? '古诗文大会' : '汉字小达人'}</a>
+  page(`<a class="back" href="${gsw ? '#/gsw' : '#/hanzi'}">${BACK_IC}${gsw ? '古诗文大会' : '汉字小达人'}</a>
     <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
     ${gsw && r.exam.id === 'drill' ? `<div class="actions"><button class="btn primary" id="again">${r.exam.title === '速答训练' ? '再来 20 题' : '再练 15 题'}</button></div>` : ''}
     <div class="card score">

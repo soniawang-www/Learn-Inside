@@ -1,6 +1,6 @@
 // 英语打印：ESDP 题目的几种纸面（模拟题单 / 话题卡 / 讲稿单 / 背诵单 / 写作）和句型名言，放进统一打印预览。
 // 应用里（题库页、模拟比赛卡片、句型页）和打印链接页（/english/print.html，不用登录）共用。
-import { openPrint, esc } from '/assets/print/kit.js?v=20261111';
+import { openPrint, esc } from '/assets/print/kit.js?v=20261111u';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 
 const ROUNDS = { 1: '复赛问答', 2: '即兴演讲', 3: '决赛定题' };

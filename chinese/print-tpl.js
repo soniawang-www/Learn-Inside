@@ -1,6 +1,6 @@
 // 语文打印：古诗（学习版 / 提示字版 / 默写版）和诗人卡、常识卡，放进统一打印预览。
 // 应用里（每日背诗、诗页、知识卡列表）和打印链接页（/chinese/print.html，不用登录）共用。
-import { openPrint, esc } from '/assets/print/kit.js?v=20261111';
+import { openPrint, esc } from '/assets/print/kit.js?v=20261111u';
 
 const HAN = /[㐀-鿿]/;
 const by = (p) => `${p.dynasty ? `〔${esc(p.dynasty)}〕` : ''}${esc(p.author || '')}`;

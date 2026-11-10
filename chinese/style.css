@@ -193,7 +193,11 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 .fam-card.soon { border-style: dashed; background: transparent; color: var(--muted); }
 @media (hover: hover) { a.fam-card:hover { border-color: var(--accent); } }
 @media (max-width: 860px) { .fam-cards { grid-template-columns: minmax(0, 1fr); gap: 10px; } .fam-card { padding: 14px 40px 12px 16px; } }
-.back { display: inline-block; margin: 0 0 6px; color: var(--accent); }
+/* 返回：带左箭头的小按钮，三科一样 */
+.back { display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 12px 0 6px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 14px; text-decoration: none; }
+.back:hover, .back:focus-visible { border-color: var(--accent); color: var(--accent); }
+.back .bk-ic { flex: none; color: var(--muted); }
+.back:hover .bk-ic { color: inherit; }
 
 /* 语文首页下半部分：今天做什么 / 最近成绩（和数学首页同样的样子） */
 .dash-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
@@ -224,8 +228,9 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 @media (max-width: 860px) { #app:has(> .side) > .page { padding: 16px 14px 32px; } .page.wide .hero h1 { font-size: 24px; } }
 
 /* 年级切换 */
-.seg { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; }
-.seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 7px 16px; border-radius: 999px; cursor: pointer; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; max-width: 100%; }
+/* 年级多（古诗文大会五个）时手机上放不下：整个标签换到下一行，不再一个字一行 */
+.seg button { flex: none; white-space: nowrap; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 7px 16px; border-radius: 999px; cursor: pointer; }
 .seg button.on { background: var(--accent); color: var(--surface); }
 
 /* 古诗文大会答题页：还原线上初选 / 复选（宣纸底、红色选项方块、上一题 / 下一题） */
@@ -377,7 +382,7 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 @keyframes q6 { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 /* 诗人卡 / 常识卡 */
-.seg a { display: inline-block; padding: 7px 16px; border-radius: 999px; color: var(--muted); font-weight: 600; text-decoration: none; }
+.seg a { flex: none; white-space: nowrap; display: inline-block; padding: 7px 16px; border-radius: 999px; color: var(--muted); font-weight: 600; text-decoration: none; }
 .seg a.on { background: var(--accent); color: var(--surface); }
 .kc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .kc-grid.wide { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
