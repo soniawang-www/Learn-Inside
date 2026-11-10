@@ -362,7 +362,7 @@ async function gswPoolData(env) {
       const key = han(r.stem) + '|' + Object.values(parseJ(r.choices, {})).map(han).sort().join('/');
       const topic = (parseJ(r.types, [])[0]?.id || '').replace(/^gsw-/, '');
       const x = seen.get(key);
-      if (x) x.grades.add(r.grade); else seen.set(key, { id: r.id, topic, grades: new Set([r.grade]) });
+      if (x) x.grades.add(r.grade); else seen.set(key, { id: r.id, topic, grades: new Set([r.grade]), t: key });
     }
     gswPool = [...seen.values()];
   }
@@ -375,21 +375,38 @@ route('GET', '/api/chinese/gsw/topics', async (req, env, p, url) => {
   const pool = (await gswPoolData(env)).filter((x) => !g || x.grades.has(g) || x.grades.has(null));
   return json({ total: pool.length, topics: Object.entries(GSW_TOPICS).map(([id, name]) => ({ id, name, n: pool.filter((x) => x.topic === id).length })).filter((t) => t.n) });
 });
+// 诗人卡 / 常识卡
+let cardsCache = null;
+async function cardsData(env) {
+  if (!cardsCache) {
+    const r = await env.DB.prepare("SELECT value FROM setting WHERE key = 'gsw_cards'").first();
+    if (!r?.value) throw new HttpError(503, '知识卡还没导入');
+    cardsCache = JSON.parse(r.value);
+  }
+  return cardsCache;
+}
+route('GET', '/api/chinese/cards', async (req, env) => {
+  await requireAccount(req, env);
+  return json({ items: await cardsData(env) });
+});
 route('POST', '/api/chinese/gsw/drill', async (req, env) => {
   const acc = await requireAccount(req, env);
-  const { student_id, kind, topic, grade } = await body(req);
+  const { student_id, kind, topic, grade, card } = await body(req);
   await requireStudent(env, acc, student_id);
-  if (!['speed', 'topic'].includes(kind)) throw new HttpError(400, '练习类型不对');
+  if (!['speed', 'topic', 'card'].includes(kind)) throw new HttpError(400, '练习类型不对');
   if (kind === 'topic' && !GSW_TOPICS[topic]) throw new HttpError(400, '没有这个考点');
+  const cd = kind === 'card' ? (await cardsData(env)).find((c) => c.id === card) : null;
+  if (kind === 'card' && !cd) throw new HttpError(400, '没有这张卡');
   const g = Number(grade) || null;
-  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g) || x.grades.has(null)) && (kind !== 'topic' || x.topic === topic)); // 不分年级的题（练习题库、年级不明的真卷）每个年级都抽
-  if (kind === 'topic' && pool.length < 5) pool = (await gswPoolData(env)).filter((x) => x.topic === topic); // 本年级题太少就不分年级
+  const hit = (x) => kind === 'card' ? cd.kw.some((k) => k && x.t.includes(k)) : kind !== 'topic' || x.topic === topic;
+  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g) || x.grades.has(null)) && hit(x)); // 不分年级的题（练习题库、年级不明的真卷）每个年级都抽
+  if (kind !== 'speed' && pool.length < 5) pool = (await gswPoolData(env)).filter(hit); // 本年级题太少就不分年级
   const n = kind === 'speed' ? 20 : 15;
   const ids = shuffle(pool.slice()).slice(0, n).map((x) => x.id);
   if (!ids.length) throw new HttpError(404, '没有可练的题');
   const id = uid(), t = now();
   const speed = kind === 'speed';
-  const title = speed ? '速答训练' : `专项练习 · ${GSW_TOPICS[topic]}`;
+  const title = speed ? '速答训练' : kind === 'card' ? `${cd.kind === 'poet' ? '诗人卡' : '常识卡'} · ${cd.name}` : `专项练习 · ${GSW_TOPICS[topic]}`;
   const stmts = [env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject) VALUES (?, ?, 'drill', ?, ?, ?, ?, 'chinese')")
     .bind(id, student_id, speed ? 'exam' : 'practice', t, t + (speed ? ids.length * 6 + 5 : ids.length * 60) * 1000, title)];
   ids.forEach((pid, i) => stmts.push(env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
@@ -1041,6 +1058,13 @@ route('POST', '/api/admin/import', async (req, env) => {
   }
   // 飞花令诗库（math-data extras/feihua/feihua.json）：整份存进 setting，会员接口 /api/chinese/feihua 下发
   // 每日背诗篇目（math-data extras/gushiwen/poems.json，{kind: 'gsw-poems', items: [...]}）
+  // 诗人卡 / 常识卡（extras/gushiwen/cards.json，{kind: 'gsw-cards', items: [...]}）
+  if (!Array.isArray(payload) && payload.kind === 'gsw-cards' && Array.isArray(payload.items)) {
+    await env.DB.prepare("INSERT INTO setting (key, value, updated_at) VALUES ('gsw_cards', ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+      .bind(JSON.stringify(payload.items), now()).run();
+    cardsCache = null;
+    return json({ ok: true, cards: payload.items.length });
+  }
   if (!Array.isArray(payload) && payload.kind === 'gsw-poems' && Array.isArray(payload.items)) {
     await env.DB.prepare("INSERT INTO setting (key, value, updated_at) VALUES ('gsw_poems', ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
       .bind(JSON.stringify(payload.items), now()).run();

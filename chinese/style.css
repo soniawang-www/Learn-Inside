@@ -375,3 +375,27 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .gx-q6 { position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 6; background: var(--gx-track); }
 .gx-q6 i { display: block; height: 100%; background: var(--gx-red); transform-origin: left; animation: q6 linear forwards; }
 @keyframes q6 { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* 诗人卡 / 常识卡 */
+.seg a { display: inline-block; padding: 7px 16px; border-radius: 999px; color: var(--muted); font-weight: 600; text-decoration: none; }
+.seg a.on { background: var(--accent); color: var(--surface); }
+.kc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.kc-grid.wide { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.kc-chip { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--border); color: var(--text); text-decoration: none; }
+.kc-chip b { font-family: var(--display); font-size: 17px; }
+.kc-chip small { color: var(--muted); font-size: 12px; }
+@media (hover: hover) { .kc-chip:hover { border-color: var(--accent); } }
+.kc-card h3 { font-size: 15px; margin: 18px 0 8px; color: var(--muted); }
+.kc-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.kc-dl dt { color: var(--muted); }
+.kc-dl dd { margin: 0; font-weight: 600; }
+.kc-life { margin: 14px 0 0; line-height: 1.8; }
+.kc-works { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.kc-works span { font-family: var(--display); }
+.kc-lines { margin: 0; padding-left: 1.2em; font-family: var(--display); line-height: 2; }
+.kc-tbl th { text-align: left; white-space: nowrap; vertical-align: top; padding-right: 14px; }
+.kc-tbl td { line-height: 1.7; }
+.kc-mix { margin-top: 18px; padding: 10px 14px; border-radius: 10px; background: var(--bad-soft); }
+.kc-mix h3 { margin: 0 0 4px; color: var(--bad); }
+.kc-mix ul { margin: 0; padding-left: 1.2em; line-height: 1.8; }
+@media (max-width: 480px) { .kc-tbl th { white-space: normal; min-width: 5em; } }

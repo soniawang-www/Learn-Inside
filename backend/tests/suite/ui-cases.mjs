@@ -180,7 +180,7 @@ export const UI_FEATURES = [
     { id: 'U6-4', name: '以上整个界面流程没有脚本错误', run: async (p, c) => (c.errs.length ? c.errs[0] : 'ok'), expect: same('ok') },
   ] },
   { id: 'U11', area: '界面', name: '语文', cases: [
-    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会、每日背诗、飞花令（语文会员）四张卡片', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}/${(await c.text('a.fam-card[href$="feihua.html"] .vip')).trim()}`; }, expect: same('4/1/1/语文会员') },
+    { id: 'U11-1', name: '语文首页：汉字小达人、古诗文大会、诗人卡和常识卡、每日背诗、飞花令（语文会员）五张卡片', run: async (p, c) => { await c.go('/chinese/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('a.fam-card[href="#/hanzi"]').count()}/${await p.locator('a.fam-card[href="#/gsw"]').count()}/${(await c.text('a.fam-card[href$="feihua.html"] .vip')).trim()}`; }, expect: same('5/1/1/语文会员') },
     { id: 'U11-6', name: '飞花令会员版：不是语文会员只能试「花」字，有开通入口；原来的免费飞花令页面不受影响', run: async (p, c) => {
       await c.go('/chinese/feihua.html'); await p.locator('#home').waitFor({ timeout: 15000 }); await p.waitForTimeout(1500);
       const gate = (await c.text('.fh-gate')).includes('试「花」字');
@@ -353,6 +353,20 @@ export const UI_FEATURES = [
       await p.locator('.ex-q').waitFor({ timeout: 15000 }); await p.locator('.ex-opt').first().click(); await p.click('.ex-next'); await p.locator('.ex-fb').waitFor({ timeout: 10000 });
       return (await p.locator('.ex-fb').count()) > 0;
     }, expect: same(true) },
+  ] },
+  { id: 'U20', area: '界面', name: '诗人卡和常识卡', cases: [
+    { id: 'U20-1', name: '诗人卡按朝代分组，常识卡一栏；数量对', run: async (p, c) => {
+      await c.go('/chinese/#/cards'); await p.locator('.kc-chip').first().waitFor({ timeout: 15000 });
+      const poets = await p.locator('.kc-chip').count(); await c.go('/chinese/#/cards?t=topic'); await p.waitForTimeout(500);
+      return `${poets >= 50}/${(await p.locator('.kc-chip').count()) >= 20}`;
+    }, expect: same('true/true') },
+    { id: 'U20-2', name: '李白卡：字号、称号、代表作、易混点都在；点「练相关的题」开 15 题练习', run: async (p, c) => {
+      await c.go('/chinese/#/card/p-libai'); await p.locator('.kc-dl').waitFor({ timeout: 15000 });
+      const t = await c.text('.kc-card'); const ok = ['太白', '青莲', '诗仙', '容易混'].every((k) => t.includes(k));
+      await p.click('#drill'); await p.locator('.ex-q').waitFor({ timeout: 15000 });
+      return `${ok}/${(await c.text('.ex-clock b')).includes('/ 15')}`;
+    }, expect: same('true/true') },
+    { id: 'U20-3', name: '背诗页作者名链到诗人卡', run: async (p, c) => { await c.go('/chinese/#/poem/1'); await p.locator('.ps-head a').waitFor({ timeout: 15000 }); return await p.locator('.ps-head a').getAttribute('href'); }, expect: same('#/card/p-dufu') },
   ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [
     { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {
