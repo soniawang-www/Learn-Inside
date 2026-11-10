@@ -310,12 +310,12 @@ export const UI_FEATURES = [
     }, expect: { guest: '注册提示', user: '1/false', member: '1/false' } },
   ] },
   { id: 'U17', area: '界面', name: '古诗文大会（线上初选 / 复选卷、决选笔试卷）', cases: [
-    { id: 'U17-1', name: '语文首页有古诗文大会入口；卷子页有年级切换和决选 / 复选 / 初选分组', run: async (p, c) => {
+    { id: 'U17-1', name: '语文首页有古诗文大会入口；卷子页有年级切换（小学 3 档 + 初中 2 档）和决选 / 复选 / 初选分组', run: async (p, c) => {
       await c.go('/chinese/#/'); await p.locator('a.fam-card[href="#/gsw"]').waitFor({ timeout: 15000 });
       await c.go('/chinese/#/gsw'); await p.locator('.seg button').first().waitFor({ timeout: 15000 });
       const h2 = await p.locator('main .card h2').allInnerTexts();
       return `${await p.locator('.seg button').count()}/${['决选', '复选', '初选'].every((k) => h2.some((t) => t.startsWith(k)))}`;
-    }, expect: same('3/true') },
+    }, expect: same('5/true') },
     { id: 'U17-2', name: '复选卷：一屏一题、显示「单选题（1/N）」、能跳到下一题再回上一题、键盘 B 选中', run: async (p, c) => {
       await c.go('/chinese/#/intro/gsw-2025-fx-g4'); await p.getByText(/开始答题|重新开始/).first().click(); await p.locator('.gx-q').waitFor({ timeout: 15000 });
       const t1 = await c.text('.gx-type'); await p.click('#next'); const t2 = await c.text('.gx-type'); await p.click('#prev');
@@ -367,6 +367,22 @@ export const UI_FEATURES = [
       return `${ok}/${(await c.text('.ex-clock b')).includes('/ 15')}`;
     }, expect: same('true/true') },
     { id: 'U20-3', name: '背诗页作者名链到诗人卡', run: async (p, c) => { await c.go('/chinese/#/poem/1'); await p.locator('.ps-head a').waitFor({ timeout: 15000 }); return await p.locator('.ps-head a').getAttribute('href'); }, expect: same('#/card/p-dufu') },
+  ] },
+  { id: 'U21', area: '界面', name: '古诗文大会初中组', cases: [
+    { id: 'U21-1', name: '年级切换有「预初·初一」「初二·初三」；初二·初三有决选、复选、初选和练习', run: async (p, c) => {
+      await c.go('/chinese/#/gsw'); await p.locator('.seg button').first().waitFor({ timeout: 15000 });
+      const tabs = (await p.locator('.seg button').allInnerTexts()).join('/'); await p.click('.seg button:has-text("初二·初三")'); await p.waitForTimeout(1200);
+      const h2 = (await p.locator('main .card h2').allInnerTexts()).join('|');
+      return `${tabs.includes('预初·初一') && tabs.includes('初二·初三')}/${['练习', '决选', '复选', '初选'].every((k) => h2.includes(k))}`;
+    }, expect: same('true/true') },
+    { id: 'U21-2', name: '初中复选卷：第 81 题是多选（能选两个），第 101 题是填空（有输入框）', run: async (p, c) => {
+      await c.go('/chinese/#/intro/gsw-cz-fx-1'); await p.getByText(/开始答题|重新开始/).first().click(); await p.locator('.gx-q').waitFor({ timeout: 15000 });
+      for (let i = 0; i < 80; i++) await p.click('#next');
+      const t1 = await c.text('.gx-type'); await p.locator('.gx-opt').nth(0).click(); await p.locator('.gx-opt').nth(1).click();
+      const on = await p.locator('.gx-opt.on').count();
+      for (let i = 0; i < 20; i++) await p.click('#next');
+      return `${t1.startsWith('多选题')}/${on}/${(await c.text('.gx-type')).startsWith('填空题')}/${await p.locator('#gfill').count()}`;
+    }, expect: same('true/2/true/1') },
   ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [
     { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {

@@ -399,3 +399,7 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .kc-mix h3 { margin: 0 0 4px; color: var(--bad); }
 .kc-mix ul { margin: 0; padding-left: 1.2em; line-height: 1.8; }
 @media (max-width: 480px) { .kc-tbl th { white-space: normal; min-width: 5em; } }
+.gx-fill { display: block; width: 100%; font: inherit; font-size: 18px; padding: 10px 12px; border: 2px solid var(--gx-line); border-radius: 4px; background: var(--gx-card); color: var(--gx-ink); }
+.gx-fill:focus { outline: 3px solid var(--gx-red); outline-offset: 1px; }
+.gx-opt.multi .gx-k { border-radius: 8px; }
+.pp-multi { margin: 2px 0 -2px; }

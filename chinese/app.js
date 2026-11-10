@@ -11,7 +11,7 @@ const FAMILY = 'hanzi';
 const GSW = 'gushiwen';
 const isGsw = (id) => String(id || '').startsWith('gsw-');
 const famOf = (id) => (isGsw(id) ? GSW : FAMILY);
-const GRADES = { 3: '三年级', 4: '四年级', 5: '五年级', 6: '预备', 7: '初中', 8: '初二' }; // 初中题库先按「初中」一个年级（7）
+const GRADES = { 3: '三年级', 4: '四年级', 5: '五年级', 6: '预初·初一', 8: '初二·初三' }; // 初中决选分两组；7 = 初中通用（线上卷、题库），两组都显示
 const stageOf = (id) => (/-jx(-|$)/.test(id) ? '决选' : /-fx(-|$)/.test(id) ? '复选' : /-cx(-|$)/.test(id) ? '初选' : '');
 const isPaper = (id) => isGsw(id) && /-jx(-|$)/.test(id); // 决选笔试卷：整卷一页、分值不同、简答自评
 const CN = '一二三四五六七八九十';
@@ -182,7 +182,7 @@ async function renderHanzi() {
 
 async function renderGsw() {
   const exams = await api(`/api/exams?student=${enc(auth.student.id)}&family=${GSW}`);
-  const grades = [3, 4, 5, 6, 7, 8].filter((g) => exams.some((e) => e.grade === g));
+  const grades = [3, 4, 5, 6, 8].filter((g) => exams.some((e) => e.grade === g || (g >= 6 && e.grade === 7)));
   let g = store.get('gsw.grade');
   if (!grades.includes(g)) g = grades[0] || 3;
   const row = (e) => `<div class="exam-row">
@@ -191,7 +191,7 @@ async function renderGsw() {
         <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const draw = async () => {
     const tp = await api(`/api/chinese/gsw/topics?grade=${g}`).catch(() => ({ topics: [] }));
-    const list = exams.filter((e) => e.grade === g || (e.grade == null && g <= 5)); // 年级不明的小学真卷每个小学年级都列出
+    const list = exams.filter((e) => e.grade === g || (e.grade == null && g <= 5) || (e.grade === 7 && g >= 6)); // 年级不明的小学真卷每个小学年级都列出；初中通用的两组都列出
     const groups = ['决选', '复选', '初选'].map((n) => [n, list.filter((e) => stageOf(e.id) === n)]).filter(([, xs]) => xs.length);
     page(`<a class="small back" href="#/">← 语文首页</a>
       <div class="hero"><h1>古诗文大会</h1></div>
@@ -482,14 +482,26 @@ async function renderExam(sid) {
       ${speed ? `<div class="gx-q6"><i style="animation-duration:6s"></i></div>` : ''}
       <div class="gx-top"><div class="gx-time">答题时间：<b id="clock">${mmss(l).slice(3)}</b></div>
         <div class="gx-bar"><i id="gbar" style="width:${Math.max(0, Math.min(100, (100 * l) / d.exam.duration_sec))}%"></i></div></div>
-      <div class="gx-type">单选题（${S.cur + 1}/${P.length}）</div>
-      <div class="gx-q">${txt(p.stem)}</div>
-      <div class="gx-opts">${Object.entries(p.choices || {}).map(([k, v]) => `<button type="button" class="gx-opt ${ans === k ? 'on' : ''}" data-k="${k}"><span class="gx-k">${k}</span><span class="gx-v">${esc(v)}</span></button>`).join('')}</div>
+      <div class="gx-type">${p.kind === 'multi' ? '多选题' : p.kind === 'fill' || isFill(p) ? '填空题' : '单选题'}（${S.cur + 1}/${P.length}）</div>
+      <div class="gx-q">${txt(String(p.stem).replace(/\[\[\s*\]\]/g, '＿＿＿'))}</div>
+      ${isFill(p) ? `<input class="gx-fill" id="gfill" type="text" autocomplete="off" spellcheck="false" maxlength="40" value="${esc(ans)}" placeholder="在这里输入">`
+        : `<div class="gx-opts">${Object.entries(p.choices || {}).map(([k, v]) => `<button type="button" class="gx-opt ${p.kind === 'multi' ? 'multi' : ''} ${String(ans).includes(k) ? 'on' : ''}" data-k="${k}"><span class="gx-k">${k}</span><span class="gx-v">${esc(v)}</span></button>`).join('')}</div>`}
       ${speed ? '' : `<div class="gx-nav"><button type="button" class="gx-btn" id="prev" ${S.cur ? '' : 'disabled'}>上一题</button>
         <button type="button" class="gx-btn" id="next">${last ? '交卷' : '下一题'}</button></div>`}
     </div>`;
     const advance = () => { if (last) { clearTimeout(qTimer); stamp(); save(); submit(false); } else go(S.cur + 1); };
+    const gf = $app.querySelector('#gfill');
+    if (gf) {
+      gf.oninput = () => { if (gf.value.trim()) S.answers[p.id] = gf.value; else delete S.answers[p.id]; save(); };
+      gf.onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); $app.querySelector('#next')?.click(); } };
+      if (matchMedia('(pointer:fine)').matches) gf.focus();
+    }
     $app.querySelectorAll('.gx-opt').forEach((b) => (b.onclick = () => {
+      if (p.kind === 'multi') { // 多选：点一下选上，再点取消；答案存排好序的字母
+        const cur = new Set(String(S.answers[p.id] || '')); cur.has(b.dataset.k) ? cur.delete(b.dataset.k) : cur.add(b.dataset.k);
+        const v = [...cur].sort().join(''); if (v) S.answers[p.id] = v; else delete S.answers[p.id]; save();
+        b.classList.toggle('on', cur.has(b.dataset.k)); return;
+      }
       S.answers[p.id] = b.dataset.k; save();
       $app.querySelectorAll('.gx-opt').forEach((x) => x.classList.toggle('on', x === b));
       if (speed) { clearTimeout(qTimer); qTimer = setTimeout(advance, 250); }
@@ -499,7 +511,7 @@ async function renderExam(sid) {
     $app.querySelector('#next').onclick = () => (last ? (stamp(), save(), finish()) : go(S.cur + 1));
   }
   function onKey(e) {
-    if (!gsw || $modal.innerHTML || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!gsw || $modal.innerHTML || e.ctrlKey || e.metaKey || e.altKey || e.target.tagName === 'INPUT') return;
     const k = e.key.toUpperCase();
     const btn = $app.querySelector(`.gx-opt[data-k="${k === '1' ? 'A' : k === '2' ? 'B' : k === '3' ? 'C' : k === '4' ? 'D' : k}"]`);
     if (btn) { e.preventDefault(); btn.click(); }
@@ -582,7 +594,8 @@ function paperQ(p, ans, { review } = {}) {
   }
   const opts = Object.entries(p.choices || {});
   return `<div class="pp-q" data-pid="${p.id}"><span class="pp-n">${disp}.</span><div class="pp-body">${mtxt(p.stem)}
-    <div class="pp-opts ${kind === 'judge' ? 'judge' : opts.every(([, v]) => String(v).length <= 6) ? 'short' : ''}">${opts.map(([k, v]) => `<label class="pp-opt"><input type="radio" name="o-${p.id}" value="${k}" ${ans === k ? 'checked' : ''} ${review ? 'disabled' : ''}><span>${kind === 'judge' ? esc(v) : `${k}. ${esc(v)}`}</span></label>`).join('')}</div></div>${ptsTag}</div>`;
+    ${kind === 'multi' ? '<div class="pp-multi small muted">多选</div>' : ''}
+    <div class="pp-opts ${kind === 'judge' ? 'judge' : opts.every(([, v]) => String(v).length <= 6) ? 'short' : ''}">${opts.map(([k, v]) => `<label class="pp-opt"><input type="${kind === 'multi' ? 'checkbox' : 'radio'}" name="o-${p.id}" value="${k}" ${String(ans).includes(k) ? 'checked' : ''} ${review ? 'disabled' : ''}><span>${kind === 'judge' ? esc(v) : `${k}. ${esc(v)}`}</span></label>`).join('')}</div></div>${ptsTag}</div>`;
 }
 function renderPaper(d, sid) {
   clearInterval(timerId);
@@ -614,6 +627,9 @@ function renderPaper(d, sid) {
   count();
   const set = (pid, v) => { v = String(v ?? ''); if (v.trim()) S.answers[pid] = v; else delete S.answers[pid]; save(); count(); };
   $app.querySelectorAll('input[type=radio]').forEach((r) => (r.onchange = () => set(r.name.slice(2), r.value)));
+  $app.querySelectorAll('input[type=checkbox][name^="o-"]').forEach((r) => (r.onchange = () => {
+    const name = r.name; set(name.slice(2), [...$app.querySelectorAll(`input[name="${name}"]:checked`)].map((x) => x.value).sort().join(''));
+  }));
   $app.querySelectorAll('.pp-fill, .pp-text').forEach((el) => (el.oninput = () => set(el.dataset.pid, el.value)));
   async function submit(auto) {
     if (submitting) return; submitting = true;
@@ -649,7 +665,7 @@ async function renderPaperReview(r, sid) {
   const selfs = items.filter((x) => x.kind === 'self');
   const score = () => items.reduce((a, x) => a + (x.got ?? 0), 0);
   const bySec = secs.map((sc) => { const xs = items.filter((x) => x.section === sc.no); return { ...sc, full: xs.reduce((a, x) => a + (x.points ?? 1), 0), got: xs.reduce((a, x) => a + (x.got ?? 0), 0) }; }).filter((x) => x.full);
-  const ansText = (x, v) => (v == null ? '' : x.kind === 'self' || !Object.keys(x.choices || {}).length ? v : x.kind === 'judge' ? x.choices[v] ?? v : `${v}. ${x.choices[v] ?? ''}`);
+  const ansText = (x, v) => (v == null ? '' : x.kind === 'self' || !Object.keys(x.choices || {}).length ? v : x.kind === 'judge' ? x.choices[v] ?? v : x.kind === 'multi' ? [...String(v)].map((k) => `${k}. ${x.choices[k] ?? ''}`).join('；') : `${v}. ${x.choices[v] ?? ''}`);
   const item = (x, lastGroup) => {
     const g = x.extra?.group;
     const head = g && g.id !== lastGroup ? `<div class="pp-group">${mtxt(g.text)}</div>` : '';
@@ -704,7 +720,8 @@ async function renderReview(sid) {
   const r = await api(`/api/sessions/${enc(sid)}/review`);
   if (isPaper(r.exam.id) && r.session.mode !== 'practice') return renderPaperReview(r, sid);
   const items = r.items;
-  const score = items.filter((x) => x.correct).length;
+  const score = items.reduce((a, x) => a + (x.got ?? (x.correct ? 1 : 0)), 0);
+  const fullMarks = items.reduce((a, x) => a + (x.points ?? 1), 0);
   const used = (r.session.submitted_at - r.session.started_at) / 1000;
   const secs = r.exam.sections || [];
   const bySec = secs.map((s) => { const xs = items.filter((x) => x.section === s.no); return { ...s, n: xs.length, ok: xs.filter((x) => x.correct).length }; }).filter((s) => s.n);
@@ -720,12 +737,13 @@ async function renderReview(sid) {
   const slow = gsw ? timed.filter((x) => x.time_sec > per * 1.5).length : 0;
   const itemHtml = (x) => {
     const fill = isFill(x);
-    const mine = x.choice == null ? '未作答' : fill ? x.choice : `${x.choice in x.choices ? x.choices[x.choice] : x.choice}`;
-    const right = fill ? x.answer : x.choices[x.answer];
+    const letters = (v) => [...String(v)].map((k) => x.choices[k] ?? k).join('、');
+    const mine = x.choice == null ? '未作答' : fill ? x.choice : x.choice in x.choices ? x.choices[x.choice] : letters(x.choice);
+    const right = fill ? x.answer : x.answer in x.choices ? x.choices[x.answer] : letters(x.answer);
     return `<div class="rv-item ${x.correct ? 'ok' : 'bad'}" data-ok="${x.correct ? 1 : 0}">
       <div class="rv-q"><span class="rv-n">${x.number}</span>${txt(x.stem)}${gsw && x.choice != null && x.time_sec != null ? `<span class="rv-t ${x.time_sec > per * 1.5 ? 'slow' : ''}">${x.time_sec} 秒</span>` : ''}</div>
       ${x.figure ? `<div class="ex-fig small">${x.figure}</div>` : ''}
-      ${fill ? '' : `<ul class="rv-opts">${Object.entries(x.choices).map(([k, v]) => `<li class="${k === x.answer ? 'right' : k === x.choice ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
+      ${fill ? '' : `<ul class="rv-opts">${Object.entries(x.choices).map(([k, v]) => `<li class="${String(x.answer).includes(k) ? 'right' : String(x.choice ?? '').includes(k) ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
       <div class="rv-ans">${x.correct ? `<span class="tag ok">✓ 对</span> ${fill ? esc(mine) : ''}` : `<span class="tag bad">✗ ${x.choice == null ? '未作答' : '错'}</span>${x.choice != null ? ` 你的答案：<s>${esc(mine)}</s>　` : ' '}正确答案：<b>${esc(right)}</b>`}</div>
       ${x.basic ? `<div class="rv-sol">${txt(x.basic)}</div>` : ''}</div>`;
   };
@@ -733,7 +751,7 @@ async function renderReview(sid) {
     <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
     ${gsw && r.exam.id === 'drill' ? `<div class="actions"><button class="btn primary" id="again">${r.exam.title === '速答训练' ? '再来 20 题' : '再练 15 题'}</button></div>` : ''}
     <div class="card score">
-      <div class="score-big"><b>${score}</b><span> / ${items.length} 分</span></div>
+      <div class="score-big"><b>${pts(score)}</b><span> / ${pts(fullMarks)} 分</span></div>
       <p class="muted">用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
       ${gsw && timed.length ? `<p class="muted">平均每题 ${avg.toFixed(1)} 秒${slow ? ` · 超过 ${Math.round(per * 1.5)} 秒的题 ${slow} 道` : ''}${items.length - timed.length ? ` · 没做 ${items.length - timed.length} 题` : ''}</p>` : ''}
       ${gsw ? `<table class="tbl"><tr><th>考点</th><th>得分</th><th>正确率</th></tr>${Object.entries(topics).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n).map(([t, v]) => `<tr><td>${esc(t)}</td><td class="num">${v.ok} / ${v.n}</td><td><span class="bar"><i style="width:${Math.round((100 * v.ok) / v.n)}%"></i></span> ${Math.round((100 * v.ok) / v.n)}%</td></tr>`).join('')}</table>`
@@ -771,7 +789,7 @@ async function renderMistakes() {
       ${ms.map((m) => `<details class="mk"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> ${esc(m.label)}<span class="small muted"> · 错 ${m.wrong_n} 次</span></summary>
         <div class="rv-q">${txt(m.stem)}</div>${m.figure ? `<div class="ex-fig small">${m.figure}</div>` : ''}
         ${isFill(m) ? '' : `<ul class="rv-opts">${Object.entries(m.choices).map(([k, v]) => `<li class="${k === m.answer ? 'right' : k === m.last_choice ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
-        <div class="rv-ans">上次${m.last_choice ? `答 <s>${esc(isFill(m) ? m.last_choice : m.choices[m.last_choice] ?? m.last_choice)}</s>，` : '没作答，'}正确答案 <b>${esc(isFill(m) ? m.answer : m.choices[m.answer])}</b></div>
+        <div class="rv-ans">上次${m.last_choice ? `答 <s>${esc(isFill(m) ? m.last_choice : m.choices[m.last_choice] ?? m.last_choice)}</s>，` : '没作答，'}正确答案 <b>${esc(isFill(m) ? m.answer : m.choices[m.answer] ?? [...String(m.answer)].map((k) => m.choices[k] ?? k).join('、'))}</b></div>
         ${m.basic ? `<div class="rv-sol">${txt(m.basic)}</div>` : ''}</details>`).join('')}</div>`).join('')}`, 'mistakes');
   $app.querySelector('#redo')?.addEventListener('click', async (e) => {
     e.target.disabled = true;

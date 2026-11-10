@@ -55,7 +55,10 @@ export function normalizeInput(choices, input) {
   if (input === null || input === undefined) return null;
   if (!isFill(choices)) {
     const k = String(input).trim().toUpperCase();
-    return Object.prototype.hasOwnProperty.call(choices, k) ? k : null;
+    if (Object.prototype.hasOwnProperty.call(choices, k)) return k;
+    // 多选：几个字母，去重排序后都要是选项（判分时和排好序的答案整串比对，全对才算对）
+    const ks = [...new Set(k.replace(/[^A-Z]/g, ''))].sort().join('');
+    return ks.length > 1 && [...ks].every((c) => Object.prototype.hasOwnProperty.call(choices, c)) ? ks : null;
   }
   const s = String(input).normalize('NFKC').trim().slice(0, MAX_LEN);
   return s || null;

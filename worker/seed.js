@@ -23,7 +23,9 @@ export function buildRows(knowledge, exams) {
       const pid = `${ex.id}-p${String(p.number).padStart(2, '0')}`;
       const keys = Object.keys(p.choices || {});
       // 选择题：答案是选项字母之一；填空题（没有选项）：答案是要填的内容，accept 是其他可接受的写法
-      if (keys.length ? !keys.includes(p.answer) : !String(p.answer ?? '').trim()) throw new Error(`${pid}: 答案 ${p.answer} 不对（选项 ${keys.join('') || '无，填空题'}）`);
+      // 多选（kind multi）：答案是几个选项字母连起来
+      const okAns = p.kind === 'multi' ? String(p.answer).length > 1 && [...String(p.answer)].every((k) => keys.includes(k)) : keys.includes(p.answer);
+      if (keys.length ? !okAns : !String(p.answer ?? '').trim()) throw new Error(`${pid}: 答案 ${p.answer} 不对（选项 ${keys.join('') || '无，填空题'}）`);
       rows.push(['problem', {
         id: pid, exam_id: ex.id, number: p.number, stem: p.stem, stem_zh: p.stem_zh ?? null, figure: p.figure ?? null,
         choices: JSON.stringify(p.choices || {}), choices_zh: p.choices_zh ? JSON.stringify(p.choices_zh) : null, answer: String(p.answer), difficulty: p.difficulty ?? null,
