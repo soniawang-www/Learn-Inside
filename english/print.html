@@ -58,6 +58,14 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
 .ans .a { margin: 0 0 12px; break-inside: avoid; }
 .ans .a b { font-size: 13px; }
 .ans .a p { font-family: var(--en); font-size: 13.5px; line-height: 1.6; margin: 2px 0; }
+/* 模拟题单：每题一个框，上面是这一轮的规则，下面留行写构思 */
+.mk { border: 1.5px solid var(--ink); border-radius: 6px; padding: 12px 16px 14px; margin-bottom: 14px; break-inside: avoid; page-break-inside: avoid; }
+.mk .rule { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--soft); border-bottom: 1px dotted var(--line); padding-bottom: 6px; margin-bottom: 8px; }
+.mk .rule b { color: var(--accent); }
+.mk .q { font-family: var(--en); font-size: 18px; line-height: 1.45; margin: 0 0 4px; }
+.mk .zh { font-size: 13px; color: #444; margin: 0 0 6px; }
+.mk .wl { height: 28px; }
+.mk .tm { display: flex; gap: 18px; font-size: 12px; color: var(--soft); margin-top: 8px; }
 /* 句型和名言 */
 .pg { break-inside: avoid; margin-bottom: 14px; }
 .pg h3 { font-size: 15px; margin: 0 0 6px; color: var(--accent); }
@@ -130,6 +138,23 @@ function recite(items, o) {
   const ans = o.includes('k') && open.length ? `<section class="ans"><h3>答案</h3>${open.map((x) => `<div class="a"><b>${esc(meta(x))}</b>${(x.model.paras || []).map((p) => `<p lang="en">${esc(p.en)}</p>`).join('')}</div>`).join('')}</section>` : '';
   return head(name) + body + ans;
 }
+// 模拟题单：每题印这一轮的规则；z 带中文，n 留构思行，p 写作附作文纸
+const RULE = {
+  1: ['复赛 · 评委提问', '没有准备时间，含提问不超过 2 分钟'],
+  2: ['半决赛 · 即兴演讲', '5 秒读题 + 15 秒构思，演讲不超过 1.5 分钟'],
+  3: ['决赛 · 定题演讲', '准备 5 分钟，演讲 2 分钟，再答评委 2 问'],
+};
+function mock(items, o) {
+  return head('ESDP 模拟题单') + items.map((x) => {
+    const w = isWrite(x.id), limit = String(x.bank).includes('-high') ? 150 : 100;
+    const [name, rule] = w ? ['写作', `30 或 45 分钟，${limit} 词左右`] : RULE[x.section] || ['口语', ''];
+    const n = !o.includes('n') ? 0 : w ? 6 : x.section === 1 ? 3 : 6;
+    return `<section class="mk"><div class="rule"><span><b>${name}</b> · ${grp(x.bank)} · 第 ${x.number} 题</span><span>${rule}</span></div>
+      <p class="q" lang="en">${esc(x.stem)}</p>${o.includes('z') && x.stem_zh ? `<p class="zh">${esc(x.stem_zh)}</p>` : ''}
+      ${n ? `${lines(n)}<div class="tm"><span>用时 ______</span><span>${w ? '字数 ______' : '自评：内容 □ 语言 □ 台风 □'}</span></div>` : ''}</section>
+      ${w && o.includes('p') ? `<section class="paper"><div class="meta">${esc(meta(x))} · ${limit} 词以内</div><h2 lang="en" style="font-size:16px">${esc(x.stem)}</h2>${lines(22)}<div class="cnt">共 ______ 词</div></section>` : ''}`;
+  }).join('');
+}
 // 写作：题目、提纲、范文，每题后面一页作文纸
 function write(items, o) {
   return head('ESDP 写作') + items.map((x, i) => {
@@ -154,8 +179,8 @@ function phrases() {
     if (!r.ok) throw new Error(d.error || '打印链接已失效');
     const items = d.items || []; if (!items.length) throw new Error('没有要打印的题目');
     const o = d.o || '';
-    sheet.innerHTML = d.v === 'script' ? script(items, o) : d.v === 'recite' ? recite(items, o) : d.v === 'write' ? write(items, o) : topics(items, o);
-    $('cnt').textContent = `${{ topics: '话题卡', script: '讲稿单', recite: '背诵单', write: '写作' }[d.v] || '打印'} · ${items.length} 题`;
+    sheet.innerHTML = d.v === 'script' ? script(items, o) : d.v === 'recite' ? recite(items, o) : d.v === 'write' ? write(items, o) : d.v === 'mock' ? mock(items, o) : topics(items, o);
+    $('cnt').textContent = `${{ topics: '话题卡', script: '讲稿单', recite: '背诵单', write: '写作', mock: '模拟题单' }[d.v] || '打印'} · ${items.length} 题`;
     document.title = `${$('cnt').textContent} · learn-inside`;
   } catch (e) { sheet.innerHTML = `<p class="msg">${esc(e.message)}</p>`; }
 })();

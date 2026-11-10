@@ -44,7 +44,7 @@ export function registerEnglish({ route, json, HttpError, body, requireAccount, 
     await requireStudent(env, acc, b.student_id);
     const ids = (Array.isArray(b.ids) ? b.ids : []).filter((x) => typeof x === 'string' && x.startsWith(PREFIX)).slice(0, 60);
     if (!ids.length) throw new HttpError(400, '先选几道题');
-    const v = ['topics', 'script', 'recite', 'write'].includes(b.v) ? b.v : 'topics';
+    const v = ['topics', 'script', 'recite', 'write', 'mock'].includes(b.v) ? b.v : 'topics';
     const payload = { english: true, ids, v, o: String(b.o || '').replace(/[^a-z]/g, '').slice(0, 8), title: String(b.title || '').slice(0, 40) };
     const token = (uid() + uid()).replace(/-/g, ''), t = now();
     await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
