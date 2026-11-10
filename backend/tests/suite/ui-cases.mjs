@@ -248,6 +248,12 @@ export const UI_FEATURES = [
       const old = await p.evaluate(() => !!document.getElementById('fhl-data') && (document.querySelector('.fh-gate') === null));
       return `${gate}/${chars}/${old}`;
     }, expect: same('true/1/true') },
+    { id: 'U11-8', name: '飞花令会员版目录只剩完整版和总决选版（三年级备赛版下线），旧的 #g3 链接进完整版', run: async (p, c) => {
+      await c.go('/chinese/feihua.html'); await p.locator('#home').waitFor({ timeout: 15000 }); await p.waitForTimeout(800);
+      const cards = (await p.locator('#home .card h2').allTextContents()).join('/');
+      await c.go('/chinese/feihua.html#g3'); await p.waitForTimeout(1500);
+      return `${cards}/${new URL(p.url()).hash}`;
+    }, expect: same('完整版/总决选版/#full') },
     { id: 'U11-7', name: '飞花令总决选版：5 个赛题用字，比一比默认每句限时 10 秒，开赛后显示倒数', run: async (p, c) => {
       if (c.role === 'member') await c.admin(`/api/admin/accounts/${c.aid}`, 'POST', { action: 'add_days', value: 31, tier: 'chinese', reason: '标准测试：语文会员' });
       await c.go('/chinese/feihua.html#final'); await p.waitForTimeout(2000);
