@@ -468,6 +468,17 @@ export const UI_FEATURES = [
       const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(url); await q.locator('.tc').first().waitFor({ timeout: 15000 }); const m = await q.locator('.tc').count(); await ctx.close();
       return `${n > 5}/${m === n}`;
     }, expect: same('true/true') },
+    { id: 'U23-3', name: 'ESDP 模拟比赛「打印题目」：自动选模拟题单、随机选好 5 题，打印页每题印这一轮的规则', run: async (p, c) => {
+      await c.go('/english/#/esdp'); await p.locator('.mode a:has-text("打印题目")').nth(1).click(); await p.locator('.pr-it').first().waitFor({ timeout: 15000 });
+      const v = await p.locator('input[name=v]:checked').getAttribute('value'), n = await p.locator('.pr-it input:checked').count();
+      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('#pgo')]); await np.locator('.mk').first().waitFor({ timeout: 15000 });
+      const r = `${v}/${n}/${await np.locator('.mk').count()}/${(await np.locator('.mk .rule').first().innerText()).includes('即兴演讲')}`; await np.close(); return r;
+    }, expect: same('mock/5/5/true') },
+    { id: 'U23-4', name: '模拟半决赛页「打印」：打印抽到的这一题', run: async (p, c) => {
+      await c.go('/english/#/esdp'); await p.locator('.mode a.primary').nth(1).click(); await p.waitForURL(/#\/speech\//, { timeout: 15000 }); await p.locator('[data-print]').waitFor({ timeout: 15000 });
+      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-print]')]); await np.locator('.mk').first().waitFor({ timeout: 15000 });
+      const r = await np.locator('.mk').count(); await np.close(); return r;
+    }, expect: same(1) },
     { id: 'U23-2', name: '句型和名言打印页', run: async (p, c) => { await c.go('/english/print.html#phrases'); await p.reload(); await p.locator('.pg').first().waitFor({ timeout: 15000 }); return `${await p.locator('.pg').count()}/${await p.locator('.qt').count()}`; }, expect: same('5/10') },
   ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [

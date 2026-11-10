@@ -92,6 +92,8 @@ async function showSupport() {
     <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
+// 模拟比赛页的「打印」：把眼前的题打成模拟题单
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-print]'); if (b) { e.preventDefault(); printItems(b.dataset.print.split(','), b); } });
 let cleanup = null; // 离开页面时停掉计时器、麦克风
 const page = (html, active) => {
   cleanup?.(); cleanup = null;
@@ -167,8 +169,8 @@ async function renderEsdp() {
   const sb = d.banks.some((b) => b.id === sid) ? await loadBank(sid) : null;
   const wb = d.banks.some((b) => b.id === wid) ? await loadBank(wid) : null;
   const of = (bank, s) => (bank ? bank.items.filter((x) => !s || x.section === s) : []);
-  const mock = (title, rule, href, n) => `<div class="mode"><div class="mode-h"><b>${title}</b></div><p class="mode-sub">${rule}</p>
-    ${n ? `<div class="actions"><a class="btn primary" href="${href}">开始</a></div>` : '<div class="mode-n">录入中</div>'}</div>`;
+  const mock = (title, rule, href, n, pr) => `<div class="mode"><div class="mode-h"><b>${title}</b></div><p class="mode-sub">${rule}</p>
+    ${n ? `<div class="actions"><a class="btn primary" href="${href}">开始</a><a class="btn" href="${pr}">打印题目</a></div>` : '<div class="mode-n">录入中</div>'}</div>`;
   const learn = (title, href, list) => `<a class="learn-row" href="${href}"><b>${title}</b>
     <span class="lr-n">${list.length ? `${list.length} 个话题` : '录入中'}</span>
     <span class="lr-bar" title="背会 ${list.filter((x) => x.learned).length} / ${list.length}"><i style="width:${list.length ? (list.filter((x) => x.learned).length / list.length) * 100 : 0}%"></i></span>
@@ -178,10 +180,10 @@ async function renderEsdp() {
     <div class="seg" role="tablist" aria-label="组别">${GROUPS.map((x) => `<button role="tab" aria-selected="${x.id === g.id}" data-grp="${x.id}">${x.name}<small>${x.grades}</small></button>`).join('')}</div>
     <h2 class="sec-h">模拟比赛</h2>
     <div class="modes">
-      ${mock('复赛', `评委连问 ${MOCK.interviewQs} 题，即问即答，共 ${ms(MOCK.interviewSec)}`, '#/interview', of(sb, 1).length)}
-      ${mock('半决赛', `抽题，${MOCK.speechPrep} 秒构思，即兴演讲 ${ms(MOCK.speechSec)}`, `#/draw/${sid}?s=2`, of(sb, 2).length)}
-      ${mock('决赛', `定题演讲：准备 ${MOCK.finalPrep / 60} 分钟，讲 ${ms(MOCK.finalSec)}，再答评委 2 问`, `#/draw/${sid}?s=3`, of(sb, 3).length)}
-      ${mock('写作', `抽题，30 或 45 分钟，${g.words} 词左右`, `#/draw/${wid}`, of(wb).length)}
+      ${mock('复赛', `评委连问 ${MOCK.interviewQs} 题，即问即答，共 ${ms(MOCK.interviewSec)}`, '#/interview', of(sb, 1).length, `#/print?b=${sid}&s=1&v=mock&r=3`)}
+      ${mock('半决赛', `抽题，${MOCK.speechPrep} 秒构思，即兴演讲 ${ms(MOCK.speechSec)}`, `#/draw/${sid}?s=2`, of(sb, 2).length, `#/print?b=${sid}&s=2&v=mock&r=5`)}
+      ${mock('决赛', `定题演讲：准备 ${MOCK.finalPrep / 60} 分钟，讲 ${ms(MOCK.finalSec)}，再答评委 2 问`, `#/draw/${sid}?s=3`, of(sb, 3).length, `#/print?b=${sid}&s=3&v=mock&r=3`)}
+      ${mock('写作', `抽题，30 或 45 分钟，${g.words} 词左右`, `#/draw/${wid}`, of(wb).length, `#/print?b=${wid}&v=mock&r=2`)}
     </div>
     <h2 class="sec-h">按话题学</h2>
     <div class="card learn-list">
@@ -398,7 +400,7 @@ async function renderSpeech(id) {
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
-      <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}</div>
+      <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}<button class="link-btn" data-print="${esc(d.id)}">打印</button></div>
       <h2 class="topic" lang="en">${esc(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
@@ -478,7 +480,7 @@ async function renderFinal(d) {
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
-      <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}</div>
+      <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}<button class="link-btn" data-print="${esc(d.id)}">打印</button></div>
       <h2 class="topic" lang="en">${esc(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
@@ -539,7 +541,7 @@ async function renderInterview() {
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card iv" id="iv">
-      <div class="spk-top"><span class="tag ok">模拟复赛</span><span class="small muted">${g.name} · ${qs.length} 题 · 共 ${ms(total)}</span></div>
+      <div class="spk-top"><span class="tag ok">模拟复赛</span><span class="small muted">${g.name} · ${qs.length} 题 · 共 ${ms(total)}</span><button class="link-btn" data-print="${esc(qs.map((x) => x.id).join(','))}">打印</button></div>
       <div id="stage"><ol class="rules">
         <li>评委会连着问 ${qs.length} 个关于你自己的问题，题目出现就开始回答，没有准备时间。</li>
         <li>答完一题点「下一题」。${qs.length} 题加起来 ${ms(total)}，每题大约 ${Math.round(total / qs.length)} 秒。</li>
@@ -606,7 +608,7 @@ async function renderWrite(id) {
   let limitSec = wmin * 60;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="card wr">
-      <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}
+      <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}<button class="link-btn" data-print="${esc(d.id)}">打印</button>
         <span class="wclock num" id="wclk">${ms(limitSec)}</span></div>
       <div class="prep-pick" id="wmin"><span class="small muted">时长</span>${[[30, '30 分钟'], [45, '45 分钟']].map(([m, n]) => `<button class="chip${m === wmin ? ' on' : ''}" data-wmin="${m}">${n}</button>`).join('')}</div>
       <h2 class="topic" lang="en">${txt(d.stem)}</h2>
@@ -696,6 +698,18 @@ async function askUnlock(item, d, then) {
     <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="/account/">开通会员</a></div>`);
 }
 
+// 打印眼前这几道题（模拟比赛里抽到的题）：模拟题单，带中文、留构思行
+async function printItems(ids, btn) {
+  if (btn) btn.disabled = true;
+  const w = window.open('', '_blank');
+  try {
+    const r = await api('/api/english/print-link', { method: 'POST', body: { student_id: auth.student.id, ids, v: 'mock', o: `zn${ids.some(isWrite) ? 'p' : ''}` } });
+    const url = `/english/print.html#t=${r.token}`;
+    if (w) { w.opener = null; w.location.href = url; } else location.href = url;
+  } catch (x) { w?.close(); modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
+  if (btn) btn.disabled = false;
+}
+
 // ───────── 打印：选题库、轮次、题目和版式 → /english/print.html（凭 24 小时打印链接取题，微信外的浏览器也能打开）─────────
 async function renderPrint(q) {
   const g = curGroup();
@@ -704,19 +718,23 @@ async function renderPrint(q) {
   const s = write ? '' : q.get('s') || '1';
   const d = await loadBank(bankId, true);
   const items = d.items.filter((x) => !s || String(x.section) === s);
-  const opt = Object.assign({ v: write ? 'write' : 'topics', t: true, z: true, b: false, m: 'h', k: true, r: true, p: true }, store.get('en.pr', {}));
+  const opt = Object.assign({ v: write ? 'write' : 'topics', t: true, z: true, b: false, m: 'h', k: true, r: true, p: true, n: true }, store.get('en.pr', {}));
+  if (q.get('v') === 'mock') opt.v = 'mock';
   if (!write && opt.v === 'write') opt.v = 'topics';
-  if (write && !['write', 'topics'].includes(opt.v)) opt.v = 'write';
-  const sel = new Set(store.get(`en.pr.${bankId}`, []));
+  if (write && !['write', 'topics', 'mock'].includes(opt.v)) opt.v = 'write';
+  const pickN = +q.get('r') || 0; // 从模拟比赛点「打印题目」：随机选好几题
+  const sel = new Set(pickN ? items.slice().sort(() => Math.random() - 0.5).slice(0, pickN).map((x) => x.id) : store.get(`en.pr.${bankId}`, []));
   const banks = [[`esdp-speak-${g.id}`, '口语'], [`esdp-write-${g.id}`, '写作']];
-  const V = write ? [['topics', '话题卡', '题目和中文，两列排，剪开可以抽签'], ['write', '写作', '题目、思路，可附提纲范文和作文纸']]
-    : [['topics', '话题卡', '题目和中文，两列排，剪开可以抽签'], ['script', '讲稿单', '提纲 + 参考稿（已解锁的题）'], ['recite', '背诵单', '挖空 / 首字母 / 看中文写英文']];
+  const MOCKV = ['mock', '模拟题单', '每题印这一轮的比赛规则，下面留几行写构思'];
+  const V = write ? [MOCKV, ['topics', '话题卡', '题目和中文，两列排，剪开可以抽签'], ['write', '写作', '题目、思路，可附提纲范文和作文纸']]
+    : [MOCKV, ['topics', '话题卡', '题目和中文，两列排，剪开可以抽签'], ['script', '讲稿单', '提纲 + 参考稿（已解锁的题）'], ['recite', '背诵单', '挖空 / 首字母 / 看中文写英文']];
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="hero"><h1>打印<small class="h-sub">${g.name}</small></h1></div>
     <div class="chips">${banks.map(([id, n]) => `<a class="chip${id === bankId ? ' on' : ''}" href="#/print?b=${id}">${n}</a>`).join('')}
       ${write ? '' : [1, 2, 3].map((k) => `<a class="chip${String(k) === s ? ' on' : ''}" href="#/print?b=${bankId}&s=${k}">${ROUNDS[k]}</a>`).join('')}
       <a class="chip" href="/english/print.html#phrases" target="_blank" rel="noopener">句型和名言</a></div>
     <section class="card"><div class="card-h"><h2>选题</h2><span class="small muted" id="pn"></span><button class="btn sm" id="pall">全选</button></div>
+      <div class="pr-rand">随机选 <input type="number" id="rn" min="1" max="${items.length}" value="${pickN || 5}"> 题 <button class="btn sm" id="rgo">选</button></div>
       <div class="pr-list">${items.map((x) => `<label class="pr-it"><input type="checkbox" value="${esc(x.id)}" ${sel.has(x.id) ? 'checked' : ''}><span><b>${x.number}.</b> <span lang="en">${esc(x.stem)}</span>${x.open ? '' : '<small>未解锁：只能印题目</small>'}</span></label>`).join('') || '<p class="muted">暂无</p>'}</div></section>
     <section class="card"><div class="card-h"><h2>版式</h2></div>
       <div class="pr-v">${V.map(([v, t, dsc]) => `<label class="pr-vi"><input type="radio" name="v" value="${v}" ${opt.v === v ? 'checked' : ''}><span><b>${t}</b><small>${dsc}</small></span></label>`).join('')}</div>
@@ -726,10 +744,12 @@ async function renderPrint(q) {
   const keep = () => { store.set(`en.pr.${bankId}`, boxes.filter((b) => b.checked).map((b) => b.value)); $app.querySelector('#pn').textContent = `已选 ${boxes.filter((b) => b.checked).length}`; };
   boxes.forEach((b) => (b.onchange = keep)); keep();
   $app.querySelector('#pall').onclick = () => { const on = !boxes.every((b) => b.checked); boxes.forEach((b) => (b.checked = on)); keep(); };
+  $app.querySelector('#rgo').onclick = () => { const n = Math.max(1, Math.min(boxes.length, +$app.querySelector('#rn').value || 5)); const pick = new Set(boxes.slice().sort(() => Math.random() - 0.5).slice(0, n)); boxes.forEach((b) => (b.checked = pick.has(b))); keep(); };
   const save = () => store.set('en.pr', opt);
   const drawOpt = () => {
     const ck = (k, t) => `<label><input type="checkbox" data-o="${k}" ${opt[k] ? 'checked' : ''}> ${t}</label>`;
-    $app.querySelector('#po').innerHTML = opt.v === 'topics' ? ck('t', '带思路提示')
+    $app.querySelector('#po').innerHTML = opt.v === 'mock' ? `${ck('z', '带中文')}${ck('n', '留几行写构思')}${write ? ck('p', '附作文纸') : ''}`
+      : opt.v === 'topics' ? ck('t', '带思路提示')
       : opt.v === 'script' ? `${ck('z', '中英对照')}${ck('b', '每题另起一页')}`
       : opt.v === 'recite' ? `${[['h', '挖空句型'], ['l', '首字母'], ['c', '看中文写英文']].map(([k, t]) => `<label><input type="radio" name="m" value="${k}" ${opt.m === k ? 'checked' : ''}> ${t}</label>`).join('')}${ck('k', '附答案页')}`
       : `${ck('r', '附提纲和范文')}${ck('z', '范文中英对照')}${ck('p', '附作文纸')}`;
@@ -741,7 +761,7 @@ async function renderPrint(q) {
   $app.querySelector('#pgo').onclick = async (e) => {
     const ids = boxes.filter((b) => b.checked).map((b) => b.value);
     if (!ids.length) return modal('<p>先选几道题</p><div class="actions"><button class="btn" data-close>好</button></div>');
-    const o = opt.v === 'topics' ? (opt.t ? 't' : '') : opt.v === 'script' ? `${opt.z ? 'z' : ''}${opt.b ? 'b' : ''}` : opt.v === 'recite' ? `${opt.m}${opt.k ? 'k' : ''}` : `${opt.r ? 'r' : ''}${opt.z ? 'z' : ''}${opt.p ? 'p' : ''}`;
+    const o = opt.v === 'mock' ? `${opt.z ? 'z' : ''}${opt.n ? 'n' : ''}${write && opt.p ? 'p' : ''}` : opt.v === 'topics' ? (opt.t ? 't' : '') : opt.v === 'script' ? `${opt.z ? 'z' : ''}${opt.b ? 'b' : ''}` : opt.v === 'recite' ? `${opt.m}${opt.k ? 'k' : ''}` : `${opt.r ? 'r' : ''}${opt.z ? 'z' : ''}${opt.p ? 'p' : ''}`;
     e.target.disabled = true;
     const w = window.open('', '_blank');
     try {
