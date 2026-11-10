@@ -480,11 +480,13 @@ export const UI_FEATURES = [
       await lpClose(p); return r;
     }, expect: same('true/true/true') },
     { id: 'U22-5', name: '汉字小达人卷子「打印」：古文字题的字形图片印出来', run: async (p, c) => {
-      await c.go('/chinese/#/hanzi'); await p.locator('[data-pexam]').first().click(); await lpWait(p); await p.waitForTimeout(800);
+      await c.go('/chinese/#/hanzi'); await p.locator('[data-pexam="hanzi-2021-city"]').click(); await lpWait(p); await p.waitForTimeout(800);
       const r = `${(await p.locator('#lp .q').count()) > 50}/${(await p.locator('#lp .fig img').count()) > 0}`;
       await lpClose(p); return r;
     }, expect: same('true/true') },
     { id: 'U22-6', name: '语文错题本「打印」：默认待订正的题，附答案和解析页', run: async (p, c) => {
+      const s = await c.post('/api/sessions', { exam_id: 'gsw-2021-cx', student_id: c.sid, mode: 'exam' }); // 交一张空卷，造出语文错题
+      if (s.data?.session) await c.post(`/api/sessions/${s.data.session.id}/submit`, { answers: {}, times: {} });
       await c.go('/chinese/#/mistakes'); await p.waitForTimeout(600); if (!(await p.locator('#ms-print').count())) return '没有打印';
       await p.locator('#ms-print').click(); await lpWait(p); await p.waitForTimeout(800);
       const r = `${(await p.locator('#lp .q').count()) > 0}/${await p.locator('#lp .ah').count()}`; await lpClose(p); return r;

@@ -360,7 +360,7 @@ export function openPrint(cfg) {
     const n = pages.length ? `共 ${pages.length} 页 · A4` : '';
     const busy = !pages.length;
     const pdfLabel = pdf ? `保存 PDF（${pdf.pages} 页）` : '存成 PDF';
-    if (wx) return side ? '' : `<button class="lp-sec lp-adj" data-a="adjust">${IC.sl}调整</button><button class="lp-pri" data-a="browser" ${busy ? 'disabled' : ''}>${IC.out}去浏览器打开</button>`;
+    if (wx) return side ? '' : `<button class="lp-sec lp-adj" data-a="adjust">${IC.sl}调整</button><button class="lp-pri" data-a="browser">${IC.out}去浏览器打开</button>`; // 只要链接，不用等排版
     if (side) {
       return `<div class="lp-acts"><span class="lp-n">${n}</span>
         ${mobile ? `<button class="lp-pri" data-a="pdf" ${busy ? 'disabled' : ''}>${IC.dl}${pdfLabel}</button><div class="lp-row"><button class="lp-sec" data-a="print" ${busy ? 'disabled' : ''}>${PRINT_ICON}打印</button></div>`
@@ -451,8 +451,7 @@ export function openPrint(cfg) {
     document.body.classList.add('lp-printing');
     const done = () => { document.body.classList.remove('lp-printing'); window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
-    try { window.print(); } catch {}
-    setTimeout(() => { if (!window.matchMedia('print').matches) done(); }, 1500);
+    try { window.print(); } catch {} // 打印结束（afterprint）或关掉预览时恢复页面
   }
 
   // ── 存成 PDF：先生成，再点一次保存（手机分享要在点击里调用） ──
