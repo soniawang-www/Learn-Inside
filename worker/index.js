@@ -341,8 +341,8 @@ async function poemsData(env) {
   return poemsCache;
 }
 const POEM_DAYS = [1, 3, 7, 15, 30];
+// 篇目和知识卡是免费内容：不用登录也能读（打印页在微信外的浏览器里打开时没有登录状态）
 route('GET', '/api/chinese/poems', async (req, env) => {
-  await requireAccount(req, env);
   return json({ items: await poemsData(env) });
 });
 route('GET', '/api/chinese/poems/progress', async (req, env, p, url) => {
@@ -392,7 +392,6 @@ async function cardsData(env) {
   return cardsCache;
 }
 route('GET', '/api/chinese/cards', async (req, env) => {
-  await requireAccount(req, env);
   return json({ items: await cardsData(env) });
 });
 route('POST', '/api/chinese/gsw/drill', async (req, env) => {

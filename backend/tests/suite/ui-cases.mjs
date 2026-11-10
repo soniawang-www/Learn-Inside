@@ -431,6 +431,24 @@ export const UI_FEATURES = [
       return `${t1.startsWith('多选题')}/${on}/${(await c.text('.gx-type')).startsWith('填空题')}/${await p.locator('#gfill').count()}`;
     }, expect: same('true/2/true/1') },
   ] },
+  { id: 'U22', area: '界面', name: '古诗 / 卡片打印', cases: [
+    { id: 'U22-1', name: '打印设置：全选一栏后生成打印页（新标签），学习版带白话', run: async (p, c) => {
+      await c.go('/chinese/#/print'); await p.locator('.pr-it').first().waitFor({ timeout: 15000 });
+      await p.locator('.pr-all').first().click(); const n = await c.text('#pr-n');
+      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('#pr-go')]); await np.waitForLoadState(); await np.locator('.poem').first().waitFor({ timeout: 15000 });
+      const r = `${/已选 \d+/.test(n)}/${(await np.locator('.poem').count()) > 3}/${(await np.locator('.pl').count()) > 0}`; await np.close(); return r;
+    }, expect: same('true/true/true') },
+    { id: 'U22-2', name: '没登录也能打开打印页：默写版有格子和答案页，提示字版每首 3 个字，卡片能打印', run: async (p, c) => {
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage();
+      await q.goto(c.base + '/chinese/print.html#p=0,1&v=blank&k=1'); await q.locator('.poem').first().waitFor({ timeout: 15000 });
+      const blank = `${(await q.locator('.w').count()) > 20}/${await q.locator('.ans').count()}`;
+      await q.goto(c.base + '/chinese/print.html#p=0,1&v=hint&k=1'); await q.reload(); await q.locator('.hint').first().waitFor({ timeout: 15000 });
+      const hint = await q.locator('.hint').first().locator('.hc span').count();
+      await q.goto(c.base + '/chinese/print.html#c=p-libai'); await q.reload(); await q.locator('.card').first().waitFor({ timeout: 15000 });
+      const card = (await q.locator('.card h2').innerText()).trim(); await ctx.close();
+      return `${blank}/${hint}/${card}`;
+    }, expect: same('true/1/3/李白') },
+  ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [
     { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {
       await c.go('/chinese/#/beishi'); await p.locator('.bs-stat').waitFor({ timeout: 15000 });

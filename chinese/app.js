@@ -105,6 +105,7 @@ async function router() {
     if (parts[0] === 'hanzi') return await renderHanzi();
     if (parts[0] === 'gsw') return await renderGsw();
     if (parts[0] === 'beishi') return await renderBeishi();
+    if (parts[0] === 'print') return await renderPrint(new URLSearchParams(h.split('?')[1] || ''));
     if (parts[0] === 'cards') return await renderCards(new URLSearchParams(h.split('?')[1] || ''));
     if (parts[0] === 'card') return await renderCard(decodeURIComponent(parts[1] || ''));
     if (parts[0] === 'poem') return await renderPoem(+parts[1], new URLSearchParams(h.split('?')[1] || ''));
@@ -222,7 +223,7 @@ async function renderCards(q) {
   const dyns = [...new Set(poets.map((c) => c.dynasty))];
   page(`<a class="small back" href="#/">← 语文首页</a>
     <div class="hero"><h1>诗人卡和常识卡</h1></div>
-    <div class="seg" role="tablist"><a role="tab" class="${tab === 'poet' ? 'on' : ''}" href="#/cards">诗人 ${poets.length}</a><a role="tab" class="${tab === 'topic' ? 'on' : ''}" href="#/cards?t=topic">常识 ${topics.length}</a></div>
+    <div class="kc-top"><div class="seg" role="tablist"><a role="tab" class="${tab === 'poet' ? 'on' : ''}" href="#/cards">诗人 ${poets.length}</a><a role="tab" class="${tab === 'topic' ? 'on' : ''}" href="#/cards?t=topic">常识 ${topics.length}</a></div><a class="btn" href="#/print?t=card">打印</a></div>
     ${tab === 'poet' ? dyns.map((d) => `<section class="card"><h2>${esc(d)}</h2><div class="kc-grid">${poets.filter((c) => c.dynasty === d).map((c) => `<a class="kc-chip" href="#/card/${enc(c.id)}"><b>${esc(c.name)}</b><small>${esc([c.titles?.[0], c.zi && `字${c.zi}`].filter(Boolean).join(' · '))}</small></a>`).join('')}</div></section>`).join('')
       : `<div class="card"><div class="kc-grid wide">${topics.map((c) => `<a class="kc-chip" href="#/card/${enc(c.id)}"><b>${esc(c.name)}</b><small>${c.qn ? `${c.qn} 道相关题` : ''}</small></a>`).join('')}</div></div>`}`, 'cards');
 }
@@ -247,12 +248,65 @@ async function renderCard(id) {
     <div class="hero"><h1>${esc(c.name)}</h1>${c.dynasty ? `<p class="muted">〔${esc(c.dynasty)}〕</p>` : ''}</div>
     <div class="card kc-card">${body}
       ${c.mix?.length ? `<div class="kc-mix"><h3>容易混</h3><ul>${li(c.mix)}</ul></div>` : ''}</div>
-    ${c.qn ? `<div class="actions center"><button class="btn primary" id="drill">练相关的题</button></div>` : ''}`, 'cards');
+    <div class="actions center"><a class="btn" href="/chinese/print.html#c=${enc(c.id)}" target="_blank" rel="noopener">打印这张卡</a>${c.qn ? '<button class="btn primary" id="drill">练相关的题</button>' : ''}</div>`, 'cards');
   $app.querySelector('#drill')?.addEventListener('click', async (e) => {
     e.target.disabled = true;
     try { const r = await api('/api/chinese/gsw/drill', { method: 'POST', body: { student_id: auth.student.id, kind: 'card', card: c.id, grade: store.get('gsw.grade', null) } }); location.hash = `#/exam/${r.session.id}`; }
     catch (x) { e.target.disabled = false; modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
   });
+}
+
+// ───────── 打印：选篇目 / 卡片 → /chinese/print.html（独立的 A4 打印页，不用登录也能打开）─────────
+async function renderPrint(q) {
+  const cardMode = q.get('t') === 'card';
+  const items = cardMode ? await cardList() : await poemList();
+  const sel = new Set(store.get(cardMode ? 'pr.cards' : 'pr.poems', []));
+  const opt = Object.assign({ v: 'study', m: true, n: true, a: false, k: true }, store.get('pr.opt', {}));
+  let groups;
+  if (cardMode) {
+    const poets = items.filter((c) => c.kind === 'poet');
+    groups = [...[...new Set(poets.map((c) => c.dynasty))].map((d) => [`诗人 · ${d}`, poets.filter((c) => c.dynasty === d)]), ['常识', items.filter((c) => c.kind === 'topic')]];
+  } else groups = [...new Set(items.map((p) => p.section))].map((sc) => [sc, items.filter((p) => p.section === sc)]);
+  const keyOf = (x) => (cardMode ? x.id : String(x.idx));
+  let st = null;
+  if (!cardMode) { try { st = await poemState(); } catch {} }
+  const quick = cardMode ? '' : `<div class="pr-quick"><button class="btn" data-q="today">今天的</button><button class="btn" data-q="learned">学过的</button><button class="btn" data-q="all">全部</button><button class="btn" data-q="none">清空</button></div>`;
+  page(`<a class="small back" href="${cardMode ? '#/cards' : '#/beishi'}">← ${cardMode ? '诗人卡和常识卡' : '每日背诗'}</a>
+    <div class="hero"><h1>${cardMode ? '打印卡片' : '打印古诗'}</h1></div>
+    <section class="card"><div class="card-h"><h2>选${cardMode ? '卡片' : '篇目'}</h2><span class="muted small" id="pr-n"></span></div>${quick}
+      ${groups.map(([g, xs], gi) => `<details class="pr-g" ${gi === 0 ? 'open' : ''}><summary><b>${esc(g)}</b><span class="muted small">${xs.length}</span><button class="pr-all" data-g="${gi}">全选本栏</button></summary>
+        <div class="pr-list">${xs.map((x) => `<label class="pr-it"><input type="checkbox" data-k="${esc(keyOf(x))}" ${sel.has(keyOf(x)) ? 'checked' : ''}><span>${esc(cardMode ? x.name : x.title)}<small>${esc(cardMode ? (x.kind === 'poet' ? x.titles?.[0] || '' : '') : x.author)}</small></span></label>`).join('')}</div></details>`).join('')}
+    </section>
+    ${cardMode ? '' : `<section class="card"><div class="card-h"><h2>版式</h2></div>
+      <div class="pr-v">${[['study', '学习版', '原文，按需加白话、注释、背景'], ['blank', '默写版', '每句只给第一个字，其余留格子'], ['hint', '提示字版', '每首只给 3 个字，凭提示字写出整首']].map(([v, t, d]) => `<label class="pr-vi"><input type="radio" name="v" value="${v}" ${opt.v === v ? 'checked' : ''}><span><b>${t}</b><small>${d}</small></span></label>`).join('')}</div>
+      <div class="pr-o" id="pr-o"></div></section>`}
+    <div class="actions center"><button class="btn primary" id="pr-go">生成打印页</button></div>`, cardMode ? 'cards' : 'beishi');
+  const boxes = [...$app.querySelectorAll('.pr-it input')];
+  const count = () => { $app.querySelector('#pr-n').textContent = `已选 ${boxes.filter((b) => b.checked).length}`; };
+  const keep = () => { store.set(cardMode ? 'pr.cards' : 'pr.poems', boxes.filter((b) => b.checked).map((b) => b.dataset.k)); count(); };
+  boxes.forEach((b) => (b.onchange = keep)); count();
+  $app.querySelectorAll('.pr-all').forEach((b) => (b.onclick = (e) => { e.preventDefault(); const xs = groups[+b.dataset.g][1].map(keyOf); const on = !xs.every((k) => boxes.find((x) => x.dataset.k === k)?.checked); boxes.forEach((x) => { if (xs.includes(x.dataset.k)) x.checked = on; }); keep(); }));
+  $app.querySelectorAll('.pr-quick button').forEach((b) => (b.onclick = () => {
+    const pick = (k) => b.dataset.q === 'all' ? true : b.dataset.q === 'none' ? false
+      : b.dataset.q === 'learned' ? !!st?.P.has(+k)
+      : !!(st && (st.due.some((p) => String(p.idx) === k) || (!st.P.has(+k) && items.filter((p) => !st.P.has(p.idx)).slice(0, Math.max(0, store.get('bs.new', 2) - st.newToday)).some((p) => String(p.idx) === k)) || (st.P.get(+k)?.first_at >= dayStart())));
+    boxes.forEach((x) => (x.checked = pick(x.dataset.k))); keep();
+  }));
+  const drawOpt = () => {
+    const box = $app.querySelector('#pr-o'); if (!box) return;
+    box.innerHTML = opt.v === 'study' ? [['m', '白话意思'], ['n', '字词注释'], ['a', '写作背景']].map(([k, t]) => `<label><input type="checkbox" data-o="${k}" ${opt[k] ? 'checked' : ''}> ${t}</label>`).join('')
+      : `<label><input type="checkbox" data-o="k" ${opt.k ? 'checked' : ''}> 最后附答案页</label>`;
+    box.querySelectorAll('input').forEach((i) => (i.onchange = () => { opt[i.dataset.o] = i.checked; store.set('pr.opt', opt); }));
+  };
+  $app.querySelectorAll('input[name=v]').forEach((r) => (r.onchange = () => { opt.v = r.value; store.set('pr.opt', opt); drawOpt(); }));
+  drawOpt();
+  $app.querySelector('#pr-go').onclick = () => {
+    const ks = boxes.filter((b) => b.checked).map((b) => b.dataset.k);
+    if (!ks.length) return modal(`<p>先选几${cardMode ? '张卡片' : '篇'}</p><div class="actions"><button class="btn" data-close>好</button></div>`);
+    const url = cardMode ? `/chinese/print.html#c=${ks.map(enc).join(',')}` : `/chinese/print.html#p=${ks.join(',')}&v=${opt.v}&o=${['m', 'n', 'a'].filter((k) => opt[k]).join('')}&k=${opt.k ? 1 : 0}`;
+    const w = window.open(url, '_blank');
+    if (w) w.opener = null; else location.href = url;
+  };
 }
 
 // ───────── 每日背诗 ─────────
@@ -282,7 +336,7 @@ async function renderBeishi() {
   page(`<a class="small back" href="#/">← 语文首页</a>
     <div class="hero"><h1>每日背诗</h1></div>
     <div class="dash-grid">
-      <section class="card"><div class="card-h"><h2>今天</h2>
+      <section class="card"><div class="card-h"><h2>今天</h2><a class="small" href="#/print">打印</a>
         <label class="small muted">每天新学 <select id="per">${[1, 2, 3, 5].map((n) => `<option ${n === per ? 'selected' : ''}>${n}</option>`).join('')}</select> 篇</label></div>
         ${due.length ? `<h3 class="bs-h">复习 ${due.length} 篇</h3>${due.map((p) => row(p, 'review')).join('')}` : ''}
         ${fresh.length ? `<h3 class="bs-h">新学</h3>${fresh.map((p) => row(p)).join('')}` : newToday ? '<p class="muted">今天的新篇目背完了</p>' : ''}
@@ -336,6 +390,7 @@ async function renderPoem(idx, q) {
       <div class="card ps-card">${body}</div>
       ${step === 1 && p.qs?.length ? `<details class="card ps-qs" id="qs"><summary><h2>真题里怎么考过</h2><span class="muted small">${p.qs.length} 道</span></summary><div id="qlist"><p class="muted">加载中…</p></div></details>` : ''}
       <div class="actions center ps-act">
+        ${step === 1 ? `<a class="btn" href="/chinese/print.html#p=${idx}&v=study&o=mna" target="_blank" rel="noopener">打印</a>` : ''}
         ${step === 4 ? '<button class="btn" id="peek">看原文</button>' : step > 1 ? '<button class="btn" id="peek">全部显示</button>' : ''}
         ${review ? '<button class="btn" id="again">没背出来</button><button class="btn primary" id="good">背出来了</button>'
           : step < 4 ? `<button class="btn primary" id="next">下一步：${steps[step]}</button>`
