@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<title>ESDP 打印 · learn-inside</title>
+<style>
+/* 英语打印页：#t=打印凭证（话题卡 / 讲稿单 / 背诵单 / 写作），#phrases（句型和名言，免费） */
+:root { --ink: #1c1c1c; --soft: #6b6b6b; --line: #cfcac0; --accent: #1D5C4D; --plum: #B04A6F; --bg: #ecebe6;
+  --en: Georgia, "Times New Roman", serif; --sans: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+.bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+.bar b { flex: 1; min-width: 8em; font-size: 15px; }
+.bar button { font: inherit; font-size: 15px; font-weight: 600; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+.bar button.ghost { background: transparent; color: var(--accent); }
+.wx { width: 100%; font-size: 13px; color: var(--plum); }
+.sheet { max-width: 794px; margin: 16px auto 40px; background: #fff; padding: 44px 52px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+.head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid var(--ink); padding-bottom: 6px; margin-bottom: 18px; }
+.head h1 { margin: 0; font-size: 21px; }
+.head span { font-size: 11px; color: var(--soft); }
+.msg { text-align: center; color: var(--soft); padding: 60px 0; }
+[lang=en] { font-family: var(--en); }
+/* 话题卡：两列，虚线剪开 */
+.cards { display: grid; grid-template-columns: 1fr 1fr; }
+.tc { border: 1px dashed #999; padding: 14px 16px 16px; min-height: 150px; break-inside: avoid; page-break-inside: avoid; }
+.tc .meta { font-size: 11px; color: var(--soft); margin-bottom: 6px; }
+.tc .q { font-size: 17px; line-height: 1.45; margin: 0 0 6px; }
+.tc .zh { font-size: 13px; color: #444; margin: 0; }
+.tc .tip { font-size: 12px; color: var(--soft); margin: 8px 0 0; padding-top: 6px; border-top: 1px dotted var(--line); }
+/* 讲稿 / 背诵 / 写作 */
+.it { padding: 6px 0 18px; border-bottom: 1px dashed var(--line); margin-bottom: 14px; }
+.it.brk { break-before: page; page-break-before: always; }
+.it .meta { font-size: 12px; color: var(--soft); }
+.it h2 { font-family: var(--en); font-size: 19px; margin: 4px 0 2px; line-height: 1.4; }
+.it .qzh { font-size: 13px; color: #444; margin: 0 0 10px; }
+.it h4 { font-size: 12.5px; color: var(--soft); margin: 12px 0 4px; font-weight: 600; }
+.it ol { margin: 0; padding-left: 1.4em; font-size: 14px; line-height: 1.7; }
+.pa { margin: 0 0 10px; break-inside: avoid; }
+.pa i { display: inline-block; font-style: normal; font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 4px; margin-right: 6px; vertical-align: 2px; }
+.pa .en { font-family: var(--en); font-size: 15.5px; line-height: 1.75; }
+.pa .zh { font-size: 13px; color: #555; line-height: 1.6; margin-top: 2px; }
+.hole { display: inline-block; min-width: 4em; border-bottom: 1px solid #666; }
+.ul { color: #999; letter-spacing: 1px; }
+.wl { height: 30px; border-bottom: 1px solid #aaa; }
+.phr { font-size: 13px; line-height: 1.8; }
+.phr span { display: inline-block; margin-right: 14px; }
+.phr em { font-family: var(--en); font-style: normal; font-weight: 600; }
+.locked { font-size: 13px; color: var(--plum); margin: 8px 0 0; }
+.paper { break-before: page; page-break-before: always; }
+.paper .wl { height: 34px; }
+.paper .meta { font-size: 12px; color: var(--soft); }
+.paper .cnt { text-align: right; font-size: 12px; color: var(--soft); margin-top: 8px; }
+.ans { break-before: page; page-break-before: always; }
+.ans h3 { font-size: 17px; margin: 0 0 10px; }
+.ans .a { margin: 0 0 12px; break-inside: avoid; }
+.ans .a b { font-size: 13px; }
+.ans .a p { font-family: var(--en); font-size: 13.5px; line-height: 1.6; margin: 2px 0; }
+/* 句型和名言 */
+.pg { break-inside: avoid; margin-bottom: 14px; }
+.pg h3 { font-size: 15px; margin: 0 0 6px; color: var(--accent); }
+.pg table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pg td { border-bottom: 1px solid #e3e0d8; padding: 4px 6px; }
+.pg td:first-child { font-family: var(--en); width: 55%; }
+.qt { break-inside: avoid; margin: 0 0 12px; }
+.qt b { font-size: 12px; color: var(--soft); }
+.qt p { margin: 2px 0; }
+.qt .en { font-family: var(--en); font-size: 15.5px; }
+@media (max-width: 640px) { .sheet { margin: 0; padding: 24px 16px; box-shadow: none; } .cards { grid-template-columns: 1fr; } }
+@page { size: A4; margin: 14mm 13mm; }
+@media print { html, body { background: #fff; } .bar { display: none; } .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; } }
+</style>
+</head>
+<body>
+<div class="bar"><b id="cnt">ESDP 打印</b><button id="go">打印 / 存为 PDF</button><button class="ghost" id="copy" hidden>复制链接</button><span class="wx" id="wx" hidden>微信里不能直接打印：点右上角「···」，选「在浏览器中打开」后再打印。</span></div>
+<div class="sheet" id="sheet"><p class="msg">正在准备…</p></div>
+<script type="module">
+import { PHRASES, QUOTES } from './phrases.js?v=20261110';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const H = new URLSearchParams(location.hash.slice(1));
+if (/MicroMessenger/i.test(navigator.userAgent)) { $('wx').hidden = false; $('copy').hidden = false; }
+$('go').onclick = () => window.print();
+$('copy').onclick = async () => { try { await navigator.clipboard.writeText(location.href); $('copy').textContent = '已复制'; } catch (e) { prompt('复制这个链接，到浏览器里打开', location.href); } };
+const ROUNDS = { 1: '复赛问答', 2: '即兴演讲', 3: '决赛定题' };
+const TAG = { open: '开头', body: '展开', example: '举例', close: '结尾' };
+const grp = (id) => (String(id).includes('-high') ? '小高组' : '小低组');
+const isWrite = (id) => String(id).startsWith('esdp-write-');
+const meta = (x) => `${grp(x.bank)} · ${isWrite(x.id) ? '写作' : ROUNDS[x.section] || ''} · 第 ${x.number} 题`;
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const phraseRe = (m) => { const ps = (m.phrases || []).map((p) => p.en).filter(Boolean).sort((a, b) => b.length - a.length); return ps.length ? new RegExp(ps.map(reEsc).join('|'), 'gi') : null; };
+function splitBy(s, re, fn) { if (!re) return esc(s); let out = '', i = 0; for (const m of s.matchAll(re)) { out += esc(s.slice(i, m.index)) + fn(m[0]); i = m.index + m[0].length; } return out + esc(s.slice(i)); }
+const holes = (s, re) => splitBy(s, re, (w) => `<span class="hole">${'&nbsp;'.repeat(Math.max(6, Math.ceil(w.length * 1.4)))}</span>`);
+const letters = (s) => s.split(/([A-Za-z]+(?:['’][A-Za-z]+)?)/).map((t, i) => (i % 2 ? `${esc(t[0])}<span class="ul">${'_'.repeat(Math.min(t.length - 1, 8))}</span>` : esc(t))).join('');
+const lines = (n) => Array.from({ length: n }, () => '<div class="wl"></div>').join('');
+const head = (title) => `<div class="head"><h1>${title}</h1><span>learn-inside · ESDP</span></div>`;
+const topQ = (x) => `<div class="meta">${meta(x)}</div><h2 lang="en">${esc(x.stem)}</h2>${x.stem_zh ? `<p class="qzh">${esc(x.stem_zh)}</p>` : ''}`;
+const lockedNote = '<p class="locked">提纲和参考稿：开通英语会员或解锁这道题后可打印</p>';
+
+function topics(items, o) {
+  return head('ESDP 话题卡') + `<div class="cards">${items.map((x) => `<div class="tc"><div class="meta">${meta(x)}</div><p class="q" lang="en">${esc(x.stem)}</p>${x.stem_zh ? `<p class="zh">${esc(x.stem_zh)}</p>` : ''}${o.includes('t') && x.tips ? `<p class="tip">思路：${esc(x.tips)}</p>` : ''}</div>`).join('')}</div>`;
+}
+function script(items, o) {
+  const zh = o.includes('z');
+  return head('ESDP 讲稿单') + items.map((x, i) => {
+    const m = x.model;
+    const body = !m || m.locked ? (x.tips ? `<h4>思路</h4><p class="qzh">${esc(x.tips)}</p>` : '') + lockedNote
+      : `${m.outline?.length ? `<h4>提纲</h4><ol>${m.outline.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>` : ''}
+         <h4>${isWrite(x.id) ? '范文' : '参考稿'}${m.words ? `（${m.words} 词）` : ''}</h4>
+         ${(m.paras || []).map((p) => `<div class="pa"><div class="en" lang="en"><i>${TAG[p.tag] || ''}</i>${esc(p.en)}</div>${zh ? `<div class="zh">${esc(p.zh)}</div>` : ''}</div>`).join('')}
+         ${m.phrases?.length ? `<h4>好用的表达</h4><div class="phr">${m.phrases.map((p) => `<span><em lang="en">${esc(p.en)}</em> ${esc(p.zh)}</span>`).join('')}</div>` : ''}`;
+    return `<section class="it ${i && o.includes('b') ? 'brk' : ''}">${topQ(x)}${body}</section>`;
+  }).join('');
+}
+// 背诵单：h 挖空句型 / l 首字母 / c 只看中文（下面留行写英文）；k 附答案
+function recite(items, o) {
+  const mode = o.includes('l') ? 'l' : o.includes('c') ? 'c' : 'h';
+  const name = { h: '背诵单 · 挖空句型', l: '背诵单 · 首字母', c: '背诵单 · 看中文写英文' }[mode];
+  const open = items.filter((x) => x.model && !x.model.locked);
+  const body = items.map((x) => {
+    const m = x.model;
+    if (!m || m.locked) return `<section class="it">${topQ(x)}${lockedNote}</section>`;
+    const re = phraseRe(m);
+    return `<section class="it">${topQ(x)}${(m.paras || []).map((p) => mode === 'c'
+      ? `<div class="pa"><div class="zh"><i>${TAG[p.tag] || ''}</i>${esc(p.zh)}</div>${lines(Math.max(2, Math.ceil(p.en.length / 70)))}</div>`
+      : `<div class="pa"><div class="en" lang="en"><i>${TAG[p.tag] || ''}</i>${mode === 'l' ? letters(p.en) : holes(p.en, re)}</div></div>`).join('')}</section>`;
+  }).join('');
+  const ans = o.includes('k') && open.length ? `<section class="ans"><h3>答案</h3>${open.map((x) => `<div class="a"><b>${esc(meta(x))}</b>${(x.model.paras || []).map((p) => `<p lang="en">${esc(p.en)}</p>`).join('')}</div>`).join('')}</section>` : '';
+  return head(name) + body + ans;
+}
+// 写作：题目、提纲、范文，每题后面一页作文纸
+function write(items, o) {
+  return head('ESDP 写作') + items.map((x, i) => {
+    const m = x.model;
+    const ref = o.includes('r') ? (!m || m.locked ? lockedNote : `${m.outline?.length ? `<h4>提纲</h4><ol>${m.outline.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>` : ''}<h4>范文</h4>${(m.paras || []).map((p) => `<div class="pa"><div class="en" lang="en">${esc(p.en)}</div>${o.includes('z') ? `<div class="zh">${esc(p.zh)}</div>` : ''}</div>`).join('')}`) : '';
+    const limit = String(x.bank).includes('-high') ? 150 : 100;
+    return `<section class="it ${i ? 'brk' : ''}">${topQ(x)}${x.tips ? `<h4>思路</h4><p class="qzh">${esc(x.tips)}</p>` : ''}${ref}</section>
+      ${o.includes('p') ? `<section class="paper"><div class="meta">${esc(meta(x))} · ${limit} 词以内</div><h2 lang="en" style="font-size:16px">${esc(x.stem)}</h2>${lines(22)}<div class="cnt">共 ______ 词</div></section>` : ''}`;
+  }).join('');
+}
+function phrases() {
+  return head('「总-分-总」句型和百搭名言') + PHRASES.map(([t, ...xs]) => `<div class="pg"><h3>${t}</h3><table>${xs.map(([en, zh]) => `<tr><td lang="en">${esc(en)}</td><td>${zh}</td></tr>`).join('')}</table></div>`).join('')
+    + `<h3 style="font-size:15px;color:var(--accent)">百搭名言</h3>${QUOTES.map(([t, en, who, zh]) => `<div class="qt"><b>${t}</b><p class="en" lang="en">${esc(en)} — ${esc(who)}</p><p>${zh}</p></div>`).join('')}`;
+}
+
+(async () => {
+  const sheet = $('sheet');
+  try {
+    if (H.has('phrases')) { sheet.innerHTML = phrases(); $('cnt').textContent = '句型和名言'; return; }
+    const t = H.get('t'); if (!t) throw new Error('打印链接不完整');
+    const r = await fetch(`/api/print/${encodeURIComponent(t)}`); const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '打印链接已失效');
+    const items = d.items || []; if (!items.length) throw new Error('没有要打印的题目');
+    const o = d.o || '';
+    sheet.innerHTML = d.v === 'script' ? script(items, o) : d.v === 'recite' ? recite(items, o) : d.v === 'write' ? write(items, o) : topics(items, o);
+    $('cnt').textContent = `${{ topics: '话题卡', script: '讲稿单', recite: '背诵单', write: '写作' }[d.v] || '打印'} · ${items.length} 题`;
+    document.title = `${$('cnt').textContent} · learn-inside`;
+  } catch (e) { sheet.innerHTML = `<p class="msg">${esc(e.message)}</p>`; }
+})();
+</script>
+</body>
+</html>

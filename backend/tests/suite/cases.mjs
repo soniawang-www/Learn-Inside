@@ -300,6 +300,12 @@ export const FEATURES = [
     { id: 'BS1-6', name: '篇目和结果校验；不能改别人家孩子的进度', run: async (c) => `${st(await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 9999, result: 'learned' }))}/${st(await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 1, result: 'hack' }))}/${st(await c.post('/api/chinese/poems/progress', { student_id: c.outsider.sid, poem: 1, result: 'learned' }))}`, expect: same('400/400/404') },
   ] },
 
+  { id: 'E3', area: '英语', name: 'ESDP 打印', cases: [
+    { id: 'E3-1', name: '生成打印链接，凭链接（不用登录）能取到题目', run: async (c) => { const t = (await c.post('/api/english/print-link', { student_id: c.sid, ids: [`${EN_BANK}-p01`, EN_ITEM], v: 'script', o: 'z' })).data.token; c.enTok = t; const d = (await c.anon(`/api/print/${t}`, 'GET')).data; return `${d.v}/${d.items.length}`; }, expect: same('script/2') },
+    { id: 'E3-2', name: '免费样题印讲稿，没解锁的题只印题目和思路（英语会员都能印）', run: async (c) => { const d = (await c.anon(`/api/print/${c.enTok}`, 'GET')).data; const a = d.items.find((x) => x.id.endsWith('-p01')), b = d.items.find((x) => x.id === EN_ITEM); return `${!!a.model?.paras?.length}/${b.model?.locked ? 'locked' : b.model?.paras ? 'open' : '?'}/${!!b.tips}`; }, expect: { guest: 'true/locked/true', user: 'true/open/true', member: 'true/open/true' } },
+    { id: 'E3-3', name: '不能给别人家孩子生成；空选不行', run: async (c) => `${st(await c.post('/api/english/print-link', { student_id: c.outsider.sid, ids: [EN_ITEM], v: 'topics' }))}/${st(await c.post('/api/english/print-link', { student_id: c.sid, ids: [], v: 'topics' }))}`, expect: same('404/400') },
+  ] },
+
   // ───────── J 游客转正（只对游客，最后执行） ─────────
   { id: 'J1', area: '账号', name: '游客注册', cases: [
     { id: 'J1-1', name: '游客注册送 10 次', run: async (c) => (await c.post('/api/account/bind', { phone: c.newPhone(), password: 'abc123', nickname: '转正' })).data.credits_added, expect: { guest: 10, user: 'skip', member: 'skip' } },

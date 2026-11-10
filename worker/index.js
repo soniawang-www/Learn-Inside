@@ -8,7 +8,7 @@ import { seedDatabase, importContent, migrate } from './seed.js';
 import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 import { registerBilling, SAMPLES } from './billing.js';
 import { judge, normalizeInput } from './answers.js';
-import { registerEnglish } from './english.js';
+import { registerEnglish, englishPrintItems } from './english.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
@@ -1001,6 +1001,7 @@ route('GET', '/api/print/:token', async (_req, env, p) => {
   if (!job || job.expires_at < now()) throw new HttpError(404, '这个打印链接已经失效（24 小时有效），请回到原来的页面重新打印');
   const pl = parseJ(job.payload, {});
   if (pl.exam_id) return json({ ...pl, expires_at: job.expires_at, items: (await examPrint(env, pl.exam_id)).items });
+  if (pl.english) return json({ ...pl, ids: undefined, expires_at: job.expires_at, items: await englishPrintItems(env, job.student_id, pl.ids || [], billing) });
   return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, items: await printItems(env, job.student_id, pl.problem_ids || []) });
 });
 

@@ -14,7 +14,45 @@ export const ENGLISH_MIGRATIONS = [
 const PREFIX = 'esdp-';
 const parseJ = (v, d = null) => { try { return v ? JSON.parse(v) : d; } catch { return d; } };
 
+// 打印用：一组题目的题干、思路，和这个账号能看的提纲 / 参考稿（没解锁的只给题目和思路）
+export async function englishPrintItems(env, studentId, ids, billing) {
+  const st = await env.DB.prepare('SELECT a.* FROM student s JOIN account a ON a.id = s.account_id WHERE s.id = ?').bind(studentId).first();
+  if (!st) return [];
+  const ctx = await billing.accessCtx(env, st, 'english');
+  const ok = ids.filter((x) => typeof x === 'string' && x.startsWith(PREFIX)).slice(0, 60);
+  if (!ok.length) return [];
+  const qs = ok.map(() => '?').join(',');
+  const { results: ps } = await env.DB.prepare(`SELECT p.id, p.exam_id, p.number, p.stem, p.stem_zh, p.section, e.title AS bank_title
+      FROM problem p JOIN exam e ON e.id = p.exam_id WHERE e.published = 1 AND p.id IN (${qs})`).bind(...ok).all();
+  const { results: sols } = await env.DB.prepare(`SELECT problem_id, kind, tier, content FROM solution WHERE problem_id IN (${qs})`).bind(...ok).all();
+  const by = new Map(ps.map((p) => [p.id, p]));
+  return ok.filter((id) => by.has(id)).map((id) => {
+    const p = by.get(id);
+    const basic = sols.find((x) => x.problem_id === id && x.kind === 'basic');
+    const adv = sols.find((x) => x.problem_id === id && x.kind === 'advanced');
+    const open = !!adv && (adv.tier === 'free' || ctx.can(`adv:${id}`));
+    return { id, bank: p.exam_id, bank_title: p.bank_title, number: p.number, section: p.section, stem: p.stem, stem_zh: p.stem_zh,
+      tips: basic?.content ?? null, model: adv ? (open ? parseJ(adv.content, {}) : { locked: true }) : null };
+  });
+}
+
 export function registerEnglish({ route, json, HttpError, body, requireAccount, requireStudent, billing, uid, now }) {
+  // 打印链接：选好的题和版式存 24 小时；打印页凭链接取（微信里打不了，换到手机浏览器打开，那边没有登录状态）
+  route('POST', '/api/english/print-link', async (req, env) => {
+    const acc = await requireAccount(req, env);
+    const b = await body(req);
+    await requireStudent(env, acc, b.student_id);
+    const ids = (Array.isArray(b.ids) ? b.ids : []).filter((x) => typeof x === 'string' && x.startsWith(PREFIX)).slice(0, 60);
+    if (!ids.length) throw new HttpError(400, '先选几道题');
+    const v = ['topics', 'script', 'recite', 'write'].includes(b.v) ? b.v : 'topics';
+    const payload = { english: true, ids, v, o: String(b.o || '').replace(/[^a-z]/g, '').slice(0, 8), title: String(b.title || '').slice(0, 40) };
+    const token = (uid() + uid()).replace(/-/g, ''), t = now();
+    await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
+    await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
+      .bind(token, b.student_id, JSON.stringify(payload), t, t + 24 * 3600 * 1000).run();
+    return json({ token });
+  });
+
   const bankOk = (id) => typeof id === 'string' && id.startsWith(PREFIX);
 
   // 所有题库（ESDP 口语 / 写作 × 小低 / 小高）+ 这个孩子各练了几题

@@ -415,3 +415,17 @@ mark { background: color-mix(in srgb, var(--en) 18%, transparent); color: inheri
 @media (min-width: 641px) and (max-width: 860px) { .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wr .topic { font-size: 19px; line-height: 1.5; white-space: normal; }
 @media (max-width: 640px) { .wr .topic { font-size: 17px; } }
+
+/* 打印设置 */
+.pr-list { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow: auto; }
+.pr-it { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.pr-it input { margin-top: 4px; accent-color: var(--accent); }
+.pr-it small { display: block; color: var(--muted); font-size: 12px; }
+.pr-v { display: grid; gap: 8px; }
+.pr-vi { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; cursor: pointer; }
+.pr-vi:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.pr-vi input { margin-top: 4px; accent-color: var(--accent); }
+.pr-vi span { display: flex; flex-direction: column; }
+.pr-vi small { color: var(--muted); }
+.pr-o { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+.pr-o input { accent-color: var(--accent); }

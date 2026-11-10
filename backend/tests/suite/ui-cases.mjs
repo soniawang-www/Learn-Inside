@@ -269,7 +269,7 @@ export const UI_FEATURES = [
   ] },
   { id: 'U16', area: '英语', name: '英语 · ESDP', cases: [
     { id: 'U16-1', name: '英语首页：ESDP 卡片', run: async (p, c) => { await c.go('/english/'); return await p.locator('a.fam-card[href="#/esdp"]').count(); }, expect: same(1) },
-    { id: 'U16-2', name: 'ESDP 页：组别切换、4 个模拟比赛、按话题学 5 行', run: async (p, c) => { await c.go('/english/#/esdp'); return `${await p.locator('.seg button').count()}/${await p.locator('.mode').count()}/${await p.locator('.learn-row').count()}`; }, expect: same('2/4/5') },
+    { id: 'U16-2', name: 'ESDP 页：组别切换、4 个模拟比赛、按话题学 6 行（含打印）', run: async (p, c) => { await c.go('/english/#/esdp'); return `${await p.locator('.seg button').count()}/${await p.locator('.mode').count()}/${await p.locator('.learn-row').count()}`; }, expect: same('2/4/6') },
     { id: 'U16-3', name: '学习页样题：一步步打开提示 → 提纲 → 参考句子 → 背诵', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p01'); const n0 = await p.locator('.step.shut').count(); await p.locator('[data-reveal="4"]').click(); return `${n0}/${await p.locator('.step.shut').count()}/${await p.locator('.recite .rc').count() > 0}`; }, expect: same('4/0/true') },
     { id: 'U16-4', name: '背诵：挖空模式能点开空', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p01'); await p.locator('[data-reveal="4"]').click(); await p.locator('[data-mode="holes"]').click(); const h = p.locator('.hole').first(); await h.click(); return await h.evaluate((e) => e.classList.contains('open')); }, expect: same(true) },
     { id: 'U16-5', name: '没解锁的题：显示解锁按钮', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p30'); return await p.locator('[data-unlock]').count(); }, expect: same(1) },
@@ -459,6 +459,16 @@ export const UI_FEATURES = [
       const card = (await q.locator('.card h2').innerText()).trim(); await ctx.close();
       return `${blank}/${hint}/${card}`;
     }, expect: same('true/1/3/李白') },
+  ] },
+  { id: 'U23', area: '界面', name: '英语打印', cases: [
+    { id: 'U23-1', name: '英语打印设置：全选后生成话题卡（新标签打开，不用登录也能看）', run: async (p, c) => {
+      await c.go('/english/#/print'); await p.locator('.pr-it').first().waitFor({ timeout: 15000 }); await p.click('#pall');
+      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('#pgo')]); await np.locator('.tc').first().waitFor({ timeout: 15000 });
+      const n = await np.locator('.tc').count(); const url = np.url(); await np.close();
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(url); await q.locator('.tc').first().waitFor({ timeout: 15000 }); const m = await q.locator('.tc').count(); await ctx.close();
+      return `${n > 5}/${m === n}`;
+    }, expect: same('true/true') },
+    { id: 'U23-2', name: '句型和名言打印页', run: async (p, c) => { await c.go('/english/print.html#phrases'); await p.reload(); await p.locator('.pg').first().waitFor({ timeout: 15000 }); return `${await p.locator('.pg').count()}/${await p.locator('.qt').count()}`; }, expect: same('5/10') },
   ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [
     { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {

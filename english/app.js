@@ -8,6 +8,7 @@
 
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
+import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -122,6 +123,7 @@ async function router() {
     if (parts[0] === 'write') return await renderWrite(parts[1]);
     if (parts[0] === 'draw') return await drawOne(parts[1], q.get('s'));
     if (parts[0] === 'phrases') return renderPhrases();
+    if (parts[0] === 'print') return await renderPrint(q);
     location.hash = '#/';
   } catch (e) { errorPage(e.message); } finally { loaded(); }
 }
@@ -187,6 +189,7 @@ async function renderEsdp() {
       ${learn('即兴演讲', `#/bank/${sid}?s=2`, of(sb, 2))}
       ${learn('决赛定题', `#/bank/${sid}?s=3`, of(sb, 3))}
       ${learn('写作', `#/bank/${wid}`, of(wb))}
+      <a class="learn-row" href="#/print"><b>打印</b><span class="lr-n">话题卡、讲稿、背诵单、写作纸、句型</span><span></span><small></small><i class="go">›</i></a>
       <a class="learn-row" href="#/phrases"><b>句型和名言</b><span class="lr-n">「总-分-总」句型 · 10 句百搭名言</span><span></span><small></small><i class="go">›</i></a>
     </div>
     <section class="card">
@@ -249,6 +252,7 @@ async function renderBank(bankId, q) {
       <span class="q-n">${x.number}</span>
       <span class="q-t"><span lang="en">${esc(x.stem)}</span><small>${esc(x.stem_zh || '')}</small></span>
       <span class="q-m">${realTag(x, false)}${x.learned ? '<i class="tag ok">背会</i>' : ''}${x.practiced ? `<i class="tag">练 ${x.practiced}</i>` : ''}</span></a>`).join('') : '<p class="muted">暂无</p>'}</div>
+    <div class="actions center"><a class="btn" href="#/print?b=${enc(bankId)}${s ? `&s=${s}` : ''}">打印</a></div>
     <p class="small muted center">${esc(d.bank.origin || '')}</p>`, 'home');
 }
 
@@ -692,29 +696,68 @@ async function askUnlock(item, d, then) {
     <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="/account/">开通会员</a></div>`);
 }
 
+// ───────── 打印：选题库、轮次、题目和版式 → /english/print.html（凭 24 小时打印链接取题，微信外的浏览器也能打开）─────────
+async function renderPrint(q) {
+  const g = curGroup();
+  const bankId = q.get('b') || `esdp-speak-${g.id}`;
+  const write = isWrite(bankId);
+  const s = write ? '' : q.get('s') || '1';
+  const d = await loadBank(bankId, true);
+  const items = d.items.filter((x) => !s || String(x.section) === s);
+  const opt = Object.assign({ v: write ? 'write' : 'topics', t: true, z: true, b: false, m: 'h', k: true, r: true, p: true }, store.get('en.pr', {}));
+  if (!write && opt.v === 'write') opt.v = 'topics';
+  if (write && !['write', 'topics'].includes(opt.v)) opt.v = 'write';
+  const sel = new Set(store.get(`en.pr.${bankId}`, []));
+  const banks = [[`esdp-speak-${g.id}`, '口语'], [`esdp-write-${g.id}`, '写作']];
+  const V = write ? [['topics', '话题卡', '题目和中文，两列排，剪开可以抽签'], ['write', '写作', '题目、思路，可附提纲范文和作文纸']]
+    : [['topics', '话题卡', '题目和中文，两列排，剪开可以抽签'], ['script', '讲稿单', '提纲 + 参考稿（已解锁的题）'], ['recite', '背诵单', '挖空 / 首字母 / 看中文写英文']];
+  page(`<a class="small back" href="#/esdp">← ESDP</a>
+    <div class="hero"><h1>打印<small class="h-sub">${g.name}</small></h1></div>
+    <div class="chips">${banks.map(([id, n]) => `<a class="chip${id === bankId ? ' on' : ''}" href="#/print?b=${id}">${n}</a>`).join('')}
+      ${write ? '' : [1, 2, 3].map((k) => `<a class="chip${String(k) === s ? ' on' : ''}" href="#/print?b=${bankId}&s=${k}">${ROUNDS[k]}</a>`).join('')}
+      <a class="chip" href="/english/print.html#phrases" target="_blank" rel="noopener">句型和名言</a></div>
+    <section class="card"><div class="card-h"><h2>选题</h2><span class="small muted" id="pn"></span><button class="btn sm" id="pall">全选</button></div>
+      <div class="pr-list">${items.map((x) => `<label class="pr-it"><input type="checkbox" value="${esc(x.id)}" ${sel.has(x.id) ? 'checked' : ''}><span><b>${x.number}.</b> <span lang="en">${esc(x.stem)}</span>${x.open ? '' : '<small>未解锁：只能印题目</small>'}</span></label>`).join('') || '<p class="muted">暂无</p>'}</div></section>
+    <section class="card"><div class="card-h"><h2>版式</h2></div>
+      <div class="pr-v">${V.map(([v, t, dsc]) => `<label class="pr-vi"><input type="radio" name="v" value="${v}" ${opt.v === v ? 'checked' : ''}><span><b>${t}</b><small>${dsc}</small></span></label>`).join('')}</div>
+      <div class="pr-o" id="po"></div></section>
+    <div class="actions center"><button class="btn primary" id="pgo">生成打印页</button></div>`, 'home');
+  const boxes = [...$app.querySelectorAll('.pr-it input')];
+  const keep = () => { store.set(`en.pr.${bankId}`, boxes.filter((b) => b.checked).map((b) => b.value)); $app.querySelector('#pn').textContent = `已选 ${boxes.filter((b) => b.checked).length}`; };
+  boxes.forEach((b) => (b.onchange = keep)); keep();
+  $app.querySelector('#pall').onclick = () => { const on = !boxes.every((b) => b.checked); boxes.forEach((b) => (b.checked = on)); keep(); };
+  const save = () => store.set('en.pr', opt);
+  const drawOpt = () => {
+    const ck = (k, t) => `<label><input type="checkbox" data-o="${k}" ${opt[k] ? 'checked' : ''}> ${t}</label>`;
+    $app.querySelector('#po').innerHTML = opt.v === 'topics' ? ck('t', '带思路提示')
+      : opt.v === 'script' ? `${ck('z', '中英对照')}${ck('b', '每题另起一页')}`
+      : opt.v === 'recite' ? `${[['h', '挖空句型'], ['l', '首字母'], ['c', '看中文写英文']].map(([k, t]) => `<label><input type="radio" name="m" value="${k}" ${opt.m === k ? 'checked' : ''}> ${t}</label>`).join('')}${ck('k', '附答案页')}`
+      : `${ck('r', '附提纲和范文')}${ck('z', '范文中英对照')}${ck('p', '附作文纸')}`;
+    $app.querySelectorAll('#po [data-o]').forEach((i) => (i.onchange = () => { opt[i.dataset.o] = i.checked; save(); }));
+    $app.querySelectorAll('#po input[name=m]').forEach((i) => (i.onchange = () => { opt.m = i.value; save(); }));
+  };
+  $app.querySelectorAll('input[name=v]').forEach((r) => (r.onchange = () => { opt.v = r.value; save(); drawOpt(); }));
+  drawOpt();
+  $app.querySelector('#pgo').onclick = async (e) => {
+    const ids = boxes.filter((b) => b.checked).map((b) => b.value);
+    if (!ids.length) return modal('<p>先选几道题</p><div class="actions"><button class="btn" data-close>好</button></div>');
+    const o = opt.v === 'topics' ? (opt.t ? 't' : '') : opt.v === 'script' ? `${opt.z ? 'z' : ''}${opt.b ? 'b' : ''}` : opt.v === 'recite' ? `${opt.m}${opt.k ? 'k' : ''}` : `${opt.r ? 'r' : ''}${opt.z ? 'z' : ''}${opt.p ? 'p' : ''}`;
+    e.target.disabled = true;
+    const w = window.open('', '_blank');
+    try {
+      const r = await api('/api/english/print-link', { method: 'POST', body: { student_id: auth.student.id, ids, v: opt.v, o } });
+      const url = `/english/print.html#t=${r.token}`;
+      if (w) { w.opener = null; w.location.href = url; } else location.href = url;
+    } catch (x) { w?.close(); modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
+    e.target.disabled = false;
+  };
+}
+
 // ───────── 句型和名言 ─────────
-const PHRASES = [
-  ['表明观点', ['In my opinion, ...', '在我看来……'], ['I believe that ...', '我相信……'], ['From my perspective, ...', '从我的角度看……'], ['As far as I am concerned, ...', '就我而言……']],
-  ['理清顺序', ['Firstly, ... Secondly, ... Finally, ...', '第一……第二……最后……'], ['In addition, ...', '另外……'], ['Moreover, ...', '而且……'], ['However, ...', '但是……']],
-  ['举例说明', ['For example, ...', '比如……'], ['For instance, ...', '举个例子……'], ['Let me share a story about ...', '我来讲一个关于……的故事'], ['I still remember the day when ...', '我还记得那一天……']],
-  ['总结结尾', ['In conclusion, ...', '总之……'], ['To sum up, ...', '总结一下……'], ['To put it in a nutshell, ...', '简而言之……'], ['Therefore, I strongly believe that ...', '所以，我坚信……']],
-  ['问答时争取时间', ['That is a great question.', '这是个好问题。'], ['Let me think for a second.', '让我想一下。'], ['Could you say that again, please?', '能再说一遍吗？'], ['Thank you for listening.', '谢谢聆听。']],
-];
-const QUOTES = [
-  ['热情与工作', 'The only way to do great work is to love what you do.', 'Steve Jobs', '成就伟大事业的唯一方法，是热爱你所做的事。'],
-  ['梦想与未来', 'The future belongs to those who believe in the beauty of their dreams.', 'Eleanor Roosevelt', '未来属于相信梦想之美的人。'],
-  ['成功与失败', 'Success is not final, failure is not fatal: it is the courage to continue that counts.', 'Winston Churchill', '成功不是终点，失败也不致命，重要的是继续前进的勇气。'],
-  ['善良', 'In a world where you can be anything, be kind.', 'Jennifer Dukes Lee', '在一个你可以成为任何人的世界里，做一个善良的人。'],
-  ['教育', 'Education is the most powerful weapon which you can use to change the world.', 'Nelson Mandela', '教育是改变世界最有力的武器。'],
-  ['团队合作', 'Teamwork makes the dream work.', 'John C. Maxwell', '团队合作让梦想成真。'],
-  ['行动与坚持', 'The journey of a thousand miles begins with a single step.', 'Laozi', '千里之行，始于足下。'],
-  ['选择与命运', 'It is not in the stars to hold our destiny but in ourselves.', 'William Shakespeare', '命运不在星辰，而在我们自己。'],
-  ['帮助他人', "Try to be a rainbow in someone else's cloud.", 'Maya Angelou', '试着成为别人乌云里的那道彩虹。'],
-  ['创新与主动', 'The best way to predict the future is to create it.', 'Abraham Lincoln', '预测未来最好的方法，就是去创造它。'],
-];
 function renderPhrases() {
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="hero"><h1>句型积累</h1></div>
+    <div class="actions"><a class="btn" href="/english/print.html#phrases" target="_blank" rel="noopener">打印</a></div>
     <section class="card"><h2>「总-分-总」常用句型</h2>
       <div class="ph-grid">${PHRASES.map(([t, ...xs]) => `<div class="ph-g"><b>${t}</b>${xs.map(([en, zh]) => `<p><span lang="en">${esc(en)}</span><small>${zh}</small></p>`).join('')}</div>`).join('')}</div></section>
     <section class="card"><h2>百搭名言</h2>
