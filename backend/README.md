@@ -53,6 +53,18 @@ backend/                 开发用（不公开）
 
 同一套试卷可以反复导入：题目内容会更新，孩子的作答记录不受影响。
 
+## 互动解析缩略图
+
+复盘页、单题页的互动解析缩略图，用的是课件里「最精彩」的一张：`backend/scripts/pick-thumbs.mjs` 在浏览器里把每道题课件里能当封面的图（分步演示的每一帧、互动演示的开头 / 播放到一半 / 达成目标时、配图）都画出来，按图形多、彩色重点多、铺得开、字少打分，结果写到 `worker/thumbs.generated.js`。
+
+导入新卷子（或改了互动解析）后重新生成，再推送：
+
+```bash
+PLAYWRIGHT=<playwright 模块路径> node backend/scripts/pick-thumbs.mjs ../math-data --sheet /tmp/thumbs   # --sheet 输出每套卷前三名的总览，方便人工看
+```
+
+没在表里的题照常显示：用课件里第一张图。
+
 ## 更新内置示例卷
 
 1. 修改 `backend/data/` 下的 JSON（试卷一套一个文件，格式见 `sample-2026.json`）。
