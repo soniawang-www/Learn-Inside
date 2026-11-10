@@ -53,6 +53,16 @@ export function registerEnglish({ route, json, HttpError, body, requireAccount, 
     return json({ token });
   });
 
+  // 打印预览取题：题目、思路，已解锁的题带提纲和参考稿（没解锁的只给 locked）
+  route('POST', '/api/english/print', async (req, env) => {
+    const acc = await requireAccount(req, env);
+    const b = await body(req);
+    await requireStudent(env, acc, b.student_id);
+    const ids = (Array.isArray(b.ids) ? b.ids : []).filter((x) => typeof x === 'string' && x.startsWith(PREFIX)).slice(0, 60);
+    if (!ids.length) throw new HttpError(400, '先选几道题');
+    return json({ items: await englishPrintItems(env, b.student_id, ids, billing) });
+  });
+
   const bankOk = (id) => typeof id === 'string' && id.startsWith(PREFIX);
 
   // 所有题库（ESDP 口语 / 写作 × 小低 / 小高）+ 这个孩子各练了几题

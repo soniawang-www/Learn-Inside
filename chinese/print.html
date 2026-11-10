@@ -2,146 +2,39 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
-<title>古诗文打印 · learn-inside</title>
-<style>
-/* 打印页：只放排版好的 A4 内容；地址 #p=篇目号,…&v=study|blank|hint&o=mna&k=1  或  #c=卡片 id,… */
-:root { --ink: #1c1c1c; --soft: #6b6b6b; --line: #cfcac0; --accent: #1D5C4D; --plum: #B04A6F; --paper: #ffffff; --bg: #ecebe6;
-  --serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif; --sans: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-* { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
-.bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); }
-.bar b { flex: 1; min-width: 8em; font-size: 15px; }
-.bar button { font: inherit; font-size: 15px; font-weight: 600; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
-.bar button.ghost { background: transparent; color: var(--accent); }
-.wx { width: 100%; font-size: 13px; color: var(--plum); }
-.sheet { max-width: 794px; margin: 16px auto 40px; background: var(--paper); padding: 48px 56px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
-.head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid var(--ink); padding-bottom: 6px; margin-bottom: 20px; }
-.head h1 { margin: 0; font-family: var(--serif); font-size: 22px; letter-spacing: .08em; }
-.head span { font-size: 11px; color: var(--soft); }
-.poem { break-inside: avoid; page-break-inside: avoid; padding: 14px 0 18px; border-bottom: 1px dashed var(--line); }
-.poem.long { break-inside: auto; page-break-inside: auto; }
-.poem h2 { margin: 0; text-align: center; font-family: var(--serif); font-size: 21px; letter-spacing: .06em; }
-.poem .by { text-align: center; color: var(--soft); font-size: 13px; margin: 4px 0 12px; }
-.ln { text-align: center; font-family: var(--serif); font-size: 19px; line-height: 1.9; letter-spacing: .08em; }
-.pl { text-align: center; font-size: 12px; color: var(--soft); line-height: 1.5; margin: -2px 0 6px; }
-.gap { height: 10px; }
-.notes { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: 12.5px; margin: 10px auto 0; max-width: 560px; }
-.notes dt { font-weight: 700; }
-.notes dd { margin: 0; color: #444; }
-.about { font-size: 12.5px; color: #444; margin: 8px auto 0; max-width: 560px; }
-.blank .ln .w { display: inline-block; width: 1.05em; border-bottom: 1px solid #888; color: transparent; margin: 0 .5px; }
-.blank .ln { line-height: 2.4; }
-.hint .no { text-align: center; font-size: 13px; color: var(--soft); }
-.hint .hc { display: flex; justify-content: center; gap: 14px; margin: 8px 0 12px; }
-.hint .hc span { display: grid; place-items: center; width: 44px; height: 44px; border: 1.5px solid var(--ink); font-family: var(--serif); font-size: 26px; }
-.hint .wl { height: 34px; border-bottom: 1px solid #999; margin: 0 40px; }
-.ans { break-before: page; page-break-before: always; }
-.ans h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; }
-.ans .a { font-size: 13px; line-height: 1.8; margin: 0 0 8px; break-inside: avoid; }
-.ans .a b { font-family: var(--serif); }
-.card { break-inside: avoid; page-break-inside: avoid; padding: 6px 0 18px; border-bottom: 1px dashed var(--line); margin-bottom: 8px; }
-.card h2 { font-family: var(--serif); font-size: 22px; margin: 6px 0 2px; }
-.card .by { color: var(--soft); font-size: 13px; margin-bottom: 8px; }
-.card dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0 0 8px; font-size: 14px; }
-.card dt { color: var(--soft); }
-.card dd { margin: 0; }
-.card h4 { font-size: 13px; color: var(--soft); margin: 10px 0 4px; font-weight: 600; }
-.card p, .card li { font-size: 14px; line-height: 1.7; margin: 0; }
-.card ul { margin: 0; padding-left: 1.2em; }
-.card .lines li { font-family: var(--serif); }
-.card table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.card th, .card td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; line-height: 1.6; }
-.card th { width: 28%; font-weight: 600; background: #f6f4ee; }
-.mix { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--plum); border-radius: 6px; }
-.mix h4 { color: var(--plum); margin-top: 0; }
-.msg { text-align: center; color: var(--soft); padding: 60px 0; }
-@media (max-width: 640px) { .sheet { margin: 0; padding: 24px 16px; box-shadow: none; } .ln { font-size: 17px; letter-spacing: .04em; } .hint .wl { margin: 0 8px; } }
-@page { size: A4; margin: 15mm 14mm; }
-@media print {
-  html, body { background: #fff; }
-  .bar { display: none; }
-  .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; }
-  .poem, .card { border-bottom-color: #ddd; }
-}
-</style>
+<title>打印 · learn-inside 语文</title>
+<style>html,body{margin:0;background:#EDEAE2;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}.msg{max-width:520px;margin:60px auto;padding:0 20px;color:#5D6A65;line-height:1.7;text-align:center}.msg a{color:#1D5C4D}</style>
 </head>
 <body>
-<div class="bar"><b id="cnt">古诗文打印</b><button id="go">打印 / 存为 PDF</button><button class="ghost" id="copy" hidden>复制链接</button><span class="wx" id="wx" hidden>微信里不能直接打印：点右上角「···」，选「在浏览器中打开」后再打印。</span></div>
-<div class="sheet" id="sheet"><p class="msg">正在准备…</p></div>
-<script>
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const HAN = /[㐀-鿿]/;
-const P = new URLSearchParams(location.hash.slice(1));
-const inWx = /MicroMessenger/i.test(navigator.userAgent);
-if (inWx) { $('wx').hidden = false; $('copy').hidden = false; }
-$('go').onclick = () => window.print();
-$('copy').onclick = async () => { try { await navigator.clipboard.writeText(location.href); $('copy').textContent = '已复制'; } catch (e) { prompt('复制这个链接，到浏览器里打开', location.href); } };
-const by = (p) => `${p.dynasty ? `〔${esc(p.dynasty)}〕` : ''}${esc(p.author || '')}`;
-const ids = (k) => (P.get(k) || '').split(',').filter(Boolean);
-
-function study(p, o) {
-  const L = p.text;
-  return `<section class="poem ${L.length > 12 ? 'long' : ''}"><h2>${esc(p.title)}</h2><div class="by">${by(p)}</div>
-    ${L.map((l, i) => (l === '—' ? '<div class="gap"></div>' : `<div class="ln">${esc(l)}</div>${o.includes('m') && p.plain?.[i] && p.plain[i] !== '—' ? `<div class="pl">${esc(p.plain[i])}</div>` : ''}`)).join('')}
-    ${o.includes('n') && p.notes?.length ? `<dl class="notes">${p.notes.map((n) => `<dt>${esc(n.w)}</dt><dd>${esc(n.m)}</dd>`).join('')}</dl>` : ''}
-    ${o.includes('a') && p.about ? `<p class="about">${esc(p.about)}</p>` : ''}</section>`;
-}
-// 默写版：每句只留第一个字，其余字换成横线格（标点保留）
-function blank(p) {
-  const line = (l) => l.match(/[^，。、；：？！…“”—]+[，。、；：？！…”]*/g)?.map((c) => { let first = true; return [...c].map((ch) => { if (!HAN.test(ch)) return esc(ch); if (first) { first = false; return esc(ch); } return '<span class="w">口</span>'; }).join(''); }).join('') ?? esc(l);
-  return `<section class="poem blank ${p.text.length > 12 ? 'long' : ''}"><h2>${esc(p.title)}</h2><div class="by">${by(p)}</div>
-    ${p.text.map((l) => (l === '—' ? '<div class="gap"></div>' : `<div class="ln">${line(l)}</div>`)).join('')}</section>`;
-}
-// 提示字版：只给 3 个字（首句、中间、末句的第一个字），不给题目，凭提示字写出整首
-function hintChars(p) {
-  const L = p.text.filter((l) => l !== '—');
-  const pick = [...new Set([0, Math.floor(L.length / 2), L.length - 1])].map((i) => [...L[i]].find((c) => HAN.test(c)));
-  return pick.length >= 3 ? pick : [...pick, ...[...L.join('')].filter((c) => HAN.test(c) && !pick.includes(c)).slice(1, 4 - pick.length)];
-}
-const hint = (p, n) => `<section class="poem hint"><div class="no">第 ${n} 首</div><div class="hc">${hintChars(p).map((c) => `<span>${esc(c)}</span>`).join('')}</div>
-  ${p.text.filter((l) => l !== '—').map(() => '<div class="wl"></div>').join('')}</section>`;
-const answers = (ps, numbered) => `<section class="ans"><h3>答案</h3>${ps.map((p, i) => `<p class="a">${numbered ? `第 ${i + 1} 首　` : ''}<b>《${esc(p.title)}》</b>${by(p)}<br>${esc(p.text.filter((l) => l !== '—').join(''))}</p>`).join('')}</section>`;
-
-function card(c) {
-  const li = (xs) => xs.map((x) => `<li>${esc(x)}</li>`).join('');
-  const mix = c.mix?.length ? `<div class="mix"><h4>容易混</h4><ul>${li(c.mix)}</ul></div>` : '';
-  if (c.kind === 'poet') {
-    const rows = [['字', c.zi], ['号', c.hao], ['称号', (c.titles || []).join('、')], ['并称', (c.groups || []).join('；')], ['流派', c.school]].filter(([, v]) => v);
-    return `<section class="card"><h2>${esc(c.name)}</h2><div class="by">${c.dynasty ? `〔${esc(c.dynasty)}〕` : ''}</div>
-      ${rows.length ? `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
-      ${c.life ? `<p>${esc(c.life)}</p>` : ''}
-      ${c.works?.length ? `<h4>代表作</h4><p>${c.works.map((w) => `《${esc(w)}》`).join(' ')}</p>` : ''}
-      ${c.lines?.length ? `<h4>名句</h4><ul class="lines">${li(c.lines)}</ul>` : ''}${mix}</section>`;
-  }
-  return `<section class="card"><h2>${esc(c.name)}</h2>${c.intro ? `<p>${esc(c.intro)}</p>` : ''}
-    <table>${(c.rows || []).map((r) => `<tr><th>${esc(r.k)}</th><td>${esc(r.v)}</td></tr>`).join('')}</table>${mix}</section>`;
-}
-
+<p class="msg" id="msg">正在准备…</p>
+<script type="module">
+// 打印链接页（不用登录，篇目和卡片都是公开的）：
+//   #p=篇目号,…&x=选项          古诗（旧链接 #p=…&v=study|blank|hint&o=mna&k=1 也认）
+//   #c=卡片 id,…                 诗人卡、常识卡
+import { openPoemPrint, openCardPrint, unpackOpts } from './print-tpl.js?v=20261111';
+const H = new URLSearchParams(location.hash.slice(1));
+const ids = (k) => (H.get(k) || '').split(',').filter(Boolean);
+const msg = (t) => { document.getElementById('msg').innerHTML = t; };
 (async () => {
-  const sheet = $('sheet');
   try {
-    if (P.get('c')) {
+    if (H.get('c')) {
       const all = (await (await fetch('/api/chinese/cards')).json()).items || [];
-      const want = ids('c'); const cs = want.map((id) => all.find((c) => c.id === id)).filter(Boolean);
-      if (!cs.length) throw new Error('没有找到要打印的卡片');
-      $('cnt').textContent = `${cs.length} 张卡片`;
-      sheet.innerHTML = `<div class="head"><h1>${cs.every((c) => c.kind === 'poet') ? '诗人卡' : cs.every((c) => c.kind === 'topic') ? '常识卡' : '诗人卡和常识卡'}</h1><span>learn-inside 古诗文</span></div>${cs.map(card).join('')}`;
-    } else {
-      const all = (await (await fetch('/api/chinese/poems')).json()).items || [];
-      const ps = ids('p').map((x) => all.find((p) => p.idx === +x)).filter(Boolean);
-      if (!ps.length) throw new Error('没有找到要打印的篇目');
-      const v = P.get('v') || 'study', o = P.get('o') || '', k = P.get('k') === '1';
-      const name = { study: '古诗文学习单', blank: '古诗文默写单', hint: '凭提示字背整首诗' }[v] || '古诗文学习单';
-      $('cnt').textContent = `${name} · ${ps.length} 篇`;
-      const body = v === 'blank' ? ps.map(blank).join('') : v === 'hint' ? ps.map((p, i) => hint(p, i + 1)).join('') : ps.map((p) => study(p, o)).join('');
-      sheet.innerHTML = `<div class="head"><h1>${name}</h1><span>learn-inside 古诗文</span></div>${body}${k && v !== 'study' ? answers(ps, v === 'hint') : ''}`;
+      const want = ids('c').filter((id) => all.some((c) => c.id === id));
+      if (!want.length) throw new Error('没有找到要打印的卡片');
+      msg('');
+      return openCardPrint({ cards: all, standalone: true, home: '/chinese/#/cards', presets: [{ label: `这次的 ${want.length} 张`, ids: () => want }] });
     }
-    document.title = `${$('cnt').textContent} · learn-inside`;
-  } catch (e) { sheet.innerHTML = `<p class="msg">${esc(e.message)}</p>`; }
+    const all = (await (await fetch('/api/chinese/poems')).json()).items || [];
+    const want = ids('p').filter((x) => all.some((p) => String(p.idx) === x));
+    if (!want.length) throw new Error('没有找到要打印的篇目');
+    let opts = unpackOpts(H.get('x'));
+    if (H.get('v')) { const o = H.get('o') || ''; opts = { v: H.get('v'), m: o.includes('m'), n: o.includes('n'), a: o.includes('a'), k: H.get('k') === '1' }; }
+    msg('');
+    openPoemPrint({ poems: all, opts, standalone: true, home: '/chinese/#/beishi', presets: [{ label: `这次的 ${want.length} 篇`, ids: () => want }] });
+  } catch (e) { msg(`${e.message}<br><a href="/chinese/">回到语文</a>`); }
 })();
 </script>
 </body>

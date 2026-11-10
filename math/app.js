@@ -5,7 +5,8 @@ import { SIMS } from './sims.js';
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
-import { openPreview, SHEET_CSS } from './print.js?v=20261110p';
+import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261111';
+import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261111';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
 
 // 同一份前端两种用法：/math/ 数学板块；/account/ 全站账号页（账号、会员、激活码，数学语文通用）
@@ -615,7 +616,8 @@ function examGrid(f, allExams, fid, limit = 0) {
         <div class="et-btns">
           <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
           <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
-          <button class="btn" data-paper="${e.id}">打印</button>
+          <button class="btn lp-entry" data-paper="${e.id}">${PRINT_ICON}打印</button>
+          ${store.get(paperKey(e.id)) || store.get(printedKey(e.id)) ? `<button class="btn et-fill" data-fill="${e.id}">${store.get(paperKey(e.id)) ? '继续回填' : '回填答案'}</button>` : ''}
         </div></div>`; }).join('')}
     </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
   return { html, exams };
@@ -664,7 +666,8 @@ async function renderContest(fid, tab = 'exams') {
     ${body}
   </main>`;
   $app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = () => showInstructions(exams.find((e) => e.id === b.dataset.start), b.dataset.mode)));
-  $app.querySelectorAll('[data-paper]').forEach((b) => (b.onclick = () => showPaper(exams.find((e) => e.id === b.dataset.paper))));
+  $app.querySelectorAll('[data-paper]').forEach((b) => (b.onclick = () => openExamPrint(exams.find((e) => e.id === b.dataset.paper), b)));
+  $app.querySelectorAll('[data-fill]').forEach((b) => (b.onclick = () => startFill(exams.find((e) => e.id === b.dataset.fill), b)));
   $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { contestGrade[fid] = +b.dataset.grade; saveGrade(); renderContest(fid, tab); }));
 }
 
@@ -694,48 +697,69 @@ function showInstructions(exam, mode) {
 // ───────── 纸笔做：打印整套试卷，做完回来填答案判分（和模考一样进成绩、错题本、知识图谱） ─────────
 const paperKey = (examId) => `amc8.paper.${auth.student?.id}.${examId}`;
 let ppSpace = true;
-function showPaper(exam) {
-  const en = /^amc8-/.test(exam.id); // 只有 AMC 8 有英文原题
-  const L0 = lang.get();
-  modal(`<div class="pp-box"><h2>${esc(exam.title)}</h2>
-    <div class="pp-step"><i>1</i><div><h3>打印试卷</h3>
-      ${en ? `<div class="pp-line">${Object.entries(LANGS).map(([k, v]) => `<button class="pp-chip" data-pl="${k}" aria-pressed="${L0 === k}">${v}</button>`).join('')}</div>` : ''}
-      <label class="pp-line pp-chk"><input type="checkbox" id="pp-space" ${ppSpace ? 'checked' : ''}>每题下面留演算空白</label>
-      <button class="btn primary" id="pp-print">${icon('print', 15)}打印预览</button></div></div>
-    <div class="pp-step"><i>2</i><div><h3>做完回填答案</h3>
-      <button class="btn" id="pp-fill">${store.get(paperKey(exam.id)) ? '继续回填' : '回填答案'}</button></div></div>
-    </div><div class="actions"><button class="btn" data-close>关闭</button></div>`,
-  (el, close) => {
-    el.querySelectorAll('[data-pl]').forEach((b) => (b.onclick = () => { lang.set(b.dataset.pl); el.querySelectorAll('[data-pl]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
-    el.querySelector('#pp-space').onchange = (e) => { ppSpace = e.target.checked; };
-    el.querySelector('#pp-print').onclick = async (e) => {
-      const btn = e.currentTarget;
-      let r;
-      try { r = await api(`/math/api/exams/${enc(exam.id)}/print`); }
-      catch (err) { btn.disabled = false; return modal(`<h2>没能打开打印预览</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
-      close();
-      const L = en ? lang.get() : 'zh', space = ppSpace;
-      const sub = `共 ${r.items.length} 题 · ${Math.round(r.exam.duration_sec / 60)} 分钟`;
-      let link = null; // 安卓微信里用：同一次预览只生成一个链接
-      openPreview({
-        title: r.exam.title, sub, items: r.items, withAns: false, space, file: 'exam',
-        link: async () => link ||= printLinkUrl((await api(`/math/api/exams/${enc(exam.id)}/print-link`, { method: 'POST',
-          body: { student_id: auth.student.id, sub, space, lang: L } })).token),
-      }, { esc, rich, stemHtml: (p) => withLang(L, () => stemHtml(p)), isFig, lang: () => L, typeset });
-    };
-    el.querySelector('#pp-fill').onclick = async () => {
-      let sid = store.get(paperKey(exam.id));
-      if (sid) {
-        const d = await api(`/math/api/sessions/${enc(sid)}`).catch(() => null);
-        if (!d || d.session.submitted || d.session.deadline_at < d.session.server_now) { store.del(paperKey(exam.id)); sid = null; }
-      }
-      if (!sid) {
-        const r = await api('/math/api/sessions', { method: 'POST', body: { exam_id: exam.id, student_id: auth.student.id, mode: 'paper' } });
-        sid = r.session.id; store.set(paperKey(exam.id), sid);
-      }
-      close(); location.hash = `#/exam/${sid}`;
-    };
+const printedKey = (examId) => `amc8.printed.${auth.student?.id}.${examId}`;
+// 统一打印预览里的数学纸面：题干按选的语言出，公式用 KaTeX 排版
+const katexHref = () => document.querySelector('link[href*="katex"]')?.href;
+const typesetReady = async (el) => { for (let i = 0; i < 100 && !window.renderMathInElement; i++) await new Promise((r) => setTimeout(r, 60)); typeset(el); };
+function openMathPrint({ name, title, info, items, presets, pick, fetch, en, ans, opts, link, file, standalone, home, onClose }) {
+  const cache = new Map();
+  const first = presets[0];
+  return openPrint({
+    name, title, info, label: en ? '数学 · AMC 8' : '数学', unit: '题', file, standalone, home, onClose,
+    remember: 'math.print', force: opts || null,
+    opts: { lang: en ? lang.get() : 'zh', space: true, ans: true, ids: first.ids(), rangeLabel: first.label },
+    controls: [
+      ...(pick ? [{ type: 'range', label: '范围', presets, items: pick, max: PR_MAX }] : []),
+      ...(en ? [{ type: 'seg', key: 'lang', label: '语言', options: Object.entries(LANGS) }] : []),
+      { type: 'toggle', key: 'space', label: '每题下面留演算空白' },
+      ...(ans ? [{ type: 'toggle', key: 'ans', label: '附答案和解题思路' }] : []),
+    ],
+    async build(o) {
+      const need = (o.ids || []).filter((id) => !cache.has(id));
+      if (need.length) (await fetch(need)).forEach((x) => cache.set(x.problem_id, x));
+      const its = (o.ids || []).map((id) => cache.get(id)).filter(Boolean);
+      const L = en ? o.lang : 'zh';
+      const h = { esc, rich, stemHtml: (p) => withLang(L, () => stemHtml(p)), isFig, lang: () => L };
+      return { blocks: withLang(L, () => sheetBlocks({ items: its, withAns: ans && o.ans, space: o.space }, h)), count: its.length };
+    },
+    css: PRINT_CSS, links: [katexHref()].filter(Boolean), typeset: typesetReady, pdfCss: embeddedKatexCss,
+    link,
   });
+}
+
+// ───────── 纸笔做：打印整套试卷（不带答案），做完回来填答案判分（和模考一样进成绩、错题本、知识图谱） ─────────
+async function openExamPrint(exam, btn) {
+  if (btn) btn.disabled = true;
+  let r;
+  try { r = await api(`/math/api/exams/${enc(exam.id)}/print`); }
+  catch (err) { if (btn) btn.disabled = false; return modal(`<h2>没能打开打印</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+  if (btn) btn.disabled = false;
+  const en = /^amc8-/.test(exam.id); // 只有 AMC 8 有英文原题
+  const sub = `共 ${r.items.length} 题 · ${Math.round(r.exam.duration_sec / 60)} 分钟`;
+  store.set(printedKey(exam.id), 1);
+  openMathPrint({
+    name: r.exam.title, title: r.exam.title, info: ['姓名', '日期', '用时', '得分'], en, ans: false, file: 'exam',
+    presets: [{ label: `整套 ${r.items.length} 题`, ids: () => r.items.map((x) => x.problem_id) }],
+    fetch: async () => r.items,
+    link: async (o) => printLinkUrl((await api(`/math/api/exams/${enc(exam.id)}/print-link`, { method: 'POST',
+      body: { student_id: auth.student.id, sub, space: o.space, lang: en ? o.lang : 'zh' } })).token),
+    onClose: () => { if (/^#\/(contest|$)/.test(location.hash) || !location.hash) router(); }, // 卡片上出现「回填答案」
+  });
+}
+async function startFill(exam, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    let sid = store.get(paperKey(exam.id));
+    if (sid) {
+      const d = await api(`/math/api/sessions/${enc(sid)}`).catch(() => null);
+      if (!d || d.session.submitted || d.session.deadline_at < d.session.server_now) { store.del(paperKey(exam.id)); sid = null; }
+    }
+    if (!sid) {
+      const r = await api('/math/api/sessions', { method: 'POST', body: { exam_id: exam.id, student_id: auth.student.id, mode: 'paper' } });
+      sid = r.session.id; store.set(paperKey(exam.id), sid);
+    }
+    location.hash = `#/exam/${sid}`;
+  } catch (err) { if (btn) btn.disabled = false; modal(`<p>${esc(err.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
 }
 
 /** 回填答案：一屏列出所有题号，选择题点字母，填空题填答案；可填用时 */
@@ -1349,9 +1373,8 @@ function mistakeCard(list, reasonName) {
       ${n('pending') ? `<button class="btn primary" data-ms-go="pending">订正错题（${Math.min(n('pending'), BATCH)} 题）</button>` : ''}
       ${n('due') ? `<button class="btn primary" data-ms-go="due">复习到期的错题（${Math.min(n('due'), BATCH)} 题）</button>` : ''}
       ${!todo.length ? '<span class="small muted">现在没有要做的错题</span>' : ''}
-      <button class="btn" data-ms-print aria-expanded="${prOpen}" style="margin-left:auto">${icon('print', 15)}打印错题</button>
+      <button class="btn lp-entry" data-ms-print style="margin-left:auto">${PRINT_ICON}打印</button>
     </div>
-    ${prOpen ? printPanel(shown) : ''}
     <div class="ms-tabs">${tabs.map(([k, label]) => `<button class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label}</button>`).join('')}</div>
     <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || '<p class="muted small">这一类没有题。</p>'}</div>
     ${!msMore && shown.length > SHOW ? `<button class="btn" style="margin-top:8px" data-ms-more>再显示 ${shown.length - SHOW} 题</button>` : ''}
@@ -1363,59 +1386,33 @@ function bindMistakes(list) {
   const redraw = () => { box.outerHTML = mistakeCard(list, Object.fromEntries(REASONS)); bindMistakes(list); };
   box.querySelectorAll('[data-ms-tab]').forEach((b) => (b.onclick = () => { msFilter = b.dataset.msTab; msMore = false; redraw(); }));
   box.querySelector('[data-ms-more]')?.addEventListener('click', () => { msMore = true; redraw(); });
-  box.querySelector('[data-ms-print]')?.addEventListener('click', () => { prOpen = !prOpen; redraw(); });
-  bindPrintPanel(box, list, redraw);
+  box.querySelector('[data-ms-print]')?.addEventListener('click', () => openMistakesPrint(list));
   box.querySelectorAll('[data-ms-go]').forEach((b) => (b.onclick = () => startMistakes(list.filter((m) => m.status === b.dataset.msGo), b.dataset.msGo, b)));
 }
 
-// ───────── 错题本打印：范围跟着当前标签页和筛选走，可选附答案、留演算空白；语言跟做题页一致 ─────────
+// ───────── 错题本打印：默认是当前标签页的错题，范围、语言、答案在预览的「调整」里改 ─────────
 const PR_MAX = 60;
 const MS_TAB = { todo: '要做的', pending: '待订正', due: '该复习', fixed: '已订正', mastered: '已掌握', all: '全部' };
-let prOpen = false, prScope = 'cur', prAns = true, prSpace = true;
-document.head.appendChild(Object.assign(document.createElement('style'), { textContent: SHEET_CSS }));
 const prDesc = () => [MS_TAB[msFilter], msCtx?.fam(), msCtx?.kp()].filter(Boolean).join(' · ');
-const prList = (shown) => (prScope === 'all' ? msCtx?.all || [] : shown);
-function printPanel(shown) {
-  const n = prList(shown).length, tog = (on) => `aria-pressed="${on}"`;
-  return `<div class="ms-print" id="ms-print">
-    <div class="pr-row"><span class="pr-label">范围</span>
-      <button class="pr-opt" data-pr-scope="cur" ${tog(prScope === 'cur')}>当前列表（${esc(prDesc())}）${shown.length} 题</button>
-      <button class="pr-opt" data-pr-scope="all" ${tog(prScope === 'all')}>全部错题 ${msCtx?.all.length || 0} 题</button></div>
-    <div class="pr-row"><span class="pr-label">语言</span>${Object.entries(LANGS).map(([k, v]) => `<button class="pr-opt" data-pr-lang="${k}" ${tog(lang.get() === k)}>${v}</button>`).join('')}</div>
-    <div class="pr-row"><label class="pr-chk"><input type="checkbox" id="pr-ans" ${prAns ? 'checked' : ''}>附答案和解题思路</label>
-      <label class="pr-chk"><input type="checkbox" id="pr-space" ${prSpace ? 'checked' : ''}>每题下面留演算空白</label></div>
-    <div class="pr-row"><button class="btn primary" id="pr-go" ${n ? '' : 'disabled'}>打印预览</button>
-      <span class="pr-note">${!n ? '这个范围里没有题。' : n > PR_MAX ? `一次最多打印 ${PR_MAX} 题，只打印前 ${PR_MAX} 题。` : ''}</span></div>
-  </div>`;
-}
-function bindPrintPanel(box, list, redraw) {
-  const p = box.querySelector('#ms-print');
-  if (!p) return;
+function openMistakesPrint(list) {
   const shown = msFilter === 'all' ? list : msFilter === 'todo' ? list.filter(isTodo) : list.filter((m) => m.status === msFilter);
-  p.querySelectorAll('[data-pr-scope]').forEach((b) => (b.onclick = () => { prScope = b.dataset.prScope; redraw(); }));
-  p.querySelectorAll('[data-pr-lang]').forEach((b) => (b.onclick = () => { lang.set(b.dataset.prLang); redraw(); }));
-  p.querySelector('#pr-ans').onchange = (e) => { prAns = e.target.checked; };
-  p.querySelector('#pr-space').onchange = (e) => { prSpace = e.target.checked; };
-  p.querySelector('#pr-go').onclick = async (e) => {
-    const items = prList(shown).slice(0, PR_MAX);
-    const btn = e.currentTarget;
-    try {
-      const r = await api(`/math/api/students/${auth.student.id}/mistakes/print`, { method: 'POST', body: { problem_ids: items.map((m) => m.problem_id) } });
-      if (!r.items?.length) throw new Error('没有取到题目');
-      const desc = prScope === 'all' ? '全部错题' : prDesc();
-      const title = `${msCtx.nickname}的错题本`, sub = `${desc} · 共 ${r.items.length} 题`;
-      const withAns = prAns, space = prSpace, L = lang.get();
-      let link = null; // 安卓微信里用：同一次预览只生成一个链接
-      openPreview({
-        title, sub, items: r.items, withAns, space, file: 'mistakes',
-        link: async () => link ||= printLinkUrl((await api(`/math/api/students/${auth.student.id}/mistakes/print-link`, { method: 'POST',
-          body: { problem_ids: r.items.map((x) => x.problem_id), title, sub, with_ans: withAns, space, lang: L } })).token),
-      }, { esc, rich, stemHtml, isFig, lang: () => L, typeset });
-    } catch (err) { btn.disabled = false; modal(`<h2>没能打开打印预览</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
-  };
+  const all = msCtx?.all || list;
+  const ids = (xs) => xs.slice(0, PR_MAX).map((m) => m.problem_id);
+  const presets = [
+    shown.length && { label: `当前列表（${prDesc()}）`, ids: () => ids(shown) },
+    { label: '全部错题', ids: () => ids(all) },
+  ].filter(Boolean);
+  const title = `${msCtx?.nickname || auth.student.nickname}的错题本`;
+  openMathPrint({
+    name: '错题本', title, info: ['姓名', '日期', '得分'], en: all.some((m) => /^amc8-/.test(m.problem_id)), ans: true, file: 'mistakes',
+    presets, pick: all.map((m) => ({ id: m.problem_id, label: m.label, sub: MS[m.status][0] })),
+    fetch: async (want) => (await api(`/math/api/students/${auth.student.id}/mistakes/print`, { method: 'POST', body: { problem_ids: want } })).items,
+    link: async (o) => printLinkUrl((await api(`/math/api/students/${auth.student.id}/mistakes/print-link`, { method: 'POST',
+      body: { problem_ids: o.ids, title, sub: '', with_ans: o.ans, space: o.space, lang: o.lang } })).token),
+  });
 }
 
-// 打印链接（微信里换到浏览器打开）：不用登录，凭链接取题，直接打开打印预览
+// 打印链接（微信里换到浏览器打开、发到手机）：不用登录，凭链接取题，直接打开打印预览
 async function renderPrintLink(token) {
   const page = (body) => { $app.innerHTML = `<main class="page"><div class="card" style="max-width:560px;margin:40px auto">${body}</div></main>`; };
   let d;
@@ -1424,16 +1421,15 @@ async function renderPrintLink(token) {
     d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || `请求失败 (${r.status})`);
   } catch (e) { return page(`<h2>打不开这张练习单</h2><p>${esc(e.message)}</p><a class="btn primary" href="/math/">回到数学</a>`); }
-  const L = d.lang || 'en';
-  // 整套试卷（纸笔做）回试卷列表；错题练习单回错题本
-  const back = d.exam_id ? '<a class="btn" href="/math/">回到数学</a>' : '<a class="btn" href="/math/#/mistakes">去错题本</a>';
-  const open = () => openPreview({
-    title: d.title, sub: d.sub, items: d.items, withAns: d.with_ans, space: d.space, file: d.exam_id ? 'exam' : 'mistakes',
-    link: async () => printLinkUrl(token), onClose: closed,
-  }, { esc, rich, stemHtml: (p) => withLang(L, () => stemHtml(p)), isFig, lang: () => L, typeset });
-  const closed = () => { page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub)}</p><div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" id="reopen">打开打印预览</button>${back}</div>`); $app.querySelector('#reopen').onclick = open; };
-  if (!d.items?.length) return page(`<h2>这张练习单没有题</h2>${back.replace('class="btn"', 'class="btn primary"')}`);
-  closed(); open();
+  if (!d.items?.length) return page('<h2>这张练习单没有题</h2><a class="btn primary" href="/math/">回到数学</a>');
+  page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub || '')}</p>`);
+  const en = d.items.some((x) => /^amc8-/.test(x.problem_id));
+  openMathPrint({
+    name: d.title, title: d.title, info: d.exam_id ? ['姓名', '日期', '用时', '得分'] : ['姓名', '日期', '得分'], en, ans: !d.exam_id, file: d.exam_id ? 'exam' : 'mistakes',
+    presets: [{ label: `这次的 ${d.items.length} 题`, ids: () => d.items.map((x) => x.problem_id) }],
+    fetch: async () => d.items, opts: { lang: d.lang || 'en', space: !!d.space, ans: !!d.with_ans },
+    link: async () => printLinkUrl(token), standalone: true, home: d.exam_id ? '/math/' : '/math/#/mistakes',
+  });
 }
 /** 临时按指定语言出题干（打印链接用链接里的语言，不改本机设置） */
 function withLang(L, fn) { const g = lang.get; lang.get = () => L; try { return fn(); } finally { lang.get = g; } }

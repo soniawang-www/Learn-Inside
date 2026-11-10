@@ -2,6 +2,10 @@
 // run(page, ctx) 返回观察值；expect 同 cases.mjs。ctx.go(hash) 打开页面，ctx.text(sel) 取文字。
 
 const same = (v) => ({ guest: v, user: v, member: v });
+// 统一打印预览（/assets/print/kit.js）：纸面在 shadow DOM 里，Playwright 的 CSS 选择器能穿进去
+const lpWait = async (p) => { await p.locator('#lp .lp-pw').first().waitFor({ timeout: 20000 }); await p.waitForTimeout(300); };
+const lpSub = async (p) => (await p.locator('#lp-sub').innerText()).trim();
+const lpClose = async (p) => { await p.locator('#lp [data-a=close]').click(); await p.locator('#lp').waitFor({ state: 'detached' }); };
 const WX_ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; V2309A Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.103 Mobile Safari/537.36 XWEB/1300333 MMWEBSDK/20241103 MMWEBID/1234 MicroMessenger/8.0.54.2760(0x28003637) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64';
 const WX_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.50';
 
@@ -85,19 +89,18 @@ export const UI_FEATURES = [
       await p.fill('#fill', '4'); const prog = await p.textContent('.ez-prow span:last-child');
       return `${r}/${prog}`;
     }, expect: same('1/1/0/1/40') },
-    { id: 'U2-5', name: '试卷卡片点「打印」：先打印预览（25 题、没有答案页），回填页另开', run: async (p, c) => {
+    { id: 'U2-5', name: '试卷卡片点「打印」：直接出打印预览（25 题、没有答案），关掉后卡片上多一个「回填答案」', run: async (p, c) => {
       // 留两份没交的回填卷给各种屏幕的检查用（选择题卷、填空题卷）
       c.paperSids = [];
       for (const ex of ['amc8-2016', 'hope-2025w-g7']) c.paperSids.push((await c.post('/math/api/sessions', { exam_id: ex, student_id: c.sid, mode: 'paper' })).data.session.id);
-      await c.go('#/contest/amc8'); await p.locator('[data-paper="amc8-2017"]').click(); await p.waitForSelector('#pp-print');
-      const steps = await p.locator('.pp-step').count();
-      await p.click('#pp-print'); await p.waitForSelector('#pvSheet .it', { timeout: 15000 });
-      const r = `${steps}/${await p.locator('#pvSheet .it').count()}/${await p.locator('#pvSheet .ai').count()}/${await p.locator('#pvSheet .fa').count()}`;
-      await p.click('#pvClose'); return r;
-    }, expect: same('2/25/0/0') },
-    { id: 'U2-6', name: '回填答案：点字母选、再点取消，填用时，交卷后复盘标「纸笔」、用时是填的', run: async (p, c) => {
-      await c.go('#/contest/amc8'); await p.locator('[data-paper="amc8-2017"]').click(); await p.waitForSelector('#pp-fill');
-      await p.click('#pp-fill'); await p.waitForSelector('.pp-row'); await c.settle();
+      await c.go('#/contest/amc8'); const before = await p.locator('[data-fill="amc8-2017"]').count();
+      await p.locator('[data-paper="amc8-2017"]').click(); await lpWait(p);
+      const r = `${before}/${await p.locator('#lp .it').count()}/${await p.locator('#lp .ai').count()}/${await p.locator('#lp .fa').count()}`;
+      await lpClose(p); await c.settle();
+      return `${r}/${await p.locator('[data-fill="amc8-2017"]').count()}`;
+    }, expect: same('0/25/0/0/1') },
+    { id: 'U2-6', name: '卡片上「回填答案」：点字母选、再点取消，填用时，交卷后复盘标「纸笔」、用时是填的', run: async (p, c) => {
+      await c.go('#/contest/amc8'); await p.locator('[data-fill="amc8-2017"]').click(); await p.waitForSelector('.pp-row'); await c.settle();
       const rows = await p.locator('.pp-row').count();
       await p.locator('.pp-opts').nth(0).locator('[data-pick="B"]').click();
       await p.locator('.pp-opts').nth(1).locator('[data-pick="C"]').click(); await p.locator('.pp-opts').nth(1).locator('[data-pick="C"]').click();
@@ -117,19 +120,19 @@ export const UI_FEATURES = [
       const next = await p.evaluate(() => document.activeElement === document.querySelectorAll('.pp-in')[1]);
       return `${n}/${next}/${await c.text('#pp-count')}/${await p.locator('.pp-fmt').count()}`;
     }, expect: same('24/true/已填 1 / 25/1') },
-    { id: 'U2-8', name: '安卓微信打印整卷 → 换到浏览器打开链接，没登录也直接进打印预览', run: async (p, c) => {
+    { id: 'U2-8', name: '安卓微信打印整卷 → 主按钮「去浏览器打开」，链接换到地址栏；没登录的浏览器打开链接直接进打印预览', run: async (p, c) => {
       const token = await p.evaluate(() => localStorage.getItem('li.token')), student = await p.evaluate(() => localStorage.getItem('li.student'));
       const b = p.context().browser();
       const wx = await b.newContext({ userAgent: WX_ANDROID_UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const q = await wx.newPage();
       await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', t); localStorage.setItem('li.student', s); }, [token, student]);
       await q.goto(c.base + '/math/#/contest/amc8'); await q.reload(); await q.waitForSelector('[data-paper="amc8-2017"]');
-      await q.click('[data-paper="amc8-2017"]'); await q.click('#pp-print'); await q.waitForSelector('#pvSheet .it');
-      await q.click('#pvPdf'); await q.waitForFunction(() => /在浏览器打开/.test(document.querySelector('#pvTip')?.textContent || ''));
+      await q.click('[data-paper="amc8-2017"]'); await lpWait(q);
+      await q.click('#lp [data-a=browser]'); await q.locator('#lp .lp-link').waitFor();
       const url = q.url(); await wx.close();
       const ext = await b.newContext({ viewport: { width: 390, height: 844 } }); const r = await ext.newPage();
-      await r.goto(url); await r.waitForSelector('#pvSheet .it', { timeout: 15000 });
-      const m = await r.locator('#pvSheet .it').count(); await r.click('#pvClose');
-      const back = await r.locator('a.btn', { hasText: '回到数学' }).count(); await ext.close();
+      await r.goto(url); await lpWait(r);
+      const m = await r.locator('#lp .it').count();
+      const back = await r.locator('#lp a.lp-x[href="/math/"]').count(); await ext.close();
       return `${/\/math\/\?print=[0-9a-f]{64}$/.test(url)}/${m}/${back}`;
     }, expect: same('true/25/1') },
   ] },
@@ -149,37 +152,44 @@ export const UI_FEATURES = [
       await p.keyboard.press('Escape').catch(() => {}); await p.locator('.lp-x').click().catch(() => {});
       return `${afterSol}/${pic}/${steps}/${sig}/${opened}`;
     }, expect: { guest: 'true/true/true/0/unlock', user: 'true/true/true/0/unlock', member: 'true/true/true/0/lesson' } },
-    { id: 'U3-5', name: '错题本「打印错题」→ 打印预览：题数和答案数等于错题数', run: async (p, c) => {
+    { id: 'U3-5', name: '错题本「打印」→ 直接出打印预览；范围选「全部错题」后题数和答案数等于错题数', run: async (p, c) => {
       await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示';
       const total = +(/共 (\d+) 道/.exec(await c.text('.ph p')) || [])[1];
-      await p.click('[data-ms-print]'); await p.click('[data-pr-scope="all"]'); await p.click('#pr-go');
-      await p.waitForSelector('#pvSheet .it', { timeout: 15000 });
-      const n = await p.locator('#pvSheet .it').count(), na = await p.locator('#pvSheet .ai').count();
-      return total > 0 && n === Math.min(total, 60) && na === n;
+      await p.click('[data-ms-print]'); await lpWait(p);
+      await p.click('#lp [data-a=range]'); await p.locator('#lp [data-preset]', { hasText: '全部错题' }).click();
+      const want = Math.min(total, 60);
+      await p.waitForFunction((n) => (document.querySelector('#lp-sub')?.textContent || '').includes(`${n} 题`), want, { timeout: 20000 }); await p.waitForTimeout(1500);
+      await p.click('#lp [data-a=back]');
+      const n = await p.locator('#lp .it').count(), na = await p.locator('#lp .ai').count();
+      return total > 0 && n === want && na === n;
     }, expect: { guest: '注册提示', user: true, member: true } },
-    { id: 'U3-6', name: '打印预览「存成 PDF」生成 A4 页，打印媒体下只剩练习单', run: async (p, c) => {
-      if (!(await p.locator('#pvPdf').count())) return '注册提示';
-      await p.click('#pvPdf'); await p.waitForFunction(() => /已生成 \d+ 页 PDF/.test(document.querySelector('#pvTip')?.textContent || ''), null, { timeout: 120000 });
+    { id: 'U3-6', name: '打印预览「存成 PDF」生成 A4 页；打印时只印纸面（每页一张 A4）', run: async (p, c) => {
+      await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示';
+      await p.click('[data-ms-print]'); await lpWait(p);
+      await p.click('#lp [data-a=pdf]'); await p.waitForFunction(() => /保存 PDF（\d+ 页）/.test(document.querySelector('#lp-side')?.textContent || ''), null, { timeout: 120000 });
+      const pages = await p.locator('#lp .lp-pw').count();
+      await p.evaluate(() => { window.print = () => {}; }); await p.click('#lp [data-a=print]'); await p.waitForTimeout(300);
       await p.emulateMedia({ media: 'print' });
-      const ok = await p.evaluate(() => getComputedStyle(document.getElementById('app')).display === 'none' && getComputedStyle(document.querySelector('.pv-bar')).display === 'none' && getComputedStyle(document.getElementById('printArea')).position === 'static');
-      await p.emulateMedia({ media: 'screen' }); await p.click('#pvClose');
-      return ok && (await p.locator('#printArea').isHidden());
+      const ok = await p.evaluate(() => getComputedStyle(document.getElementById('app')).display === 'none' && getComputedStyle(document.getElementById('lp')).display === 'none' && getComputedStyle(document.getElementById('lp-out')).display === 'block');
+      const out = await p.locator('#lp-out .lp-page').count();
+      await p.emulateMedia({ media: 'screen' }); await lpClose(p);
+      return ok && out === pages && pages > 0 && !(await p.locator('#lp-out').count());
     }, expect: { guest: '注册提示', user: true, member: true } },
-    { id: 'U3-7', name: '安卓微信「存成 PDF」→ 提示在浏览器打开；没登录的浏览器打开链接直接进打印预览，题数一致', run: async (p, c) => {
+    { id: 'U3-7', name: '安卓微信错题打印：主按钮「去浏览器打开」；关掉预览地址栏恢复；没登录的浏览器打开链接，题数一致', run: async (p, c) => {
       const token = await p.evaluate(() => localStorage.getItem('li.token')), student = await p.evaluate(() => localStorage.getItem('li.student'));
       const b = p.context().browser();
       const wx = await b.newContext({ userAgent: WX_ANDROID_UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const q = await wx.newPage();
       await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', t); localStorage.setItem('li.student', s); }, [token, student]);
       await q.goto(c.base + '/math/#/mistakes'); await q.reload(); await q.waitForTimeout(900);
       if (await q.locator('.reg-wall').count()) { await wx.close(); return '注册提示'; }
-      await q.click('[data-ms-print]'); await q.click('[data-pr-scope="all"]'); await q.click('#pr-go'); await q.waitForSelector('#pvSheet .it');
-      const n = await q.locator('#pvSheet .it').count();
-      await q.click('#pvPdf'); await q.waitForFunction(() => /在浏览器打开/.test(document.querySelector('#pvTip')?.textContent || ''));
+      await q.click('[data-ms-print]'); await lpWait(q); await q.waitForTimeout(1500);
+      const n = await q.locator('#lp .it').count();
+      await q.click('#lp [data-a=browser]'); await q.locator('#lp .lp-link').waitFor();
       const url = q.url(); const okUrl = /\/math\/\?print=[0-9a-f]{64}$/.test(url);
-      await q.click('#pvClose'); const restored = !q.url().includes('print='); await wx.close();
+      await q.click('#lp [data-a=mclose]'); await lpClose(q); const restored = !q.url().includes('print='); await wx.close();
       const ext = await b.newContext({ viewport: { width: 390, height: 844 } }); const r = await ext.newPage(); // 手机浏览器：没有登录状态
-      await r.goto(url); await r.waitForSelector('#pvSheet .it', { timeout: 15000 });
-      const m = await r.locator('#pvSheet .it').count(), loggedOut = !(await r.evaluate(() => localStorage.getItem('li.token')));
+      await r.goto(url); await lpWait(r); await r.waitForTimeout(1500);
+      const m = await r.locator('#lp .it').count(), loggedOut = !(await r.evaluate(() => localStorage.getItem('li.token')));
       await ext.close();
       return `${okUrl}/${restored}/${m === n && n > 0}/${loggedOut}`;
     }, expect: { guest: '注册提示', user: 'true/true/true/true', member: 'true/true/true/true' } },
@@ -269,7 +279,7 @@ export const UI_FEATURES = [
   ] },
   { id: 'U16', area: '英语', name: '英语 · ESDP', cases: [
     { id: 'U16-1', name: '英语首页：ESDP 卡片', run: async (p, c) => { await c.go('/english/'); return await p.locator('a.fam-card[href="#/esdp"]').count(); }, expect: same(1) },
-    { id: 'U16-2', name: 'ESDP 页：组别切换、4 个模拟比赛、按话题学 6 行（含打印）', run: async (p, c) => { await c.go('/english/#/esdp'); return `${await p.locator('.seg button').count()}/${await p.locator('.mode').count()}/${await p.locator('.learn-row').count()}`; }, expect: same('2/4/6') },
+    { id: 'U16-2', name: 'ESDP 页：组别切换、4 个模拟比赛（各有「打印」）、按话题学 5 行', run: async (p, c) => { await c.go('/english/#/esdp'); return `${await p.locator('.seg button').count()}/${await p.locator('.mode').count()}/${await p.locator('.mode [data-mock]').count()}/${await p.locator('.learn-row').count()}`; }, expect: same('2/4/4/5') },
     { id: 'U16-3', name: '学习页样题：一步步打开提示 → 提纲 → 参考句子 → 背诵', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p01'); const n0 = await p.locator('.step.shut').count(); await p.locator('[data-reveal="4"]').click(); return `${n0}/${await p.locator('.step.shut').count()}/${await p.locator('.recite .rc').count() > 0}`; }, expect: same('4/0/true') },
     { id: 'U16-4', name: '背诵：挖空模式能点开空', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p01'); await p.locator('[data-reveal="4"]').click(); await p.locator('[data-mode="holes"]').click(); const h = p.locator('.hole').first(); await h.click(); return await h.evaluate((e) => e.classList.contains('open')); }, expect: same(true) },
     { id: 'U16-5', name: '没解锁的题：显示解锁按钮', run: async (p, c) => { await c.go('/english/#/learn/esdp-speak-low-p30'); return await p.locator('[data-unlock]').count(); }, expect: same(1) },
@@ -443,43 +453,57 @@ export const UI_FEATURES = [
     }, expect: same('true/2/true/1') },
   ] },
   { id: 'U22', area: '界面', name: '古诗 / 卡片打印', cases: [
-    { id: 'U22-1', name: '打印设置：全选一栏后生成打印页（新标签），学习版带白话', run: async (p, c) => {
-      await c.go('/chinese/#/print'); await p.locator('.pr-it').first().waitFor({ timeout: 15000 });
-      await p.locator('.pr-all').first().click(); const n = await c.text('#pr-n');
-      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('#pr-go')]); await np.waitForLoadState(); await np.locator('.poem').first().waitFor({ timeout: 15000 });
-      const r = `${/已选 \d+/.test(n)}/${(await np.locator('.poem').count()) > 3}/${(await np.locator('.pl').count()) > 0}`; await np.close(); return r;
-    }, expect: same('true/true/true') },
-    { id: 'U22-2', name: '没登录也能打开打印页：默写版有格子和答案页，提示字版每首 3 个字，卡片能打印', run: async (p, c) => {
+    { id: 'U22-1', name: '每日背诗「打印」：直接出预览，默认今天要背的；范围改「全部必背」，学习版带白话', run: async (p, c) => {
+      await c.go('/chinese/#/beishi'); await p.locator('#bs-print').click(); await lpWait(p);
+      const today = await lpSub(p);
+      await p.click('#lp [data-a=range]'); await p.locator('#lp [data-preset]', { hasText: '全部必背' }).click();
+      await p.waitForFunction(() => /\d{2,} 篇/.test(document.querySelector('#lp-sub')?.textContent || ''), null, { timeout: 20000 }); await p.waitForTimeout(800);
+      const r = `${/今天|学过|全部/.test(await p.locator('#lp [data-preset]').first().innerText())}/${/· 2 篇/.test(today)}/${(await p.locator('#lp .ph').count()) > 3}/${(await p.locator('#lp .pl').count()) > 0}`;
+      await p.click('#lp [data-a=back]'); await lpClose(p); return r;
+    }, expect: same('true/true/true/true') },
+    { id: 'U22-3', name: '诗页「打印」四步都有，版式跟着当前这一步（第 4 步 → 提示字版）；单张卡片不再单独打印', run: async (p, c) => {
+      await c.go('/chinese/#/poem/1?s=4'); await p.locator('#ps-print').click(); await lpWait(p);
+      const v = await p.locator('#lp [data-seg=v][aria-pressed=true]').innerText(), hc = await p.locator('#lp .hc span').count();
+      await lpClose(p);
+      await c.go('/chinese/#/card/p-libai'); await p.waitForTimeout(500);
+      return `${v}/${hc}/${await p.locator('text=打印这张卡').count()}`;
+    }, expect: same('提示字版/3/0') },
+    { id: 'U22-2', name: '没登录也能打开打印链接：默写版有格子和答案页，提示字版每首 3 个字（旧链接也认），卡片能打印', run: async (p, c) => {
       const ctx = await p.context().browser().newContext(); const q = await ctx.newPage();
-      await q.goto(c.base + '/chinese/print.html#p=0,1&v=blank&k=1'); await q.locator('.poem').first().waitFor({ timeout: 15000 });
-      const blank = `${(await q.locator('.w').count()) > 20}/${await q.locator('.ans').count()}`;
-      await q.goto(c.base + '/chinese/print.html#p=0,1&v=hint&k=1'); await q.reload(); await q.locator('.hint').first().waitFor({ timeout: 15000 });
-      const hint = await q.locator('.hint').first().locator('.hc span').count();
-      await q.goto(c.base + '/chinese/print.html#c=p-libai'); await q.reload(); await q.locator('.card').first().waitFor({ timeout: 15000 });
-      const card = (await q.locator('.card h2').innerText()).trim(); await ctx.close();
+      await q.goto(c.base + '/chinese/print.html#p=0,1&v=blank&k=1'); await lpWait(q);
+      const blank = `${(await q.locator('#lp .w').count()) > 20}/${await q.locator('#lp .ah').count()}`;
+      await q.goto(c.base + '/chinese/print.html#p=0,1&v=hint&k=1'); await q.reload(); await lpWait(q);
+      const hint = await q.locator('#lp .hc').first().locator('span').count();
+      await q.goto(c.base + '/chinese/print.html#c=p-libai'); await q.reload(); await lpWait(q);
+      const card = (await q.locator('#lp .card h2').first().innerText()).trim(); await ctx.close();
       return `${blank}/${hint}/${card}`;
     }, expect: same('true/1/3/李白') },
   ] },
   { id: 'U23', area: '界面', name: '英语打印', cases: [
-    { id: 'U23-1', name: '英语打印设置：全选后生成话题卡（新标签打开，不用登录也能看）', run: async (p, c) => {
-      await c.go('/english/#/print'); await p.locator('.pr-it').first().waitFor({ timeout: 15000 }); await p.click('#pall');
-      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('#pgo')]); await np.locator('.tc').first().waitFor({ timeout: 15000 });
-      const n = await np.locator('.tc').count(); const url = np.url(); await np.close();
-      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(url); await q.locator('.tc').first().waitFor({ timeout: 15000 }); const m = await q.locator('.tc').count(); await ctx.close();
+    { id: 'U23-1', name: '题库页标题旁「打印」：直接出话题卡预览（这一轮全部）；发到手机的链接没登录也能打开', run: async (p, c) => {
+      await c.go('/english/#/bank/esdp-speak-low?s=2'); await p.locator('#bank-print').click(); await lpWait(p);
+      const n = await p.locator('#lp .tc').count();
+      await p.click('#lp [data-a=send]'); const url = (await p.locator('#lp .lp-link').innerText()).trim(); await p.click('#lp [data-a=mclose]'); await lpClose(p);
+      const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(url); await lpWait(q); const m = await q.locator('#lp .tc').count(); await ctx.close();
       return `${n > 5}/${m === n}`;
     }, expect: same('true/true') },
-    { id: 'U23-3', name: 'ESDP 模拟比赛「打印题目」：自动选模拟题单、随机选好 5 题，打印页每题印这一轮的规则', run: async (p, c) => {
-      await c.go('/english/#/esdp'); await p.locator('.mode a:has-text("打印题目")').nth(1).click(); await p.locator('.pr-it').first().waitFor({ timeout: 15000 });
-      const v = await p.locator('input[name=v]:checked').getAttribute('value'), n = await p.locator('.pr-it input:checked').count();
-      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('#pgo')]); await np.locator('.mk').first().waitFor({ timeout: 15000 });
-      const r = `${v}/${n}/${await np.locator('.mk').count()}/${(await np.locator('.mk .rule').first().innerText()).includes('即兴演讲')}`; await np.close(); return r;
-    }, expect: same('mock/5/5/true') },
-    { id: 'U23-4', name: '模拟半决赛页「打印」：打印抽到的这一题', run: async (p, c) => {
-      await c.go('/english/#/esdp'); await p.locator('.mode a.primary').nth(1).click(); await p.waitForURL(/#\/speech\//, { timeout: 15000 }); await p.locator('[data-print]').waitFor({ timeout: 15000 });
-      const [np] = await Promise.all([p.context().waitForEvent('page'), p.click('[data-print]')]); await np.locator('.mk').first().waitFor({ timeout: 15000 });
-      const r = await np.locator('.mk').count(); await np.close(); return r;
-    }, expect: same(1) },
-    { id: 'U23-2', name: '句型和名言打印页', run: async (p, c) => { await c.go('/english/print.html#phrases'); await p.reload(); await p.locator('.pg').first().waitFor({ timeout: 15000 }); return `${await p.locator('.pg').count()}/${await p.locator('.qt').count()}`; }, expect: same('5/10') },
+    { id: 'U23-3', name: 'ESDP 模拟比赛卡片「打印」：模拟题单、随机 5 题，每题印这一轮的规则', run: async (p, c) => {
+      await c.go('/english/#/esdp'); await p.locator('.mode [data-mock]').nth(1).click(); await lpWait(p);
+      const v = await p.locator('#lp [data-seg=v][aria-pressed=true]').innerText();
+      const r = `${v}/${/· 5 题/.test(await lpSub(p))}/${await p.locator('#lp .mk').count()}/${(await p.locator('#lp .mk .rule').first().innerText()).includes('即兴演讲')}`;
+      await lpClose(p); return r;
+    }, expect: same('模拟题单/true/5/true') },
+    { id: 'U23-4', name: '模拟比赛进行中没有打印按钮；旧的打印设置页回到 ESDP', run: async (p, c) => {
+      await c.go('/english/#/esdp'); await p.locator('.mode a.primary').nth(1).click(); await p.waitForURL(/#\/speech\//, { timeout: 15000 }); await p.waitForTimeout(600);
+      const n = await p.locator('[data-print], .lp-entry').count();
+      await c.go('/english/#/print'); await p.waitForTimeout(600);
+      return `${n}/${/#\/esdp$/.test(p.url())}`;
+    }, expect: same('0/true') },
+    { id: 'U23-2', name: '句型和名言：页面「打印」和打印链接页都能出', run: async (p, c) => {
+      await c.go('/english/#/phrases'); await p.locator('#ph-print').click(); await lpWait(p); const a = await p.locator('#lp .pg').count(); await lpClose(p);
+      await c.go('/english/print.html#phrases'); await p.reload(); await lpWait(p);
+      return `${a}/${await p.locator('#lp .pg').count()}/${await p.locator('#lp .qt').count()}`;
+    }, expect: same('6/6/10') },
   ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [
     { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {
