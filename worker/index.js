@@ -1,6 +1,7 @@
 // 奥数（learn-inside.com/math/）· Cloudflare Worker API
 // wrangler.jsonc 里 run_worker_first 只包含 /math/api/* 和旧地址 /amc8/*，其余请求直接出静态文件。
 // 旧地址：/amc8/api/* 照常处理（旧页面缓存还在用），/amc8/ 下的页面 301 到 /math/。
+import { THUMBS } from './thumbs.generated.js';
 import { recomputeMastery, displayMastery } from './mastery.js';
 const parseJ = (v, d = null) => { try { return v ? JSON.parse(v) : d; } catch { return d; } };
 import { seedDatabase, importContent, migrate } from './seed.js';
@@ -561,14 +562,23 @@ async function kpTags(env, acc, problemIds) {
  * 互动解析的缩略图：课件里第一个带图的步骤（互动演示优先，其次是配图），加上总步数。
  * 没解锁也给（只是一张图）：分步演示只给第一帧，不带讲解文字。
  */
-function advThumb(content) {
+function advThumb(content, pid) {
   let v; try { v = JSON.parse(content); } catch { return {}; }
   const steps = Array.isArray(v) ? v : v?.steps;
   if (!Array.isArray(steps)) return {};
   const thumb = { title: String(v.title || '').replace(/^第\s*\d+\s*题\s*[·・]\s*/, '') || null };
+  const simThumb = (sim, frame = 0, vars = null) => {
+    if (sim.sim === 'frames') { const f = sim.frames?.[frame]; if (f?.svg) Object.assign(thumb, { svg: f.svg, vw: sim.vw ?? f.vw ?? 400, vh: sim.vh ?? f.vh ?? 220 }); return; }
+    const { say, say_ok, ok, info, tip, ...rest } = sim;
+    if (vars && rest.vars) rest.vars = rest.vars.map((x) => (x.k in vars ? { ...x, init: vars[x.k] } : x));
+    thumb.sim = { ...rest, type: 'sim', still: !!vars };
+  };
+  // 事先挑好的「最精彩」一张（backend/scripts/pick-thumbs.mjs）；没挑过的题用第一张
+  const pk = THUMBS[pid], ps = pk && steps[pk.step];
+  if (ps && pk.fig && ps.fig) return { steps: steps.length, thumb: { ...thumb, fig: ps.fig } };
+  if (ps && ps.type === 'sim' && ps.sim) { simThumb(ps, pk.frame || 0, pk.vars); return { steps: steps.length, thumb }; }
   const sim = steps.find((x) => x.type === 'sim' && x.sim);
-  if (sim?.sim === 'frames') { const f = sim.frames?.[0]; if (f?.svg) Object.assign(thumb, { svg: f.svg, vw: sim.vw ?? f.vw ?? 400, vh: sim.vh ?? f.vh ?? 220 }); }
-  else if (sim) { const { say, say_ok, ok, info, tip, ...rest } = sim; thumb.sim = { ...rest, type: 'sim' }; }
+  if (sim) simThumb(sim);
   // 互动演示画不出图（只有文字和滑块）时，用课件里的配图；都没有就用标题
   const f = steps.find((x) => x.fig);
   if (f && !thumb.svg) thumb.fig = f.fig;
@@ -607,7 +617,7 @@ async function reviewPayload(env, acc, sessionId) {
       answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
       basic: r.basic, section: r.section, input_hint: r.input_hint,
-      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)), ...advThumb(r.adv_content) } : null,
+      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)), ...advThumb(r.adv_content, r.id) } : null,
       kps: kpByProblem[r.id] || [],
       types: parseJ(r.types, []),
       kind: r.kind ?? null, points: r.points ?? 1, got: r.got ?? (r.correct ? (r.points ?? 1) : 0), extra: parseJ(r.extra, null),
@@ -681,7 +691,7 @@ route('GET', '/api/problems/:id', async (req, env, p, url) => {
   if (last) {
     const sb = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
     const sa = await env.DB.prepare("SELECT tier, content FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
-    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || ctx.can(`adv:${pr.id}`)), ...advThumb(sa.content) } : null });
+    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || ctx.can(`adv:${pr.id}`)), ...advThumb(sa.content, pr.id) } : null });
   }
   return json(out);
 });

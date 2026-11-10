@@ -1078,7 +1078,7 @@ function paintThumbs(root, map) {
       if (!html && t?.sim && SIMS[t.sim.sim]) {
         const s = JSON.parse(JSON.stringify(t.sim));
         // 会自己播放的演示：取中间偏后的一帧，比开头那帧更能看出在演示什么
-        const pv = s.play && s.vars?.find((v) => v.k === s.play);
+        const pv = !s.still && s.play && s.vars?.find((v) => v.k === s.play); // still：已经按挑好的取值定格
         if (pv) pv.init = pv.min + (pv.max - pv.min) * 0.6;
         const box = document.createElement('div');
         box.className = `lp-simbox sim-${s.sim}`;
