@@ -348,6 +348,22 @@ route('GET', '/api/chinese/poems/progress', async (req, env, p, url) => {
   const { results } = await env.DB.prepare('SELECT poem, stage, due_at, reps, lapses, first_at, updated_at FROM poem_progress WHERE student_id = ?').bind(sid).all();
   return json({ progress: results, server_now: now() });
 });
+// 一篇诗在真题里怎么考过（篇目里预先算好的题号，n = 在几套卷子里出现过）
+route('GET', '/api/chinese/poems/:idx/questions', async (req, env, p) => {
+  await requireAccount(req, env);
+  const po = (await poemsData(env)).find((x) => x.idx === Number(p.idx));
+  if (!po) throw new HttpError(404, '没有这一篇');
+  const qs = po.qs || [];
+  if (!qs.length) return json({ items: [] });
+  const rows = await allIn(env, `SELECT p.id, p.stem, p.choices, p.answer, p.kind, p.extra, e.title AS exam_title, sb.content AS basic
+      FROM problem p JOIN exam e ON e.id = p.exam_id LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic'
+     WHERE e.published = 1 AND p.id IN (?IDS)`, qs.map((q) => q.id));
+  const by = new Map(rows.map((r) => [r.id, r]));
+  return json({ items: qs.filter((q) => by.has(q.id)).map((q) => {
+    const r = by.get(q.id); const ex = parseJ(r.extra, null);
+    return { id: r.id, n: q.n, real: q.real, exam: r.exam_title, stem: r.stem, kind: r.kind, choices: parseJ(r.choices, {}), answer: r.answer, basic: r.basic, group: ex?.group?.text || null };
+  }) });
+});
 // result: learned 学完四步背会了 / good 复习背出来了 / again 复习没背出来
 route('POST', '/api/chinese/poems/progress', async (req, env) => {
   const acc = await requireAccount(req, env);

@@ -353,3 +353,12 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .ps-act { flex-wrap: wrap; }
 @media (max-width: 480px) { .ps-text { font-size: 18px; } .ps-card { padding: 18px 12px; } .ps-hint span { width: 54px; height: 54px; font-size: 32px; } }
 .bs-stat + .bar { display: block; width: 100%; height: 8px; }
+.ps-qs summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+.ps-qs summary::-webkit-details-marker { display: none; }
+.ps-qs summary h2 { margin: 0; }
+.pq { padding: 12px 0; border-bottom: 1px dashed var(--border); }
+.pq-src { margin-bottom: 4px; }
+.pq-group { margin: 4px 0 8px; padding: 8px 12px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 4px; white-space: normal; line-height: 1.8; }
+.pq-stem { font-weight: 600; }
+.pq-a summary { display: inline-block; margin-top: 6px; color: var(--accent); cursor: pointer; font-size: 14px; }
+.pq-a p { margin: 6px 0 0; }

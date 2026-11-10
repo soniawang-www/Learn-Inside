@@ -276,6 +276,7 @@ async function renderPoem(idx, q) {
       <div class="hero ps-head"><h1>${esc(p.title)}</h1><p class="muted">${poemTag(p)}</p></div>
       <div class="ps-steps" role="tablist">${steps.map((t, i) => `<button role="tab" class="${step === i + 1 ? 'on' : ''}" data-s="${i + 1}"><b>${i + 1}</b>${t}</button>`).join('')}</div>
       <div class="card ps-card">${body}</div>
+      ${step === 1 && p.qs?.length ? `<details class="card ps-qs" id="qs"><summary><h2>真题里怎么考过</h2><span class="muted small">${p.qs.length} 道</span></summary><div id="qlist"><p class="muted">加载中…</p></div></details>` : ''}
       <div class="actions center ps-act">
         ${step === 4 ? '<button class="btn" id="peek">看原文</button>' : step > 1 ? '<button class="btn" id="peek">全部显示</button>' : ''}
         ${review ? '<button class="btn" id="again">没背出来</button><button class="btn primary" id="good">背出来了</button>'
@@ -283,6 +284,21 @@ async function renderPoem(idx, q) {
           : `<button class="btn primary" id="learned">${x ? '又背了一遍' : '背会了'}</button>`}
       </div>`, 'beishi');
     $app.querySelectorAll('.ps-steps button').forEach((b) => (b.onclick = () => { step = +b.dataset.s; draw(); }));
+    $app.querySelector('#qs')?.addEventListener('toggle', async (e) => {
+      if (!e.target.open || e.target.dataset.done) return;
+      e.target.dataset.done = 1;
+      const box = $app.querySelector('#qlist');
+      try {
+        const r = await api(`/api/chinese/poems/${idx}/questions`);
+        const ans = (q) => (Object.keys(q.choices).length ? (q.kind === 'judge' ? q.choices[q.answer] : `${q.answer}. ${q.choices[q.answer] ?? ''}`) : q.answer);
+        box.innerHTML = r.items.map((q) => `<div class="pq">
+          <div class="pq-src small muted">${esc(q.exam)}${q.n > 1 ? ` 等 ${q.n} 套卷子` : ''}${q.real ? '' : ' · 模拟题'}</div>
+          ${q.group ? `<div class="pq-group">${mtxt(q.group)}</div>` : ''}
+          <div class="pq-stem">${mtxt(q.stem.replace(/\[\[\s*\]\]/g, '＿＿＿'))}</div>
+          ${Object.keys(q.choices).length && q.kind !== 'judge' ? `<ul class="rv-opts">${Object.entries(q.choices).map(([k, v]) => `<li>${k}. ${esc(v)}</li>`).join('')}</ul>` : ''}
+          <details class="pq-a"><summary>看答案</summary><p><b>${esc(ans(q))}</b></p>${q.basic ? `<p class="muted">${txt(q.basic)}</p>` : ''}</details></div>`).join('') || '<p class="muted">暂无</p>';
+      } catch (x) { box.innerHTML = `<p class="err">${esc(x.message)}</p>`; delete e.target.dataset.done; }
+    });
     $app.querySelectorAll('.ps-line.tap').forEach((el) => (el.onclick = () => el.classList.toggle('show')));
     $app.querySelector('#peek')?.addEventListener('click', () => $app.querySelector('.ps-card').classList.toggle('show'));
     $app.querySelector('#next')?.addEventListener('click', () => { step++; draw(); window.scrollTo(0, 0); });

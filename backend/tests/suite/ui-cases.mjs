@@ -353,6 +353,12 @@ export const UI_FEATURES = [
       const still = await p.locator(`.bs-row[href="${href}"]`).count();
       return `${plain}/${hints}/${still}`;
     }, expect: same('true/3/0') },
+    { id: 'U18-4', name: '诗页「真题里怎么考过」：《望岳》展开能看到题目，点「看答案」显示答案', run: async (p, c) => {
+      await c.go('/chinese/#/poem/1'); await p.locator('#qs').waitFor({ timeout: 15000 });
+      await p.locator('#qs summary').click(); await p.locator('.pq').first().waitFor({ timeout: 15000 });
+      const n = await p.locator('.pq').count(); await p.locator('.pq-a summary').first().click();
+      return `${n > 3}/${(await c.text('.pq-a[open] b')).length > 0}`;
+    }, expect: same('true/true') },
     { id: 'U18-3', name: '手机 360 深色模式下背诗页不溢出', run: async (p, c) => {
       await p.setViewportSize({ width: 360, height: 760 }); await p.emulateMedia({ colorScheme: 'dark' }); await c.go('/chinese/#/poem/2'); await p.locator('.ps-text').waitFor({ timeout: 15000 });
       const r = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
