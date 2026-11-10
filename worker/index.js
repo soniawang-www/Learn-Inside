@@ -372,7 +372,7 @@ const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math
 route('GET', '/api/chinese/gsw/topics', async (req, env, p, url) => {
   await requireAccount(req, env);
   const g = Number(url.searchParams.get('grade')) || null;
-  const pool = (await gswPoolData(env)).filter((x) => !g || x.grades.has(g) || x.grades.has(null));
+  const pool = (await gswPoolData(env)).filter((x) => !g || x.grades.has(g) || (g <= 5 && x.grades.has(null))); // 不分年级的题只给小学
   return json({ total: pool.length, topics: Object.entries(GSW_TOPICS).map(([id, name]) => ({ id, name, n: pool.filter((x) => x.topic === id).length })).filter((t) => t.n) });
 });
 // 诗人卡 / 常识卡
@@ -399,8 +399,8 @@ route('POST', '/api/chinese/gsw/drill', async (req, env) => {
   if (kind === 'card' && !cd) throw new HttpError(400, '没有这张卡');
   const g = Number(grade) || null;
   const hit = (x) => kind === 'card' ? cd.kw.some((k) => k && x.t.includes(k)) : kind !== 'topic' || x.topic === topic;
-  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g) || x.grades.has(null)) && hit(x)); // 不分年级的题（练习题库、年级不明的真卷）每个年级都抽
-  if (kind !== 'speed' && pool.length < 5) pool = (await gswPoolData(env)).filter(hit); // 本年级题太少就不分年级
+  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g) || (g <= 5 && x.grades.has(null))) && hit(x)); // 不分年级的题（练习题库、年级不明的真卷）每个年级都抽
+  if (kind !== 'speed' && pool.length < 5) pool = (await gswPoolData(env)).filter((x) => hit(x) && (g >= 6 ? [...x.grades].some((y) => y >= 6) : ![...x.grades].some((y) => y >= 6))); // 本年级题太少就放宽到同学段
   const n = kind === 'speed' ? 20 : 15;
   const ids = shuffle(pool.slice()).slice(0, n).map((x) => x.id);
   if (!ids.length) throw new HttpError(404, '没有可练的题');
