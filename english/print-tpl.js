@@ -158,7 +158,7 @@ const RECITE = { h: '背诵单 · 挖空句型', l: '背诵单 · 首字母', c:
  *   fetch    取题目和参考稿（按解锁情况）：ids → items
  *   link     不用登录的打印链接
  */
-export function openEnglishPrint({ name, items, presets, v, fetch, link, standalone, home, opts }) {
+export function openEnglishPrint({ name, items, presets, v, fetch, link, standalone, home, opts, qr }) {
   const write = items.some((x) => isWrite(x.id));
   const V = write ? [['mock', '模拟题单'], ['topics', '话题卡'], ['write', '写作']]
     : [['mock', '模拟题单'], ['topics', '话题卡'], ['script', '讲稿单'], ['recite', '背诵单']];
@@ -191,6 +191,7 @@ export function openEnglishPrint({ name, items, presets, v, fetch, link, standal
       return { blocks: (BUILD[o.v] || topics)(its, o), count: its.length };
     },
     css: CSS, link, standalone, home,
+    qr: (o) => (o.v === 'mock' ? '/english/#/esdp' : qr || '/english/#/esdp'), qrText: (o) => (o.v === 'mock' ? '扫码在线模拟比赛' : '扫码看参考稿、在线练习'),
   });
 }
 
@@ -203,6 +204,7 @@ export function openPhrasesPrint({ standalone, home } = {}) {
     name: '句型和名言', label: '英语 · ESDP 演讲', title: '「总-分-总」句型和百搭名言', info: false, file: 'esdp-phrases',
     build: async () => ({ blocks, count: 0 }), css: CSS,
     link: async () => `${location.origin}/english/print.html#phrases`, standalone, home,
+    qr: '/english/#/phrases', qrText: '扫码看句型和名言',
   });
 }
 

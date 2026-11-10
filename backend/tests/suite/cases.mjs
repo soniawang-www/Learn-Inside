@@ -270,6 +270,24 @@ export const FEATURES = [
     { id: 'GS1-9', name: '成绩页带参考答案和得分点', run: async (c) => { const it = (await c.get(`/api/sessions/${c.gswSid}/review`)).data.items.find((x) => x.kind === 'self'); return !!(it.answer && it.extra?.rubric?.length); }, expect: same(true) },
   ] },
 
+  { id: 'CP', area: '语文', name: '语文卷子和错题打印', cases: [
+    { id: 'CP-1', name: '卷子打印取题：整套题、不带答案', run: async (c) => { const d = (await c.get('/api/chinese/exams/gsw-2021-cx/print')).data; return `${d.items.length}/${d.items.some((x) => 'answer' in x)}/${d.exam.sections.length > 0}`; }, expect: same('120/false/true') },
+    { id: 'CP-2', name: '决选卷打印：带共用材料和显示题号，不带简答得分点', run: async (c) => { const d = (await c.get('/api/chinese/exams/gsw-2026-jx-g4-m2/print')).data; return `${d.items.some((x) => x.group?.text)}/${d.items.some((x) => x.disp)}/${JSON.stringify(d).includes('rubric')}`; }, expect: same('true/true/false') },
+    { id: 'CP-3', name: '数学卷子不能从语文打印接口取', run: async (c) => st(await c.get('/api/chinese/exams/amc8-2018/print')), expect: same(404) },
+    { id: 'CP-4', name: '卷子打印链接：没登录凭链接能取到整套题', run: async (c) => { const t = (await c.post('/api/chinese/exams/gsw-2021-cx/print-link', { student_id: c.sid })).data.token; const d = (await c.anon(`/api/print/${t}`, 'GET')).data; return `${d.cn_exam}/${d.items.length}`; }, expect: same('gsw-2021-cx/120') },
+    { id: 'CP-5', name: '语文错题打印：只给语文错题本里的题，带题型', run: async (c) => {
+      const r = await c.get(`/api/students/${c.sid}/mistakes?subject=chinese`); if (r.status !== 200) return r.status;
+      const ids = r.data.mistakes.slice(0, 5).map((m) => m.problem_id); c.cnMs = ids;
+      const p = await c.post(`/api/students/${c.sid}/mistakes/print`, { problem_ids: [...ids, 'amc8-2018-p01'] });
+      return p.status === 200 ? `${ids.length > 0}/${p.data.items.length === ids.length}/${p.data.items.every((x) => 'kind' in x)}` : p.status;
+    }, expect: { guest: 403, user: 'true/true/true', member: 'true/true/true' } },
+    { id: 'CP-6', name: '语文错题打印链接：没登录凭链接取到同样的题', run: async (c) => {
+      if (!c.cnMs?.length) return 403;
+      const t = (await c.post(`/api/students/${c.sid}/mistakes/print-link`, { problem_ids: c.cnMs, title: 't', with_ans: true })).data.token;
+      const d = (await c.anon(`/api/print/${t}`, 'GET')).data; return `${d.items.length === c.cnMs.length}/${d.with_ans}`;
+    }, expect: { guest: 403, user: 'true/true', member: 'true/true' } },
+  ] },
+
   { id: 'FH1', area: '语文', name: '飞花令（语文会员专享）', cases: [
     { id: 'FH1-1', name: '不是语文会员：只给「花」一个字试用；语文会员：整个诗库（数学会员不含语文）', run: async (c) => { const d = (await c.get('/api/chinese/feihua')).data; return `${d.member}/${d.data.chars.length}`; }, expect: { guest: 'false/1', user: 'false/1', member: 'false/1' } },
     { id: 'FH1-2', name: '试用的诗句都带「花」字', run: async (c) => { const d = (await c.get('/api/chinese/feihua')).data.data; return d.lines.length > 50 && d.lines.every((l) => l[0].includes('花') && d.poems[l[1]]); }, expect: same(true) },

@@ -86,7 +86,7 @@ h2 { font-size: 18px; margin: 0 0 12px; }
 
 .exam-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .exam-row:last-child { border-bottom: 0; }
-.exam-act { display: flex; align-items: center; gap: 12px; }
+.exam-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .rules { padding-left: 1.3em; }
 .rules li { margin-bottom: 6px; }
 

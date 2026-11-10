@@ -137,6 +137,7 @@ export function openPoemPrint({ name, poems, presets, standalone, home, opts }) 
       return { blocks, count: ps.length };
     },
     css: CSS, standalone, home,
+    qr: (o) => ((o.ids || []).length === 1 ? `/chinese/#/poem/${o.ids[0]}` : '/chinese/#/beishi'), qrText: '扫码在线背诵',
     link: async (o) => `${location.origin}/chinese/print.html#p=${(o.ids || []).join(',')}&x=${packOpts(o)}`,
   });
 }
@@ -152,6 +153,113 @@ export function openCardPrint({ cards, presets, standalone, home }) {
     controls: [{ type: 'range', label: '范围', presets, items: cards.map((c) => ({ id: c.id, label: c.name, sub: c.kind === 'poet' ? c.dynasty || '' : '', group: c.kind === 'poet' ? `诗人 · ${c.dynasty || ''}` : '常识' })) }],
     async build(o) { const cs = (o.ids || []).map((id) => map.get(id)).filter(Boolean); return { blocks: cs.flatMap(card), count: cs.length }; },
     css: CSS, standalone, home,
+    qr: '/chinese/#/cards', qrText: '扫码看全部知识卡',
     link: async (o) => `${location.origin}/chinese/print.html#c=${(o.ids || []).map(encodeURIComponent).join(',')}`,
+  });
+}
+
+// ───────── 语文卷子（古诗文大会、汉字小达人）和语文错题本 ─────────
+// 题干里：【字】= 加点字，〔句〕= 划线句，[[ ]] = 填空的位置
+const qtxt = (s) => esc(s).replace(/\n/g, '<br>').replace(/【([^】]+)】/g, '<span class="dot">$1</span>').replace(/〔([^〕]+)〕/g, '<u>$1</u>');
+const BLANK = /\[\[\s*\]\]/g;
+const INLINE_BLANK = /（[\s　]*）|\([\s　]*\)/; // 题干里本来就有（　　）
+export const EXAM_CSS = `
+.lp-sheet{font-size:15px;line-height:1.7}
+.lp-sheet .sec{font-size:16px;margin:14px 0 4px;padding-top:4px}
+.lp-sheet .sec b{font-weight:800}
+.lp-sheet .sec span{font-size:13px;color:#5D6A65}
+.lp-sheet .mat{margin:8px 0 4px;padding:10px 14px;background:#F6F4EE;border-left:3px solid #1D5C4D;font-family:"Songti SC","STSong","Noto Serif SC",serif;font-size:15px;line-height:1.9}
+.lp-sheet .q{display:flex;gap:6px;padding:7px 0}
+.lp-sheet .q .n{flex:none;min-width:2.2em;font-weight:700;color:#1D5C4D}
+.lp-sheet .q .b{flex:1;min-width:0}
+.lp-sheet .q .pt{flex:none;font-size:12px;color:#5D6A65}
+.lp-sheet .dot{-webkit-text-emphasis:dot;text-emphasis:dot;-webkit-text-emphasis-position:under right;text-emphasis-position:under right}
+.lp-sheet .bl{display:inline-block;min-width:6em;border-bottom:1px solid #1E2B28;height:1.2em;vertical-align:-2px;margin:0 2px}
+.lp-sheet .ops{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 14px;margin-top:2px}
+.lp-sheet .ops.long{grid-template-columns:1fr}
+.lp-sheet .ops.mid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lp-sheet .ops b{color:#1D5C4D;margin-right:4px}
+.lp-sheet .tag{font-size:12px;color:#B04A6F;margin-left:4px}
+.lp-sheet .hint{font-size:12.5px;color:#5D6A65}
+.lp-sheet .fig{margin:6px 0}
+.lp-sheet .fig img{max-height:120px;max-width:100%}
+.lp-sheet .wl{height:30px;border-bottom:1px solid #C9C3B6}
+.lp-sheet .ah{font-size:18px;font-weight:800;margin:6px 0 4px;border-bottom:2px solid #1D5C4D;padding-bottom:6px}
+.lp-sheet .an{padding:6px 0;border-bottom:1px dashed #DCD7CA;font-size:14px;line-height:1.7}
+.lp-sheet .an b{color:#B04A6F;margin-right:8px}
+.lp-sheet .an .src{font-size:12px;color:#5D6A65}
+.lp-sheet .an .sol{color:#33413D;margin-top:2px}
+`;
+const isFig = (v) => /^\s*<(svg|img)\b/i.test(String(v || ''));
+const kindOf = (p) => p.kind || (Object.keys(p.choices || {}).length ? (String(p.answer || '').length > 1 ? 'multi' : 'choice') : 'fill');
+/** 一道题在纸上：选择题列选项（短的排一行），填空题留横线，简答题留几行，判断题后面留括号 */
+function qHtml(p, n) {
+  const k = kindOf(p);
+  let stem = qtxt(p.stem || '');
+  if (k === 'fill') stem = /\[\[\s*\]\]/.test(p.stem) ? stem.replace(BLANK, '<span class="bl"></span>') : INLINE_BLANK.test(p.stem) ? stem : `${stem} <span class="bl"></span>`;
+  else stem = stem.replace(BLANK, '<span class="bl"></span>');
+  if (k === 'judge') stem += '（　　）';
+  const ops = Object.entries(p.choices || {});
+  const len = Math.max(0, ...ops.map(([, v]) => (isFig(v) ? 99 : String(v).length)));
+  const opsHtml = k === 'choice' || k === 'multi' ? `<div class="ops ${len > 16 ? 'long' : len > 7 ? 'mid' : ''}">${ops.map(([key, v]) => `<span><b>${esc(key)}.</b>${isFig(v) ? v : qtxt(v)}</span>`).join('')}</div>` : '';
+  const lines = k === 'self' ? Array.from({ length: Math.max(2, Math.min(6, Math.round(p.points || 2))) }, () => '<div class="wl"></div>').join('') : '';
+  return `<div class="q"><span class="n">${esc(p.disp || n)}.</span><div class="b">${p.input_hint && k === 'fill' && !p.group ? `<div class="hint">${esc(p.input_hint)}</div>` : ''}${stem}${k === 'multi' ? '<span class="tag">（多选）</span>' : ''}
+    ${p.figure ? `<div class="fig">${p.figure}</div>` : ''}${opsHtml}${lines}</div>${p.points && p.points !== 1 ? `<span class="pt">${p.points} 分</span>` : ''}</div>`;
+}
+const CN = '一二三四五六七八九十';
+function examBlocks(exam, items) {
+  const out = [], seen = new Set();
+  let sec = null;
+  items.forEach((p) => {
+    if (p.section !== sec) {
+      sec = p.section;
+      const s = (exam.sections || []).find((x) => String(x.no) === String(sec));
+      if (s) out.push({ html: `<div class="sec"><b>${CN[(s.no || 1) - 1] || s.no}、${esc(s.name || '')}</b>${s.title ? ` <span>${esc(s.title)}</span>` : ''}</div>`, keep: true });
+    }
+    if (p.group && !seen.has(p.group.id)) { seen.add(p.group.id); out.push({ html: `<div class="mat">${qtxt(p.group.text)}</div>`, keep: true }); }
+    out.push(qHtml(p, p.number));
+  });
+  return out;
+}
+
+/** 打印一套语文卷子（只有题，不带答案；做完扫码在线做一遍判分） */
+export function openCnExamPrint({ exam, items, label, link, standalone, home }) {
+  return openPrint({
+    name: exam.title, label: label || '语文', unit: '题', file: 'exam', title: exam.title, info: ['姓名', '日期', '用时', '得分'],
+    opts: {}, controls: [],
+    build: async () => ({ blocks: examBlocks(exam, items), count: items.length }),
+    css: EXAM_CSS, link, standalone, home,
+    qr: `/chinese/#/intro/${encodeURIComponent(exam.id)}`, qrText: '扫码在线做这套卷、判分',
+  });
+}
+
+/** 打印语文错题：题目 + 可选答案和解析页 */
+export function openCnMistakesPrint({ title, pick, presets, fetch, link, standalone, home, opts }) {
+  const cache = new Map();
+  const first = presets[0];
+  return openPrint({
+    name: '错题本', label: '语文', unit: '题', file: 'mistakes', title, info: ['姓名', '日期', '得分'],
+    remember: 'cn.print.ms', force: opts || null,
+    opts: { ans: true, ids: first.ids(), rangeLabel: first.label },
+    controls: [
+      ...(pick ? [{ type: 'range', label: '范围', presets, items: pick, max: 60 }] : []),
+      { type: 'toggle', key: 'ans', label: '附答案和解析' },
+    ],
+    async build(o) {
+      const need = (o.ids || []).filter((id) => !cache.has(id));
+      if (need.length) (await fetch(need)).forEach((x) => cache.set(x.problem_id, x));
+      const its = (o.ids || []).map((id) => cache.get(id)).filter(Boolean);
+      const blocks = its.map((p, i) => `${p.label ? `<div class="hint" style="margin-top:6px">${esc(p.label)}</div>` : ''}${qHtml({ ...p, disp: null }, i + 1)}`);
+      if (o.ans && its.length) {
+        blocks.push({ html: '<div class="ah">答案和解析</div>', page: true, keep: true });
+        its.forEach((p, i) => {
+          const a = Object.keys(p.choices || {}).length ? [...String(p.answer || '')].map((k) => `${k}${p.choices[k] && !isFig(p.choices[k]) ? ` ${p.choices[k]}` : ''}`).join('、') : p.answer;
+          blocks.push(`<div class="an"><b>${i + 1}. ${esc(a)}</b><span class="src">${esc(p.label || '')}</span>${p.basic ? `<div class="sol">${qtxt(p.basic)}</div>` : ''}</div>`);
+        });
+      }
+      return { blocks, count: its.length };
+    },
+    css: EXAM_CSS, link, standalone, home,
+    qr: '/chinese/#/mistakes', qrText: '扫码看错题本和解析',
   });
 }

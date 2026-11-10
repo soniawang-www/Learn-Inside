@@ -5,8 +5,10 @@
 //   安卓微信（不能下载文件）：主按钮「去浏览器打开」，凭不用登录的打印链接在浏览器里打开
 // 各科只管出内容：openPrint({ build(opts) → { blocks }, css, controls, ... })
 
+import qrcode from './qrcode.js?v=20261111';
+
 const PW = 794, PH = 1123;            // A4（96 dpi）
-const PAD_T = 52, PAD_X = 64, PAD_B = 84;
+const PAD_T = 52, PAD_X = 64, PAD_B = 112;
 const CW = PW - 2 * PAD_X;             // 正文宽度
 const JADE = '#1D5C4D', INK = '#1E2B28', SOFT = '#5D6A65', LINE = '#DCD7CA';
 const SANS = '-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif';
@@ -37,7 +39,11 @@ export const PAGE_CSS = `
 .lp-run{display:flex;justify-content:space-between;font-size:12px;color:${SOFT};border-bottom:1px solid ${LINE};padding-bottom:6px;margin-bottom:6px}
 .lp-sheet{width:${CW}px}
 .lp-b{display:flow-root}
-.lp-foot{position:absolute;left:${PAD_X}px;right:${PAD_X}px;bottom:30px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #E6E1D6;padding-top:10px;font-size:12px;color:${SOFT}}
+.lp-foot{position:absolute;left:${PAD_X}px;right:${PAD_X}px;bottom:28px;display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #E6E1D6;padding-top:8px;font-size:12px;color:${SOFT}}
+.lp-qr{display:flex;align-items:center;gap:10px}
+.lp-qr svg{width:58px;height:58px;display:block}
+.lp-qr div{display:flex;flex-direction:column;gap:2px}
+.lp-qr b{font-size:13px;font-weight:600;color:${INK}}
 @media print{.lp-out .lp-page{width:210mm;height:296mm;break-after:page;page-break-after:always}.lp-out .lp-page:last-child{break-after:auto;page-break-after:auto}}
 `;
 // 纸面放进隔离区（shadow DOM）：网站自己的样式（.card、h2、table…）影响不到纸面，预览、打印和 PDF 一个样
@@ -196,7 +202,8 @@ function buildPages(groups, head) {
   return groups.map((g, i) => {
     const pg = document.createElement('div');
     pg.className = 'lp-page';
-    pg.innerHTML = `${i === 0 ? head.first : head.run}<div class="lp-sheet"></div><div class="lp-foot"><span>${esc(head.foot)}</span><span>第 ${i + 1} 页 / 共 ${n} 页</span></div>`;
+    const left = head.qr ? `<div class="lp-qr">${head.qr}<div><b>${esc(head.qrText || '扫码回到网站')}</b><span>${esc(head.foot)}</span></div></div>` : `<span>${esc(head.foot)}</span>`;
+    pg.innerHTML = `${i === 0 ? head.first : head.run}<div class="lp-sheet"></div><div class="lp-foot">${left}<span>第 ${i + 1} 页 / 共 ${n} 页</span></div>`;
     const sheet = pg.querySelector('.lp-sheet');
     g.forEach((node) => sheet.appendChild(node));
     return pg;
@@ -256,6 +263,17 @@ export function makePdf(pages) {
   return new Blob(parts, { type: 'application/pdf' });
 }
 
+// 页脚二维码：扫码回到网站上对应的页面（回填答案、在线背诵、看解析…）
+function qrSvg(url) {
+  if (!url) return '';
+  try {
+    const q = qrcode(0, 'M');
+    q.addData(new URL(url, location.origin).href);
+    q.make();
+    return q.createSvgTag({ cellSize: 2, margin: 0, scalable: true });
+  } catch { return ''; }
+}
+
 // ───────── 打开预览 ─────────
 let active = null;
 export const closePrint = () => active?.close();
@@ -267,6 +285,7 @@ export const closePrint = () => active?.close();
  *   title(o)    纸面大标题
  *   info        纸面标题下的填写栏，如 ['姓名','日期','用时','得分']；false 不要
  *   foot        纸面左下角，默认 learn-inside.com
+ *   qr(o)       页脚二维码指向的网址（相对本站也行）；qrText 二维码旁边的一句话
  *   opts        初始选项（ids 是要打印的内容 id）
  *   controls    [{type:'range', label, presets:[{label, ids()}], items:[{id,label,sub,group}], max}
  *                {type:'seg', key, label, options:[[值, 文字]], show(o)}
@@ -401,6 +420,8 @@ export function openPrint(cfg) {
           <h1 class="lp-title">${esc(title)}</h1>${info?.length ? `<div class="lp-info">${info.map((t) => `<span>${esc(t)}<i style="width:${t === '姓名' ? 120 : t === '日期' ? 96 : 72}px"></i></span>`).join('')}</div>` : ''}<div class="lp-rule"></div>`,
         run: `<div class="lp-run"><span>${esc(title)}</span><span>learn-inside</span></div>`,
         foot: cfg.foot || 'learn-inside.com',
+        qr: qrSvg(typeof cfg.qr === 'function' ? cfg.qr(o) : cfg.qr),
+        qrText: typeof cfg.qrText === 'function' ? cfg.qrText(o) : cfg.qrText,
       };
       const groups = await paginate(r.blocks || [], head, cfg.typeset, sheetCss, cfg.links);
       if (my !== building) return;

@@ -227,6 +227,7 @@ async function router() {
     if (page === 'account' && id !== 'paid') { location.replace(ACCOUNT_URL); return; } // 账号是全站的，在 /account/
     if (page === 'exam') return await renderExam(id);
     if (page === 'review') return await renderReview(id);
+    if (page === 'fill') return await startFill({ id: decodeURIComponent(id || '') }); // 试卷页脚二维码：扫码回填答案
     if (page === 'kp') return await renderKp(id);
     if (page === 'problem') return await renderProblem(id);
     if (page === 'profile') { location.replace('#/graph'); return; } // 画像并进了知识图谱
@@ -701,11 +702,11 @@ const printedKey = (examId) => `amc8.printed.${auth.student?.id}.${examId}`;
 // 统一打印预览里的数学纸面：题干按选的语言出，公式用 KaTeX 排版
 const katexHref = () => document.querySelector('link[href*="katex"]')?.href;
 const typesetReady = async (el) => { for (let i = 0; i < 100 && !window.renderMathInElement; i++) await new Promise((r) => setTimeout(r, 60)); typeset(el); };
-function openMathPrint({ name, title, info, items, presets, pick, fetch, en, ans, opts, link, file, standalone, home, onClose }) {
+function openMathPrint({ name, title, info, items, presets, pick, fetch, en, ans, opts, link, file, standalone, home, onClose, qr, qrText }) {
   const cache = new Map();
   const first = presets[0];
   return openPrint({
-    name, title, info, label: en ? '数学 · AMC 8' : '数学', unit: '题', file, standalone, home, onClose,
+    name, title, info, label: en ? '数学 · AMC 8' : '数学', unit: '题', file, standalone, home, onClose, qr, qrText,
     remember: 'math.print', force: opts || null,
     opts: { lang: en ? lang.get() : 'zh', space: true, ans: true, ids: first.ids(), rangeLabel: first.label },
     controls: [
@@ -739,6 +740,7 @@ async function openExamPrint(exam, btn) {
   store.set(printedKey(exam.id), 1);
   openMathPrint({
     name: r.exam.title, title: r.exam.title, info: ['姓名', '日期', '用时', '得分'], en, ans: false, file: 'exam',
+    qr: `/math/#/fill/${enc(exam.id)}`, qrText: '扫码回填答案、判分',
     presets: [{ label: `整套 ${r.items.length} 题`, ids: () => r.items.map((x) => x.problem_id) }],
     fetch: async () => r.items,
     link: async (o) => printLinkUrl((await api(`/math/api/exams/${enc(exam.id)}/print-link`, { method: 'POST',
@@ -1405,6 +1407,7 @@ function openMistakesPrint(list) {
   const title = `${msCtx?.nickname || auth.student.nickname}的错题本`;
   openMathPrint({
     name: '错题本', title, info: ['姓名', '日期', '得分'], en: all.some((m) => /^amc8-/.test(m.problem_id)), ans: true, file: 'mistakes',
+    qr: '/math/#/mistakes', qrText: '扫码看错题本和解析',
     presets, pick: all.map((m) => ({ id: m.problem_id, label: m.label, sub: MS[m.status][0] })),
     fetch: async (want) => (await api(`/math/api/students/${auth.student.id}/mistakes/print`, { method: 'POST', body: { problem_ids: want } })).items,
     link: async (o) => printLinkUrl((await api(`/math/api/students/${auth.student.id}/mistakes/print-link`, { method: 'POST',
@@ -1426,6 +1429,7 @@ async function renderPrintLink(token) {
   const en = d.items.some((x) => /^amc8-/.test(x.problem_id));
   openMathPrint({
     name: d.title, title: d.title, info: d.exam_id ? ['姓名', '日期', '用时', '得分'] : ['姓名', '日期', '得分'], en, ans: !d.exam_id, file: d.exam_id ? 'exam' : 'mistakes',
+    qr: d.exam_id ? `/math/#/fill/${enc(d.exam_id)}` : '/math/#/mistakes', qrText: d.exam_id ? '扫码回填答案、判分' : '扫码看错题本和解析',
     presets: [{ label: `这次的 ${d.items.length} 题`, ids: () => d.items.map((x) => x.problem_id) }],
     fetch: async () => d.items, opts: { lang: d.lang || 'en', space: !!d.space, ans: !!d.with_ans },
     link: async () => printLinkUrl(token), standalone: true, home: d.exam_id ? '/math/' : '/math/#/mistakes',

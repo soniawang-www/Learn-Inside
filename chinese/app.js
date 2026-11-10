@@ -6,7 +6,7 @@
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261111';
-import { openPoemPrint, openCardPrint } from './print-tpl.js?v=20261111';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261111';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -167,13 +167,26 @@ async function renderHome() {
     </div>`, 'home');
 }
 
+// 卷子「打印」：整套题（不带答案），直接出打印预览
+function bindExamPrint(label) {
+  $app.querySelectorAll('[data-pexam]').forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const d = await api(`/api/chinese/exams/${enc(b.dataset.pexam)}/print`);
+      openCnExamPrint({ exam: d.exam, items: d.items, label,
+        link: async () => `${location.origin}/chinese/print.html#t=${(await api(`/api/chinese/exams/${enc(d.exam.id)}/print-link`, { method: 'POST', body: { student_id: auth.student.id } })).token}` });
+    } catch (x) { modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
+    b.disabled = false;
+  }));
+}
+
 async function renderHanzi() {
   const st = auth.student;
   const exams = await api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`);
   const row = (e) => `<div class="exam-row">
       <div><b>${esc(e.title)}</b><div class="small muted">${e.year ?? ''} 年 · ${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</div></div>
       <div class="exam-act">${e.last_session ? `<a class="small" href="#/review/${e.last_session}">上次 ${e.last_score} 分</a>` : ''}
-        <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
+        <button class="btn lp-entry" data-pexam="${esc(e.id)}">${PRINT_ICON}打印</button><a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const real = exams.filter((e) => !e.id.endsWith('-mock')), mock = exams.filter((e) => e.id.endsWith('-mock'));
   const cards = real.length ? real.map(row).join('') : '<p class="muted">录入中</p>';
   page(`<a class="small back" href="#/">← 语文首页</a>
@@ -181,6 +194,7 @@ async function renderHanzi() {
     <div class="card"><h2>真题</h2>${cards}</div>
     ${mock.length ? `<div class="card"><h2>模拟题</h2>${mock.map(row).join('')}</div>` : ''}
     <p class="small muted center">题目来源：《中文自修》「美丽汉字小达人」历届活动</p>`, 'home');
+  bindExamPrint('语文 · 汉字小达人');
 }
 
 async function renderGsw() {
@@ -191,7 +205,7 @@ async function renderGsw() {
   const row = (e) => `<div class="exam-row">
       <div><b>${esc(e.title)}</b><div class="small muted">${isPaper(e.id) ? '笔试 · 满分 100' : `${e.problem_count} 题`} · ${Math.round(e.duration_sec / 60)} 分钟</div></div>
       <div class="exam-act">${e.last_session ? `<a class="small" href="#/review/${e.last_session}">上次 ${e.last_score} 分</a>` : ''}
-        <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
+        <button class="btn lp-entry" data-pexam="${esc(e.id)}">${PRINT_ICON}打印</button><a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const draw = async () => {
     const tp = await api(`/api/chinese/gsw/topics?grade=${g}`).catch(() => ({ topics: [] }));
     const list = exams.filter((e) => e.grade === g || (e.grade == null && g <= 5) || (e.grade === 7 && g >= 6)); // 年级不明的小学真卷每个小学年级都列出；初中通用的两组都列出
@@ -203,6 +217,7 @@ async function renderGsw() {
         <div class="gp-speed"><div><b>速答训练</b><span class="small muted">随机 20 题，每题 6 秒，练线上初选、复选的反应</span></div><button class="btn primary" id="speed">开始</button></div>
         <div class="gp-topics">${(tp.topics || []).map((t) => `<button class="gp-t" data-t="${t.id}"><b>${esc(t.name)}</b><small>${t.n} 道</small></button>`).join('')}</div></div>
       ${groups.length ? groups.map(([n, xs]) => `<div class="card"><h2>${n}<span class="small muted"> · ${xs.length} 套</span></h2>${xs.map(row).join('')}</div>`).join('') : '<div class="card"><p class="muted">录入中</p></div>'}`, 'home');
+    bindExamPrint('语文 · 古诗文大会');
     $app.querySelectorAll('.seg button').forEach((b) => (b.onclick = () => { g = +b.dataset.g; store.set('gsw.grade', g); draw(); }));
     const go = async (btn, body) => {
       btn.disabled = true;
@@ -803,7 +818,7 @@ async function renderMistakes() {
   const todo = list.filter((m) => m.status === 'pending' || m.status === 'due');
   const groups = {};
   for (const m of list) (groups[m.section_name || '其他'] ||= []).push(m);
-  page(`<div class="hero"><h1>错题本</h1></div><div class="card"><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
+  page(`<div class="hero hero-row"><h1>错题本</h1><button class="btn lp-entry" id="ms-print">${PRINT_ICON}打印</button></div><div class="card"><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
       <div class="actions">${todo.length ? `<button class="btn primary" id="redo">重做 ${Math.min(todo.length, 30)} 道错题</button>` : '<span class="tag ok">全部订正过了</span>'}</div></div>
     ${Object.entries(groups).map(([g, ms]) => `<div class="card"><h2>${esc(g)} <span class="small muted">${ms.length} 题</span></h2>
       ${ms.map((m) => `<details class="mk"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> ${esc(m.label)}<span class="small muted"> · 错 ${m.wrong_n} 次</span></summary>
@@ -811,6 +826,17 @@ async function renderMistakes() {
         ${isFill(m) ? '' : `<ul class="rv-opts">${Object.entries(m.choices).map(([k, v]) => `<li class="${k === m.answer ? 'right' : k === m.last_choice ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
         <div class="rv-ans">上次${m.last_choice ? `答 <s>${esc(isFill(m) ? m.last_choice : m.choices[m.last_choice] ?? m.last_choice)}</s>，` : '没作答，'}正确答案 <b>${esc(isFill(m) ? m.answer : m.choices[m.answer] ?? [...String(m.answer)].map((k) => m.choices[k] ?? k).join('、'))}</b></div>
         ${m.basic ? `<div class="rv-sol">${txt(m.basic)}</div>` : ''}</details>`).join('')}</div>`).join('')}`, 'mistakes');
+  $app.querySelector('#ms-print').onclick = () => {
+    const ids = (xs) => xs.slice(0, 60).map((m) => m.problem_id);
+    const title = `${auth.student.nickname || ''}的错题本`;
+    openCnMistakesPrint({
+      title, pick: list.map((m) => ({ id: m.problem_id, label: m.label, sub: STATUS[m.status], group: m.section_name || '其他' })),
+      presets: [todo.length && { label: `待订正的 ${todo.length} 题`, ids: () => ids(todo) }, { label: `全部错题 ${list.length} 题`, ids: () => ids(list) }].filter(Boolean),
+      fetch: async (want) => (await api(`/api/students/${enc(auth.student.id)}/mistakes/print`, { method: 'POST', body: { problem_ids: want } })).items,
+      link: async (o) => `${location.origin}/chinese/print.html#t=${(await api(`/api/students/${enc(auth.student.id)}/mistakes/print-link`, { method: 'POST',
+        body: { problem_ids: o.ids, title, sub: '', with_ans: o.ans } })).token}`,
+    });
+  };
   $app.querySelector('#redo')?.addEventListener('click', async (e) => {
     e.target.disabled = true;
     try {

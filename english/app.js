@@ -269,7 +269,7 @@ function openBankPrint(bankId, items, s, { v, random } = {}) {
   const all = { label: `${round}全部 ${list.length} 题`, ids: () => list.map((x) => x.id) };
   const rnd = (n) => ({ label: `随机 ${n} 题`, ids: () => pickRandom(list, n).map((x) => x.id) });
   openEnglishPrint({
-    name: `${grpOf(bankId).name} · ${round}`, items: list, v,
+    name: `${grpOf(bankId).name} · ${round}`, items: list, v, qr: `/english/#/bank/${bankId}${s ? `?s=${s}` : ''}`,
     presets: random ? [rnd(random), all] : [all, rnd(5)],
     fetch: async (ids) => (await api('/api/english/print', { method: 'POST', body: { student_id: auth.student.id, ids } })).items,
     link: async (o) => {

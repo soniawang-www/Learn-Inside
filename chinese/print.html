@@ -14,12 +14,22 @@
 // 打印链接页（不用登录，篇目和卡片都是公开的）：
 //   #p=篇目号,…&x=选项          古诗（旧链接 #p=…&v=study|blank|hint&o=mna&k=1 也认）
 //   #c=卡片 id,…                 诗人卡、常识卡
-import { openPoemPrint, openCardPrint, unpackOpts } from './print-tpl.js?v=20261111';
+//   #t=打印凭证                  语文卷子、语文错题（要凭证：卷子和错题不公开）
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint, unpackOpts } from './print-tpl.js?v=20261111';
 const H = new URLSearchParams(location.hash.slice(1));
 const ids = (k) => (H.get(k) || '').split(',').filter(Boolean);
 const msg = (t) => { document.getElementById('msg').innerHTML = t; };
 (async () => {
   try {
+    if (H.get('t')) {
+      const r = await fetch(`/api/print/${encodeURIComponent(H.get('t'))}`); const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '打印链接已失效');
+      if (!d.items?.length) throw new Error('没有要打印的题目');
+      msg('');
+      if (d.cn_exam) return openCnExamPrint({ exam: d.exam, items: d.items, standalone: true, home: '/chinese/', link: async () => location.href });
+      return openCnMistakesPrint({ title: d.title, presets: [{ label: `这次的 ${d.items.length} 题`, ids: () => d.items.map((x) => x.problem_id) }],
+        fetch: async () => d.items, opts: { ans: !!d.with_ans }, standalone: true, home: '/chinese/#/mistakes', link: async () => location.href });
+    }
     if (H.get('c')) {
       const all = (await (await fetch('/api/chinese/cards')).json()).items || [];
       const want = ids('c').filter((id) => all.some((c) => c.id === id));

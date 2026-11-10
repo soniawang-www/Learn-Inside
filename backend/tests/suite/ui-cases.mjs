@@ -468,6 +468,28 @@ export const UI_FEATURES = [
       await c.go('/chinese/#/card/p-libai'); await p.waitForTimeout(500);
       return `${v}/${hc}/${await p.locator('text=打印这张卡').count()}`;
     }, expect: same('提示字版/3/0') },
+    { id: 'U22-4', name: '古诗文大会卷子「打印」：直接出整套题（分大题、有题号），页脚有二维码', run: async (p, c) => {
+      await c.go('/chinese/#/gsw'); await p.locator('[data-pexam]').first().click(); await lpWait(p); await p.waitForTimeout(800);
+      const r = `${(await p.locator('#lp .q').count()) > 20}/${(await p.locator('#lp .sec').count()) > 0}/${(await p.locator('#lp .lp-qr svg').count()) > 0}`;
+      await lpClose(p); return r;
+    }, expect: same('true/true/true') },
+    { id: 'U22-5', name: '汉字小达人卷子「打印」：古文字题的字形图片印出来', run: async (p, c) => {
+      await c.go('/chinese/#/hanzi'); await p.locator('[data-pexam]').first().click(); await lpWait(p); await p.waitForTimeout(800);
+      const r = `${(await p.locator('#lp .q').count()) > 50}/${(await p.locator('#lp .fig img').count()) > 0}`;
+      await lpClose(p); return r;
+    }, expect: same('true/true') },
+    { id: 'U22-6', name: '语文错题本「打印」：默认待订正的题，附答案和解析页', run: async (p, c) => {
+      await c.go('/chinese/#/mistakes'); await p.waitForTimeout(600); if (!(await p.locator('#ms-print').count())) return '没有打印';
+      await p.locator('#ms-print').click(); await lpWait(p); await p.waitForTimeout(800);
+      const r = `${(await p.locator('#lp .q').count()) > 0}/${await p.locator('#lp .ah').count()}`; await lpClose(p); return r;
+    }, expect: { guest: '没有打印', user: 'true/1', member: 'true/1' } },
+    { id: 'U22-7', name: '飞花令「打印」：统一打印预览出练习单，切到默写版有横线', run: async (p, c) => {
+      await c.go('/chinese/feihua.html'); await p.locator('#home a[data-v="g3"]').click(); await p.locator('#printBtn').click(); await lpWait(p);
+      const n = await p.locator('#lp .it').count(), t = await p.locator('#lp .lp-title').innerText();
+      await p.locator('#lp [data-seg=v][data-v=blank]').click().catch(async () => { await p.click('#lp [data-a=adjust]'); await p.locator('#lp [data-seg=v][data-v=blank]').click(); });
+      await p.waitForTimeout(1000); const i = await p.locator('#lp .pl i').count(); await lpClose(p).catch(() => {});
+      return `${n > 0}/${t.startsWith('飞花令练习单')}/${i > 0}`;
+    }, expect: same('true/true/true') },
     { id: 'U22-2', name: '没登录也能打开打印链接：默写版有格子和答案页，提示字版每首 3 个字（旧链接也认），卡片能打印', run: async (p, c) => {
       const ctx = await p.context().browser().newContext(); const q = await ctx.newPage();
       await q.goto(c.base + '/chinese/print.html#p=0,1&v=blank&k=1'); await lpWait(q);
