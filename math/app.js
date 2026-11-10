@@ -986,13 +986,12 @@ async function renderReview(sid) {
         <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${esc(it.choice)}`}${it.correct ? '' : ` · 正确答案 ${esc(it.answer)}`}</span>
         <span class="meta">${paper ? '' : fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · 已标记' : ''}</span></summary>
       <div class="body">
-        ${it.advanced && !it.correct ? advCard(it.problem_id, it.advanced) : ''}
         <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
         ${isFillP(it) ? fillResult(it.choice, it.answer, it.correct) : `<ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>`}
         ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
-        ${it.advanced && it.correct ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">${icon('play', 14)}互动解析${it.advanced.locked ? `${icon('lock', 15)}` : ''}</button></div>` : ''}
+        ${it.advanced ? advCard(it.problem_id, it.advanced) : ''}
         <div class="section-label">考点</div>
         ${typeChips(it.types)}
         ${kpCards(it.kps)}
@@ -1026,7 +1025,6 @@ function kpCards(kps) {
   const g = isGuest(); // 游客：知识项照常显示，但不进知识项页、不能突击
   return `<div class="kpcards">${shown.map((k) => `<div class="kpcard">
       <div class="kphead">${g ? `<b>${esc(k.name)}</b>` : `<a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>`}${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
-      ${k.signals?.length ? `<div class="sig-title">怎么认出这个考点</div><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul>` : (k.summary ? `<p class="small">${rich(k.summary)}</p>` : '')}
       ${g ? '<p class="small muted">注册后可以看这个知识项的相关真题、做真题突击。</p>' : `<div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? `${icon('lock', 15)}` : ''}</button></div>`}
     </div>`).join('')}
     ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => (g ? esc(k.name) : `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`)).join('、')}</div>` : ''}</div>`;

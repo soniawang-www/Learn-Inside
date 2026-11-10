@@ -413,7 +413,7 @@
 | U3-2 | 列表视图（薄弱在前） | 注册提示 | 30 | 30 |
 | U3-3 | 错题本列出错题 | 注册提示 | true | true |
 | U3-4 | 复盘页：错因和知识项链接（游客只显示知识项名字） | false/false/true | true/true/true | true/true/true |
-| U3-8 | 复盘页错题最上面是互动解析缩略图（有图、有步数），做对的题还是小按钮；点缩略图打开或提示解锁 | true/true/true/0/unlock | true/true/true/0/unlock | true/true/true/0/lesson |
+| U3-8 | 复盘页：互动解析是缩略图（有图、有步数），紧跟在解题思路下面；考点卡不再列「怎么认出这个考点」；点缩略图打开或提示解锁 | true/true/true/0/unlock | true/true/true/0/unlock | true/true/true/0/lesson |
 | U3-5 | 错题本「打印错题」→ 打印预览：题数和答案数等于错题数 | 注册提示 | true | true |
 | U3-6 | 打印预览「存成 PDF」生成 A4 页，打印媒体下只剩练习单 | 注册提示 | true | true |
 | U3-7 | 安卓微信「存成 PDF」→ 提示在浏览器打开；没登录的浏览器打开链接直接进打印预览，题数一致 | 注册提示 | true/true/true/true | true/true/true/true |
