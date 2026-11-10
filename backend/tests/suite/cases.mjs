@@ -262,6 +262,13 @@ export const FEATURES = [
     { id: 'FH1-5', name: '账号页有语文会员套餐', run: async (c) => (await c.get('/api/account')).data.plans.some((p) => p.scope === 'chinese'), expect: same(true) },
   ] },
 
+  { id: 'GS2', area: '语文', name: '古诗文大会练习（速答 / 按考点专项练，免费）', cases: [
+    { id: 'GS2-1', name: '考点列表：四年级有名句补全、诗人常识等考点，每个都有题', run: async (c) => { const d = (await c.get('/api/chinese/gsw/topics?grade=4')).data; return d.total > 200 && ['mingju', 'shiren'].every((t) => d.topics.some((x) => x.id === t && x.n > 10)); }, expect: same(true) },
+    { id: 'GS2-2', name: '速答：20 道不重复的古诗文单选，限时 2 分钟左右，交卷后才出答案', run: async (c) => { const d = (await c.post('/api/chinese/gsw/drill', { student_id: c.sid, kind: 'speed', grade: 4 })).data; c.gsSpeed = d.session.id; const sec = (d.session.deadline_at - d.session.server_now) / 1000; return `${d.problems.length}/${new Set(d.problems.map((p) => p.id)).size}/${d.problems.every((p) => p.id.startsWith('gsw-') && !('answer' in p))}/${sec > 100 && sec < 130}/${d.session.drill}`; }, expect: same('20/20/true/true/true') },
+    { id: 'GS2-3', name: '速答交卷后能看成绩', run: async (c) => (await c.post(`/api/sessions/${c.gsSpeed}/submit`, { answers: {}, times: {} })).data.items.length, expect: same(20) },
+    { id: 'GS2-4', name: '专项练：15 道同一考点的题，每题能马上判对错', run: async (c) => { const d = (await c.post('/api/chinese/gsw/drill', { student_id: c.sid, kind: 'topic', topic: 'shiren', grade: 4 })).data; const p = d.problems[0]; const k = (await c.post(`/api/sessions/${d.session.id}/check`, { problem_id: p.id, answer: 'A' })).data; return `${d.problems.length}/${d.session.mode}/${typeof k.correct}`; }, expect: same('15/practice/boolean') },
+    { id: 'GS2-5', name: '练习类型、考点校验；不能给别人家孩子开练习', run: async (c) => `${st(await c.post('/api/chinese/gsw/drill', { student_id: c.sid, kind: 'x' }))}/${st(await c.post('/api/chinese/gsw/drill', { student_id: c.sid, kind: 'topic', topic: 'x' }))}/${st(await c.post('/api/chinese/gsw/drill', { student_id: c.outsider.sid, kind: 'speed' }))}`, expect: same('400/400/404') },
+  ] },
   { id: 'BS1', area: '语文', name: '每日背诗（免费）', cases: [
     { id: 'BS1-1', name: '能拿到必背篇目（原文和白话行数一致）', run: async (c) => { const it = (await c.get('/api/chinese/poems')).data.items; return it.length > 100 && it.every((p) => p.text.length === p.plain.length); }, expect: same(true) },
     { id: 'BS1-2', name: '背会一篇：1 天后复习', run: async (c) => { const r = (await c.post('/api/chinese/poems/progress', { student_id: c.sid, poem: 1, result: 'learned' })).data; return `${r.stage}/${Math.round((r.due_at - Date.now()) / 86400000)}`; }, expect: same('1/1') },

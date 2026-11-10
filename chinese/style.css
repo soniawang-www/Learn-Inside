@@ -362,3 +362,16 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .pq-stem { font-weight: 600; }
 .pq-a summary { display: inline-block; margin-top: 6px; color: var(--accent); cursor: pointer; font-size: 14px; }
 .pq-a p { margin: 6px 0 0; }
+
+/* 古诗文练习：速答 / 专项 */
+.gp-speed { display: flex; align-items: center; gap: 12px; padding: 4px 0 14px; border-bottom: 1px solid var(--border); }
+.gp-speed div { display: flex; flex-direction: column; flex: 1; }
+.gp-speed b { font-family: var(--display); font-size: 18px; }
+.gp-topics { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-top: 14px; }
+.gp-t { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.gp-t b { font-size: 15px; }
+.gp-t small { color: var(--muted); font-size: 12px; }
+@media (hover: hover) { .gp-t:hover { border-color: var(--accent); } }
+.gx-q6 { position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 6; background: var(--gx-track); }
+.gx-q6 i { display: block; height: 100%; background: var(--gx-red); transform-origin: left; animation: q6 linear forwards; }
+@keyframes q6 { from { transform: scaleX(1); } to { transform: scaleX(0); } }

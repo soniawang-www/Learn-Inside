@@ -339,6 +339,21 @@ export const UI_FEATURES = [
       return +(await c.text('#tot')) > before;
     }, expect: same(true) },
   ] },
+  { id: 'U19', area: '界面', name: '古诗文练习（速答 / 专项）', cases: [
+    { id: 'U19-1', name: '古诗文页有「速答训练」和按考点的专项练按钮', run: async (p, c) => { await c.go('/chinese/#/gsw'); await p.locator('#speed').waitFor({ timeout: 15000 }); return `${await p.locator('#speed').isVisible()}/${await p.locator('.gp-t').count() >= 5}`; }, expect: same('true/true') },
+    { id: 'U19-2', name: '速答：没有上一题 / 下一题按钮；6 秒不选自动跳下一题；选了马上跳', run: async (p, c) => {
+      await p.click('#speed'); await p.locator('.gx-type').waitFor({ timeout: 15000 });
+      const nav = await p.locator('#next').count(); const t1 = await c.text('.gx-type');
+      await p.waitForTimeout(6600); const t2 = await c.text('.gx-type');
+      await p.locator('.gx-opt').first().click(); await p.waitForTimeout(700); const t3 = await c.text('.gx-type');
+      return `${nav}/${/（1\//.test(t1)}/${/（2\//.test(t2)}/${/（3\//.test(t3)}`;
+    }, expect: same('0/true/true/true') },
+    { id: 'U19-3', name: '专项练：每题确定后马上显示对错和解析', run: async (p, c) => {
+      await c.go('/chinese/#/gsw'); await p.locator('.gp-t').first().waitFor({ timeout: 15000 }); await p.locator('.gp-t').first().click();
+      await p.locator('.ex-q').waitFor({ timeout: 15000 }); await p.locator('.ex-opt').first().click(); await p.click('.ex-next'); await p.locator('.ex-fb').waitFor({ timeout: 10000 });
+      return (await p.locator('.ex-fb').count()) > 0;
+    }, expect: same(true) },
+  ] },
   { id: 'U18', area: '界面', name: '每日背诗', cases: [
     { id: 'U18-1', name: '每日背诗页：今天新学 2 篇，进度、分组篇目都在', run: async (p, c) => {
       await c.go('/chinese/#/beishi'); await p.locator('.bs-stat').waitFor({ timeout: 15000 });

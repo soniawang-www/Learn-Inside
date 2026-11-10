@@ -348,6 +348,55 @@ route('GET', '/api/chinese/poems/progress', async (req, env, p, url) => {
   const { results } = await env.DB.prepare('SELECT poem, stage, due_at, reps, lapses, first_at, updated_at FROM poem_progress WHERE student_id = ?').bind(sid).all();
   return json({ progress: results, server_now: now() });
 });
+// ───────── 古诗文大会练习：速答（每题 6 秒，交卷出分）/ 按考点专项练（每题马上判对错）─────────
+// 题库 = 已发布的古诗文单选题（答案待确认的不收），按题干 + 选项去重；每个 Worker 实例缓存一份
+const GSW_TOPICS = { mingju: '名句补全', chuchu: '作者与出处', shiren: '诗人常识', shiyi: '诗意理解', xiuci: '修辞与体裁', wenhua: '文化常识', zixing: '字音字形', paixu: '诗句排序', ciyi: '字词释义', wenyan: '文言文阅读' };
+let gswPool = null;
+async function gswPoolData(env) {
+  if (!gswPool) {
+    const { results } = await env.DB.prepare(`SELECT p.id, p.stem, p.choices, p.types, e.grade FROM problem p JOIN exam e ON e.id = p.exam_id
+       WHERE e.published = 1 AND p.id LIKE 'gsw-%' AND p.kind IS NULL AND p.reviewed = 1`).all();
+    const han = (x) => String(x || '').replace(/[^\u3400-\u9fff]/g, '');
+    const seen = new Map();
+    for (const r of results) {
+      const key = han(r.stem) + '|' + Object.values(parseJ(r.choices, {})).map(han).sort().join('/');
+      const topic = (parseJ(r.types, [])[0]?.id || '').replace(/^gsw-/, '');
+      const x = seen.get(key);
+      if (x) x.grades.add(r.grade); else seen.set(key, { id: r.id, topic, grades: new Set([r.grade]) });
+    }
+    gswPool = [...seen.values()];
+  }
+  return gswPool;
+}
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+route('GET', '/api/chinese/gsw/topics', async (req, env, p, url) => {
+  await requireAccount(req, env);
+  const g = Number(url.searchParams.get('grade')) || null;
+  const pool = (await gswPoolData(env)).filter((x) => !g || x.grades.has(g));
+  return json({ total: pool.length, topics: Object.entries(GSW_TOPICS).map(([id, name]) => ({ id, name, n: pool.filter((x) => x.topic === id).length })).filter((t) => t.n) });
+});
+route('POST', '/api/chinese/gsw/drill', async (req, env) => {
+  const acc = await requireAccount(req, env);
+  const { student_id, kind, topic, grade } = await body(req);
+  await requireStudent(env, acc, student_id);
+  if (!['speed', 'topic'].includes(kind)) throw new HttpError(400, '练习类型不对');
+  if (kind === 'topic' && !GSW_TOPICS[topic]) throw new HttpError(400, '没有这个考点');
+  const g = Number(grade) || null;
+  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g)) && (kind !== 'topic' || x.topic === topic));
+  if (kind === 'topic' && pool.length < 5) pool = (await gswPoolData(env)).filter((x) => x.topic === topic); // 本年级题太少就不分年级
+  const n = kind === 'speed' ? 20 : 15;
+  const ids = shuffle(pool.slice()).slice(0, n).map((x) => x.id);
+  if (!ids.length) throw new HttpError(404, '没有可练的题');
+  const id = uid(), t = now();
+  const speed = kind === 'speed';
+  const title = speed ? '速答训练' : `专项练习 · ${GSW_TOPICS[topic]}`;
+  const stmts = [env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject) VALUES (?, ?, 'drill', ?, ?, ?, ?, 'chinese')")
+    .bind(id, student_id, speed ? 'exam' : 'practice', t, t + (speed ? ids.length * 6 + 5 : ids.length * 60) * 1000, title)];
+  ids.forEach((pid, i) => stmts.push(env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
+  await env.DB.batch(stmts);
+  return json(await sessionPayload(env, id));
+});
+
 // 一篇诗在真题里怎么考过（篇目里预先算好的题号，n = 在几套卷子里出现过）
 route('GET', '/api/chinese/poems/:idx/questions', async (req, env, p) => {
   await requireAccount(req, env);
@@ -1009,6 +1058,7 @@ route('POST', '/api/admin/import', async (req, env) => {
   try {
     const result = await importContent(env.DB, { schema: SCHEMA, exams, points, edges, prune });
     statsCache = {};
+    gswPool = null;
     // 考点或知识体系变了：所有学生的画像按新的考点重算（分批导入时前面几批传 recompute: false，最后一批再重算）
     if ((points.length || exams.length) && payload.recompute !== false) {
       const { results: sts } = await env.DB.prepare('SELECT DISTINCT student_id AS id FROM attempt_event').all();

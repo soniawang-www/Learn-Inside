@@ -186,16 +186,27 @@ async function renderGsw() {
       <div><b>${esc(e.title)}</b><div class="small muted">${isPaper(e.id) ? '笔试 · 满分 100' : `${e.problem_count} 题`} · ${Math.round(e.duration_sec / 60)} 分钟</div></div>
       <div class="exam-act">${e.last_session ? `<a class="small" href="#/review/${e.last_session}">上次 ${e.last_score} 分</a>` : ''}
         <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
-  const draw = () => {
+  const draw = async () => {
+    const tp = await api(`/api/chinese/gsw/topics?grade=${g}`).catch(() => ({ topics: [] }));
     const list = exams.filter((e) => e.grade === g);
     const groups = ['决选', '复选', '初选'].map((n) => [n, list.filter((e) => stageOf(e.id) === n)]).filter(([, xs]) => xs.length);
     page(`<a class="small back" href="#/">← 语文首页</a>
       <div class="hero"><h1>古诗文大会</h1></div>
       ${grades.length > 1 ? `<div class="seg" role="tablist">${grades.map((x) => `<button role="tab" class="${x === g ? 'on' : ''}" data-g="${x}">${GRADES[x]}</button>`).join('')}</div>` : ''}
+      <div class="card gp"><h2>练习<span class="small muted"> · 题库 ${tp.total || 0} 道</span></h2>
+        <div class="gp-speed"><div><b>速答训练</b><span class="small muted">随机 20 题，每题 6 秒，练线上初选、复选的反应</span></div><button class="btn primary" id="speed">开始</button></div>
+        <div class="gp-topics">${(tp.topics || []).map((t) => `<button class="gp-t" data-t="${t.id}"><b>${esc(t.name)}</b><small>${t.n} 道</small></button>`).join('')}</div></div>
       ${groups.length ? groups.map(([n, xs]) => `<div class="card"><h2>${n}<span class="small muted"> · ${xs.length} 套</span></h2>${xs.map(row).join('')}</div>`).join('') : '<div class="card"><p class="muted">录入中</p></div>'}`, 'home');
     $app.querySelectorAll('.seg button').forEach((b) => (b.onclick = () => { g = +b.dataset.g; store.set('gsw.grade', g); draw(); }));
+    const go = async (btn, body) => {
+      btn.disabled = true;
+      try { const r = await api('/api/chinese/gsw/drill', { method: 'POST', body: { student_id: auth.student.id, grade: g, ...body } }); location.hash = `#/exam/${r.session.id}`; }
+      catch (x) { btn.disabled = false; modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
+    };
+    $app.querySelector('#speed').onclick = (e) => go(e.currentTarget, { kind: 'speed' });
+    $app.querySelectorAll('.gp-t').forEach((b) => (b.onclick = () => go(b, { kind: 'topic', topic: b.dataset.t })));
   };
-  draw();
+  await draw();
 }
 
 // ───────── 每日背诗 ─────────
@@ -365,7 +376,10 @@ async function renderExam(sid) {
   if (d.session.submitted) { location.replace(`#/review/${sid}`); return; }
   if (isPaper(d.exam.id) && d.session.mode !== 'practice') return renderPaper(d, sid);
   const practice = d.session.mode === 'practice';
-  const gsw = isGsw(d.exam.id) && !practice; // 古诗文大会：还原线上初选 / 复选的答题页
+  const gswDrill = d.session.drill && String(d.problems[0]?.id).startsWith('gsw-');
+  const gsw = (isGsw(d.exam.id) || gswDrill) && !practice; // 古诗文大会：还原线上初选 / 复选的答题页
+  const speed = gsw && d.exam.title === '速答训练'; // 每题 6 秒，选了马上下一题，超时算没做
+  let qTimer = null;
   const P = d.problems;
   const key = `hz.s.${sid}`;
   const S = Object.assign({ cur: 0, answers: {}, times: {}, checked: {} }, store.get(key, {}));
@@ -404,7 +418,7 @@ async function renderExam(sid) {
   }
   function stamp() { const p = P[S.cur]; if (p) S.times[p.id] = (S.times[p.id] || 0) + (Date.now() - shownAt) / 1000; shownAt = Date.now(); }
 
-  function go(i) { stamp(); S.cur = i; save(); draw(); }
+  function go(i) { clearTimeout(qTimer); stamp(); S.cur = i; save(); draw(); }
   function finish() {
     const blank = P.filter((q) => !S.answers[q.id]).length;
     if (!blank) return submit(false);
@@ -417,19 +431,23 @@ async function renderExam(sid) {
     const ans = S.answers[p.id] ?? '';
     const last = S.cur === P.length - 1;
     const l = left();
-    $app.innerHTML = `<div class="gx">
+    $app.innerHTML = `<div class="gx ${speed ? 'speed' : ''}">
+      ${speed ? `<div class="gx-q6"><i style="animation-duration:6s"></i></div>` : ''}
       <div class="gx-top"><div class="gx-time">答题时间：<b id="clock">${mmss(l).slice(3)}</b></div>
         <div class="gx-bar"><i id="gbar" style="width:${Math.max(0, Math.min(100, (100 * l) / d.exam.duration_sec))}%"></i></div></div>
       <div class="gx-type">单选题（${S.cur + 1}/${P.length}）</div>
       <div class="gx-q">${txt(p.stem)}</div>
       <div class="gx-opts">${Object.entries(p.choices || {}).map(([k, v]) => `<button type="button" class="gx-opt ${ans === k ? 'on' : ''}" data-k="${k}"><span class="gx-k">${k}</span><span class="gx-v">${esc(v)}</span></button>`).join('')}</div>
-      <div class="gx-nav"><button type="button" class="gx-btn" id="prev" ${S.cur ? '' : 'disabled'}>上一题</button>
-        <button type="button" class="gx-btn" id="next">${last ? '交卷' : '下一题'}</button></div>
+      ${speed ? '' : `<div class="gx-nav"><button type="button" class="gx-btn" id="prev" ${S.cur ? '' : 'disabled'}>上一题</button>
+        <button type="button" class="gx-btn" id="next">${last ? '交卷' : '下一题'}</button></div>`}
     </div>`;
+    const advance = () => { if (last) { clearTimeout(qTimer); stamp(); save(); submit(false); } else go(S.cur + 1); };
     $app.querySelectorAll('.gx-opt').forEach((b) => (b.onclick = () => {
       S.answers[p.id] = b.dataset.k; save();
       $app.querySelectorAll('.gx-opt').forEach((x) => x.classList.toggle('on', x === b));
+      if (speed) { clearTimeout(qTimer); qTimer = setTimeout(advance, 250); }
     }));
+    if (speed) { clearTimeout(qTimer); qTimer = setTimeout(advance, 6000); return; }
     $app.querySelector('#prev').onclick = () => { if (S.cur) go(S.cur - 1); };
     $app.querySelector('#next').onclick = () => (last ? (stamp(), save(), finish()) : go(S.cur + 1));
   }
@@ -438,7 +456,7 @@ async function renderExam(sid) {
     const k = e.key.toUpperCase();
     const btn = $app.querySelector(`.gx-opt[data-k="${k === '1' ? 'A' : k === '2' ? 'B' : k === '3' ? 'C' : k === '4' ? 'D' : k}"]`);
     if (btn) { e.preventDefault(); btn.click(); }
-    else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); $app.querySelector('#next')?.click(); }
+    else if (!speed && (e.key === 'ArrowRight' || e.key === 'Enter')) { e.preventDefault(); $app.querySelector('#next')?.click(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); $app.querySelector('#prev')?.click(); }
   }
 
@@ -494,7 +512,7 @@ async function renderExam(sid) {
   draw();
   if (!practice) timerId = setInterval(tick, 1000);
   document.addEventListener('keydown', onKey);
-  window.addEventListener('hashchange', () => { clearInterval(timerId); stamp(); save(); document.removeEventListener('keydown', onKey); }, { once: true });
+  window.addEventListener('hashchange', () => { clearInterval(timerId); clearTimeout(qTimer); stamp(); save(); document.removeEventListener('keydown', onKey); }, { once: true });
 }
 
 // ───────── 决选笔试卷：整卷一页 ─────────
@@ -645,7 +663,7 @@ async function renderReview(sid) {
   const bySec = secs.map((s) => { const xs = items.filter((x) => x.section === s.no); return { ...s, n: xs.length, ok: xs.filter((x) => x.correct).length }; }).filter((s) => s.n);
   const wrong = items.filter((x) => !x.correct);
   let only = wrong.length > 0;
-  const gsw = isGsw(r.exam.id);
+  const gsw = isGsw(r.exam.id) || String(items[0]?.problem_id).startsWith('gsw-');
   // 古诗文：按考点统计正确率；每题用时（线上赛平均每题不到 10 秒，慢题单独数出来）
   const topics = {};
   if (gsw) for (const x of items) { const t = x.types?.[0]?.name || '其他'; (topics[t] ||= { n: 0, ok: 0 }).n++; if (x.correct) topics[t].ok++; }
@@ -666,6 +684,7 @@ async function renderReview(sid) {
   };
   page(`<a class="small back" href="${gsw ? '#/gsw' : '#/hanzi'}">← ${gsw ? '古诗文大会' : '汉字小达人'}</a>
     <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
+    ${gsw && r.exam.id === 'drill' ? `<div class="actions"><button class="btn primary" id="again">${r.exam.title === '速答训练' ? '再来 20 题' : '再练 15 题'}</button></div>` : ''}
     <div class="card score">
       <div class="score-big"><b>${score}</b><span> / ${items.length} 分</span></div>
       <p class="muted">用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
@@ -675,6 +694,12 @@ async function renderReview(sid) {
       <div class="actions">${isGuest() ? '<a class="btn" href="/account/">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
     <div class="card"><div class="rv-head"><h2>逐题解析</h2>${wrong.length ? `<label class="small"><input type="checkbox" id="only" checked> 只看错题（${wrong.length}）</label>` : ''}</div>
       <div id="rv">${items.map(itemHtml).join('')}</div></div>`, 'home');
+  $app.querySelector('#again')?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    const tp = Object.entries({ mingju: '名句补全', chuchu: '作者与出处', shiren: '诗人常识', shiyi: '诗意理解', xiuci: '修辞与体裁', wenhua: '文化常识', zixing: '字音字形', paixu: '诗句排序', ciyi: '字词释义', wenyan: '文言文阅读' }).find(([, n]) => r.exam.title.endsWith(n))?.[0];
+    try { const s2 = await api('/api/chinese/gsw/drill', { method: 'POST', body: { student_id: auth.student.id, grade: store.get('gsw.grade', 3), ...(tp ? { kind: 'topic', topic: tp } : { kind: 'speed' }) } }); location.hash = `#/exam/${s2.session.id}`; }
+    catch (x) { e.target.disabled = false; modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
+  });
   const apply = () => $app.querySelectorAll('.rv-item').forEach((el) => el.classList.toggle('hidden', only && el.dataset.ok === '1'));
   apply();
   const cb = $app.querySelector('#only');
