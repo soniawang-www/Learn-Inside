@@ -12,8 +12,8 @@ const GSW = 'gushiwen';
 const isGsw = (id) => String(id || '').startsWith('gsw-');
 const famOf = (id) => (isGsw(id) ? GSW : FAMILY);
 const GRADES = { 3: '三年级', 4: '四年级', 5: '五年级' };
-const stageOf = (id) => (/-jx-/.test(id) ? '决选' : /-fx-/.test(id) ? '复选' : /-cx-/.test(id) ? '初选' : '');
-const isPaper = (id) => isGsw(id) && /-jx-/.test(id); // 决选笔试卷：整卷一页、分值不同、简答自评
+const stageOf = (id) => (/-jx(-|$)/.test(id) ? '决选' : /-fx(-|$)/.test(id) ? '复选' : /-cx(-|$)/.test(id) ? '初选' : '');
+const isPaper = (id) => isGsw(id) && /-jx(-|$)/.test(id); // 决选笔试卷：整卷一页、分值不同、简答自评
 const CN = '一二三四五六七八九十';
 const pts = (n) => (Number.isInteger(n) ? n : Number(n).toFixed(1));
 
@@ -140,7 +140,7 @@ async function renderHome() {
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <div class="fam-cards">
       <a class="fam-card" href="#/hanzi"><b>汉字小达人</b><span>${exams.length ? `${exams.length} 套真题和模拟题` : '录入中'}</span><small>${lastScore}</small><i>›</i></a>
-      ${gexams.length ? `<a class="fam-card" href="#/gsw"><b>古诗文大会</b><span>${gexams.length} 套真题 · 三至五年级</span><small></small><i>›</i></a>`
+      ${gexams.length ? `<a class="fam-card" href="#/gsw"><b>古诗文大会</b><span>${gexams.filter((e) => stageOf(e.id)).length} 套卷子 · 三至五年级</span><small></small><i>›</i></a>`
         : '<div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>'}
       <a class="fam-card" href="#/beishi"><b>每日背诗</b><span>古诗文大会必背篇目</span><small></small><i>›</i></a>
       <a class="fam-card" href="/chinese/feihua.html"><b>飞花令</b><span>82 个常用字 · 5872 句诗词</span><small class="vip">语文会员</small><i>›</i></a>
@@ -188,7 +188,7 @@ async function renderGsw() {
         <a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div></div>`;
   const draw = async () => {
     const tp = await api(`/api/chinese/gsw/topics?grade=${g}`).catch(() => ({ topics: [] }));
-    const list = exams.filter((e) => e.grade === g);
+    const list = exams.filter((e) => e.grade === g || e.grade == null); // 年级不明的真卷每个年级都列出
     const groups = ['决选', '复选', '初选'].map((n) => [n, list.filter((e) => stageOf(e.id) === n)]).filter(([, xs]) => xs.length);
     page(`<a class="small back" href="#/">← 语文首页</a>
       <div class="hero"><h1>古诗文大会</h1></div>

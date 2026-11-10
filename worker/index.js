@@ -372,7 +372,7 @@ const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math
 route('GET', '/api/chinese/gsw/topics', async (req, env, p, url) => {
   await requireAccount(req, env);
   const g = Number(url.searchParams.get('grade')) || null;
-  const pool = (await gswPoolData(env)).filter((x) => !g || x.grades.has(g));
+  const pool = (await gswPoolData(env)).filter((x) => !g || x.grades.has(g) || x.grades.has(null));
   return json({ total: pool.length, topics: Object.entries(GSW_TOPICS).map(([id, name]) => ({ id, name, n: pool.filter((x) => x.topic === id).length })).filter((t) => t.n) });
 });
 route('POST', '/api/chinese/gsw/drill', async (req, env) => {
@@ -382,7 +382,7 @@ route('POST', '/api/chinese/gsw/drill', async (req, env) => {
   if (!['speed', 'topic'].includes(kind)) throw new HttpError(400, '练习类型不对');
   if (kind === 'topic' && !GSW_TOPICS[topic]) throw new HttpError(400, '没有这个考点');
   const g = Number(grade) || null;
-  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g)) && (kind !== 'topic' || x.topic === topic));
+  let pool = (await gswPoolData(env)).filter((x) => (!g || x.grades.has(g) || x.grades.has(null)) && (kind !== 'topic' || x.topic === topic)); // 不分年级的题（练习题库、年级不明的真卷）每个年级都抽
   if (kind === 'topic' && pool.length < 5) pool = (await gswPoolData(env)).filter((x) => x.topic === topic); // 本年级题太少就不分年级
   const n = kind === 'speed' ? 20 : 15;
   const ids = shuffle(pool.slice()).slice(0, n).map((x) => x.id);
