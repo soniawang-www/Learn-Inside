@@ -969,7 +969,7 @@ body:not(.exam-mode) { background: var(--paper); }
 .et-score small { font-size: 12px; color: var(--muted); font-weight: 400; }
 .et-new { font-size: 12px; color: var(--muted); border: 1px dashed var(--border); border-radius: 999px; padding: 1px 8px; }
 .et-title { font-size: 14px; color: var(--muted); }
-.et-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.et-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
 .et-btns .btn { padding: 6px 0; text-align: center; }
 .stats-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr); gap: 20px; align-items: start; }
 .stats-grid > .card { margin: 0; }
@@ -1264,3 +1264,32 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lang-seg button { border:0; background:none; color:var(--text); font:inherit; font-size:13px; padding:3px 10px; border-radius:999px; cursor:pointer; }
 .lang-seg button[aria-pressed="true"] { background:var(--accent); color:var(--surface); }
 .lang-seg button:hover:not([aria-pressed="true"]) { color:var(--accent); }
+
+/* 纸笔做：打印试卷 + 回填答案 */
+.pp-box h2 { margin-bottom: 14px; }
+.pp-step { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.pp-step > i { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-style: normal; font-weight: 700; display: grid; place-items: center; }
+.pp-step > div { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.pp-step h3 { margin: 2px 0 0; font-size: 16px; }
+.pp-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pp-chk { font-size: 14px; gap: 6px; }
+.pp-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.pp-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.pp-step .btn { display: inline-flex; align-items: center; gap: 6px; }
+.pp-card { display: grid; gap: 14px; }
+.pp-time { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; justify-self: start; }
+.pp-time input { width: 5.5em; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 15px; }
+.pp-fmt { margin: -4px 0 0; }
+.pp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px 28px; }
+.pp-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--border); min-width: 0; }
+.pp-no { flex: none; width: 2em; text-align: right; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pp-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.pp-opt { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: 600; font-size: 15px; padding: 0; }
+.pp-opt[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.pp-in { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 16px; }
+.pp-in:focus, .pp-time input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.pp-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .pp-list { grid-template-columns: minmax(0, 1fr); }
+  .pp-opt { width: 40px; height: 40px; }
+}

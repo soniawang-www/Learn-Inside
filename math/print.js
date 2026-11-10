@@ -52,8 +52,8 @@ function itemHtml(it, i, h, space) {
     const txt = !zh || zh === en || L === 'en' ? h.rich(en) : L === 'zh' ? h.rich(zh) : `${h.rich(en)}<span class="zi">${h.rich(zh)}</span>`;
     return `<span><b>(${k})</b>${txt}</span>`;
   };
-  return `<div class="it blk"><span class="sn">${i + 1}.</span><div class="sq">
-    <span class="src">${h.esc(it.label)}</span>
+  return `<div class="it blk"><span class="sn">${it.no ?? i + 1}.</span><div class="sq">
+    ${it.label ? `<span class="src">${h.esc(it.label)}</span>` : ''}
     <div class="stx">${h.stemHtml(it)}</div>
     ${it.figure ? `<div class="fg">${it.figure}</div>` : ''}
     ${ks.length ? `<div class="op ${figs ? 'figs' : ''}">${ks.map(opt).join('')}</div>` : '<div class="fa">答：<i></i></div>'}
@@ -62,7 +62,7 @@ function itemHtml(it, i, h, space) {
 }
 function answerHtml(it, i, h) {
   const kp = (it.types?.length ? it.types : (it.kps || []).filter((k) => k.primary).map((k) => k.name)).join('、');
-  return `<div class="ai blk"><span class="sn">${i + 1}.</span><div class="sq">
+  return `<div class="ai blk"><span class="sn">${it.no ?? i + 1}.</span><div class="sq">
     <span class="key">${h.esc(it.answer)}</span><span class="src">${h.esc(it.label)}</span>${kp ? `<span class="kp">考点：${h.esc(kp)}</span>` : ''}
     ${it.basic ? `<div class="sol">${h.rich(it.basic)}</div>` : ''}
   </div></div>`;

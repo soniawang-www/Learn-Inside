@@ -85,6 +85,53 @@ export const UI_FEATURES = [
       await p.fill('#fill', '4'); const prog = await p.textContent('.ez-prow span:last-child');
       return `${r}/${prog}`;
     }, expect: same('1/1/0/1/40') },
+    { id: 'U2-5', name: '试卷卡片点「打印」：先打印预览（25 题、没有答案页），回填页另开', run: async (p, c) => {
+      // 留两份没交的回填卷给各种屏幕的检查用（选择题卷、填空题卷）
+      c.paperSids = [];
+      for (const ex of ['amc8-2016', 'hope-2025w-g7']) c.paperSids.push((await c.post('/math/api/sessions', { exam_id: ex, student_id: c.sid, mode: 'paper' })).data.session.id);
+      await c.go('#/contest/amc8'); await p.locator('[data-paper="amc8-2017"]').click(); await p.waitForSelector('#pp-print');
+      const steps = await p.locator('.pp-step').count();
+      await p.click('#pp-print'); await p.waitForSelector('#pvSheet .it', { timeout: 15000 });
+      const r = `${steps}/${await p.locator('#pvSheet .it').count()}/${await p.locator('#pvSheet .ai').count()}/${await p.locator('#pvSheet .fa').count()}`;
+      await p.click('#pvClose'); return r;
+    }, expect: same('2/25/0/0') },
+    { id: 'U2-6', name: '回填答案：点字母选、再点取消，填用时，交卷后复盘标「纸笔」、用时是填的', run: async (p, c) => {
+      await c.go('#/contest/amc8'); await p.locator('[data-paper="amc8-2017"]').click(); await p.waitForSelector('#pp-fill');
+      await p.click('#pp-fill'); await p.waitForSelector('.pp-row'); await c.settle();
+      const rows = await p.locator('.pp-row').count();
+      await p.locator('.pp-opts').nth(0).locator('[data-pick="B"]').click();
+      await p.locator('.pp-opts').nth(1).locator('[data-pick="C"]').click(); await p.locator('.pp-opts').nth(1).locator('[data-pick="C"]').click();
+      await p.locator('.pp-opts').nth(2).locator('[data-pick="D"]').click();
+      await p.fill('#pp-used', '38');
+      const cnt = await c.text('#pp-count');
+      await p.reload(); await c.settle(); // 刷新后填的还在
+      const kept = `${await p.locator('.pp-opt[aria-pressed="true"]').count()}/${await p.inputValue('#pp-used')}`;
+      await p.click('#pp-submit'); await p.click('#yes'); await p.waitForSelector('.rev-score'); await c.settle();
+      const sub = await c.text('.ph p'), used = await c.text('.rev-meta dd');
+      return `${rows}/${cnt}/${kept}/${sub.startsWith('纸笔')}/${used.startsWith('38:00')}/${await p.locator('.ritem').count()}`;
+    }, expect: same('25/已填 2 / 25/2/38/true/true/25') },
+    { id: 'U2-7', name: '填空卷回填：输入框、回车跳到下一题', run: async (p, c) => {
+      await c.go(`#/exam/${c.paperSids[1]}`); await p.waitForSelector('.pp-in');
+      const n = await p.locator('.pp-in').count();
+      await p.locator('.pp-in').nth(0).fill('4025'); await p.keyboard.press('Enter');
+      const next = await p.evaluate(() => document.activeElement === document.querySelectorAll('.pp-in')[1]);
+      return `${n}/${next}/${await c.text('#pp-count')}/${await p.locator('.pp-fmt').count()}`;
+    }, expect: same('24/true/已填 1 / 25/1') },
+    { id: 'U2-8', name: '安卓微信打印整卷 → 换到浏览器打开链接，没登录也直接进打印预览', run: async (p, c) => {
+      const token = await p.evaluate(() => localStorage.getItem('li.token')), student = await p.evaluate(() => localStorage.getItem('li.student'));
+      const b = p.context().browser();
+      const wx = await b.newContext({ userAgent: WX_ANDROID_UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const q = await wx.newPage();
+      await q.goto(c.base + '/math/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', t); localStorage.setItem('li.student', s); }, [token, student]);
+      await q.goto(c.base + '/math/#/contest/amc8'); await q.reload(); await q.waitForSelector('[data-paper="amc8-2017"]');
+      await q.click('[data-paper="amc8-2017"]'); await q.click('#pp-print'); await q.waitForSelector('#pvSheet .it');
+      await q.click('#pvPdf'); await q.waitForFunction(() => /在浏览器打开/.test(document.querySelector('#pvTip')?.textContent || ''));
+      const url = q.url(); await wx.close();
+      const ext = await b.newContext({ viewport: { width: 390, height: 844 } }); const r = await ext.newPage();
+      await r.goto(url); await r.waitForSelector('#pvSheet .it', { timeout: 15000 });
+      const m = await r.locator('#pvSheet .it').count(); await r.click('#pvClose');
+      const back = await r.locator('a.btn', { hasText: '回到数学' }).count(); await ext.close();
+      return `${/\/math\/\?print=[0-9a-f]{64}$/.test(url)}/${m}/${back}`;
+    }, expect: same('true/25/1') },
   ] },
   { id: 'U3', area: '界面', name: '知识图谱与错题本', cases: [
     { id: 'U3-1', name: '知识图谱画出 30 个知识项', run: async (p, c) => { await c.go('#/graph'); await p.waitForTimeout(500); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('svg .kg-n').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },

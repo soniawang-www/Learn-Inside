@@ -147,7 +147,7 @@ if (WITH_UI) {
       const e2 = []; pg.on('pageerror', (e) => e2.push(e.message));
       await login(pg);
       const bad = []; const shape = {};
-      for (const hsh of [...PAGES, `#/review/${c.session}`]) {
+      for (const hsh of [...PAGES, `#/review/${c.session}`, ...(c.paperSids || []).map((x) => `#/exam/${x}`)]) {
         await open(pg, hsh);
         // 版面一致：有左侧导航的页面，内容区宽度、标题大小和左边位置都要一样
         if (w >= 1024) { const s = await pg.evaluate(() => { const m = document.querySelector('#app > main'), h = document.querySelector('#app > main h1'); if (!document.querySelector('#app > .side') || !m || !h) return null; const r = m.getBoundingClientRect(); return `内容区 ${Math.round(r.x)}+${Math.round(r.width)}，标题 ${getComputedStyle(h).fontSize} 在 ${Math.round(h.getBoundingClientRect().x)}`; }); if (s) (shape[s] ||= []).push(hsh); }
@@ -192,7 +192,7 @@ if (WITH_UI) {
     // 截图总览：每个页面手机 390 / 电脑 1440 各一张（整页，最长截到 2400px）
   const takeShots = async (role, c, login, open) => {
       mkdirSync(SHOTS, { recursive: true });
-      const extra = [`#/review/${c.session}`, ...(c.zhExam ? [`/chinese/#/review/${c.zhExam}`] : [])];
+      const extra = [`#/review/${c.session}`, ...(c.paperSids || []).map((x) => `#/exam/${x}`), ...(c.zhExam ? [`/chinese/#/review/${c.zhExam}`] : [])];
       for (const [w, h] of [[390, 844], [1440, 900]]) {
         const pg = await browser.newPage({ viewport: { width: w, height: h } }); await login(pg);
         for (const hsh of [...PAGES, ...extra]) {
