@@ -430,7 +430,7 @@ export const UI_FEATURES = [
       await p.click('#drill'); await p.locator('.ex-q').waitFor({ timeout: 15000 });
       return `${ok}/${(await c.text('.ex-clock b')).includes('/ 15')}`;
     }, expect: same('true/true') },
-    { id: 'U20-3', name: '背诗页作者名链到诗人卡', run: async (p, c) => { await c.go('/chinese/#/poem/1'); await p.locator('.ps-head a').waitFor({ timeout: 15000 }); return await p.locator('.ps-head a').getAttribute('href'); }, expect: same('#/card/p-dufu') },
+    { id: 'U20-3', name: '背诗页作者名链到诗人卡', run: async (p, c) => { await c.go('/chinese/#/poem/1'); await p.locator('.ps-head p a').waitFor({ timeout: 15000 }); return await p.locator('.ps-head p a').getAttribute('href'); }, expect: same('#/card/p-dufu') },
   ] },
   { id: 'U21', area: '界面', name: '古诗文大会初中组', cases: [
     { id: 'U21-1', name: '年级切换有「预初·初一」「初二·初三」；初二·初三有决选、复选、初选和练习', run: async (p, c) => {

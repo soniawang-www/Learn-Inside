@@ -969,7 +969,11 @@ body:not(.exam-mode) { background: var(--paper); }
 .et-score small { font-size: 12px; color: var(--muted); font-weight: 400; }
 .et-new { font-size: 12px; color: var(--muted); border: 1px dashed var(--border); border-radius: 999px; padding: 1px 8px; }
 .et-title { font-size: 14px; color: var(--muted); }
-.et-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+.et-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+/* 打印 · 回填：题数那一行右边的小圆钮，只放打印机图标 */
+.et-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 30px; }
+.et-pp { flex: none; width: 30px; height: 30px; margin: -2px -4px -2px 0; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.et-pp:hover, .et-pp:focus-visible { color: var(--accent); border-color: var(--accent); }
 .et-btns .btn { padding: 6px 0; text-align: center; }
 .stats-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr); gap: 20px; align-items: start; }
 .stats-grid > .card { margin: 0; }

@@ -170,13 +170,13 @@ async function renderEsdp() {
   const wb = d.banks.some((b) => b.id === wid) ? await loadBank(wid) : null;
   const of = (bank, s) => (bank ? bank.items.filter((x) => !s || x.section === s) : []);
   const mock = (title, rule, href, n, pr) => `<div class="mode"><div class="mode-h"><b>${title}</b></div><p class="mode-sub">${rule}</p>
-    ${n ? `<div class="actions"><a class="btn primary" href="${href}">开始</a><a class="btn" href="${pr}">打印题目</a></div>` : '<div class="mode-n">录入中</div>'}</div>`;
+    ${n ? `<div class="actions"><a class="btn primary" href="${href}">开始</a><a class="btn" href="${pr}">${PRINT_IC}打印题目</a></div>` : '<div class="mode-n">录入中</div>'}</div>`;
   const learn = (title, href, list) => `<a class="learn-row" href="${href}"><b>${title}</b>
     <span class="lr-n">${list.length ? `${list.length} 个话题` : '录入中'}</span>
     <span class="lr-bar" title="背会 ${list.filter((x) => x.learned).length} / ${list.length}"><i style="width:${list.length ? (list.filter((x) => x.learned).length / list.length) * 100 : 0}%"></i></span>
     <small>${list.filter((x) => x.learned).length ? `背会 ${list.filter((x) => x.learned).length}` : ''}</small><i class="go">›</i></a>`;
   page(`<a class="small back" href="#/">← 英语首页</a>
-    <div class="hero"><h1>ESDP 英语演讲</h1></div>
+    <div class="hero row"><h1>ESDP 英语演讲</h1>${prtBtn('#/print')}</div>
     <div class="seg" role="tablist" aria-label="组别">${GROUPS.map((x) => `<button role="tab" aria-selected="${x.id === g.id}" data-grp="${x.id}">${x.name}<small>${x.grades}</small></button>`).join('')}</div>
     <h2 class="sec-h">模拟比赛</h2>
     <div class="modes">
@@ -191,7 +191,6 @@ async function renderEsdp() {
       ${learn('即兴演讲', `#/bank/${sid}?s=2`, of(sb, 2))}
       ${learn('决赛定题', `#/bank/${sid}?s=3`, of(sb, 3))}
       ${learn('写作', `#/bank/${wid}`, of(wb))}
-      <a class="learn-row" href="#/print"><b>打印</b><span class="lr-n">话题卡、讲稿、背诵单、写作纸、句型</span><span></span><small></small><i class="go">›</i></a>
       <a class="learn-row" href="#/phrases"><b>句型和名言</b><span class="lr-n">「总-分-总」句型 · 10 句百搭名言</span><span></span><small></small><i class="go">›</i></a>
     </div>
     <section class="card">
@@ -243,7 +242,7 @@ async function renderBank(bankId, q) {
   const title = write ? '写作' : ROUNDS[s] || '口语';
   const base = `#/bank/${bankId}${s ? `?s=${s}&` : '?'}`;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
-    <div class="hero"><h1>${title}<small class="h-sub">${g.name} · ${all.length} 个话题</small></h1></div>
+    <div class="hero row"><h1>${title}<small class="h-sub">${g.name} · ${all.length} 个话题</small></h1>${prtBtn(`#/print?b=${enc(bankId)}${s ? `&s=${s}` : ''}`)}</div>
     <div class="chips">
       <a class="chip${!f ? ' on' : ''}" href="${base}">全部</a>
       <a class="chip${f === 'new' ? ' on' : ''}" href="${base}f=new">没背会</a>
@@ -254,7 +253,6 @@ async function renderBank(bankId, q) {
       <span class="q-n">${x.number}</span>
       <span class="q-t"><span lang="en">${esc(x.stem)}</span><small>${esc(x.stem_zh || '')}</small></span>
       <span class="q-m">${realTag(x, false)}${x.learned ? '<i class="tag ok">背会</i>' : ''}${x.practiced ? `<i class="tag">练 ${x.practiced}</i>` : ''}</span></a>`).join('') : '<p class="muted">暂无</p>'}</div>
-    <div class="actions center"><a class="btn" href="#/print?b=${enc(bankId)}${s ? `&s=${s}` : ''}">打印</a></div>
     <p class="small muted center">${esc(d.bank.origin || '')}</p>`, 'home');
 }
 
@@ -400,7 +398,7 @@ async function renderSpeech(id) {
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
-      <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}<button class="link-btn" data-print="${esc(d.id)}">打印</button></div>
+      <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}<button class="link-btn prt-link" data-print="${esc(d.id)}">${PRINT_IC}打印</button></div>
       <h2 class="topic" lang="en">${esc(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
@@ -480,7 +478,7 @@ async function renderFinal(d) {
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card">
-      <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}<button class="link-btn" data-print="${esc(d.id)}">打印</button></div>
+      <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}<button class="link-btn prt-link" data-print="${esc(d.id)}">${PRINT_IC}打印</button></div>
       <h2 class="topic" lang="en">${esc(d.stem)}</h2>
       <p class="topic-zh" hidden>${esc(d.stem_zh || '')}</p>
       <button class="link-btn" id="zh">看中文意思</button>
@@ -541,7 +539,7 @@ async function renderInterview() {
   let timer = null, r = null, audioUrl = null;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="spk card iv" id="iv">
-      <div class="spk-top"><span class="tag ok">模拟复赛</span><span class="small muted">${g.name} · ${qs.length} 题 · 共 ${ms(total)}</span><button class="link-btn" data-print="${esc(qs.map((x) => x.id).join(','))}">打印</button></div>
+      <div class="spk-top"><span class="tag ok">模拟复赛</span><span class="small muted">${g.name} · ${qs.length} 题 · 共 ${ms(total)}</span><button class="link-btn prt-link" data-print="${esc(qs.map((x) => x.id).join(','))}">${PRINT_IC}打印</button></div>
       <div id="stage"><ol class="rules">
         <li>评委会连着问 ${qs.length} 个关于你自己的问题，题目出现就开始回答，没有准备时间。</li>
         <li>答完一题点「下一题」。${qs.length} 题加起来 ${ms(total)}，每题大约 ${Math.round(total / qs.length)} 秒。</li>
@@ -608,7 +606,7 @@ async function renderWrite(id) {
   let limitSec = wmin * 60;
   page(`<a class="small back" href="#/esdp">← ESDP</a>
     <div class="card wr">
-      <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}<button class="link-btn" data-print="${esc(d.id)}">打印</button>
+      <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}<button class="link-btn prt-link" data-print="${esc(d.id)}">${PRINT_IC}打印</button>
         <span class="wclock num" id="wclk">${ms(limitSec)}</span></div>
       <div class="prep-pick" id="wmin"><span class="small muted">时长</span>${[[30, '30 分钟'], [45, '45 分钟']].map(([m, n]) => `<button class="chip${m === wmin ? ' on' : ''}" data-wmin="${m}">${n}</button>`).join('')}</div>
       <h2 class="topic" lang="en">${txt(d.stem)}</h2>
@@ -773,11 +771,13 @@ async function renderPrint(q) {
   };
 }
 
+// 打印入口统一一种样子：整页的打印放在标题行右边（小描边按钮 + 打印机图标），单题的打印用带图标的文字按钮
+const PRINT_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M7 14h10v6H7z"/></svg>';
+const prtBtn = (href, label = '打印', blank = false) => `<a class="btn prt" href="${href}"${blank ? ' target="_blank" rel="noopener"' : ''}>${PRINT_IC}${label}</a>`;
 // ───────── 句型和名言 ─────────
 function renderPhrases() {
   page(`<a class="small back" href="#/esdp">← ESDP</a>
-    <div class="hero"><h1>句型积累</h1></div>
-    <div class="actions"><a class="btn" href="/english/print.html#phrases" target="_blank" rel="noopener">打印</a></div>
+    <div class="hero row"><h1>句型积累</h1>${prtBtn('/english/print.html#phrases', '打印', true)}</div>
     <section class="card"><h2>「总-分-总」常用句型</h2>
       <div class="ph-grid">${PHRASES.map(([t, ...xs]) => `<div class="ph-g"><b>${t}</b>${xs.map(([en, zh]) => `<p><span lang="en">${esc(en)}</span><small>${zh}</small></p>`).join('')}</div>`).join('')}</div></section>
     <section class="card"><h2>百搭名言</h2>

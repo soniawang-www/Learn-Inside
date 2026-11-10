@@ -86,6 +86,9 @@ async function showSupport() {
     <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
+// 打印入口统一一种样子：整页的打印放在标题行右边（小描边按钮 + 打印机图标）
+const PRINT_IC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M7 14h10v6H7z"/></svg>';
+const prtBtn = (href, label = '打印', blank = false) => `<a class="btn prt" href="${href}"${blank ? ' target="_blank" rel="noopener"' : ''}>${PRINT_IC}${label}</a>`;
 const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`; window.scrollTo(0, 0); };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
@@ -222,8 +225,8 @@ async function renderCards(q) {
   const poets = items.filter((c) => c.kind === 'poet'), topics = items.filter((c) => c.kind === 'topic');
   const dyns = [...new Set(poets.map((c) => c.dynasty))];
   page(`<a class="small back" href="#/">← 语文首页</a>
-    <div class="hero"><h1>诗人卡和常识卡</h1></div>
-    <div class="kc-top"><div class="seg" role="tablist"><a role="tab" class="${tab === 'poet' ? 'on' : ''}" href="#/cards">诗人 ${poets.length}</a><a role="tab" class="${tab === 'topic' ? 'on' : ''}" href="#/cards?t=topic">常识 ${topics.length}</a></div><a class="btn" href="#/print?t=card">打印</a></div>
+    <div class="hero row"><h1>诗人卡和常识卡</h1>${prtBtn('#/print?t=card')}</div>
+    <div class="kc-top"><div class="seg" role="tablist"><a role="tab" class="${tab === 'poet' ? 'on' : ''}" href="#/cards">诗人 ${poets.length}</a><a role="tab" class="${tab === 'topic' ? 'on' : ''}" href="#/cards?t=topic">常识 ${topics.length}</a></div></div>
     ${tab === 'poet' ? dyns.map((d) => `<section class="card"><h2>${esc(d)}</h2><div class="kc-grid">${poets.filter((c) => c.dynasty === d).map((c) => `<a class="kc-chip" href="#/card/${enc(c.id)}"><b>${esc(c.name)}</b><small>${esc([c.titles?.[0], c.zi && `字${c.zi}`].filter(Boolean).join(' · '))}</small></a>`).join('')}</div></section>`).join('')
       : `<div class="card"><div class="kc-grid wide">${topics.map((c) => `<a class="kc-chip" href="#/card/${enc(c.id)}"><b>${esc(c.name)}</b><small>${c.qn ? `${c.qn} 道相关题` : ''}</small></a>`).join('')}</div></div>`}`, 'cards');
 }
@@ -245,10 +248,10 @@ async function renderCard(id) {
     : `${c.intro ? `<p class="kc-life">${esc(c.intro)}</p>` : ''}
       <table class="tbl kc-tbl">${(c.rows || []).map((r) => `<tr><th>${esc(r.k)}</th><td>${esc(r.v)}</td></tr>`).join('')}</table>`;
   page(`<a class="small back" href="#/cards${c.kind === 'topic' ? '?t=topic' : ''}">← 诗人卡和常识卡</a>
-    <div class="hero"><h1>${esc(c.name)}</h1>${c.dynasty ? `<p class="muted">〔${esc(c.dynasty)}〕</p>` : ''}</div>
+    <div class="hero row"><div><h1>${esc(c.name)}</h1>${c.dynasty ? `<p class="muted">〔${esc(c.dynasty)}〕</p>` : ''}</div>${prtBtn(`/chinese/print.html#c=${enc(c.id)}`, '打印', true)}</div>
     <div class="card kc-card">${body}
       ${c.mix?.length ? `<div class="kc-mix"><h3>容易混</h3><ul>${li(c.mix)}</ul></div>` : ''}</div>
-    <div class="actions center"><a class="btn" href="/chinese/print.html#c=${enc(c.id)}" target="_blank" rel="noopener">打印这张卡</a>${c.qn ? '<button class="btn primary" id="drill">练相关的题</button>' : ''}</div>`, 'cards');
+    ${c.qn ? '<div class="actions center"><button class="btn primary" id="drill">练相关的题</button></div>' : ''}`, 'cards');
   $app.querySelector('#drill')?.addEventListener('click', async (e) => {
     e.target.disabled = true;
     try { const r = await api('/api/chinese/gsw/drill', { method: 'POST', body: { student_id: auth.student.id, kind: 'card', card: c.id, grade: store.get('gsw.grade', null) } }); location.hash = `#/exam/${r.session.id}`; }
@@ -334,9 +337,9 @@ async function renderBeishi() {
   const status = (p) => { const x = P.get(p.idx); return !x ? '' : x.due_at === null ? 'ok' : x.stage >= 3 ? 'mid' : 'on'; };
   const secs = [...new Set(items.map((p) => p.section))];
   page(`<a class="small back" href="#/">← 语文首页</a>
-    <div class="hero"><h1>每日背诗</h1></div>
+    <div class="hero row"><h1>每日背诗</h1>${prtBtn('#/print')}</div>
     <div class="dash-grid">
-      <section class="card"><div class="card-h"><h2>今天</h2><a class="small" href="#/print">打印</a>
+      <section class="card"><div class="card-h"><h2>今天</h2>
         <label class="small muted">每天新学 <select id="per">${[1, 2, 3, 5].map((n) => `<option ${n === per ? 'selected' : ''}>${n}</option>`).join('')}</select> 篇</label></div>
         ${due.length ? `<h3 class="bs-h">复习 ${due.length} 篇</h3>${due.map((p) => row(p, 'review')).join('')}` : ''}
         ${fresh.length ? `<h3 class="bs-h">新学</h3>${fresh.map((p) => row(p)).join('')}` : newToday ? '<p class="muted">今天的新篇目背完了</p>' : ''}
@@ -385,12 +388,11 @@ async function renderPoem(idx, q) {
     const steps = ['全文', '挖空', '首字', '提示字'];
     const x = P.get(idx);
     page(`<a class="small back" href="#/beishi">← 每日背诗</a>
-      <div class="hero ps-head"><h1>${esc(p.title)}</h1><p class="muted">${poetCard ? `〔${esc(p.dynasty)}〕<a href="#/card/${enc(poetCard.id)}">${esc(p.author)}</a>` : poemTag(p)}</p></div>
+      <div class="hero row ps-head"><div><h1>${esc(p.title)}</h1><p class="muted">${poetCard ? `〔${esc(p.dynasty)}〕<a href="#/card/${enc(poetCard.id)}">${esc(p.author)}</a>` : poemTag(p)}</p></div>${prtBtn(`/chinese/print.html#p=${idx}&v=study&o=mna`, '打印', true)}</div>
       <div class="ps-steps" role="tablist">${steps.map((t, i) => `<button role="tab" class="${step === i + 1 ? 'on' : ''}" data-s="${i + 1}"><b>${i + 1}</b>${t}</button>`).join('')}</div>
       <div class="card ps-card">${body}</div>
       ${step === 1 && p.qs?.length ? `<details class="card ps-qs" id="qs"><summary><h2>真题里怎么考过</h2><span class="muted small">${p.qs.length} 道</span></summary><div id="qlist"><p class="muted">加载中…</p></div></details>` : ''}
       <div class="actions center ps-act">
-        ${step === 1 ? `<a class="btn" href="/chinese/print.html#p=${idx}&v=study&o=mna" target="_blank" rel="noopener">打印</a>` : ''}
         ${step === 4 ? '<button class="btn" id="peek">看原文</button>' : step > 1 ? '<button class="btn" id="peek">全部显示</button>' : ''}
         ${review ? '<button class="btn" id="again">没背出来</button><button class="btn primary" id="good">背出来了</button>'
           : step < 4 ? `<button class="btn primary" id="next">下一步：${steps[step]}</button>`

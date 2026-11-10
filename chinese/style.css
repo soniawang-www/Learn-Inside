@@ -426,3 +426,10 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .pr-vi small { color: var(--muted); }
 .pr-o { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
 .pr-o input { accent-color: var(--accent); }
+
+/* 打印入口：整页打印在标题行右边，小描边按钮 + 打印机图标；单题打印是带图标的文字按钮 */
+.hero.row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hero.row > :first-child { min-width: 0; }
+.btn.prt { flex: none; padding: 6px 14px 6px 12px; font-size: 14px; gap: 5px; margin-top: 2px; }
+.btn svg { flex: none; }
+.prt-link { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }

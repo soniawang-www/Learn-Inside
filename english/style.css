@@ -432,3 +432,10 @@ mark { background: color-mix(in srgb, var(--en) 18%, transparent); color: inheri
 .pr-rand { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 14px; }
 .pr-rand input { width: 4em; font: inherit; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
 .spk-top .link-btn[data-print] { margin-left: auto; }
+
+/* 打印入口：整页打印在标题行右边，小描边按钮 + 打印机图标；单题打印是带图标的文字按钮 */
+.hero.row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hero.row > :first-child { min-width: 0; }
+.btn.prt { flex: none; padding: 6px 14px 6px 12px; font-size: 14px; gap: 5px; margin-top: 2px; }
+.btn svg { flex: none; }
+.prt-link { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
