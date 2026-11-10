@@ -84,6 +84,27 @@ export const FEATURES = [
     { id: 'B5-6', name: '打印错题：填空题没有选项，答案是要填的数', run: async (c) => { const r = await c.post(`/math/api/students/${c.sid}/mistakes/print`, { problem_ids: [`${HOPE}-p02`] }); const x = r.data.items?.[0]; return r.status === 200 ? `${Object.keys(x.choices).length}/${x.answer}` : r.status; }, expect: { guest: 403, user: '0/2', member: '0/2' } },
   ] },
 
+  { id: 'B6', area: '考试', name: '纸笔做：打印整套试卷、回填答案判分', cases: [
+    { id: 'B6-1', name: '取整套试卷的打印内容：25 题，有题干和选项，不带答案和解题思路', run: async (c) => { const r = await c.get('/math/api/exams/amc8-2018/print'); const it = r.data.items || []; return r.status === 200 ? it.length === 25 && it[0].no === 1 && it.every((x) => x.stem && Object.keys(x.choices).length === 5 && !('answer' in x) && !('basic' in x)) : r.status; }, expect: same(true) },
+    { id: 'B6-2', name: '希望数学填空卷：题号对、填空题没有选项', run: async (c) => { const r = await c.get(`/math/api/exams/${HOPE}/print`); return r.status === 200 ? `${r.data.items.length}/${r.data.items[39].no}/${Object.keys(r.data.items[0].choices).length}` : r.status; }, expect: same('40/40/0') },
+    { id: 'B6-3', name: '不存在的试卷', run: async (c) => st(await c.get('/math/api/exams/amc8-1999/print')), expect: same(404) },
+    { id: 'B6-4', name: '不登录不能取试卷', run: async (c) => st(await c.anon('/math/api/exams/amc8-2018/print')), expect: same(401) },
+    { id: 'B6-5', name: '生成整卷打印链接（安卓微信里换到浏览器用）', run: async (c) => { const r = await c.post('/math/api/exams/amc8-2018/print-link', { student_id: c.sid, sub: 's', space: true, lang: 'both' }); c.paperTok = r.data.token; return r.status === 200 && /^[0-9a-f]{64}$/.test(r.data.token); }, expect: same(true) },
+    { id: 'B6-6', name: '不登录用打印链接取试卷：25 题、选项都在，没有答案', run: async (c) => { const r = await c.anon(`/math/api/print/${c.paperTok}`); const it = r.data.items || []; return r.status === 200 && it.length === 25 && r.data.lang === 'both' && r.data.with_ans === false && it.every((x) => !('answer' in x)); }, expect: same(true) },
+    { id: 'B6-7', name: '给别人家孩子生成整卷打印链接', run: async (c) => st(await c.post('/math/api/exams/amc8-2018/print-link', { student_id: c.outsider.sid })), expect: same(404) },
+    { id: 'B6-8', name: '开始回填：题目不含答案、不给提示，回填期限 30 天', run: async (c) => { const r = await c.post('/math/api/sessions', { exam_id: 'amc8-2018', student_id: c.sid, mode: 'paper' }); c.paperS = r.data; const s = r.data.session; return `${s.mode}/${r.data.problems.length}/${r.data.problems.some((p) => 'answer' in p || p.hint_count)}/${Math.round((s.deadline_at - s.started_at) / 86400000)}`; }, expect: same('paper/25/false/30') },
+    { id: 'B6-9', name: '回填时不能拿提示', run: async (c) => st(await c.post(`/math/api/sessions/${c.paperS.session.id}/hint`, { problem_id: c.paperS.problems[0].id, level: 1 })), expect: same(403) },
+    { id: 'B6-10', name: '用时不合理不能交', run: async (c) => st(await c.post(`/math/api/sessions/${c.paperS.session.id}/submit`, { answers: {}, used_min: 9999 })), expect: same(400) },
+    { id: 'B6-11', name: '回填交卷：判对错、记下填的用时', run: async (c) => { const p1 = c.paperS.problems[0].id, p2 = c.paperS.problems[1].id;
+      const r = await c.post(`/math/api/sessions/${c.paperS.session.id}/submit`, { answers: { [p1]: 'A', [p2]: 'B' }, used_min: 35 }); c.paperRev = r.data; const s = r.data.session;
+      return `${s.mode}/${Math.round((s.submitted_at - s.started_at) / 60000)}/${r.data.items[0].choice}/${r.data.items[1].choice}/${r.data.items[2].choice}`; }, expect: same('paper/35/A/B/null') },
+    { id: 'B6-12', name: '回填的分数和逐题对错一致', run: async (c) => c.paperRev.session.score === c.paperRev.items.filter((x) => x.correct).length, expect: same(true) },
+    { id: 'B6-13', name: '回填做错的题进错题本', run: async (c) => { const w = c.paperRev.items.find((x) => !x.correct); return (await c.get(`/math/api/students/${c.sid}/profile`)).data.mistakes.some((m) => m.problem_id === w.problem_id); }, expect: { guest: false, user: true, member: true } },
+    { id: 'B6-14', name: '成绩记录里标成纸笔', run: async (c) => (await c.get(`/math/api/families/amc8?student=${c.sid}`)).data.sessions.find((x) => x.id === c.paperS.session.id)?.mode, expect: same('paper') },
+    { id: 'B6-15', name: '不填用时也能交，用时记 0', run: async (c) => { const r = await c.post('/math/api/sessions', { exam_id: HOPE, student_id: c.sid, mode: 'paper' }); const d = await c.post(`/math/api/sessions/${r.data.session.id}/submit`, { answers: { [`${HOPE}-p01`]: ' 4 ' } }); return `${d.data.session.submitted_at - d.data.session.started_at}/${d.data.items[0].choice}/${d.data.items[0].correct}`; }, expect: same('0/4/true') },
+    { id: 'B6-16', name: '语文卷不能纸笔回填', run: async (c) => st(await c.post('/math/api/sessions', { exam_id: GSW_JX, student_id: c.sid, mode: 'paper' })), expect: same(400) },
+  ] },
+
   // ───────── C 题目与互动解析 ─────────
   { id: 'C1', area: '互动解析', name: '单题页', cases: [
     { id: 'C1-1', name: '没做过的题不给答案', run: async (c) => 'answer' in (await c.get(`/math/api/problems/amc8-2022-p20?student=${c.sid}`)).data, expect: same(false) },

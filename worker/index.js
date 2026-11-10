@@ -30,6 +30,8 @@ const subjectParam = (url) => (SUBJECTS.includes(url?.searchParams.get('subject'
 let migrated = null;
 
 const DEADLINE_GRACE_MS = 30_000; // 交卷允许的网络延迟
+const PAPER_DAYS = 30; // 纸笔做的卷子：开始回填后多少天内交
+const PAPER_MAX_MIN = 600; // 回填时填的用时上限（分钟）
 
 // ───────── 工具 ─────────
 const json = (data, status = 200) =>
@@ -177,12 +179,14 @@ route('POST', '/api/sessions', async (req, env) => {
     await env.DB.batch(stmts);
     return json(await sessionPayload(env, id));
   }
-  if (!['exam', 'practice'].includes(mode)) throw new HttpError(400, 'mode 只能是 exam 或 practice');
+  if (!['exam', 'practice', 'paper'].includes(mode)) throw new HttpError(400, 'mode 只能是 exam、practice 或 paper');
+  if (mode === 'paper' && subjectOf(exam_id ?? '') !== 'math') throw new HttpError(400, '只有数学试卷可以纸笔做、回填答案');
   const exam = await env.DB.prepare('SELECT * FROM exam WHERE id = ? AND published = 1').bind(exam_id).first();
   if (!exam) throw new HttpError(404, '试卷不存在');
+  // paper：在纸上做完，回来填答案判分；不限时（回填的期限放宽到 PAPER_DAYS 天）
   await env.DB
     .prepare('INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, subject) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, student_id, exam_id, mode, t, t + exam.duration_sec * 1000, subjectOf(exam_id))
+    .bind(id, student_id, exam_id, mode, t, t + (mode === 'paper' ? PAPER_DAYS * 86400 : exam.duration_sec) * 1000, subjectOf(exam_id))
     .run();
   return json(await sessionPayload(env, id));
 });
@@ -456,8 +460,15 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const acc = await requireAccount(req, env);
   const s = await loadSession(env, acc, p.id);
   if (s.submitted_at) return json({ already: true, ...(await reviewPayload(env, acc, s.id)) });
-  const { answers = {}, times = {}, flags = {} } = await body(req);
+  const { answers = {}, times = {}, flags = {}, used_min } = await body(req);
   const t = now();
+  // 纸笔卷：用时是孩子自己填的分钟数，记成 started_at = 交卷时间 − 用时；没填就记成 0（复盘不显示用时）
+  let paperStart = null;
+  if (s.mode === 'paper') {
+    const m = used_min == null || used_min === '' ? 0 : Number(used_min);
+    if (!Number.isFinite(m) || m < 0 || m > PAPER_MAX_MIN) throw new HttpError(400, `用时要在 0 到 ${PAPER_MAX_MIN} 分钟之间`);
+    paperStart = t - Math.round(m * 60) * 1000;
+  }
   const late = t > s.deadline_at + DEADLINE_GRACE_MS;
 
   const problems = await sessionProblems(env, s, 'p.id, p.answer, p.choices, p.accept, p.kind, p.points');
@@ -487,7 +498,9 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
         .bind(s.id, s.student_id, pr.id, choice, correct, Math.round(Number(times[pr.id]) || 0), hintMap[pr.id] || 0, flags[pr.id] ? 1 : 0, t, pr.points == null ? null : got)
     );
   }
-  stmts.push(env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ? WHERE id = ?').bind(t, score, s.id));
+  stmts.push(paperStart == null
+    ? env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ? WHERE id = ?').bind(t, score, s.id)
+    : env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ?, started_at = ? WHERE id = ?').bind(t, score, paperStart, s.id));
   await env.DB.batch(stmts);
   await recomputeMastery(env.DB, s.student_id);
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
@@ -956,9 +969,41 @@ route('POST', '/api/students/:id/mistakes/print-link', async (req, env, p) => {
 });
 route('GET', '/api/print/:token', async (_req, env, p) => {
   const job = await env.DB.prepare('SELECT * FROM print_job WHERE token = ?').bind(p.token).first();
-  if (!job || job.expires_at < now()) throw new HttpError(404, '这个打印链接已经失效（24 小时有效），请回到错题本重新打印');
+  if (!job || job.expires_at < now()) throw new HttpError(404, '这个打印链接已经失效（24 小时有效），请回到原来的页面重新打印');
   const pl = parseJ(job.payload, {});
+  if (pl.exam_id) return json({ ...pl, expires_at: job.expires_at, items: (await examPrint(env, pl.exam_id)).items });
   return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, items: await printItems(env, job.student_id, pl.problem_ids || []) });
+});
+
+// 整套试卷打印（纸笔做）：只有题，不带答案和解题思路——做完回填答案、交卷后在复盘里看
+async function examPrint(env, examId) {
+  const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ? AND published = 1').bind(examId).first();
+  if (!exam || subjectOf(examId) !== 'math') throw new HttpError(404, '试卷不存在');
+  const { results } = await env.DB
+    .prepare('SELECT id, number, stem, stem_zh, figure, choices, choices_zh FROM problem WHERE exam_id = ? ORDER BY number')
+    .bind(examId).all();
+  return {
+    exam: { id: exam.id, title: exam.title, duration_sec: exam.duration_sec },
+    items: results.map((r) => ({ problem_id: r.id, no: r.number, label: '', stem: r.stem, stem_zh: r.stem_zh, figure: r.figure,
+      choices: JSON.parse(r.choices), choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null })),
+  };
+}
+route('GET', '/api/exams/:id/print', async (req, env, p) => {
+  await requireAccount(req, env);
+  return json(await examPrint(env, p.id));
+});
+route('POST', '/api/exams/:id/print-link', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  const b = await body(req);
+  const st = await requireStudent(env, acc, b.student_id);
+  const { exam } = await examPrint(env, p.id);
+  const token = (uid() + uid()).replace(/-/g, '');
+  const t = now();
+  const payload = { exam_id: exam.id, title: exam.title, sub: String(b.sub || '').slice(0, 80), with_ans: false, space: !!b.space, lang: ['en', 'zh', 'both'].includes(b.lang) ? b.lang : 'en' };
+  await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
+  await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(token, st.id, JSON.stringify(payload), t, t + PRINT_LINK_MS).run();
+  return json({ token, expires_at: t + PRINT_LINK_MS });
 });
 
 // 错题本：做错过（含未作答）的题，按最近一次错误后的表现分阶段
