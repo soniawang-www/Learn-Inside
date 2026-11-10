@@ -72,6 +72,7 @@ export const FEATURES = [
     { id: 'B4-2', name: '标错因', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'careless' }, c.T)), expect: { guest: 403, user: 200, member: 200 } },
     { id: 'B4-3', name: '错因不合法', run: async (c) => st(await c.req(`/math/api/attempts/${c.prReview.items[1].attempt_id}`, 'PATCH', { error_reason: 'lazy' }, c.T)), expect: { guest: 403, user: 400, member: 400 } },
     { id: 'B4-4', name: '复盘页互动解析的锁（2023 年，非样板、没解锁）', run: async (c) => (c.prReview.items[2].advanced?.locked ? 'locked' : 'open'), expect: { guest: 'locked', user: 'locked', member: 'open' } },
+    { id: 'B4-5', name: '复盘页互动解析缩略图：没解锁也有步数和一张图，分步演示只给第一帧、不带讲解', run: async (c) => { const a = c.prReview.items[2].advanced; const t = a?.thumb || {}; return a.steps > 3 && !!(t.svg || t.sim || t.fig || t.title) && !t.frames && !t.sim?.frames && !t.sim?.say && !t.sim?.say_ok; }, expect: same(true) },
   ] },
   { id: 'B5', area: '考试', name: '希望数学：分年级、填空题', cases: [
     { id: 'B5-1', name: '试卷带年级（2019 冬令营四年级，40 题，120 分钟）', run: async (c) => { const e = (await c.get(`/math/api/exams?student=${c.sid}&family=hope`)).data.find((x) => x.id === HOPE); return e ? `${e.grade}/${e.problem_count}/${e.duration_sec / 60}` : 'none'; }, expect: same('4/40/120') },

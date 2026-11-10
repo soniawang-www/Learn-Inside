@@ -1293,3 +1293,22 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
   .pp-list { grid-template-columns: minmax(0, 1fr); }
   .pp-opt { width: 40px; height: 40px; }
 }
+
+/* 互动解析缩略图卡片（复盘页错题最上面、单题页） */
+.adv-card { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 460px; margin: 12px 0 2px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.adv-card:hover { border-color: var(--accent); }
+.adv-card:hover .adv-play { transform: scale(1.08); }
+.adv-thumb { position: relative; flex: none; width: 200px; aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; background: var(--lp-card); border: 1px solid var(--border); }
+.adv-pic { position: absolute; inset: 6px 6px 6px 6px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.adv-pic svg, .adv-pic img { width: 100%; height: 100%; max-width: none !important; display: block; }
+.adv-play { position: absolute; right: 8px; bottom: 8px; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--surface); display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, .18); transition: transform .15s; }
+.adv-play .ic { margin-left: 2px; }
+.adv-txt { display: grid; gap: 4px; }
+.adv-txt b { font-size: 16px; }
+.adv-txt span { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; }
+.adv-card.no-pic .adv-thumb { width: 64px; aspect-ratio: 1; }
+.adv-pic .adv-tt { padding: 0 34px 0 6px; font-size: 15px; font-weight: 600; line-height: 1.4; color: var(--lp-ink); text-align: center; }
+@media (max-width: 860px) {
+  .adv-card { max-width: none; }
+  .adv-thumb { width: 160px; }
+}

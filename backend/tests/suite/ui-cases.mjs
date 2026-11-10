@@ -138,6 +138,17 @@ export const UI_FEATURES = [
     { id: 'U3-2', name: '列表视图（薄弱在前）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; await p.click('[data-view="list"]'); await p.waitForTimeout(500); return p.locator('.kl-row').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
     { id: 'U3-3', name: '错题本列出错题', run: async (p, c) => { await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('.ms-row').count()) > 0; }, expect: { guest: '注册提示', user: true, member: true } },
     { id: 'U3-4', name: '复盘页：错因和知识项链接（游客只显示知识项名字）', run: async (p, c) => { await c.go(`#/review/${c.session}`); return `${await p.locator('.reason-chips').count() > 0}/${await p.locator('.kphead a').count() > 0}/${await p.locator('.kphead b').count() > 0}`; }, expect: { guest: 'false/false/true', user: 'true/true/true', member: 'true/true/true' } },
+    { id: 'U3-8', name: '复盘页：互动解析是缩略图（有图、有步数），紧跟在解题思路下面；考点卡不再列「怎么认出这个考点」；点缩略图打开或提示解锁', run: async (p, c) => {
+      await c.go(`#/review/${c.session}`); await p.waitForTimeout(800);
+      const card = p.locator('.ritem .adv-card').first(); if (!(await card.count())) return 'none';
+      const afterSol = await p.evaluate(() => [...document.querySelectorAll('.ritem .adv-card')].every((x) => x.previousElementSibling?.classList.contains('solution')));
+      const pic = await card.locator('.adv-pic svg, .adv-pic img, .adv-pic .adv-tt').count() > 0, steps = /\d+ 步/.test(await card.textContent());
+      const sig = await p.locator('.kpcard .signals').count();
+      await card.click(); await p.waitForTimeout(800);
+      const opened = (await p.locator('.lp-overlay').count()) ? 'lesson' : (await p.locator('.modal').count()) ? 'unlock' : 'nothing';
+      await p.keyboard.press('Escape').catch(() => {}); await p.locator('.lp-x').click().catch(() => {});
+      return `${afterSol}/${pic}/${steps}/${sig}/${opened}`;
+    }, expect: { guest: 'true/true/true/0/unlock', user: 'true/true/true/0/unlock', member: 'true/true/true/0/lesson' } },
     { id: 'U3-5', name: '错题本「打印错题」→ 打印预览：题数和答案数等于错题数', run: async (p, c) => {
       await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示';
       const total = +(/共 (\d+) 道/.exec(await c.text('.ph p')) || [])[1];

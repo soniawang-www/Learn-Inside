@@ -1,6 +1,7 @@
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
+import { SIMS } from './sims.js';
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
@@ -990,7 +991,7 @@ async function renderReview(sid) {
         ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
-        ${it.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${it.problem_id}">${icon('play', 14)}互动解析${it.advanced.locked ? `${icon('lock', 15)}` : ''}</button></div>` : ''}
+        ${it.advanced ? advCard(it.problem_id, it.advanced) : ''}
         <div class="section-label">考点</div>
         ${typeChips(it.types)}
         ${kpCards(it.kps)}
@@ -1005,6 +1006,7 @@ async function renderReview(sid) {
   }));
   bindKpCards($app);
   $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv)));
+  paintThumbs($app, Object.fromEntries(r.items.filter((x) => x.advanced).map((x) => [x.problem_id, x.advanced])));
   onLang($app, router);
 }
 /** 填空题的作答结果 */
@@ -1023,7 +1025,6 @@ function kpCards(kps) {
   const g = isGuest(); // 游客：知识项照常显示，但不进知识项页、不能突击
   return `<div class="kpcards">${shown.map((k) => `<div class="kpcard">
       <div class="kphead">${g ? `<b>${esc(k.name)}</b>` : `<a href="#/kp/${enc(k.id)}"><b>${esc(k.name)}</b></a>`}${k.amc_ext ? '<span class="tag ext">AMC 扩展</span>' : ''}</div>
-      ${k.signals?.length ? `<div class="sig-title">怎么认出这个考点</div><ul class="signals">${k.signals.map((s) => `<li><span class="see">看到：${rich(s.see)}</span><span class="think">想到：${rich(s.think)}</span></li>`).join('')}</ul>` : (k.summary ? `<p class="small">${rich(k.summary)}</p>` : '')}
       ${g ? '<p class="small muted">注册后可以看这个知识项的相关真题、做真题突击。</p>' : `<div class="kpbtns"><a class="btn" href="#/kp/${enc(k.id)}">看相关真题</a><button class="btn" data-drill="${esc(k.id)}">真题突击${k.locked ? `${icon('lock', 15)}` : ''}</button></div>`}
     </div>`).join('')}
     ${rest.length ? `<div class="small muted kpalso">也用到：${rest.map((k) => (g ? esc(k.name) : `<a href="#/kp/${enc(k.id)}">${esc(k.name)}</a>`)).join('、')}</div>` : ''}</div>`;
@@ -1057,6 +1058,45 @@ async function openAdvanced(problemId) {
   if (r.locked) return askUnlock(r.item, '互动解析', r.credits, () => openAdvanced(problemId));
   if (r.url) { window.open(r.url, '_blank'); return; }
   openLesson({ title: '互动解析', ...r.lesson });
+}
+
+// ───────── 互动解析缩略图：课件里第一张图（互动演示优先）缩小放在卡片上，点开就是全屏播放 ─────────
+const advCard = (pid, a) => `<button class="adv-card" data-adv="${esc(pid)}">
+  <span class="adv-thumb lp"><span class="adv-pic" data-thumb="${esc(pid)}"></span><span class="adv-play">${icon('play', 18)}</span></span>
+  <span class="adv-txt"><b>互动解析</b><span>${a.steps ? `${a.steps} 步` : ''}${a.locked ? icon('lock', 15) : ''}</span></span></button>`;
+/** 把缩略图画进 [data-thumb]：分步图取第一帧；互动演示在屏幕外跑一次，取它画出来的图 */
+function paintThumbs(root, map) {
+  const off = document.createElement('div');
+  off.className = 'lp';
+  off.style.cssText = 'position:fixed;left:-9999px;top:0;width:420px;visibility:hidden';
+  document.body.appendChild(off);
+  try {
+    root.querySelectorAll('[data-thumb]').forEach((el) => {
+      const t = map[el.dataset.thumb]?.thumb;
+      let html = '';
+      if (t?.svg) html = `<svg viewBox="0 0 ${t.vw} ${t.vh}" class="lp-sim slsvg" xmlns="http://www.w3.org/2000/svg">${t.svg}</svg>`;
+      if (!html && t?.sim && SIMS[t.sim.sim]) {
+        const s = JSON.parse(JSON.stringify(t.sim));
+        // 会自己播放的演示：取中间偏后的一帧，比开头那帧更能看出在演示什么
+        const pv = s.play && s.vars?.find((v) => v.k === s.play);
+        if (pv) pv.init = pv.min + (pv.max - pv.min) * 0.6;
+        const box = document.createElement('div');
+        box.className = `lp-simbox sim-${s.sim}`;
+        off.appendChild(box);
+        try {
+          SIMS[s.sim](box, s, { say: () => {}, solved: () => {} });
+          const area = (x) => (x.viewBox?.baseVal?.width || 0) * (x.viewBox?.baseVal?.height || 0);
+          const big = [...box.querySelectorAll('svg')].filter((x) => !x.closest('button') && area(x) > 4000).sort((a, b) => area(b) - area(a))[0];
+          if (big) html = big.outerHTML;
+        } catch {}
+        box.remove();
+      }
+      if (!html && t?.fig) html = t.fig;
+      if (!html && t?.title) html = `<span class="adv-tt">${rich(t.title)}</span>`;
+      if (html) el.innerHTML = html; else el.closest('.adv-card')?.classList.add('no-pic');
+    });
+  } finally { off.remove(); }
+  typeset(root);
 }
 
 const lockedPanel = (title) => `<div class="locked-panel"><div class="icon">${icon('lock', 36)}</div><p><b>${esc(title)}</b></p>
@@ -1215,7 +1255,7 @@ async function renderProblem(id) {
     ${done ? `<div class="card">
         <p>${p.last.correct ? '✓ 上次做对了' : `✗ 上次${p.last.choice ? `${isFillP(p) ? '填了' : '选了'} ${esc(p.last.choice)}` : '没作答'}，正确答案 <b>${esc(p.answer)}</b>`}</p>
         ${p.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(p.basic)}</div>` : ''}
-        ${p.advanced ? `<div style="margin-top:14px"><button class="btn primary" data-adv="${esc(p.problem_id)}">${icon('play', 14)}互动解析${p.advanced.locked ? `${icon('lock', 15)}` : ''}</button></div>` : ''}
+        ${p.advanced ? advCard(p.problem_id, p.advanced) : ''}
         <div class="section-label">考点</div>${typeChips(p.types)}${kpCards(p.kps)}
         <div class="row" style="margin-top:14px"><button class="btn" id="try">再做一次</button></div>
       </div>` : `<div class="card feature"><div><h2>还没做过这道题</h2></div><button class="btn primary" id="try">做这道题</button></div>`}
@@ -1223,6 +1263,7 @@ async function renderProblem(id) {
   typeset($app);
   bindKpCards($app);
   $app.querySelector('[data-adv]')?.addEventListener('click', (e) => openAdvanced(e.currentTarget.dataset.adv));
+  if (p.advanced) paintThumbs($app, { [p.problem_id]: p.advanced });
   onLang($app, router);
   $app.querySelector('#try').onclick = async () => {
     if (isGuest()) return modal(`<h2>注册后可以单题练习</h2>${REG_FEATS}<div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account">免费注册</a></div>`);

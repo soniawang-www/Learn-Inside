@@ -557,6 +557,24 @@ async function kpTags(env, acc, problemIds) {
   return out;
 }
 
+/**
+ * 互动解析的缩略图：课件里第一个带图的步骤（互动演示优先，其次是配图），加上总步数。
+ * 没解锁也给（只是一张图）：分步演示只给第一帧，不带讲解文字。
+ */
+function advThumb(content) {
+  let v; try { v = JSON.parse(content); } catch { return {}; }
+  const steps = Array.isArray(v) ? v : v?.steps;
+  if (!Array.isArray(steps)) return {};
+  const thumb = { title: String(v.title || '').replace(/^第\s*\d+\s*题\s*[·・]\s*/, '') || null };
+  const sim = steps.find((x) => x.type === 'sim' && x.sim);
+  if (sim?.sim === 'frames') { const f = sim.frames?.[0]; if (f?.svg) Object.assign(thumb, { svg: f.svg, vw: sim.vw ?? f.vw ?? 400, vh: sim.vh ?? f.vh ?? 220 }); }
+  else if (sim) { const { say, say_ok, ok, info, tip, ...rest } = sim; thumb.sim = { ...rest, type: 'sim' }; }
+  // 互动演示画不出图（只有文字和滑块）时，用课件里的配图；都没有就用标题
+  const f = steps.find((x) => x.fig);
+  if (f && !thumb.svg) thumb.fig = f.fig;
+  return { steps: steps.length, thumb };
+}
+
 // 复盘数据：答案、解题思路、考点（带锁定状态）
 async function reviewPayload(env, acc, sessionId) {
   const s = await env.DB.prepare('SELECT * FROM exam_session WHERE id = ?').bind(sessionId).first();
@@ -568,7 +586,7 @@ async function reviewPayload(env, acc, sessionId) {
       `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types, p.section, p.input_hint, p.kind, p.points, p.extra,
               ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason, ae.got,
               sb.content AS basic,
-              sa.tier AS adv_tier, e.title AS exam_title
+              sa.tier AS adv_tier, sa.content AS adv_content, e.title AS exam_title
          FROM attempt_event ae
          JOIN problem p ON p.id = ae.problem_id
          JOIN exam e ON e.id = p.exam_id
@@ -589,7 +607,7 @@ async function reviewPayload(env, acc, sessionId) {
       answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
       basic: r.basic, section: r.section, input_hint: r.input_hint,
-      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)) } : null,
+      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)), ...advThumb(r.adv_content) } : null,
       kps: kpByProblem[r.id] || [],
       types: parseJ(r.types, []),
       kind: r.kind ?? null, points: r.points ?? 1, got: r.got ?? (r.correct ? (r.points ?? 1) : 0), extra: parseJ(r.extra, null),
@@ -662,8 +680,8 @@ route('GET', '/api/problems/:id', async (req, env, p, url) => {
   };
   if (last) {
     const sb = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
-    const sa = await env.DB.prepare("SELECT tier FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
-    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || ctx.can(`adv:${pr.id}`)) } : null });
+    const sa = await env.DB.prepare("SELECT tier, content FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
+    Object.assign(out, { answer: pr.answer, basic: sb?.content ?? null, advanced: sa ? { locked: !(sa.tier === 'free' || ctx.can(`adv:${pr.id}`)), ...advThumb(sa.content) } : null });
   }
   return json(out);
 });
