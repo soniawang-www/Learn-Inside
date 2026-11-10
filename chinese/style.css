@@ -352,3 +352,4 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .ps-hint span { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 12px; background: var(--bad-soft); color: var(--bad); font-family: var(--display); font-size: 38px; }
 .ps-act { flex-wrap: wrap; }
 @media (max-width: 480px) { .ps-text { font-size: 18px; } .ps-card { padding: 18px 12px; } .ps-hint span { width: 54px; height: 54px; font-size: 32px; } }
+.bs-stat + .bar { display: block; width: 100%; height: 8px; }
