@@ -9,8 +9,8 @@
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
-import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111';
-import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111';
+import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111u';
+import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111u';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -95,6 +95,8 @@ async function showSupport() {
 }
 document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
 let cleanup = null; // 离开页面时停掉计时器、麦克风
+// 返回：统一成带左箭头的小按钮（.back）
+const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const page = (html, active) => {
   cleanup?.(); cleanup = null;
   document.body.className = '';
@@ -175,7 +177,7 @@ async function renderEsdp() {
     <span class="lr-n">${list.length ? `${list.length} 个话题` : '录入中'}</span>
     <span class="lr-bar" title="背会 ${list.filter((x) => x.learned).length} / ${list.length}"><i style="width:${list.length ? (list.filter((x) => x.learned).length / list.length) * 100 : 0}%"></i></span>
     <small>${list.filter((x) => x.learned).length ? `背会 ${list.filter((x) => x.learned).length}` : ''}</small><i class="go">›</i></a>`;
-  page(`<a class="small back" href="#/">← 英语首页</a>
+  page(`<a class="back" href="#/">${BACK_IC}英语首页</a>
     <div class="hero"><h1>ESDP 英语演讲</h1></div>
     <div class="seg" role="tablist" aria-label="组别">${GROUPS.map((x) => `<button role="tab" aria-selected="${x.id === g.id}" data-grp="${x.id}">${x.name}<small>${x.grades}</small></button>`).join('')}</div>
     <h2 class="sec-h">模拟比赛</h2>
@@ -245,7 +247,7 @@ async function renderBank(bankId, q) {
   const g = grpOf(bankId);
   const title = write ? '写作' : ROUNDS[s] || '口语';
   const base = `#/bank/${bankId}${s ? `?s=${s}&` : '?'}`;
-  page(`<a class="small back" href="#/esdp">← ESDP</a>
+  page(`<a class="back" href="#/esdp">${BACK_IC}ESDP</a>
     <div class="hero hero-row"><h1>${title}<small class="h-sub">${g.name} · ${all.length} 个话题</small></h1>${all.length ? `<button class="btn lp-entry" id="bank-print">${PRINT_ICON}打印</button>` : ''}</div>
     <div class="chips">
       <a class="chip${!f ? ' on' : ''}" href="${base}">全部</a>
@@ -314,7 +316,7 @@ async function renderLearn(id) {
   const paras = open ? m.paras.map((p, i) => `<div class="para t-${esc(p.tag)}" data-p="${i}"><i>${TAG[p.tag] || ''}</i>
       <p class="zh">${esc(p.zh)}</p><p lang="en" class="en">${markPhrases(p.en, re)}</p>
       <button class="link-btn" data-show="${i}">看英文</button></div>`).join('') : '';
-  page(`<a class="small back" href="${backTo}">← ${write ? '写作' : ROUNDS[d.section]} · ${g.name}</a>
+  page(`<a class="back" href="${backTo}">${BACK_IC}${write ? '写作' : ROUNDS[d.section]} · ${g.name}</a>
     <div class="card learn-top">
       <div class="spk-top"><span class="tag ok">${write ? '写作' : ROUNDS[d.section]}</span><span class="small muted">第 ${d.number} 题${write ? ` · ${g.words} 词以内` : ''}</span>${realTag(d)}</div>
       <h2 class="topic" lang="en">${txt(d.stem)}</h2>
@@ -419,7 +421,7 @@ async function renderSpeech(id) {
   if (!PREPS.some(([s]) => s === prep)) prep = MOCK.speechPrep;
   const drawn = /[?&]draw=/.test(location.hash);
   let timer = null, r = null, audioUrl = null;
-  page(`<a class="small back" href="#/esdp">← ESDP</a>
+  page(`<a class="back" href="#/esdp">${BACK_IC}ESDP</a>
     <div class="spk card">
       <div class="spk-top"><span class="tag ok">模拟${d.section === 1 ? '复赛' : '半决赛'}</span><span class="small muted">${g.name} · 第 ${d.number} 题</span>${realTag(d)}</div>
       <h2 class="topic" lang="en">${esc(d.stem)}</h2>
@@ -499,7 +501,7 @@ async function renderFinal(d) {
   const q1 = fromTips[0] || FOLLOW_UPS[Math.floor(Math.random() * FOLLOW_UPS.length)];
   const [q2] = pickFrom(bank.items.filter((x) => x.section === 1));
   let timer = null, r = null, audioUrl = null;
-  page(`<a class="small back" href="#/esdp">← ESDP</a>
+  page(`<a class="back" href="#/esdp">${BACK_IC}ESDP</a>
     <div class="spk card">
       <div class="spk-top"><span class="tag ok">模拟决赛</span><span class="small muted">${g.name} · 定题演讲</span>${realTag(d)}</div>
       <h2 class="topic" lang="en">${esc(d.stem)}</h2>
@@ -560,7 +562,7 @@ async function renderInterview() {
   if (!qs.length) return errorPage('这个题库还没有题目');
   const total = MOCK.interviewSec;
   let timer = null, r = null, audioUrl = null;
-  page(`<a class="small back" href="#/esdp">← ESDP</a>
+  page(`<a class="back" href="#/esdp">${BACK_IC}ESDP</a>
     <div class="spk card iv" id="iv">
       <div class="spk-top"><span class="tag ok">模拟复赛</span><span class="small muted">${g.name} · ${qs.length} 题 · 共 ${ms(total)}</span></div>
       <div id="stage"><ol class="rules">
@@ -627,7 +629,7 @@ async function renderWrite(id) {
   let wmin = store.get('en.wmin', 30);
   if (![30, 45].includes(wmin)) wmin = 30;
   let limitSec = wmin * 60;
-  page(`<a class="small back" href="#/esdp">← ESDP</a>
+  page(`<a class="back" href="#/esdp">${BACK_IC}ESDP</a>
     <div class="card wr">
       <div class="spk-top"><span class="tag ok">模拟写作</span><span class="small muted">${g.name} · 第 ${d.number} 题 · ${g.words} 词左右</span>${realTag(d)}
         <span class="wclock num" id="wclk">${ms(limitSec)}</span></div>
@@ -721,7 +723,7 @@ async function askUnlock(item, d, then) {
 
 // ───────── 句型和名言 ─────────
 function renderPhrases() {
-  page(`<a class="small back" href="#/esdp">← ESDP</a>
+  page(`<a class="back" href="#/esdp">${BACK_IC}ESDP</a>
     <div class="hero hero-row"><h1>句型积累</h1><button class="btn lp-entry" id="ph-print">${PRINT_ICON}打印</button></div>
     <section class="card"><h2>「总-分-总」常用句型</h2>
       <div class="ph-grid">${PHRASES.map(([t, ...xs]) => `<div class="ph-g"><b>${t}</b>${xs.map(([en, zh]) => `<p><span lang="en">${esc(en)}</span><small>${zh}</small></p>`).join('')}</div>`).join('')}</div></section>

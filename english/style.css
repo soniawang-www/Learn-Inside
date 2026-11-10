@@ -193,7 +193,11 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 .fam-card.soon { border-style: dashed; background: transparent; color: var(--muted); }
 @media (hover: hover) { a.fam-card:hover { border-color: var(--accent); } }
 @media (max-width: 860px) { .fam-cards { grid-template-columns: minmax(0, 1fr); gap: 10px; } .fam-card { padding: 14px 40px 12px 16px; } }
-.back { display: inline-block; margin: 0 0 6px; color: var(--accent); }
+/* 返回：带左箭头的小按钮，三科一样 */
+.back { display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 12px 0 6px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 14px; text-decoration: none; }
+.back:hover, .back:focus-visible { border-color: var(--accent); color: var(--accent); }
+.back .bk-ic { flex: none; color: var(--muted); }
+.back:hover .bk-ic { color: inherit; }
 
 /* 语文首页下半部分：今天做什么 / 最近成绩（和数学首页同样的样子） */
 .dash-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 16px; align-items: start; }

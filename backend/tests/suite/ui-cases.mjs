@@ -490,7 +490,7 @@ export const UI_FEATURES = [
       const r = `${(await p.locator('#lp .q').count()) > 0}/${await p.locator('#lp .ah').count()}`; await lpClose(p); return r;
     }, expect: { guest: '没有打印', user: 'true/1', member: 'true/1' } },
     { id: 'U22-7', name: '飞花令「打印」：统一打印预览出练习单，切到默写版有横线', run: async (p, c) => {
-      await c.go('/chinese/feihua.html'); await p.locator('#home a[data-v="g3"]').click(); await p.locator('#printBtn').click(); await lpWait(p);
+      await c.go('/chinese/feihua.html'); await p.locator('#home a[data-v="full"]').click(); await p.locator('#printBtn').click(); await lpWait(p);
       const n = await p.locator('#lp .it').count(), t = await p.locator('#lp .lp-title').innerText();
       await p.locator('#lp [data-seg=v][data-v=blank]').click().catch(async () => { await p.click('#lp [data-a=adjust]'); await p.locator('#lp [data-seg=v][data-v=blank]').click(); });
       await p.waitForTimeout(1000); const i = await p.locator('#lp .pl i').count(); await lpClose(p).catch(() => {});

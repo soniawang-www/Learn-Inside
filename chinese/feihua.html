@@ -62,7 +62,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16p
 h1{font-family:var(--display);font-weight:400;font-size:2.3rem;margin:0;letter-spacing:.12em;display:flex;align-items:center;gap:10px}
 h1 .seal{font-family:var(--poem);font-size:.85rem;letter-spacing:0;color:var(--card);background:var(--plum);border-radius:6px;padding:4px 0;width:1.9em;line-height:1.15;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 h1 .seal span{display:block;width:100%;text-align:center}
-.back{display:inline-block;margin-bottom:6px;color:var(--jade);text-decoration:none;font-size:.95rem}
+.back{display:inline-flex;align-items:center;height:32px;padding:0 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);text-decoration:none;font-size:.9rem}
 .chars8{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
 @media (max-width:560px){.chars8{grid-template-columns:repeat(4,1fr)}}
 .chars8 button{display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;max-width:100%;border-radius:50%;background:var(--card);border:2px solid var(--line)}
@@ -693,7 +693,7 @@ const FCSS = '.lp-sheet{font-family:"FHL WenKai","Kaiti SC","STKaiti","KaiTi",se
   '.lp-sheet .pf{font-size:15px;padding:4px 0 2px 2em;color:#33464f}.lp-sheet .pe{color:#33464f}';
 const cOf = p => p[0].includes(cur) ? cur : (CH.map(x=>x[0]).find(x=>p[0].includes(x)) || '');
 function openPrint(ids0, force){
-  import('/assets/print/kit.js?v=20261111').then(({ openPrint: kit })=>{
+  import('/assets/print/kit.js?v=20261111u').then(({ openPrint: kit })=>{
     const sel = [...printSel].filter(s=>PBY.has(s)), list = currentList(), all = pool(cur);
     const presets = [];
     if(ids0 && ids0.length) presets.push({label:'这次的 '+ids0.length+' 句', ids:()=>ids0});
