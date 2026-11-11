@@ -10,7 +10,7 @@ import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111u';
-import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111u';
+import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111w';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -23,6 +23,7 @@ const store = {
 const auth = {
   get token() { return store.get('li.token'); },
   get student() { return store.get('li.student'); },
+  save(token, student) { store.set('li.token', token); store.set('li.student', student); },
   clear() { store.del('li.token'); store.del('li.student'); },
 };
 let me = null; // /api/me
@@ -43,7 +44,7 @@ async function api(path, { method = 'GET', body } = {}) {
     throw new Error('网络不太好，请稍后再试');
   } finally { if (!--busy) document.body.classList.remove('net-wait'); }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) { auth.clear(); me = null; location.hash = '#/join'; }
+  if (res.status === 401) { auth.clear(); me = null; location.hash = store.get('li.hadAccount') ? '#/join' : '#/'; }
   if (res.status === 402) return { ...data, status: 402 };
   if (!res.ok) { const e = new Error(data.error || `请求失败 (${res.status})`); e.status = res.status; throw e; }
   return data;
@@ -105,6 +106,12 @@ const page = (html, active) => {
 };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
+// 静默建游客：同时触发几次也只建一个
+let guestP = null;
+function autoGuest() {
+  return (guestP ||= api('/api/auth/guest', { method: 'POST', body: {} }).then((r) => { auth.save(r.token, r.student); }).finally(() => { guestP = null; }));
+}
+
 // ───────── 路由 ─────────
 async function router() {
   const h = location.hash.replace(/^#/, '') || '/';
@@ -113,10 +120,11 @@ async function router() {
   const parts = path.split('/').filter(Boolean);
   const loaded = loadStart();
   try {
-    if (parts[0] === 'join' || !auth.token) { // 登录 / 注册统一在全站账号页，登录后回到这里
+    if (parts[0] === 'join' || (!auth.token && store.get('li.hadAccount'))) { // 登录 / 注册统一在全站账号页，登录后回到这里
       store.set('li.back', location.pathname + (parts[0] === 'join' ? '#/' : location.hash));
       location.replace('/account/'); return;
     }
+    if (!auth.token) await autoGuest(); // 第一次来：直接建游客用起来，不先要求注册
     if (!me) me = await api('/api/me');
     if (!parts.length) return await renderHome();
     if (parts[0] === 'esdp') return await renderEsdp();
@@ -131,6 +139,13 @@ async function router() {
     location.hash = '#/';
   } catch (e) { errorPage(e.message); } finally { loaded(); }
 }
+// 匿名计数：每台设备每天每种事件只报一次，只记次数，不记是谁
+function ev(e) {
+  const d = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), k = 'li.ev.' + e;
+  if (store.get(k) === d) return; store.set(k, d);
+  fetch('/api/ev', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ e }), keepalive: true }).catch(() => {});
+}
+ev('view_english');
 window.addEventListener('hashchange', router);
 
 // 题库缓存（一个题库一百来题，同一次打开里反复抽题不用重新拉）

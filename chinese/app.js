@@ -6,7 +6,7 @@
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
-import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261111u';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261111w';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -49,7 +49,7 @@ async function api(path, { method = 'GET', body } = {}) {
     throw new Error('网络不太好，请稍后再试');
   } finally { if (!--busy) document.body.classList.remove('net-wait'); }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) { auth.clear(); me = null; location.hash = '#/join'; }
+  if (res.status === 401) { auth.clear(); me = null; location.hash = store.get('li.hadAccount') ? '#/join' : '#/'; }
   if (!res.ok) { const e = new Error(data.error || `请求失败 (${res.status})`); e.status = res.status; throw e; }
   return data;
 }
@@ -93,6 +93,12 @@ const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" f
 const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`; window.scrollTo(0, 0); };
 const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
+// 静默建游客：同时触发几次也只建一个
+let guestP = null;
+function autoGuest() {
+  return (guestP ||= api('/api/auth/guest', { method: 'POST', body: {} }).then((r) => { auth.save(r.token, r.student); }).finally(() => { guestP = null; }));
+}
+
 // ───────── 路由 ─────────
 async function router() {
   const h = location.hash.replace(/^#/, '') || '/';
@@ -100,10 +106,11 @@ async function router() {
   const parts = path.split('/').filter(Boolean);
   const loaded = loadStart();
   try {
-    if (parts[0] === 'join' || !auth.token) { // 登录 / 注册统一在全站账号页，登录后回到这里
+    if (parts[0] === 'join' || (!auth.token && store.get('li.hadAccount'))) { // 登录 / 注册统一在全站账号页，登录后回到这里
       store.set('li.back', location.pathname + (parts[0] === 'join' ? '#/' : location.hash));
       location.replace('/account/'); return;
     }
+    if (!auth.token) await autoGuest(); // 第一次来：直接建游客用起来，不先要求注册
     if (!me) me = await api('/api/me');
     if (!parts.length) return await renderHome();
     if (parts[0] === 'hanzi') return await renderHanzi();
@@ -120,6 +127,15 @@ async function router() {
     location.hash = '#/';
   } catch (e) { errorPage(e.message); } finally { loaded(); }
 }
+// 匿名计数：每台设备每天每种事件只报一次，只记次数，不记是谁
+function ev(e) {
+  const d = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), k = 'li.ev.' + e;
+  if (store.get(k) === d) return; store.set(k, d);
+  fetch('/api/ev', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ e }), keepalive: true }).catch(() => {});
+}
+ev('view_chinese');
+// 点注册提示：计数，注册完回到原来的页面
+document.addEventListener('click', (e) => { if (e.target.closest('[data-regp]')) { ev('reg_prompt'); store.set('li.back', location.pathname + location.hash); } });
 window.addEventListener('hashchange', router);
 
 // ───────── 首页：试卷和成绩 ─────────
@@ -733,7 +749,7 @@ async function renderPaperReview(r, sid) {
     <div class="card score">
       <div class="score-big"><b id="tot">${pts(score())}</b><span> / ${pts(total)} 分</span></div>
       <table class="tbl"><tr><th>大题</th><th>得分</th><th>得分率</th></tr>${bySec.map((x) => `<tr><td>${CN[x.no - 1] || x.no}、${esc(x.name)}</td><td class="num" data-sec="${x.no}">${pts(x.got)} / ${pts(x.full)}</td><td><span class="bar"><i style="width:${Math.round((100 * x.got) / x.full)}%"></i></span> ${Math.round((100 * x.got) / x.full)}%</td></tr>`).join('')}</table>
-      <div class="actions">${isGuest() ? '<a class="btn" href="/account/">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
+      <div class="actions">${isGuest() ? '<a class="btn" href="/account/" data-regp>注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
     ${selfCard}
     <div class="card"><div class="rv-head"><h2>逐题对照</h2></div><div id="rv">${list}</div></div>`, 'home');
   $app.querySelectorAll('.sf').forEach((el) => {
@@ -793,7 +809,7 @@ async function renderReview(sid) {
       ${gsw && timed.length ? `<p class="muted">平均每题 ${avg.toFixed(1)} 秒${slow ? ` · 超过 ${Math.round(per * 1.5)} 秒的题 ${slow} 道` : ''}${items.length - timed.length ? ` · 没做 ${items.length - timed.length} 题` : ''}</p>` : ''}
       ${gsw ? `<table class="tbl"><tr><th>考点</th><th>得分</th><th>正确率</th></tr>${Object.entries(topics).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n).map(([t, v]) => `<tr><td>${esc(t)}</td><td class="num">${v.ok} / ${v.n}</td><td><span class="bar"><i style="width:${Math.round((100 * v.ok) / v.n)}%"></i></span> ${Math.round((100 * v.ok) / v.n)}%</td></tr>`).join('')}</table>`
       : bySec.length ? `<table class="tbl"><tr><th>大题</th><th>得分</th><th>正确率</th></tr>${bySec.map((s) => `<tr><td>${'一二三四五六七八九十'[s.no - 1] || s.no}、${esc(s.name)}</td><td class="num">${s.ok} / ${s.n}</td><td><span class="bar"><i style="width:${Math.round((100 * s.ok) / s.n)}%"></i></span> ${Math.round((100 * s.ok) / s.n)}%</td></tr>`).join('')}</table>` : ''}
-      <div class="actions">${isGuest() ? '<a class="btn" href="/account/">注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
+      <div class="actions">${isGuest() ? '<a class="btn" href="/account/" data-regp>注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
     <div class="card"><div class="rv-head"><h2>逐题解析</h2>${wrong.length ? `<label class="small"><input type="checkbox" id="only" checked> 只看错题（${wrong.length}）</label>` : ''}</div>
       <div id="rv">${items.map(itemHtml).join('')}</div></div>`, 'home');
   $app.querySelector('#again')?.addEventListener('click', async (e) => {
@@ -812,8 +828,8 @@ async function renderReview(sid) {
 // ───────── 错题本 ─────────
 const STATUS = { pending: '待订正', due: '该复习了', fixed: '已订正', mastered: '已掌握' };
 async function renderMistakes() {
-  if (isGuest()) return page(`<div class="hero"><h1>错题本</h1></div><div class="card"><h2>注册后可以使用</h2>
-    <a class="btn primary" href="/account/">免费注册</a></div>`, 'mistakes');
+  if (isGuest()) return page(`<div class="hero"><h1>错题本</h1></div><div class="card reg-wall"><div class="rw-blur" aria-hidden="true"><div class="rw-list">${[['第 12 题', '字音', '待订正'], ['第 37 题', '字形', '该复习了'], ['第 58 题', '成语', '待订正'], ['第 91 题', '古诗文', '已订正']].map(([a, b, c]) => `<div class="rw-row"><span class="rw-m w">✗</span>${a}<small>${b}</small><em>${c}</em></div>`).join('')}</div></div>
+    <div class="rw-over"><p>做错的题自动收进来，订正后隔几天再复习</p><a class="btn primary" href="/account/" data-regp>免费注册</a></div></div>`, 'mistakes');
   const r = await api(`/api/students/${enc(auth.student.id)}/mistakes?subject=chinese`);
   const list = r.mistakes;
   if (!list.length) return page('<div class="hero"><h1>错题本</h1></div><div class="card"><h2>还没有错题</h2><a class="btn primary" href="#/hanzi">去模考</a></div>', 'mistakes');

@@ -40,6 +40,13 @@ export const FEATURES = [
     { id: 'A2-6', name: '已绑定的账号不能再绑定手机号', run: async (c) => st(await c.post('/api/account/bind', { phone: c.newPhone(), password: 'abc123' })), expect: { guest: 'skip', user: 409, member: 409 } },
     { id: 'A2-7', name: '手机号格式校验', run: async (c) => st(await c.anon('/api/auth/register', 'POST', { phone: '123', password: 'abc123', nickname: 'x' })), expect: same(400) },
   ] },
+  { id: 'A4', area: '账号', name: '不先注册也能用：游客、选填昵称、匿名计数', cases: [
+    { id: 'A4-1', name: '注册时可以不填昵称（默认「同学」）', run: async (c) => { const r = await c.anon('/api/auth/register', 'POST', { phone: c.newPhone(), password: 'abc123' }); return `${r.status}/${r.data.student?.nickname}`; }, expect: same('200/同学') },
+    { id: 'A4-2', name: '不登录直接建游客', run: async (c) => { const r = await c.anon('/api/auth/guest', 'POST', {}); return `${r.status}/${!!r.data.token}/${r.data.guest}`; }, expect: same('200/true/true') },
+    { id: 'A4-3', name: '页面计数：认识的事件记 1 次，不认识的拒绝', run: async (c) => `${st(await c.anon('/api/ev', 'POST', { e: 'view_math' }))}/${st(await c.anon('/api/ev', 'POST', { e: 'hack' }))}`, expect: same('200/400') },
+    { id: 'A4-4', name: '后台统计：开始做题、交卷、注册都有计数', run: async (c) => { const r = await c.admin('/api/admin/events?days=1'); const n = (k) => r.data.rows.filter((x) => x.name === k).reduce((a, x) => a + x.n, 0); return `${r.status}/${n('view_math') > 0}/${n('guest_new') > 0}/${n('register') > 0}`; }, expect: same('200/true/true/true') },
+    { id: 'A4-5', name: '后台统计要管理员密钥', run: async (c) => st(await c.anon('/api/admin/events')), expect: same(403) },
+  ] },
   { id: 'A3', area: '账号', name: '孩子管理', cases: [
     { id: 'A3-1', name: '添加第二个孩子', run: async (c) => { const r = await c.post('/math/api/students', { nickname: '老二' }); c.kid2 = r.data.id; return st(r); }, expect: same(200) },
     { id: 'A3-2', name: '昵称不能为空', run: async (c) => st(await c.post('/math/api/students', { nickname: ' ' })), expect: same(400) },

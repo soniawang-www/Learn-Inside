@@ -329,6 +329,7 @@ const $=id=>document.getElementById(id);
 const store={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").matches,cur=document.documentElement.dataset.theme||(dark?"dark":"light"),nx=cur==="dark"?"light":"dark";document.documentElement.dataset.theme=nx;store.set("li-theme",nx)};
+{const d=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);if(store.get("li.ev.view_home")!==JSON.stringify(d)){store.set("li.ev.view_home",JSON.stringify(d));fetch("/api/ev",{method:"POST",headers:{"content-type":"application/json"},body:'{"e":"view_home"}',keepalive:true}).catch(()=>{})}}
 {const t=store.get("li-theme","");if(t)document.documentElement.dataset.theme=t}
 /* 继续上次：登录过的才显示。没做完的模考（本地记录，向服务器确认还没交卷、没过期）> 最近一次成绩；再加两科待订正的错题数 */
 window.__liResume=(async()=>{let tok=null,st=null;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null")}catch(e){}

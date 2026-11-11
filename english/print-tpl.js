@@ -25,9 +25,9 @@ const lockedNote = '<p class="locked">提纲和参考稿：开通英语会员或
 const paperPage = (x) => ({ page: true, html: `<div class="paper"><div class="meta">${esc(meta(x))} · ${limitOf(x.bank)} 词以内</div><h2 lang="en">${esc(x.stem)}</h2>${lines(24)}<div class="cnt">共 ______ 词</div></div>` });
 
 export const CSS = `
-.lp-sheet [lang=en]{font-family:Georgia,"Times New Roman",serif}
+.lp-sheet [lang=en]{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif}
 .lp-sheet .meta{font-size:12px;color:#5D6A65}
-.lp-sheet h2{font-family:Georgia,"Times New Roman",serif;font-size:19px;margin:4px 0 2px;line-height:1.4}
+.lp-sheet h2{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:19px;margin:4px 0 2px;line-height:1.4}
 .lp-sheet .qzh{font-size:13px;color:#33413D;margin:0 0 8px}
 .lp-sheet h4{font-size:12.5px;color:#5D6A65;margin:12px 0 4px;font-weight:600}
 .lp-sheet ol{margin:0;padding-left:1.4em;font-size:14px;line-height:1.7}
@@ -35,24 +35,24 @@ export const CSS = `
 .lp-sheet .sep{border-bottom:1px dashed #DCD7CA;height:10px}
 .lp-sheet .pa{margin:0 0 10px}
 .lp-sheet .pa i{display:inline-block;font-style:normal;font-size:11px;color:#1D5C4D;border:1px solid #1D5C4D;border-radius:3px;padding:0 4px;margin-right:6px;vertical-align:2px;font-family:-apple-system,"PingFang SC",sans-serif}
-.lp-sheet .pa .en{font-family:Georgia,"Times New Roman",serif;font-size:15.5px;line-height:1.75}
+.lp-sheet .pa .en{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:15.5px;line-height:1.75}
 .lp-sheet .pa .zh{font-size:13px;color:#4A5753;line-height:1.6;margin-top:2px}
 .lp-sheet .hole{display:inline-block;min-width:4em;border-bottom:1px solid #666}
 .lp-sheet .ul{color:#999;letter-spacing:1px}
 .lp-sheet .wl{height:30px;border-bottom:1px solid #C9C3B6}
 .lp-sheet .phr{font-size:13px;line-height:1.8}
 .lp-sheet .phr span{display:inline-block;margin-right:14px}
-.lp-sheet .phr em{font-family:Georgia,"Times New Roman",serif;font-style:normal;font-weight:600}
+.lp-sheet .phr em{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-style:normal;font-weight:600}
 .lp-sheet .locked{font-size:13px;color:#B04A6F;margin:8px 0 0}
 .lp-sheet .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px}
 .lp-sheet .tc{border:1.5px dashed #9C9586;margin:0 -1.5px -1.5px 0;padding:18px 20px;min-height:200px;display:flex;flex-direction:column;gap:8px}
-.lp-sheet .tc .q{font-family:Georgia,"Times New Roman",serif;font-size:19px;line-height:1.4;margin:0}
+.lp-sheet .tc .q{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:19px;line-height:1.4;margin:0}
 .lp-sheet .tc .zh{font-size:13.5px;color:#33413D;margin:0}
 .lp-sheet .tc .tip{font-size:12px;color:#5D6A65;margin:auto 0 0;padding-top:6px;border-top:1px dotted #DCD7CA}
 .lp-sheet .mk{border:1.5px solid #1E2B28;border-radius:6px;padding:12px 16px 14px;margin-top:14px}
 .lp-sheet .mk .rule{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#5D6A65;border-bottom:1px dotted #DCD7CA;padding-bottom:6px;margin-bottom:8px}
 .lp-sheet .mk .rule b{color:#1D5C4D}
-.lp-sheet .mk .q{font-family:Georgia,"Times New Roman",serif;font-size:19px;line-height:1.4;margin:0 0 2px}
+.lp-sheet .mk .q{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:19px;line-height:1.4;margin:0 0 2px}
 .lp-sheet .mk .zh{font-size:13px;color:#33413D;margin:0 0 4px}
 .lp-sheet .mk .wl{height:28px}
 .lp-sheet .mk .tm{display:flex;gap:22px;font-size:12px;color:#5D6A65;margin-top:8px}
@@ -62,15 +62,15 @@ export const CSS = `
 .lp-sheet .ah{font-size:18px;font-weight:800;margin:6px 0 4px;color:#1E2B28}
 .lp-sheet .an{padding:8px 0;border-bottom:1px dashed #DCD7CA}
 .lp-sheet .an b{font-size:13px}
-.lp-sheet .an p{font-family:Georgia,"Times New Roman",serif;font-size:13.5px;line-height:1.6;margin:2px 0}
+.lp-sheet .an p{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:13.5px;line-height:1.6;margin:2px 0}
 .lp-sheet .pg h3{font-size:15px;margin:10px 0 6px;color:#1D5C4D}
 .lp-sheet .pg table{width:100%;border-collapse:collapse;font-size:14px}
 .lp-sheet .pg td{border-bottom:1px solid #E3E0D8;padding:4px 6px}
-.lp-sheet .pg td:first-child{font-family:Georgia,"Times New Roman",serif;width:55%}
+.lp-sheet .pg td:first-child{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;width:55%}
 .lp-sheet .qt{margin:0 0 12px}
 .lp-sheet .qt b{font-size:12px;color:#5D6A65}
 .lp-sheet .qt p{margin:2px 0}
-.lp-sheet .qt .en{font-family:Georgia,"Times New Roman",serif;font-size:15.5px}
+.lp-sheet .qt .en{font-family:Georgia,"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:15.5px}
 `;
 
 // ───────── 各版式：内容拆成一块一块（分页时块不拆开） ─────────
