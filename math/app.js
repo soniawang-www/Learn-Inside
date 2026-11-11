@@ -1038,7 +1038,7 @@ async function renderReview(sid) {
   if (!subs.includes(sid)) { subs.push(sid); store.set('li.subs', subs.slice(-20)); }
   const scanned = paper && store.get('li.scanned');
   const nudge = isGuest() && !(Date.now() - (store.get('li.nudgeOff') || 0) < 7 * 864e5) ? `<div class="reg-nudge">
-    <div><b>${scanned ? '注册后，手机和电脑的记录合在一起' : '做题记录现在只存在这台设备上'}</b><span>${scanned ? '在电脑上用同一个手机号登录，扫码回填的成绩和错题都能看到' : '注册后换设备也能接着看，错题自动收进错题本'}</span></div>
+    <div><b>${scanned ? '注册后，手机和电脑的记录合在一起' : '做题记录现在只存在这台设备上'}</b><span>${scanned ? '在电脑上用同一个手机号登录，扫码回填的成绩和错题都能看到' : '注册后换设备也能接着看，还送 10 次互动解析'}</span></div>
     <a class="btn primary" href="#/account" data-regp>免费注册</a><button class="x" aria-label="关闭">×</button></div>` : '';
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}</p></div>

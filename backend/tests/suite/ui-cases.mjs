@@ -226,7 +226,7 @@ export const UI_FEATURES = [
   { id: 'U4', area: '界面', name: '会员内容的锁', cases: [
     { id: 'U4-1', name: '知识项页「开始突击」是否带锁', run: async (p, c) => { await c.go('#/kp/cnt.perm'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('[data-drill] .ic-lock').count()) > 0 ? 'locked' : 'open'; }, expect: { guest: '注册提示', user: 'locked', member: 'open' } },
     { id: 'U4-2', name: '复盘页互动解析按钮是否带锁', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await p.locator('[data-adv]').first().locator('.ic-lock').count()) > 0 ? 'locked' : 'open'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
-    { id: 'U4-3', name: '复盘页（有错题）是否提示注册礼', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await p.locator('.rev-side .gift').count()) > 0; }, expect: { guest: true, user: false, member: false } },
+    { id: 'U4-3', name: '复盘页顶部注册提示里有注册礼', run: async (p, c) => { await c.go(`#/review/${c.session}`); return (await c.text('.reg-nudge')).includes('送 10 次'); }, expect: { guest: true, user: false, member: false } },
     { id: 'U4-4', name: '点锁住的互动解析', run: async (p, c) => {
       await c.go(`#/review/${c.session}`); await p.locator('[data-adv]').first().click(); await p.waitForTimeout(1200);
       if (await p.locator('.lp-overlay').count()) return '直接打开';
@@ -260,7 +260,7 @@ export const UI_FEATURES = [
     { id: 'U5-8', name: '手机上从复盘页点注册：一进账号页就看到注册表单', run: async (p, c) => {
       await p.setViewportSize({ width: 390, height: 844 }); await c.go(`#/review/${c.session}`);
       await p.mouse.wheel(0, 3000); await p.waitForTimeout(300);
-      const link = p.locator('.rev-side a[href="#/account"]').first();
+      const link = p.locator('.reg-nudge a[href="#/account"]').first();
       if (!(await link.count())) { await p.setViewportSize({ width: 1366, height: 860 }); return 'no-link'; }
       await link.click(); await p.waitForTimeout(1200);
       const box = await p.locator('#bind').boundingBox(); await p.setViewportSize({ width: 1366, height: 860 });
