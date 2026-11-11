@@ -224,11 +224,16 @@ async function router() {
   try {
     const printTok = new URLSearchParams(location.search).get('print');
     if (printTok) return await renderPrintLink(printTok);
-    if (!auth.token) return renderJoin();
+    if (!auth.token) { // 没登录：直接建一个游客用起来；登录过的设备、账号页、#/join 才给登录表单
+      if (SECTION === 'account' || page === 'join' || store.get('li.hadAccount')) return renderJoin();
+      await autoGuest();
+    }
+    if (page === 'join') { location.replace('#/'); return; }
     if (SECTION === 'account') return await (page === 'account' && id === 'paid' ? renderPaid(sub) : renderAccount());
     if (page === 'account' && id !== 'paid') { location.replace(ACCOUNT_URL); return; } // 账号是全站的，在 /account/
     if (page === 'exam') return await renderExam(id);
     if (page === 'review') return await renderReview(id);
+    if (page === 'fill') { ev('scan_fill'); store.set('li.scanned', true); }
     if (page === 'fill') return await startFill({ id: decodeURIComponent(id || '') }); // 试卷页脚二维码：扫码回填答案
     if (page === 'kp') return await renderKp(id);
     if (page === 'problem') return await renderProblem(id);
@@ -244,6 +249,13 @@ async function router() {
     $app.innerHTML = `${topnav()}<main class="page"><div class="card"><p class="error-msg">${esc(e.message)}</p><a href="#/">返回首页</a></div></main>`;
   } finally { clearTimeout(dim); $app.classList.remove('page-wait'); loaded(); }
 }
+// 匿名计数：每台设备每天每种事件只报一次，只记次数，不记是谁
+function ev(e) {
+  const d = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), k = 'li.ev.' + e;
+  if (store.get(k) === d) return; store.set(k, d);
+  fetch('/api/ev', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ e }), keepalive: true }).catch(() => {});
+}
+if (SECTION === 'math') ev('view_math');
 window.addEventListener('hashchange', router);
 // 从支付宝点「返回」时浏览器会恢复旧页面（按钮停在点过的样子）：重新加载一次，拿最新的订单状态
 window.addEventListener('pageshow', (e) => { if (e.persisted) { document.querySelector('.pay-overlay')?.remove(); router(); } });
@@ -264,20 +276,35 @@ const GIFT = () => `<div class="gift"><span class="gift-n"><span>10<small>次</s
 // 游客只能考试、看对错和答案；错题本、知识图谱、知识项要注册
 const isGuest = () => !!lastMe?.guest;
 async function ensureMe() { if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {} return lastMe; }
-const REG_FEATS = `<ul class="reg-feats"><li><b>错题本</b></li><li><b>知识图谱</b></li><li><b>知识项突击</b></li></ul>`;
-function regWall(title) {
-  $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1></div></header>
-    <div class="cols"><div class="col-main"><div class="card reg-wall"><h2>注册后可以使用</h2>${REG_FEATS}
-      <a class="btn primary" href="#/account">免费注册</a></div></div>
-    <aside class="col-side"><a class="card gift-link" href="#/account">${GIFT()}</a></aside></div></main>`;
+// 游客占位：模糊的示例 + 一句话 + 注册按钮（语文错题本也用同一份样式）
+const RW_LINE = { 错题本: '做错的题自动收进来，按知识项订正、隔几天再复习', 知识图谱: '每做一套，就能看到哪些知识项强、哪些弱、先补什么', 知识项: '每个知识项的掌握情况，和考过它的真题' };
+function rwSample(title) {
+  const lv = ['ok', 'weak', 'strong', 'weak', 'ok', 'strong', 'ok', 'strong', 'weak', 'ok', 'strong', 'ok', 'strong', 'weak', 'ok', 'strong', 'ok', 'weak'];
+  const kp = ['分数运算', '比和比例', '行程问题', '面积计算', '数字谜', '计数', '概率', '整除', '勾股定理', '平均数', '方程', '周期问题', '质数', '相似', '圆', '工程问题', '排列', '数列'];
+  if (title === '知识图谱') return `<div class="rw-grid">${kp.map((n, i) => `<span class="rw-chip lv-${lv[i]}"><i class="kg-sw lv-${lv[i]}"></i>${n}</span>`).join('')}</div>`;
+  if (title === '知识项') return `<div class="rw-kp"><b>比和比例</b><div class="rw-bar"><i style="width:58%"></i></div>${['2024 第 12 题', '2023 第 7 题', '2022 第 15 题'].map((t, i) => `<div class="rw-row"><span class="rw-m ${i ? 'r' : 'w'}">${i ? '✓' : '✗'}</span>${t}<em>${i ? '已掌握' : '待订正'}</em></div>`).join('')}</div>`;
+  return `<div class="rw-list">${[['第 12 题', '比和比例', '待订正'], ['第 18 题', '行程问题', '该复习了'], ['第 7 题', '面积计算', '待订正'], ['第 21 题', '计数', '已订正']].map(([a, b, c]) => `<div class="rw-row"><span class="rw-m w">✗</span>${a}<small>${b}</small><em>${c}</em></div>`).join('')}</div>`;
 }
+const regPreview = (title, href = '#/account') => `<div class="card reg-wall"><div class="rw-blur" aria-hidden="true">${rwSample(title)}</div>
+  <div class="rw-over"><p>${esc(RW_LINE[title] || '')}</p><a class="btn primary" href="${href}" data-regp>免费注册</a></div></div>`;
+function regWall(title) {
+  $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1></div></header>${regPreview(title)}</main>`;
+}
+// 点注册提示：计数，注册完回到原来的页面
+document.addEventListener('click', (e) => { if (e.target.closest('[data-regp]')) { ev('reg_prompt'); store.set('li.back', location.pathname + location.hash); } });
 
 // ───────── 登录 / 注册（常见做法：左边介绍、右边表单；手机上只有表单） ─────────
 let joinTab = store.get('li.hadAccount') ? 'login' : 'register';
 let joinPrefill = null;
 // 从别的板块（语文）跳来登录的，登录 / 注册 / 游客进入后回到原来的页面
-function goBack() { const b = store.get('li.back'); if (!b) return false; store.del('li.back'); if (!/^\/(chinese|math)\//.test(b)) return false; location.href = b; return true; }
+function goBack() { const b = store.get('li.back'); if (!b) return false; store.del('li.back'); if (!/^\/(chinese|math|english)\//.test(b)) return false; location.href = b; return true; }
+// 静默建游客：同时打开几个页面也只建一个
+let guestP = null;
+function autoGuest() {
+  return (guestP ||= api('/api/auth/guest', { method: 'POST', body: {} }).then((r) => { auth.save(r.token, r.student); }).finally(() => { guestP = null; }));
+}
 function renderJoin() {
+  ev('view_join');
   const reg = joinTab === 'register';
   $app.innerHTML = `${topnav()}<div class="auth-wrap">
     <section class="auth-intro">
@@ -300,7 +327,7 @@ function renderJoin() {
         <label class="field"><span>${reg ? '设置密码' : '密码'}</span>
           <div class="input-group"><input type="password" name="password" placeholder="${reg ? '至少 6 位' : '请输入密码'}" autocomplete="${reg ? 'new-password' : 'current-password'}"><button type="button" class="eye" aria-label="显示密码">显示</button></div></label>
         ${reg ? '<label class="field"><span>再输一遍密码</span><input type="password" name="password2" placeholder="和上面一样" autocomplete="new-password"></label>' : ''}
-        ${reg ? '<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" placeholder="例如：小桐（以后可以再加孩子）"></label>' : ''}
+        ${reg ? '<label class="field"><span>孩子的昵称（可不填）</span><input type="text" name="nickname" maxlength="20" placeholder="例如：小桐"></label>' : ''}
         <div class="error-msg" id="err" role="alert"></div>
         <button class="btn primary block" type="submit">${reg ? '注册' : '登录'}</button>
       </form>
@@ -331,7 +358,6 @@ function renderJoin() {
     if (!f.password || (reg && f.password.length < 6)) return (err.textContent = reg ? '密码至少 6 位' : '请输入密码');
     if (reg && f.password !== f.password2) return (err.textContent = '两次输入的密码不一样，请再检查一下');
     delete f.password2;
-    if (reg && !String(f.nickname || '').trim()) return (err.textContent = '请填写孩子的昵称');
     const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; err.textContent = '';
     try {
       const r = await api(`/api/auth/${reg ? 'register' : 'login'}`, { method: 'POST', body: f });
@@ -369,7 +395,7 @@ async function renderAccount() {
           <label class="field"><span>设置密码</span>
           <div class="input-group"><input type="password" name="password" placeholder="至少 6 位" autocomplete="new-password"><button type="button" class="eye" aria-label="显示密码">显示</button></div></label>
           <label class="field"><span>再输一遍密码</span><input type="password" name="password2" placeholder="和上面一样" autocomplete="new-password"></label>
-          ${a.guest ? `<label class="field"><span>孩子的昵称</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
+          ${a.guest ? `<label class="field"><span>孩子的昵称（可不填）</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
           <button class="btn primary">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
 `}
       <p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>
@@ -433,9 +459,11 @@ async function renderAccount() {
     catch (err) { modal(`<h2>没能取消</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
   });
   form('bind', '/api/account/bind', 'berr', async (r) => {
+    store.set('li.hadAccount', true);
     const me = await api('/math/api/me'); lastMe = me;
     const s = me.students.find((x) => x.id === auth.student?.id) || me.students[0]; if (s) auth.setStudent(s);
-    if (r.credits_added) modal(`<div class="support"><div class="gift-big">${icon('gift', 44)}</div><h2>注册成功，已送你 ${r.credits_added} 次互动解析</h2></div><div class="actions" style="justify-content:center"><button class="btn primary" data-close>好的</button></div>`);
+    if (r.credits_added) modal(`<div class="support"><div class="gift-big">${icon('gift', 44)}</div><h2>注册成功，已送你 ${r.credits_added} 次互动解析</h2></div><div class="actions" style="justify-content:center"><button class="btn primary" data-close>${store.get('li.back') ? '回去接着做' : '好的'}</button></div>`, (m) => m.querySelector('[data-close]').addEventListener('click', () => goBack()));
+    else if (goBack()) return;
     renderAccount();
   });
   form('pw', '/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
@@ -560,8 +588,16 @@ async function renderDashboard() {
     const d = await api(`/math/api/sessions/${enc(k.slice(7))}`).catch(() => null);
     if (d && !d.session.submitted && d.session.deadline_at > d.session.server_now) { live = { sid: d.session.id, title: d.exam.title }; break; }
   }
+  // 一步开始：没有做到一半的卷子时，直接给一套最新的、还没做过的真题（练习模式，不弹说明）
+  let quick = null;
+  if (!live && startFam) {
+    const ex = await apiList(`/math/api/exams?student=${st.id}&family=${enc(startFam.id)}`).catch(() => []);
+    const gr = contestGrade[startFam.id], pool = ex.filter((e) => !gr || !e.grade || e.grade === gr);
+    quick = pool.find((e) => e.last_score === null) || pool[0] || null;
+  }
   const strip = [
     live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
+    quick && `<a class="cont-go" href="javascript:" data-quick="${esc(quick.id)}"><b>开始做题</b><span>${esc(quick.title)} · ${quick.problem_count} 题 · 练习</span><i>›</i></a>`,
     pending + due ? `<a class="cont-go alt" href="#/mistakes"><b>${pending + due} 道错题</b><span>${pending ? `${pending} 道待订正` : ''}${pending && due ? '，' : ''}${due ? `${due} 道该复习` : ''}</span><i>›</i></a>` : '',
   ].filter(Boolean);
   const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
@@ -592,6 +628,11 @@ async function renderDashboard() {
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>还没绑定手机号</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
+  $app.querySelector('[data-quick]')?.addEventListener('click', async (e) => {
+    ev('quick_start');
+    const r = await api('/math/api/sessions', { method: 'POST', body: { exam_id: e.currentTarget.dataset.quick, student_id: st.id, mode: 'practice' } });
+    location.hash = `#/exam/${r.session.id}`;
+  });
 }
 
 // ───────── 考试列表 ─────────
@@ -992,6 +1033,13 @@ async function renderReview(sid) {
   const paper = r.session.mode === 'paper';
   const wrong = r.items.filter((i) => !i.correct);
   const en = hasEn(r.items);
+  // 游客：顶部一条注册提示（可以关，关了一周内不再出现）；记下交过的卷子数，到第 3 套提醒一次
+  const subs = store.get('li.subs', []) || [];
+  if (!subs.includes(sid)) { subs.push(sid); store.set('li.subs', subs.slice(-20)); }
+  const scanned = paper && store.get('li.scanned');
+  const nudge = isGuest() && !(Date.now() - (store.get('li.nudgeOff') || 0) < 7 * 864e5) ? `<div class="reg-nudge">
+    <div><b>${scanned ? '注册后，手机和电脑的记录合在一起' : '做题记录现在只存在这台设备上'}</b><span>${scanned ? '在电脑上用同一个手机号登录，扫码回填的成绩和错题都能看到' : '注册后换设备也能接着看，错题自动收进错题本'}</span></div>
+    <a class="btn primary" href="#/account" data-regp>免费注册</a><button class="x" aria-label="关闭">×</button></div>` : '';
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}</p></div>
       ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
@@ -999,11 +1047,16 @@ async function renderReview(sid) {
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
-      ${wrong.length && lastMe?.guest ? `<a class="gift-link" href="#/account">${GIFT()}</a>` : ''}
-      <div class="rev-btns">${isGuest() ? '<a class="btn primary" href="#/account">免费注册</a><a class="btn" href="#/">再做一套</a>' : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
+      <div class="rev-btns">${isGuest() ? `${nudge ? '' : '<a class="btn primary" href="#/account" data-regp>免费注册</a>'}<a class="btn" href="#/">再做一套</a>` : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>
-    <div class="col-main">${r.items.map(itemView).join('')}</div></div>
+    <div class="col-main">${nudge}${r.items.map(itemView).join('')}</div></div>
   </main>`;
+  $app.querySelector('.reg-nudge .x')?.addEventListener('click', (e) => { store.set('li.nudgeOff', Date.now()); e.currentTarget.parentElement.remove(); });
+  if (isGuest() && subs.length >= 3 && !store.get('li.reg3')) { // 做到第 3 套：提醒一次
+    store.set('li.reg3', true);
+    modal(`<h2>已经做了 ${subs.length} 套了</h2><p>这些成绩和错题现在只存在这台设备上。注册后换设备也不会丢，还送 10 次互动解析。</p>
+      <div class="actions"><button class="btn" data-close>以后再说</button><a class="btn primary" href="#/account" data-regp>免费注册</a></div>`);
+  }
   $app.querySelectorAll('[data-jump]').forEach((a) => (a.onclick = () => { const d = document.getElementById('q' + a.dataset.jump); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
   typeset($app);
 
@@ -1295,7 +1348,7 @@ async function renderProblem(id) {
   if (p.advanced) paintThumbs($app, { [p.problem_id]: p.advanced });
   onLang($app, router);
   $app.querySelector('#try').onclick = async () => {
-    if (isGuest()) return modal(`<h2>注册后可以单题练习</h2>${REG_FEATS}<div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account">免费注册</a></div>`);
+    if (isGuest()) return modal(`<h2>注册后可以单题练习</h2><p>做错的题会收进错题本，按知识项订正。</p><div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-regp>免费注册</a></div>`);
     const r = await api('/math/api/sessions', { method: 'POST', body: { problem_ids: [p.problem_id], student_id: auth.student.id } });
     location.hash = `#/exam/${r.session.id}`;
   };

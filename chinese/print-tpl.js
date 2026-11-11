@@ -7,9 +7,9 @@ const by = (p) => `${p.dynasty ? `〔${esc(p.dynasty)}〕` : ''}${esc(p.author |
 
 export const CSS = `
 .lp-sheet .ph{text-align:center;padding-top:16px}
-.lp-sheet .ph h2{margin:0;font-family:"Songti SC","STSong","Noto Serif SC","Source Han Serif SC","SimSun",serif;font-size:22px;letter-spacing:.06em}
+.lp-sheet .ph h2{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:22px;letter-spacing:.06em}
 .lp-sheet .ph .by{color:#5D6A65;font-size:13px;margin:4px 0 10px}
-.lp-sheet .ln{text-align:center;font-family:"Songti SC","STSong","Noto Serif SC","Source Han Serif SC","SimSun",serif;font-size:20px;line-height:1.9;letter-spacing:.08em}
+.lp-sheet .ln{text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:20px;line-height:1.9;letter-spacing:.08em}
 .lp-sheet .pl{text-align:center;font-size:12.5px;color:#5D6A65;line-height:1.5;margin:-2px 0 6px}
 .lp-sheet .gap{height:10px}
 .lp-sheet .notes{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;font-size:12.5px;margin:10px auto 0;max-width:560px}
@@ -21,13 +21,13 @@ export const CSS = `
 .lp-sheet .blank .w{display:inline-block;width:1.05em;border-bottom:1px solid #888;color:transparent;margin:0 .5px}
 .lp-sheet .hn{text-align:center;font-size:13px;color:#5D6A65;padding-top:16px}
 .lp-sheet .hc{display:flex;justify-content:center;gap:14px;margin:8px 0 12px}
-.lp-sheet .hc span{display:grid;place-items:center;width:46px;height:46px;border:1.5px solid #1E2B28;font-family:"Songti SC","STSong","Noto Serif SC",serif;font-size:27px}
+.lp-sheet .hc span{display:grid;place-items:center;width:46px;height:46px;border:1.5px solid #1E2B28;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:27px}
 .lp-sheet .wl{height:36px;border-bottom:1px solid #A9A396;margin:0 40px}
 .lp-sheet .ah{font-size:18px;font-weight:800;margin:6px 0 4px}
 .lp-sheet .a{font-size:13.5px;line-height:1.8;margin:0;padding:6px 0;border-bottom:1px dashed #DCD7CA}
-.lp-sheet .a b{font-family:"Songti SC","STSong","Noto Serif SC",serif}
+.lp-sheet .a b{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif}
 .lp-sheet .card{padding:14px 0 16px;border-bottom:1px dashed #DCD7CA}
-.lp-sheet .card h2{font-family:"Songti SC","STSong","Noto Serif SC",serif;font-size:22px;margin:0 0 2px}
+.lp-sheet .card h2{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:22px;margin:0 0 2px}
 .lp-sheet .card .by{color:#5D6A65;font-size:13px;margin-bottom:8px}
 .lp-sheet .card dl{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px;margin:0 0 8px;font-size:14px}
 .lp-sheet .card dt{color:#5D6A65}
@@ -35,7 +35,7 @@ export const CSS = `
 .lp-sheet .card h4{font-size:13px;color:#5D6A65;margin:10px 0 4px;font-weight:600}
 .lp-sheet .card p,.lp-sheet .card li{font-size:14px;line-height:1.7;margin:0}
 .lp-sheet .card ul{margin:0;padding-left:1.2em}
-.lp-sheet .card .lines li{font-family:"Songti SC","STSong","Noto Serif SC",serif}
+.lp-sheet .card .lines li{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif}
 .lp-sheet .card table{width:100%;border-collapse:collapse;font-size:13.5px}
 .lp-sheet .card th,.lp-sheet .card td{border:1px solid #DCD7CA;padding:5px 8px;text-align:left;vertical-align:top;line-height:1.6}
 .lp-sheet .card th{width:28%;font-weight:600;background:#F6F4EE}
@@ -168,7 +168,7 @@ export const EXAM_CSS = `
 .lp-sheet .sec{font-size:16px;margin:14px 0 4px;padding-top:4px}
 .lp-sheet .sec b{font-weight:800}
 .lp-sheet .sec span{font-size:13px;color:#5D6A65}
-.lp-sheet .mat{margin:8px 0 4px;padding:10px 14px;background:#F6F4EE;border-left:3px solid #1D5C4D;font-family:"Songti SC","STSong","Noto Serif SC",serif;font-size:15px;line-height:1.9}
+.lp-sheet .mat{margin:8px 0 4px;padding:10px 14px;background:#F6F4EE;border-left:3px solid #1D5C4D;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",sans-serif;font-size:15px;line-height:1.9}
 .lp-sheet .q{display:flex;gap:6px;padding:7px 0}
 .lp-sheet .q .n{flex:none;min-width:2.2em;font-weight:700;color:#1D5C4D}
 .lp-sheet .q .b{flex:1;min-width:0}

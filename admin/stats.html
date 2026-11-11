@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>访问统计 · learn-inside</title>
+  <link rel="stylesheet" href="/math/style.css">
+  <style>
+    .tw { overflow-x: auto; }
+    table.ev { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+    table.ev th, table.ev td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    table.ev th:first-child, table.ev td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+    table.ev tr.sum td { font-weight: 700; }
+    table.ev tr.grp td { background: var(--surface-2, transparent); color: var(--muted); font-size: 12px; text-align: left; padding-top: 14px; }
+    .rate { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="page" style="max-width:1000px">
+    <h1>访问统计</h1>
+    <div class="card row" style="flex-wrap:wrap;gap:10px">
+      <label class="field" style="flex:1;min-width:220px;margin:0"><span>管理员密钥（ADMIN_KEY）</span><input type="password" id="key" autocomplete="off"></label>
+      <label class="field" style="margin:0"><span>天数</span><select id="days"><option>7</option><option selected>14</option><option>30</option><option>60</option></select></label>
+    </div>
+    <div class="card"><p class="small muted">页面访问按「每台设备每天一次」计；做题、交卷、注册按次数计。不记录是谁。</p><div class="tw" id="out"></div></div>
+    <p class="small muted"><a href="./">← 管理后台</a></p>
+  </div>
+<script>
+const $ = (id) => document.getElementById(id);
+const GROUPS = [
+  ['进来', ['view_home', 'view_math', 'view_chinese', 'view_english', 'guest_new', 'quick_start']],
+  ['做题', ['first_start', 'first_submit', 'start', 'submit', 'scan_fill']],
+  ['注册', ['view_join', 'reg_prompt', 'register_bind', 'register']],
+];
+async function load() {
+  const key = $('key').value.trim(); if (!key) return;
+  $('out').innerHTML = '<p class="small muted">加载中…</p>';
+  try {
+    const r = await fetch('/api/admin/events?days=' + $('days').value, { headers: { 'x-admin-key': key } });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || '加载失败');
+    const days = [...new Set(j.rows.map((x) => x.day))].sort().reverse();
+    const v = {}; j.rows.forEach((x) => ((v[x.name] ||= {})[x.day] = x.n));
+    const tot = (n) => days.reduce((a, d) => a + (v[n]?.[d] || 0), 0);
+    const rate = (a, b) => (tot(b) ? ` <span class="rate">${Math.round((tot(a) / tot(b)) * 100)}%</span>` : '');
+    const extra = { first_submit: ['first_start'], register_bind: ['guest_new'] };
+    let h = `<table class="ev"><tr><th>事件</th><th>合计</th>${days.map((d) => `<th>${d.slice(5)}</th>`).join('')}</tr>`;
+    for (const [g, ns] of GROUPS) {
+      h += `<tr class="grp"><td colspan="${days.length + 2}">${g}</td></tr>`;
+      for (const n of ns) h += `<tr><td>${j.names[n] || n}</td><td><b>${tot(n)}</b>${extra[n] ? rate(n, extra[n][0]) : ''}</td>${days.map((d) => `<td>${v[n]?.[d] || ''}</td>`).join('')}</tr>`;
+    }
+    $('out').innerHTML = days.length ? h + '</table><p class="small muted" style="margin-top:8px">百分比：第一次交卷 ÷ 第一次开始做题；游客注册 ÷ 自动建游客。</p>' : '<p class="small muted">还没有数据。</p>';
+  } catch (e) { $('out').innerHTML = `<p class="error-msg">${e.message}</p>`; }
+}
+try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
+$('key').onchange = () => { try { sessionStorage.setItem('amc8.adminKey', $('key').value.trim()); } catch {} load(); };
+$('days').onchange = load;
+load();
+</script>
+</body>
+</html>

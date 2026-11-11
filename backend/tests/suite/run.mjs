@@ -119,7 +119,7 @@ if (WITH_UI) {
   if (process.env.PAGES_FILTER) { const re = new RegExp(process.env.PAGES_FILTER); PAGES.splice(0, PAGES.length, ...PAGES.filter((x) => re.test(x))); }
   for (const role of Object.keys(ROLES)) {
     const c = await makeContext(role, outsider);
-    const login = async (pg) => { await pg.goto(BASE + '/math/'); await pg.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: ROLES[role] }]); };
+    const login = async (pg) => { await pg.goto(BASE + '/admin/'); await pg.evaluate(([t, s]) => { localStorage.setItem('li.token', JSON.stringify(t)); localStorage.setItem('li.student', JSON.stringify(s)); }, [c.T, { id: c.sid, nickname: ROLES[role] }]); };
     const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
     const errs = []; page.on('pageerror', (e) => errs.push(e.message)); c.errs = errs;
     await login(page);

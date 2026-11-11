@@ -9,6 +9,7 @@ import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 import { registerBilling, SAMPLES } from './billing.js';
 import { judge, normalizeInput } from './answers.js';
 import { registerEnglish, englishPrintItems } from './english.js';
+import { registerEvents, bump, evReport } from './events.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
@@ -84,6 +85,13 @@ const route = (method, pattern, handler) => {
 
 const billing = registerBilling({ route, json, HttpError, body, requireAccount, uid, now });
 registerEnglish({ route, json, HttpError, body, requireAccount, requireStudent, billing, uid, now });
+registerEvents(route, { json, body, HttpError });
+// 后台：匿名事件计数（新用户在哪一步走掉）
+route('GET', '/api/admin/events', async (req, env, _p, url) => {
+  const key = req.headers.get('x-admin-key');
+  if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
+  return json(await evReport(env, Math.min(60, Math.max(1, Number(url.searchParams.get('days')) || 14))));
+});
 
 // 加入试用：邀请码 + 孩子昵称 → 返回 token
 route('POST', '/api/auth/join', async (req, env) => {
@@ -149,6 +157,8 @@ route('POST', '/api/sessions', async (req, env) => {
   const acc = await requireAccount(req, env);
   const { exam_id, student_id, mode = 'exam', kp_id, problem_ids, purpose } = await body(req);
   await requireStudent(env, acc, student_id);
+  const firstEver = !(await env.DB.prepare('SELECT 1 FROM exam_session es JOIN student st ON st.id = es.student_id WHERE st.account_id = ? LIMIT 1').bind(acc.id).first());
+  const counted = async () => { await bump(env, 'start'); if (firstEver) await bump(env, 'first_start'); };
   // 英语题库是练习用的，不能当试卷开考
   if ([exam_id, ...(Array.isArray(problem_ids) ? problem_ids : [])].some((x) => familyOf(x ?? '')?.subject === 'english')) throw new HttpError(400, '英语题库不能开考');
   const id = uid();
@@ -178,6 +188,7 @@ route('POST', '/api/sessions', async (req, env) => {
       .bind(id, student_id, t, t + ids.length * (subjectOf(ids[0]) === 'chinese' ? 30 : 180) * 1000, title, kp_id ?? null, subjectOf(ids[0]))];
     ids.forEach((pid, i) => stmts.push(env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
     await env.DB.batch(stmts);
+    await counted();
     return json(await sessionPayload(env, id));
   }
   if (!['exam', 'practice', 'paper'].includes(mode)) throw new HttpError(400, 'mode 只能是 exam、practice 或 paper');
@@ -189,6 +200,7 @@ route('POST', '/api/sessions', async (req, env) => {
     .prepare('INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, subject) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .bind(id, student_id, exam_id, mode, t, t + (mode === 'paper' ? PAPER_DAYS * 86400 : exam.duration_sec) * 1000, subjectOf(exam_id))
     .run();
+  await counted();
   return json(await sessionPayload(env, id));
 });
 
@@ -462,6 +474,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const acc = await requireAccount(req, env);
   const s = await loadSession(env, acc, p.id);
   if (s.submitted_at) return json({ already: true, ...(await reviewPayload(env, acc, s.id)) });
+  const firstSubmit = !(await env.DB.prepare('SELECT 1 FROM exam_session es JOIN student st ON st.id = es.student_id WHERE st.account_id = ? AND es.submitted_at IS NOT NULL LIMIT 1').bind(acc.id).first());
   const { answers = {}, times = {}, flags = {}, used_min } = await body(req);
   const t = now();
   // 纸笔卷：用时是孩子自己填的分钟数，记成 started_at = 交卷时间 − 用时；没填就记成 0（复盘不显示用时）
@@ -505,6 +518,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
     : env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ?, started_at = ? WHERE id = ?').bind(t, score, paperStart, s.id));
   await env.DB.batch(stmts);
   await recomputeMastery(env.DB, s.student_id);
+  await bump(env, 'submit'); if (firstSubmit) await bump(env, 'first_submit');
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
 });
 

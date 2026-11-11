@@ -415,3 +415,38 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 /* 标题右边放「打印」 */
 .hero-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .hero-row .lp-entry { flex: none; margin-top: 4px; }
+
+/* 游客占位：模糊的示例上面放一句话和注册按钮 */
+.card.reg-wall { position: relative; overflow: hidden; padding: 0; min-height: 240px; }
+.rw-blur { padding: 18px; filter: blur(2px); pointer-events: none; user-select: none; }
+.rw-over { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; text-align: center;
+  background: color-mix(in srgb, var(--surface) 35%, transparent); }
+.rw-over p { margin: 0; max-width: 24em; text-wrap: balance; padding: 10px 16px; border-radius: 12px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 12px rgb(0 0 0 / .06); font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.6; }
+.rw-over .btn.primary { justify-self: auto; padding-left: 28px; padding-right: 28px; }
+.rw-list, .rw-kp { display: grid; gap: 10px; }
+.rw-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
+.rw-row small { color: var(--muted); }
+.rw-row em { margin-left: auto; font-style: normal; font-size: 12px; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.rw-m { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: #fff; background: var(--bad); flex: none; }
+.rw-m.r { background: var(--ok); }
+.rw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.rw-chip { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
+.rw-kp > b { font-size: 18px; }
+.rw-bar { height: 10px; border-radius: 6px; background: var(--border); overflow: hidden; }
+.rw-bar i { display: block; height: 100%; background: var(--ok); }
+
+/* 复盘页顶部：游客注册提示（可关） */
+.reg-nudge { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 14px; border-radius: 12px;
+  background: var(--accent-soft); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
+.reg-nudge > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.reg-nudge b { font-size: 15px; color: var(--text); }
+.reg-nudge span { font-size: 13px; color: var(--muted); }
+.reg-nudge .btn { flex: none; }
+.reg-nudge .x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.reg-nudge .x:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+@media (max-width: 560px) {
+  .reg-nudge { flex-wrap: wrap; position: relative; padding-right: 40px; }
+  .reg-nudge > div { flex-basis: 100%; }
+  .reg-nudge .btn { padding-left: 22px; padding-right: 22px; }
+  .reg-nudge .x { position: absolute; top: 6px; right: 6px; }
+}

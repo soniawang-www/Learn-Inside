@@ -11,6 +11,7 @@
 // 全站一套账号；会员分科目（entitlement.tier = math / chinese / english）和全科（all），全科包含所有科目。
 // 免费次数全站共用。接口在 /api/ 下（/math/api/ 也能访问，兼容旧页面）。
 
+import { bump } from './events.js';
 import { payUrl, verifyNotify, queryTrade, refundTrade, refundQuery, closeTrade, keyStatus } from './alipay.js';
 
 export const FREE_CREDITS = 10;
@@ -184,8 +185,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const { phone: p, password, nickname = '' } = await body(req);
     const phone = normPhone(p);
     checkInput(phone, password);
-    const name = String(nickname).trim().slice(0, 20);
-    if (!name) throw new HttpError(400, '请填写孩子的昵称');
+    const name = String(nickname).trim().slice(0, 20) || '同学'; // 昵称选填，以后可以在账号页改
     if (await env.DB.prepare('SELECT 1 FROM account WHERE phone = ?').bind(phone).first()) throw new HttpError(409, '这个手机号已经注册过，请直接登录');
     const acc = { id: uid(), token: uid() + uid().slice(0, 8) };
     const student = { id: uid(), nickname: name };
@@ -194,6 +194,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
         .bind(acc.id, acc.token, now(), phone, await hashPw(password), FREE_CREDITS),
       env.DB.prepare('INSERT INTO student (id, account_id, nickname, created_at) VALUES (?, ?, ?, ?)').bind(student.id, acc.id, name, now()),
     ]);
+    await bump(env, 'register');
     return json({ token: acc.token, student });
   });
 
@@ -217,6 +218,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       env.DB.prepare('INSERT INTO account (id, token, invite_code, created_at, credits, guest) VALUES (?, ?, NULL, ?, 0, 1)').bind(acc.id, acc.token, now()),
       env.DB.prepare('INSERT INTO student (id, account_id, nickname, created_at) VALUES (?, ?, ?, ?)').bind(student.id, acc.id, name, now()),
     ]);
+    await bump(env, 'guest_new');
     return json({ token: acc.token, student, guest: true });
   });
 
@@ -232,6 +234,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
       .bind(phone, await hashPw(password), acc.id).run();
     const nn = String(nickname || '').trim().slice(0, 20);
     if (nn) await env.DB.prepare('UPDATE student SET nickname = ? WHERE id = (SELECT id FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1)').bind(nn, acc.id).run();
+    await bump(env, acc.guest ? 'register_bind' : 'register');
     return json({ ok: true, phone, credits_added: acc.guest ? FREE_CREDITS : 0 });
   });
 
