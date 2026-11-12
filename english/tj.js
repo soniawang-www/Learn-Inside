@@ -1,6 +1,7 @@
 // 小托福（TOEFL Junior 标准考试）仿真模拟：原创题，每套拆成听力 / 语言形式与含义 / 阅读三份卷
 // 路由：#/tj（套题列表）  #/tj/exam/:会话 id（做题）  #/tj/review/:会话 id（复盘）
 // 题目材料在 exam.sections[0].groups：听力组有 audio、script，语言题和阅读组有 title、text（[[n]] 是空）
+import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup
 export const initTJ = (ctx) => { X = ctx; };
 
@@ -11,26 +12,91 @@ const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${String(Math.floo
 const paras = (t) => X.esc(t).split(/\n\s*\n/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 
 // ───────── 套题列表 ─────────
+// 一套一行：三个部分是三个小按钮（没做过点了直接开始；做过显示分数，点了看复盘），右边是打印
+async function start(examId) {
+  const r = await X.api('/api/sessions', { method: 'POST', body: { exam_id: examId, student_id: X.auth.student.id, mode: 'exam' } });
+  location.hash = `#/tj/exam/${r.session.id}`;
+}
 export async function renderTJ() {
   const exams = await X.api(`/api/exams?student=${X.enc(X.auth.student.id)}&family=toefljr`);
   const sets = new Map();
   for (const e of exams) { const m = e.id.match(/^toefljr-mock-(\d+)-([lfr])$/); if (!m) continue; (sets.get(m[1]) || sets.set(m[1], {}).get(m[1]))[m[2]] = e; }
   const nums = [...sets.keys()].sort((a, b) => a - b);
+  const SHORT = { l: '听力', f: '语言', r: '阅读' };
   X.page(`<a class="back" href="#/">${X.BACK_IC}英语首页</a>
     <div class="hero"><h1>小托福</h1></div>
-    ${nums.length ? nums.map((n) => `<section class="card tj-set"><div class="card-h"><h2>仿真模拟 第 ${n} 套</h2></div>
-      <div class="tj-parts">${['l', 'f', 'r'].map((k) => { const e = sets.get(n)[k]; if (!e) return ''; return `<div class="tj-part">
-        <b>${PART[k]}</b><span>${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</span>
-        ${e.last_session ? `<a class="tj-score" href="#/tj/review/${e.last_session}">${e.last_score} / ${e.problem_count}</a>` : '<span class="tj-score muted">—</span>'}
-        <button class="btn ${e.last_session ? '' : 'primary'}" data-start="${e.id}">${e.last_session ? '再做一次' : '开始'}</button></div>`; }).join('')}</div></section>`).join('')
-      : '<div class="card"><p class="muted">录入中</p></div>'}`, 'home');
+    ${nums.length ? `<section class="card tj-list">${nums.map((n) => `<div class="tj-row"><b>第 ${n} 套</b>
+      <div class="tj-chips">${['l', 'f', 'r'].map((k) => { const e = sets.get(n)[k]; if (!e) return '<span></span>';
+        return e.last_session ? `<a class="tj-chip done" href="#/tj/review/${e.last_session}">${SHORT[k]}<em>${e.last_score}/${e.problem_count}</em></a>`
+          : `<button class="tj-chip" data-start="${e.id}">${SHORT[k]}</button>`; }).join('')}</div>
+      <button class="tj-pr" data-print="${n}" aria-label="打印第 ${n} 套">${PRINT_ICON}</button></div>`).join('')}</section>`
+      : '<div class="card"><p class="muted">录入中</p></div>'}`, 'tj');
   X.$app.querySelectorAll('[data-start]').forEach((b) => (b.onclick = async () => {
     b.disabled = true;
-    try {
-      const r = await X.api('/api/sessions', { method: 'POST', body: { exam_id: b.dataset.start, student_id: X.auth.student.id, mode: 'exam' } });
-      location.hash = `#/tj/exam/${r.session.id}`;
-    } catch (e) { b.disabled = false; X.modal(`<p>${X.esc(e.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
+    try { await start(b.dataset.start); } catch (e) { b.disabled = false; X.modal(`<p>${X.esc(e.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
   }));
+  X.$app.querySelectorAll('[data-print]').forEach((b) => (b.onclick = () => printTJ(b.dataset.print)));
+}
+
+// ───────── 打印 ─────────
+// 一套里选一个部分印成纸面卷；可以附答案和讲解、听力原文（录音扫码在网站上听）
+const tjCache = new Map();
+const loadTJ = async (id) => tjCache.get(id) || tjCache.set(id, await (await fetch(`/api/toefljr/${id}`)).json()).get(id);
+const pe = (s) => X.esc(s).split(/\n\s*\n/).map((x) => `<p>${x.replace(/\n/g, '<br>')}</p>`).join('');
+const optsHtml = (p) => `<div class="tq-o">${Object.entries(p.choices).map(([k, v]) => `<span>(${k}) ${X.esc(v)}</span>`).join('')}</div>`;
+function tjBlocks(d, part, o) {
+  const G = d.sections?.[0]?.groups || [], P = new Map(d.problems.map((p) => [p.number, p])), out = [];
+  for (const g of G) {
+    const qs = []; for (let n = g.from; n <= g.to; n++) qs.push(P.get(n));
+    const h = `<div class="tg-h">${g.from === g.to ? `Question ${g.from}` : `Questions ${g.from}–${g.to}`}</div>`;
+    if (part === 'l') out.push(`<div class="tg">${h}${qs.map((p) => `<div class="tq"><b>${p.number}.</b> ${X.esc(p.stem)}${optsHtml(p)}</div>`).join('')}</div>`);
+    else if (part === 'f') {
+      const text = pe(g.text).replace(/\[\[(\d+)\]\]/g, (_, n) => { const p = qs.find((x) => x.extra?.blank === +n); return `<span class="bl">(${p?.number})</span>`; });
+      out.push(`<div class="tg">${h}<div class="tt"><h3>${X.esc(g.title || '')}</h3>${text}</div>${qs.map((p) => `<div class="tq"><b>${p.number}.</b>${optsHtml(p)}</div>`).join('')}</div>`);
+    } else {
+      out.push(`<div class="tg">${h}<div class="tt"><h3>${X.esc(g.title || '')}</h3>${pe(g.text)}</div></div>`);
+      qs.forEach((p) => out.push(`<div class="tq"><b>${p.number}.</b> ${X.esc(p.stem)}${optsHtml(p)}</div>`));
+    }
+  }
+  if (part === 'l' && o.script) G.forEach((g, i) => out.push({ page: i === 0, html: `${i === 0 ? '<h3 class="tk-h">录音原文</h3>' : ''}<div class="tg"><div class="tg-h">${g.from === g.to ? `Question ${g.from}` : `Questions ${g.from}–${g.to}`}</div>${g.script.map(([w, , t]) => `<p class="ts"><b>${X.esc(w)}:</b> ${X.esc(t)}</p>`).join('')}</div>` }));
+  if (o.ans) {
+    out.push({ page: true, html: `<h3 class="tk-h">答案</h3><div class="tk">${d.problems.map((p) => `<span><b>${p.number}</b> ${p.answer}</span>`).join('')}</div>` });
+    if (o.exp) d.problems.forEach((p) => out.push(`<div class="te"><b>${p.number}. ${p.answer}</b>${p.extra?.type ? `<i>${X.esc(p.extra.type)}</i>` : ''} ${X.esc(p.basic || '')}</div>`));
+  }
+  return out;
+}
+const TJ_CSS = `
+.lp-sheet .tg{margin:0 0 6px}
+.lp-sheet .tg-h{font-size:12px;color:#5D6A65;margin:10px 0 4px;font-weight:600}
+.lp-sheet .tt{font-family:Georgia,"Times New Roman",serif;font-size:14.5px;line-height:1.7;border:1px solid #DCD7CA;border-radius:6px;padding:8px 12px;margin-bottom:8px}
+.lp-sheet .tt h3{font-size:15px;margin:0 0 4px}
+.lp-sheet .tt p{margin:0 0 6px}
+.lp-sheet .bl{display:inline-block;min-width:4.5em;border-bottom:1px solid #333;text-align:left;font-size:12px;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+.lp-sheet .tq{font-family:Georgia,"Times New Roman",serif;font-size:14px;line-height:1.5;padding:5px 0}
+.lp-sheet .tq-o{display:grid;grid-template-columns:1fr 1fr;gap:1px 18px;padding-left:1.4em;margin-top:2px}
+.lp-sheet .tk-h{font-size:15px;margin:4px 0 8px}
+.lp-sheet .tk{display:grid;grid-template-columns:repeat(7,1fr);gap:4px 10px;font-size:13px}
+.lp-sheet .ts{font-family:Georgia,"Times New Roman",serif;font-size:13.5px;line-height:1.6;margin:0 0 4px}
+.lp-sheet .te{font-size:12.5px;line-height:1.6;padding:3px 0}
+.lp-sheet .te i{font-style:normal;color:#5D6A65;margin:0 6px;font-size:11.5px}
+`;
+const PART_NAME = { l: '听力', f: '语言形式与含义', r: '阅读' };
+export function printTJ(n, part = 'r') {
+  openPrint({
+    name: `小托福 第 ${n} 套`, label: '英语 · 小托福', file: `toefljr-${n}`, unit: '题', remember: 'tj.print',
+    title: (o) => `仿真模拟 第 ${n} 套 · ${PART_NAME[o.part]}`,
+    info: ['姓名', '日期', '用时', '得分'],
+    opts: { part, ans: false, exp: true, script: false },
+    controls: [
+      { type: 'seg', key: 'part', label: '部分', options: [['l', '听力'], ['f', '语言'], ['r', '阅读']] },
+      { type: 'toggle', key: 'ans', label: '附答案' },
+      { type: 'toggle', key: 'exp', label: '附讲解', show: (o) => o.ans },
+      { type: 'toggle', key: 'script', label: '附录音原文', show: (o) => o.part === 'l' },
+    ],
+    async build(o) { const d = await loadTJ(`toefljr-mock-${n}-${o.part}`); return { blocks: tjBlocks(d, o.part, o), count: d.problems.length }; },
+    css: TJ_CSS,
+    qr: () => '/english/#/tj', qrText: (o) => (o.part === 'l' ? '扫码在线听录音、交卷判分' : '扫码在线做题、交卷判分'),
+  });
 }
 
 // ───────── 做题 ─────────
@@ -154,8 +220,12 @@ export async function renderTJReview(sid) {
     <div class="hero"><h1>${X.esc(r.exam.title)}</h1></div>
     <div class="tj-sum card"><div class="tj-big"><b>${right}</b> / ${r.items.length}<small>答对</small></div>
       <div class="tj-types">${typeRows.map(([t, [a, b]]) => `<div class="tj-type"><span>${X.esc(t)}</span><i><u style="width:${(100 * a) / b}%"></u></i><em>${a}/${b}</em></div>`).join('')}</div></div>
+    <div class="actions tj-acts"><button class="btn primary" id="again">再做一次</button><button class="btn" id="prt">${PRINT_ICON}打印</button></div>
     <div class="tj-sheet">${r.items.map((it) => `<a href="#q${it.number}" class="${it.correct ? 'ok' : it.choice ? 'bad' : 'skip'}">${it.number}</a>`).join('')}</div>
-    ${G.map(groupRev).join('')}`, 'home');
+    ${G.map(groupRev).join('')}`, 'tj');
+  const setN = r.exam.id.match(/mock-(\d+)-/)?.[1];
+  X.$app.querySelector('#again').onclick = (e) => { e.currentTarget.disabled = true; start(r.exam.id).catch((x) => X.modal(`<p>${X.esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`)); };
+  X.$app.querySelector('#prt').onclick = () => printTJ(setN, part);
   X.$app.querySelectorAll('.tj-sheet a, a.tj-blank').forEach((a) => (a.onclick = (e) => { e.preventDefault(); X.$app.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
   X.$app.querySelectorAll('[data-audio]').forEach((b) => (b.onclick = () => {
     if (audio && !audio.paused && audio.dataset === b.dataset.audio) { audio.pause(); return; }
