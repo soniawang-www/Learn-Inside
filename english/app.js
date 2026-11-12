@@ -11,6 +11,7 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111u';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111w';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261112b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -127,6 +128,11 @@ async function router() {
     if (!auth.token) await autoGuest(); // 第一次来：直接建游客用起来，不先要求注册
     if (!me) me = await api('/api/me');
     if (!parts.length) return await renderHome();
+    if (parts[0] === 'tj') { // 小托福
+      if (parts[1] === 'exam') return await renderTJExam(parts[2]);
+      if (parts[1] === 'review') return await renderTJReview(parts[2]);
+      return await renderTJ();
+    }
     if (parts[0] === 'esdp') return await renderEsdp();
     if (parts[0] === 'bank') return await renderBank(parts[1], q);
     if (parts[0] === 'learn') return await renderLearn(parts[1]);
@@ -146,6 +152,7 @@ function ev(e) {
   fetch('/api/ev', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ e }), keepalive: true }).catch(() => {});
 }
 ev('view_english');
+initTJ({ api, page: (...a) => page(...a), esc, enc, modal, store, auth, BACK_IC, $app, setCleanup: (f) => { cleanup = f; } });
 window.addEventListener('hashchange', router);
 
 // 题库缓存（一个题库一百来题，同一次打开里反复抽题不用重新拉）
@@ -164,6 +171,7 @@ async function renderHome() {
   const done = d.banks.reduce((a, b) => a + b.practiced, 0);
   page(`<div class="hero"><h1>英语竞赛</h1></div>
     <div class="fam-cards">
+      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 · 听力 语言 阅读</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/esdp"><b>ESDP</b><span>${n ? `口语 · 写作 ${n} 题` : '录入中'}</span><small>${done ? `已练 ${done} 题` : ''}</small><i>›</i></a>
     </div>
     ${recentCard(d.recent)}`, 'home');
