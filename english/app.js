@@ -11,7 +11,7 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111u';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111w';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261112b';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261112d';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -83,7 +83,7 @@ const realTag = (x, full = true) => (x.tags || []).filter((t) => t.id === 'real'
 
 function topnav(active = '') {
   const who = me ? { name: me.guest ? '游客 · 注册' : auth.student?.nickname || '账号', note: me.guest ? '注册送 10 次' : '' } : null;
-  return sideNav({ section: 'english', sub: [['#/phrases', '句型积累', 'exam', active === 'phrases']], who });
+  return sideNav({ section: 'english', sub: [['#/tj', '小托福', 'exam', active === 'tj'], ['#/phrases', '句型积累', 'exam', active === 'phrases']], who });
 }
 let supportCache = null;
 async function showSupport() {
@@ -171,7 +171,7 @@ async function renderHome() {
   const done = d.banks.reduce((a, b) => a + b.practiced, 0);
   page(`<div class="hero"><h1>英语竞赛</h1></div>
     <div class="fam-cards">
-      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 · 听力 语言 阅读</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 10 套 · 听力 语言 阅读</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/esdp"><b>ESDP</b><span>${n ? `口语 · 写作 ${n} 题` : '录入中'}</span><small>${done ? `已练 ${done} 题` : ''}</small><i>›</i></a>
     </div>
     ${recentCard(d.recent)}`, 'home');

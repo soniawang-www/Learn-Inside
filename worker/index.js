@@ -149,6 +149,18 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
   return json(fam ? results.filter((e) => familyOf(e.id)?.id === fam) : results);
 });
 
+// 小托福打印：原创题、免费，整份卷（材料、题目、答案、讲解）一次给，不用登录（打印链接也能用）
+route('GET', '/api/toefljr/:id', async (_req, env, p) => {
+  if (familyOf(p.id)?.id !== 'toefljr') throw new HttpError(404, '试卷不存在');
+  const e = await env.DB.prepare('SELECT id, title, sections FROM exam WHERE id = ? AND published = 1').bind(p.id).first();
+  if (!e) throw new HttpError(404, '试卷不存在');
+  const { results } = await env.DB.prepare(
+    `SELECT p.number, p.stem, p.choices, p.answer, p.extra, s.content AS basic FROM problem p
+       LEFT JOIN solution s ON s.problem_id = p.id AND s.kind = 'basic' WHERE p.exam_id = ? ORDER BY p.number`).bind(p.id).all();
+  return json({ id: e.id, title: e.title, sections: parseJ(e.sections, []),
+    problems: results.map((r) => ({ number: r.number, stem: r.stem, choices: JSON.parse(r.choices), answer: r.answer, extra: parseJ(r.extra, {}), basic: r.basic })) });
+});
+
 // 开始考试：服务端定 deadline，下发题目（不含答案）
 // 开始考试 / 知识点突击 / 单题练习
 //   { exam_id, mode }          整套试卷（exam 模考 / practice 练习）

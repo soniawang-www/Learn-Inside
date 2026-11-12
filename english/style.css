@@ -507,3 +507,24 @@ body.tj-mode { padding-bottom: 72px; }
   .tj-gc { display: block; }
   .tj-text { font-size: 15px; padding: 14px 16px; }
 }
+
+/* 小托福列表：一套一行 */
+.tj-list { padding: 6px 18px; }
+.tj-row { display: grid; grid-template-columns: 4.5em 1fr auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.tj-row:last-child { border-bottom: 0; }
+.tj-row > b { font-size: 15px; }
+.tj-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tj-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 42px; padding: 4px 6px; border-radius: 10px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.tj-chip.done { border-color: transparent; background: var(--ok-soft); color: var(--ok); }
+.tj-chip em { font-style: normal; font-size: 12px; font-weight: 500; }
+.tj-chip:disabled { opacity: .5; }
+.tj-pr { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.tj-pr:hover { color: var(--accent); border-color: var(--accent); }
+.tj-acts { margin: 12px 0 0; }
+@media (max-width: 560px) {
+  .tj-list { padding: 4px 14px; }
+  .tj-row { grid-template-columns: 1fr auto; grid-template-areas: "n p" "c c"; gap: 8px; }
+  .tj-row > b { grid-area: n; }
+  .tj-chips { grid-area: c; }
+  .tj-pr { grid-area: p; width: 34px; height: 34px; }
+}
