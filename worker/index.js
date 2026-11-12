@@ -23,6 +23,8 @@ const FAMILIES = [
   { id: 'gushiwen', name: '古诗文大会', prefix: 'gsw-', desc: '上海小学生古诗文大会：线上初选 / 复选单选，按年级分卷', grades: true, subject: 'chinese' },
   // 英语（learn-inside.com/english）：口语 / 写作练习题库，不走考试流程（接口在 worker/english.js）
   { id: 'esdp', name: 'ESDP', prefix: 'esdp-', desc: '全国中小学生英语演讲与辩论五项大赛：口语、写作', subject: 'english' },
+  // 小托福：原创仿真题，每套拆成听力 / 语言形式与含义 / 阅读三份卷，走考试流程
+  { id: 'toefljr', name: '小托福', prefix: 'toefljr-', desc: 'TOEFL Junior 标准考试仿真模拟：听力、语言形式与含义、阅读各 42 题', subject: 'english', exams: true },
 ];
 const familyOf = (examOrProblemId) => FAMILIES.find((f) => String(examOrProblemId).startsWith(f.prefix)) || null;
 // 科目：数学、语文的成绩和错题分开（画像、知识图谱目前只有数学）
@@ -160,7 +162,7 @@ route('POST', '/api/sessions', async (req, env) => {
   const firstEver = !(await env.DB.prepare('SELECT 1 FROM exam_session es JOIN student st ON st.id = es.student_id WHERE st.account_id = ? LIMIT 1').bind(acc.id).first());
   const counted = async () => { await bump(env, 'start'); if (firstEver) await bump(env, 'first_start'); };
   // 英语题库是练习用的，不能当试卷开考
-  if ([exam_id, ...(Array.isArray(problem_ids) ? problem_ids : [])].some((x) => familyOf(x ?? '')?.subject === 'english')) throw new HttpError(400, '英语题库不能开考');
+  if ([exam_id, ...(Array.isArray(problem_ids) ? problem_ids : [])].some((x) => familyOf(x ?? '')?.subject === 'english' && !familyOf(x ?? '').exams)) throw new HttpError(400, '英语题库不能开考');
   const id = uid();
   const t = now();
   if (kp_id || problem_ids) {
