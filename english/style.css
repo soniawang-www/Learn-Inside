@@ -643,3 +643,26 @@ body.tj-mode { padding-bottom: 72px; }
   .kt-crit { grid-template-columns: minmax(0, 1fr); }
   .tj-text .kt-mail-h { margin: -14px -16px 12px; }
 }
+/* PET：8 篇短文配对、句子还原、写邮件、二选一写作 */
+.kt-8h { margin: 0 0 8px; font-family: Georgia, serif; }
+.kt-8 { display: grid; gap: 10px; }
+.kt-8t { padding: 12px 14px; }
+.kt-8t h4, .kt-sents i { margin: 0 0 4px; display: flex; gap: 8px; align-items: center; font-size: 15px; }
+.kt-8t h4 i, .kt-sents i { font-style: normal; flex: none; width: 24px; height: 24px; border-radius: 12px; display: inline-grid; place-items: center; background: var(--accent); color: var(--surface); font-size: 13px; font-family: var(--sans); }
+.kt-8t p { margin: 0; font-size: 15px; }
+.kt-desc { margin: 0 0 8px; font-family: Georgia, serif; font-size: 15px; line-height: 1.6; }
+.kt-sents { display: grid; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; font-family: Georgia, serif; font-size: 15px; line-height: 1.5; }
+.kt-sents > div { display: flex; gap: 10px; align-items: flex-start; }
+.kt-gq { padding: 10px 14px; }
+.kt-gq .tj-qh { margin-bottom: 6px; }
+.tj-blank.kt-gap { display: inline; border-bottom-width: 2px; font-weight: 500; }
+.kt-inmail { margin: 8px 0 12px; }
+.kt-mail-b { padding: 10px 14px; }
+.kt-mail-b p { margin: 0 0 8px; }
+.kt-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+.kt-tags span { border: 1.5px dashed var(--bad); color: var(--bad); border-radius: 999px; padding: 2px 10px; font-size: 14px; font-family: "Comic Sans MS", "Segoe Print", cursive; }
+.kt-pick2, .seg.kt-pick2 { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; padding: 0; border: 0; border-radius: 0; background: none; width: 100%; }
+.kt-pick2 button { flex: 1; min-width: 12em; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-weight: 600; cursor: pointer; }
+.kt-pick2 button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); }
+.tj-text .kt-inmail .kt-mail-h { margin: 0; border-radius: 0; }
+.kt-inmail .kt-mail-b { font-size: 15px; }

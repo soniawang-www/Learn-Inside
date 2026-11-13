@@ -310,6 +310,18 @@ export const UI_FEATURES = [
       const box = p.locator('.kt-self').first(); for (const k of [0, 1, 2]) await box.locator(`[data-c="${k}"][data-s="4"]`).click();
       await p.waitForTimeout(500); return `${ok}/${(await box.locator('[data-sum]').textContent()).trim()}/${(await p.locator('#wsum').textContent()).trim()}`; }, expect: same('6/12/12') },
     { id: 'U16-14', name: 'KET 打印：阅读写作、听力都能出纸，听力的图片内嵌在纸面里', run: async (p, c) => { await c.go('/english/#/ket'); await p.locator('[data-print="1"]').click(); await p.locator('#lp .lp-page').first().waitFor(); const r = []; for (const v of ['rw', 'l']) { await p.locator(`#lp [data-seg="part"][data-v="${v}"]`).click(); await p.waitForTimeout(1500); r.push(await p.locator('#lp .lp-page').count() > 2); } r.push(await p.locator('#lp .lp-page .kp svg').count() >= 15); return r.join('/'); }, expect: same('true/true/true') },
+    { id: 'U16-15', name: 'PET 列表：每套阅读、写作、听力三个按钮和打印', run: async (p, c) => { await c.go('/english/#/pet'); await p.locator('.kt-row').first().waitFor(); return `${await p.locator('.kt-row').count()}/${await p.locator('.kt-row').first().locator('.tj-chip').count()}/${await p.locator('.kt-row').first().locator('.tj-pr').count()}`; }, expect: same('10/3/1') },
+    { id: 'U16-16', name: 'PET 写作：写邮件、Part 2 选故事题，交卷只算选中的那篇，两篇都能自评（/40）', run: async (p, c) => {
+      await c.go('/english/#/pet'); await p.locator('[data-start="pet-mock-2-w"], a.tj-chip[href*="review"]').first().waitFor();
+      if (!(await p.locator('[data-start="pet-mock-2-w"]').count())) return 'done';
+      await p.locator('[data-start="pet-mock-2-w"]').click(); await p.locator('.kt-head').waitFor();
+      await p.locator('[data-write]').fill('Hi Sam, thanks for your email. I think we should meet on Saturday at the park because the weather will be nice.');
+      await p.locator('#next').click(); await p.locator('[data-pick="1"]').click(); await p.locator('[data-write]').fill('It was a dark night. I opened the door and saw a small dog. It was cold, so I let it in.');
+      await p.locator('#fin').click(); await p.waitForTimeout(300); if (await p.locator('#sure').count()) await p.locator('#sure').click(); await p.locator('.tj-sum').waitFor();
+      const boxes = p.locator('.kt-self'); const n = await boxes.count();
+      for (let b = 0; b < n; b++) for (const k of [0, 1, 2, 3]) await boxes.nth(b).locator(`[data-c="${k}"][data-s="3"]`).click();
+      await p.waitForTimeout(500); return `${n}/${(await p.locator('#wsum').textContent()).trim()}`; }, expect: same('2/24') },
+    { id: 'U16-17', name: 'PET 打印：阅读、写作、听力都能出纸', run: async (p, c) => { await c.go('/english/#/pet'); await p.locator('[data-print="1"]').click(); await p.locator('#lp .lp-page').first().waitFor(); const r = []; for (const v of ['r', 'w', 'l']) { await p.locator(`#lp [data-seg="part"][data-v="${v}"]`).click(); await p.waitForTimeout(1500); r.push(await p.locator('#lp .lp-page').count() >= 2); } r.push(await p.locator('#lp .lp-page .kp svg').count() >= 15); return r.join('/'); }, expect: same('true/true/true/true') },
   ] },
   { id: 'U12', area: '界面', name: '左侧导航', cases: [
     { id: 'U12-1', name: '导航项：首页 / 数学 / 语文 / 英语 / 账号 + 联系客服', run: async (p, c) => { await c.go('#/'); const a = (await p.locator('.side .sn-nav > a span').allTextContents()).join('/'); return `${a}/${await p.locator('.side .sn-soon').count()}/${await p.locator('.side .sn-help').count()}`; }, expect: same('首页/数学/语文/英语/账号/0/1') },

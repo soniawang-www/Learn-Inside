@@ -24,6 +24,7 @@ const FAMILIES = [
   // 英语（learn-inside.com/english）：口语 / 写作练习题库，不走考试流程（接口在 worker/english.js）
   { id: 'esdp', name: 'ESDP', prefix: 'esdp-', desc: '全国中小学生英语演讲与辩论五项大赛：口语、写作', subject: 'english' },
   // 小托福：原创仿真题，每套拆成听力 / 语言形式与含义 / 阅读三份卷，走考试流程
+  { id: 'pet', name: 'PET', prefix: 'pet-', desc: 'B1 Preliminary for Schools 仿真模拟：阅读 32 题、写作 2 篇、听力 25 题', subject: 'english', exams: true },
   { id: 'ket', name: 'KET', prefix: 'ket-', desc: 'A2 Key for Schools 仿真模拟：阅读写作 32 题、听力 25 题', subject: 'english', exams: true },
   { id: 'toefljr', name: '小托福', prefix: 'toefljr-', desc: 'TOEFL Junior 标准考试仿真模拟：听力、语言形式与含义、阅读各 42 题', subject: 'english', exams: true },
 ];
@@ -152,7 +153,7 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
 
 // 小托福、KET 打印：原创题、免费，整份卷（材料、题目、答案、讲解）一次给，不用登录（打印链接也能用）
 route('GET', '/api/toefljr/:id', async (_req, env, p) => {
-  if (!['toefljr', 'ket'].includes(familyOf(p.id)?.id)) throw new HttpError(404, '试卷不存在');
+  if (!['toefljr', 'ket', 'pet'].includes(familyOf(p.id)?.id)) throw new HttpError(404, '试卷不存在');
   const e = await env.DB.prepare('SELECT id, title, sections FROM exam WHERE id = ? AND published = 1').bind(p.id).first();
   if (!e) throw new HttpError(404, '试卷不存在');
   const { results } = await env.DB.prepare(
