@@ -296,6 +296,20 @@ export const UI_FEATURES = [
     { id: 'U16-9', name: '话题列表：真题筛选只列真题', run: async (p, c) => { await c.go('/english/#/bank/esdp-speak-high?s=3&f=real'); const n = await p.locator('.q-row').count(); return n > 0 && n === await p.locator('.q-row .tag.real').count(); }, expect: same(true) },
     { id: 'U16-10', name: '小托福列表：10 套，每套一行三个按钮（听力 / 语言 / 阅读）和打印', run: async (p, c) => { await c.go('/english/#/tj'); await p.locator('.tj-row').first().waitFor(); return `${await p.locator('.tj-row').count()}/${await p.locator('.tj-chip').count()}/${await p.locator('.tj-pr').count()}`; }, expect: same('10/30/10') },
     { id: 'U16-11', name: '小托福打印：三个部分都能出纸，附答案后多出答案页', run: async (p, c) => { await c.go('/english/#/tj'); await p.locator('[data-print="1"]').click(); await p.locator('#lp .lp-page').first().waitFor(); const r = []; for (const v of ['l', 'f', 'r']) { await p.locator(`#lp [data-seg="part"][data-v="${v}"]`).click(); await p.waitForTimeout(1500); r.push(await p.locator('#lp .lp-page').count() > 2); } return r.join('/'); }, expect: same('true/true/true') },
+    { id: 'U16-12', name: 'KET 列表：每套一行，阅读写作、听力两个按钮和打印', run: async (p, c) => { await c.go('/english/#/ket'); await p.locator('.kt-row').first().waitFor(); return `${await p.locator('.kt-row').count() > 0}/${await p.locator('.kt-row').first().locator('.tj-chip').count()}/${await p.locator('.kt-row').first().locator('.tj-pr').count()}`; }, expect: same('true/2/1') },
+    { id: 'U16-13', name: 'KET 阅读写作：Part 5 填对 6 空、写作写一段，交卷后 Part 5 全对，写作能自评', run: async (p, c) => {
+      const d = await p.evaluate(async () => (await (await fetch('/api/toefljr/ket-mock-1-rw')).json()).problems.filter((x) => x.extra.part === 5).map((x) => x.answer));
+      await c.go('/english/#/ket'); await p.locator('[data-start="ket-mock-1-rw"], a.tj-chip[href*="review"]').first().waitFor();
+      if (!(await p.locator('[data-start="ket-mock-1-rw"]').count())) return 'done';
+      await p.locator('[data-start="ket-mock-1-rw"]').click(); await p.locator('.kt-head').waitFor();
+      await p.locator('.tj-dots [data-g="4"]').click(); const ins = p.locator('[data-fill]');
+      for (let i = 0; i < 6; i++) await ins.nth(i).fill(d[i].toUpperCase());
+      await p.locator('.tj-dots [data-g="5"]').click(); await p.locator('[data-write]').fill('Hi Alex, come to my party at my house on Saturday. Bring some music!');
+      await p.locator('#fin').click(); await p.locator('#sure').click(); await p.locator('.tj-sum').waitFor();
+      const ok = await p.locator('.tj-rg').nth(4).locator('.tj-rq.ok').count();
+      const box = p.locator('.kt-self').first(); for (const k of [0, 1, 2]) await box.locator(`[data-c="${k}"][data-s="4"]`).click();
+      await p.waitForTimeout(500); return `${ok}/${(await box.locator('[data-sum]').textContent()).trim()}/${(await p.locator('#wsum').textContent()).trim()}`; }, expect: same('6/12/12') },
+    { id: 'U16-14', name: 'KET 打印：阅读写作、听力都能出纸，听力的图片内嵌在纸面里', run: async (p, c) => { await c.go('/english/#/ket'); await p.locator('[data-print="1"]').click(); await p.locator('#lp .lp-page').first().waitFor(); const r = []; for (const v of ['rw', 'l']) { await p.locator(`#lp [data-seg="part"][data-v="${v}"]`).click(); await p.waitForTimeout(1500); r.push(await p.locator('#lp .lp-page').count() > 2); } r.push(await p.locator('#lp .lp-page .kp svg').count() >= 15); return r.join('/'); }, expect: same('true/true/true') },
   ] },
   { id: 'U12', area: '界面', name: '左侧导航', cases: [
     { id: 'U12-1', name: '导航项：首页 / 数学 / 语文 / 英语 / 账号 + 联系客服', run: async (p, c) => { await c.go('#/'); const a = (await p.locator('.side .sn-nav > a span').allTextContents()).join('/'); return `${a}/${await p.locator('.side .sn-soon').count()}/${await p.locator('.side .sn-help').count()}`; }, expect: same('首页/数学/语文/英语/账号/0/1') },

@@ -24,6 +24,7 @@ const FAMILIES = [
   // 英语（learn-inside.com/english）：口语 / 写作练习题库，不走考试流程（接口在 worker/english.js）
   { id: 'esdp', name: 'ESDP', prefix: 'esdp-', desc: '全国中小学生英语演讲与辩论五项大赛：口语、写作', subject: 'english' },
   // 小托福：原创仿真题，每套拆成听力 / 语言形式与含义 / 阅读三份卷，走考试流程
+  { id: 'ket', name: 'KET', prefix: 'ket-', desc: 'A2 Key for Schools 仿真模拟：阅读写作 32 题、听力 25 题', subject: 'english', exams: true },
   { id: 'toefljr', name: '小托福', prefix: 'toefljr-', desc: 'TOEFL Junior 标准考试仿真模拟：听力、语言形式与含义、阅读各 42 题', subject: 'english', exams: true },
 ];
 const familyOf = (examOrProblemId) => FAMILIES.find((f) => String(examOrProblemId).startsWith(f.prefix)) || null;
@@ -149,16 +150,16 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
   return json(fam ? results.filter((e) => familyOf(e.id)?.id === fam) : results);
 });
 
-// 小托福打印：原创题、免费，整份卷（材料、题目、答案、讲解）一次给，不用登录（打印链接也能用）
+// 小托福、KET 打印：原创题、免费，整份卷（材料、题目、答案、讲解）一次给，不用登录（打印链接也能用）
 route('GET', '/api/toefljr/:id', async (_req, env, p) => {
-  if (familyOf(p.id)?.id !== 'toefljr') throw new HttpError(404, '试卷不存在');
+  if (!['toefljr', 'ket'].includes(familyOf(p.id)?.id)) throw new HttpError(404, '试卷不存在');
   const e = await env.DB.prepare('SELECT id, title, sections FROM exam WHERE id = ? AND published = 1').bind(p.id).first();
   if (!e) throw new HttpError(404, '试卷不存在');
   const { results } = await env.DB.prepare(
-    `SELECT p.number, p.stem, p.choices, p.answer, p.extra, s.content AS basic FROM problem p
+    `SELECT p.number, p.stem, p.choices, p.answer, p.accept, p.kind, p.points, p.extra, s.content AS basic FROM problem p
        LEFT JOIN solution s ON s.problem_id = p.id AND s.kind = 'basic' WHERE p.exam_id = ? ORDER BY p.number`).bind(p.id).all();
   return json({ id: e.id, title: e.title, sections: parseJ(e.sections, []),
-    problems: results.map((r) => ({ number: r.number, stem: r.stem, choices: JSON.parse(r.choices), answer: r.answer, extra: parseJ(r.extra, {}), basic: r.basic })) });
+    problems: results.map((r) => ({ number: r.number, stem: r.stem, choices: JSON.parse(r.choices), answer: r.answer, accept: parseJ(r.accept, []), kind: r.kind, points: r.points, extra: parseJ(r.extra, {}), basic: r.basic })) });
 });
 
 // 开始考试：服务端定 deadline，下发题目（不含答案）
@@ -513,7 +514,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
     // 选择题存字母，填空题存孩子填的内容（规范化后）
     const key = { choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) };
     const self = pr.kind === 'self'; // 简答题：交卷后孩子对照参考答案自评（/selfscore），先记 0 分
-    const choice = self ? (String(answers[pr.id] ?? '').trim().slice(0, 400) || null) : normalizeInput(key.choices, answers[pr.id]);
+    const choice = self ? (String(answers[pr.id] ?? '').trim().slice(0, 3000) || null) : normalizeInput(key.choices, answers[pr.id]);
     // 超时（late）仍记录作答，前端提示“超时交卷”；如需严格按官方规则，可在 late 时把 choice 置空
     const correct = !self && judge(key, choice) ? 1 : 0;
     const got = correct * (pr.points ?? 1);
