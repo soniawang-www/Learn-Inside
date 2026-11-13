@@ -312,7 +312,7 @@ function renderJoin() {
       <ul>
         <li><b>数学真题</b>AMC 8 · 希望数学 · 思维 100</li>
         <li><b>语文真题</b>汉字小达人 · 古诗文大会 · 飞花令</li>
-        <li><b>英语竞赛备考</b>小托福仿真模拟 · ESDP 演讲</li>
+        <li><b>英语备考</b>KET · PET · 小托福 · ESDP</li>
         <li><b>知识图谱 · 错题本</b>数学、语文同一个账号</li>
         <li><b>互动解析</b><em class="hl">注册送 10 次</em></li>
       </ul>
