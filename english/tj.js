@@ -2,6 +2,7 @@
 // 路由：#/tj（套题列表）  #/tj/exam/:会话 id（做题）  #/tj/review/:会话 id（复盘）
 // 题目材料在 exam.sections[0].groups：听力组有 audio、script，语言题和阅读组有 title、text（[[n]] 是空）
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
+import { playerHTML, bindPlayers } from './player.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup
 export const initTJ = (ctx) => { X = ctx; };
 
@@ -108,15 +109,15 @@ export async function renderTJExam(sid) {
   const G = d.exam.sections?.[0]?.groups || [];
   const P = d.problems; const byNum = new Map(P.map((p) => [p.number, p]));
   const key = `tj.s.${sid}`;
-  const S = Object.assign({ g: 0, answers: {}, played: {} }, X.store.get(key, {}));
+  const S = Object.assign({ g: 0, answers: {}, pos: {} }, X.store.get(key, {}));
   const save = () => X.store.set(key, S);
   const skew = d.session.server_now - Date.now();
   const left = () => (d.session.deadline_at - (Date.now() + skew)) / 1000;
   let timer = null, audio = null, submitting = false;
-  X.setCleanup(() => { clearInterval(timer); audio?.pause(); });
+  X.setCleanup(() => { clearInterval(timer); audio?.(); });
 
   async function submit(auto) {
-    if (submitting) return; submitting = true; clearInterval(timer); audio?.pause();
+    if (submitting) return; submitting = true; clearInterval(timer); audio?.();
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers: S.answers, times: {} } });
       X.store.del(key);
@@ -139,15 +140,13 @@ export async function renderTJExam(sid) {
     });
   }
   function draw() {
-    audio?.pause(); audio = null;
+    audio?.(); audio = null;
     const g = G[S.g]; const qs = []; for (let n = g.from; n <= g.to; n++) qs.push(byNum.get(n));
     const done = P.filter((p) => S.answers[p.id]).length;
     const last = S.g === G.length - 1;
     let mat = '';
     if (part === 'l') {
-      const played = S.played[g.id];
-      mat = `<div class="tj-listen"><button class="tj-play" id="play" ${played === 'done' ? 'disabled' : ''}>${played === 'done' ? '已播放' : played ? '播放中…' : '▶ 播放录音'}</button>
-        <div class="tj-prog"><i id="aprog"></i></div><p class="small muted">${g.from === g.to ? `第 ${g.from} 题` : `第 ${g.from}–${g.to} 题`} · 录音只放一遍</p></div>`;
+      mat = `<div class="tj-listen">${playerHTML(g.audio, true)}<p class="small muted">${g.from === g.to ? `第 ${g.from} 题` : `第 ${g.from}–${g.to} 题`}</p></div>`;
     } else mat = `<article class="tj-text">${g.title ? `<h3>${X.esc(g.title)}</h3>` : ''}${part === 'f' ? formText(g) : paras(g.text)}</article>`;
     const qsHtml = qs.map((p) => qBlock(p, part === 'l' || part === 'r' ? p.stem : '')).join('');
     X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="#/tj">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
@@ -174,15 +173,8 @@ export async function renderTJExam(sid) {
     X.$app.querySelector('#next').onclick = () => (last ? finish() : go(S.g + 1));
     X.$app.querySelector('#fin').onclick = finish;
     X.$app.querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => go(+b.dataset.g)));
-    const pb = X.$app.querySelector('#play');
-    if (pb) pb.onclick = () => {
-      if (S.played[g.id] === 'done') return;
-      audio = new Audio(AUDIO + g.audio);
-      audio.ontimeupdate = () => { const el = X.$app.querySelector('#aprog'); if (el && audio.duration) el.style.width = `${(100 * audio.currentTime) / audio.duration}%`; };
-      audio.onended = () => { S.played[g.id] = 'done'; save(); pb.textContent = '已播放'; pb.disabled = true; };
-      audio.play().then(() => { S.played[g.id] = 'on'; save(); pb.textContent = '播放中…'; pb.disabled = true; })
-        .catch(() => X.modal('<p>录音没能播放，请检查网络后再点一次。</p><div class="actions"><button class="btn" data-close>好</button></div>'));
-    };
+    let tick = 0;
+    audio = bindPlayers(X.$app, AUDIO, { pos: S.pos, onPos: (f, t) => { S.pos[f] = t; if (Date.now() - tick > 2000) { tick = Date.now(); save(); } }, onError: () => X.modal('<p>录音没能播放，请检查网络后再点一次。</p><div class="actions"><button class="btn" data-close>好</button></div>') });
   }
   timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
   draw();
@@ -204,7 +196,7 @@ export async function renderTJReview(sid) {
   const types = {};
   for (const it of r.items) { const t = part === 'f' ? formType(it.extra?.type) : it.extra?.type || '其他'; (types[t] ||= [0, 0])[1]++; if (it.correct) types[t][0]++; }
   const typeRows = Object.entries(types).sort((a, b) => a[1][0] / a[1][1] - b[1][0] / b[1][1]);
-  let audio = null; X.setCleanup(() => audio?.pause());
+  let audio = null; X.setCleanup(() => audio?.());
   const optRow = (it) => Object.entries(it.choices).map(([k, v]) => `<div class="tj-ro ${k === it.answer ? 'key' : ''} ${k === it.choice && !it.correct ? 'bad' : ''}"><i>${k}</i><span>${X.esc(v)}</span>${k === it.answer ? '<em>正确答案</em>' : k === it.choice ? '<em>你的选择</em>' : ''}</div>`).join('');
   const qRev = (it) => `<div class="tj-rq ${it.correct ? 'ok' : it.choice ? 'bad' : 'skip'}" id="q${it.number}"><div class="tj-qh"><b>${it.number}</b>${it.stem ? `<span>${X.esc(it.stem)}</span>` : ''}<small>${it.extra?.type || ''}</small></div>
     ${optRow(it)}${it.basic ? `<p class="tj-exp">${X.esc(it.basic)}</p>` : ''}</div>`;
@@ -212,7 +204,7 @@ export async function renderTJReview(sid) {
   const groupRev = (g) => {
     const its = []; for (let n = g.from; n <= g.to; n++) its.push(items.get(n));
     const mat = part === 'l'
-      ? `<div class="tj-script"><button class="btn sm" data-audio="${X.esc(g.audio)}">▶ 再听一遍</button><details><summary>录音原文</summary>${g.script.map(([who, , line]) => `<p><b>${X.esc(who)}:</b> ${X.esc(line)}</p>`).join('')}</details></div>`
+      ? `<div class="tj-script">${playerHTML(g.audio)}<details><summary>录音原文</summary>${g.script.map(([who, , line]) => `<p><b>${X.esc(who)}:</b> ${X.esc(line)}</p>`).join('')}</details></div>`
       : `<article class="tj-text">${g.title ? `<h3>${X.esc(g.title)}</h3>` : ''}${part === 'f' ? formRev(g) : paras(g.text)}</article>`;
     return `<section class="card tj-rg"><div class="tj-rg-h">${g.from === g.to ? `第 ${g.from} 题` : `第 ${g.from}–${g.to} 题`}</div>${mat}${its.map(qRev).join('')}</section>`;
   };
@@ -227,8 +219,5 @@ export async function renderTJReview(sid) {
   X.$app.querySelector('#again').onclick = (e) => { e.currentTarget.disabled = true; start(r.exam.id).catch((x) => X.modal(`<p>${X.esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`)); };
   X.$app.querySelector('#prt').onclick = () => printTJ(setN, part);
   X.$app.querySelectorAll('.tj-sheet a, a.tj-blank').forEach((a) => (a.onclick = (e) => { e.preventDefault(); X.$app.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
-  X.$app.querySelectorAll('[data-audio]').forEach((b) => (b.onclick = () => {
-    if (audio && !audio.paused && audio.dataset === b.dataset.audio) { audio.pause(); return; }
-    audio?.pause(); audio = new Audio(AUDIO + b.dataset.audio); audio.play();
-  }));
+  audio = bindPlayers(X.$app, AUDIO);
 }

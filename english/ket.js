@@ -4,6 +4,7 @@
 // 材料在 exam.sections[0].groups，一组是一个 Part；题目 extra.group 指回所在的组
 // 题型：选择（kind choice）、填空（kind fill，没有选项）、写作（kind self，交卷后按官方评分项自评）
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
+import { playerHTML, bindPlayers } from './player.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup
 export const initKET = (ctx) => { X = ctx; };
 
@@ -106,7 +107,7 @@ export async function renderKETExam(sid) {
   const P = d.problems;
   const inG = (g) => P.filter((p) => p.extra?.group === g.id);
   const key = `ket.s.${sid}`;
-  const S = Object.assign({ g: 0, answers: {}, played: {}, pick: {} }, X.store.get(key, {}));
+  const S = Object.assign({ g: 0, answers: {}, pos: {}, pick: {} }, X.store.get(key, {}));
   const save = () => X.store.set(key, S);
   const skew = d.session.server_now - Date.now();
   const left = () => (d.session.deadline_at - (Date.now() + skew)) / 1000;
@@ -114,10 +115,10 @@ export async function renderKETExam(sid) {
   // 二选一的写作题：只算选中的那道
   const counted = () => P.filter((p) => { const g = G.find((x) => x.id === p.extra?.group); return !(g?.kind === 'choose' && (S.pick[g.id] ?? 0) !== p.extra.opt); });
   let timer = null, audio = null, submitting = false;
-  X.setCleanup(() => { clearInterval(timer); audio?.pause(); });
+  X.setCleanup(() => { clearInterval(timer); audio?.(); });
 
   async function submit(auto) {
-    if (submitting) return; submitting = true; clearInterval(timer); audio?.pause();
+    if (submitting) return; submitting = true; clearInterval(timer); audio?.();
     const answers = {}; for (const p of counted()) if (S.answers[p.id] != null) answers[p.id] = S.answers[p.id];
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers, times: {} } });
@@ -183,12 +184,10 @@ export async function renderKETExam(sid) {
     return blanks(g.text, qs, (p) => { const a = S.answers[p.id]; return `<a class="tj-blank kt-gap ${a ? 'on' : ''}" href="javascript:" data-jump="${p.number}"><sup>${p.number}</sup>${a ? `${a} ${X.esc(p.choices[a])}` : '　　　　'}</a>`; });
   }
   function listen(g) {
-    const st = S.played[g.id];
-    return `<div class="tj-listen"><button class="tj-play" id="play" ${st === 'done' ? 'disabled' : ''}>${st === 'done' ? '已播放' : st ? '播放中…' : '▶ 播放录音'}</button>
-      <div class="tj-prog"><i id="aprog"></i></div><p class="small muted">${range(g)} · 每段录音读两遍，只能播放一次</p></div>`;
+    return `<div class="tj-listen">${playerHTML(g.audio, true)}<p class="small muted">${range(g)} · 每段录音读两遍</p></div>`;
   }
   function draw() {
-    audio?.pause(); audio = null;
+    audio?.(); audio = null;
     const g = G[S.g];
     const last = S.g === G.length - 1;
     const wide = ['notices', 'people', 'article', 'cloze', 'match8', 'gapped'].includes(g.kind);
@@ -225,15 +224,8 @@ export async function renderKETExam(sid) {
     X.$app.querySelector('#next').onclick = () => (last ? finish() : go(S.g + 1));
     X.$app.querySelector('#fin').onclick = finish;
     X.$app.querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => go(+b.dataset.g)));
-    const pb = X.$app.querySelector('#play');
-    if (pb) pb.onclick = () => {
-      if (S.played[g.id] === 'done') return;
-      audio = new Audio(audioOf(F) + g.audio);
-      audio.ontimeupdate = () => { const el = X.$app.querySelector('#aprog'); if (el && audio.duration) el.style.width = `${(100 * audio.currentTime) / audio.duration}%`; };
-      audio.onended = () => { S.played[g.id] = 'done'; save(); pb.textContent = '已播放'; pb.disabled = true; };
-      audio.play().then(() => { S.played[g.id] = 'on'; save(); pb.textContent = '播放中…'; pb.disabled = true; })
-        .catch(() => say('录音没能播放，请检查网络后再点一次。'));
-    };
+    let tick = 0;
+    audio = bindPlayers(X.$app, audioOf(F), { pos: S.pos, onPos: (f, t) => { S.pos[f] = t; if (Date.now() - tick > 2000) { tick = Date.now(); save(); } }, onError: () => say('录音没能播放，请检查网络后再点一次。') });
   }
   timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
   draw();
@@ -247,7 +239,7 @@ export async function renderKETReview(sid) {
   const G = r.exam.sections?.[0]?.groups || [];
   const items = r.items;
   const inG = (g) => items.filter((it) => it.extra?.group === g.id);
-  let audio = null; X.setCleanup(() => audio?.pause());
+  let audio = null; X.setCleanup(() => audio?.());
   const auto = items.filter((it) => it.kind !== 'self');
   const right = auto.filter((it) => it.correct).length;
   const W = items.filter((it) => it.kind === 'self');
@@ -263,7 +255,7 @@ export async function renderKETReview(sid) {
   const fillRev = (it) => `<div class="tj-rq ${st(it)}" id="q${it.number}"><div class="tj-qh"><b>${it.number}</b></div>
     <div class="kt-fill"><span class="${it.correct ? 'ok' : 'bad'}">你填的：${it.choice ? `<b>${X.esc(it.choice)}</b>` : '没填'}</span><span>答案：<b>${X.esc(it.answer)}</b></span></div>${exp(it)}</div>`;
   const pickRev = (it) => `<div class="kt-pics">${Object.entries(it.choices).map(([k, v]) => `<div class="kt-pick rv ${k === it.answer ? 'key' : ''} ${k === it.choice && !it.correct ? 'bad' : ''}"><i>${k}</i>${pic(it.extra.pics[k], v)}<small>${k === it.answer ? '正确答案' : k === it.choice ? '你的选择' : ''}</small></div>`).join('')}</div>`;
-  const play = (g) => `<button class="btn sm" data-audio="${X.esc(g.audio)}">▶ 再听一遍</button>`;
+  const play = (g) => playerHTML(g.audio);
   const scriptBox = (sc, label = '录音原文') => `<details class="kt-scr"><summary>${label}</summary>${lines(sc)}</details>`;
   const writeRev = (g, it, t = g) => {
     const v = it.choice || ''; const n = words(v); const need = t.words || g.words; const enough = F.id === 'pet' ? n >= need * 0.8 : n >= need;
@@ -314,7 +306,7 @@ export async function renderKETReview(sid) {
   X.$app.querySelector('#again').onclick = (e) => { e.currentTarget.disabled = true; start(F, r.exam.id).catch((x) => say(x.message)); };
   X.$app.querySelector('#prt').onclick = () => printKET(setN, part, F.id);
   X.$app.querySelectorAll('.tj-sheet a, a.tj-blank').forEach((a) => (a.onclick = (e) => { e.preventDefault(); X.$app.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
-  X.$app.querySelectorAll('[data-audio]').forEach((b) => (b.onclick = () => { audio?.pause(); audio = new Audio(audioOf(F) + b.dataset.audio); audio.play(); }));
+  audio = bindPlayers(X.$app, audioOf(F));
   // 写作自评：每一项都点了才提交
   X.$app.querySelectorAll('[data-self]').forEach((box) => {
     const pid = box.dataset.self; const k = `ket.self.${sid}.${pid}`; const sc = X.store.get(k, F.crit.map(() => null));
