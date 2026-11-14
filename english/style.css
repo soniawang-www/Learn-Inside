@@ -523,6 +523,7 @@ body.tj-mode { padding-bottom: 72px; }
 .tj-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .tj-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 42px; padding: 4px 6px; border-radius: 10px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
 .tj-chip.done { border-color: transparent; background: var(--ok-soft); color: var(--ok); }
+.tj-chip.cur { background: var(--accent); color: var(--surface); }
 .tj-chip em { font-style: normal; font-size: 12px; font-weight: 500; }
 .tj-chip:disabled { opacity: .5; }
 .tj-pr { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
@@ -673,3 +674,4 @@ body.tj-mode { padding-bottom: 72px; }
 .kt-pick2 button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); }
 .tj-text .kt-inmail .kt-mail-h { margin: 0; border-radius: 0; }
 .kt-inmail .kt-mail-b { font-size: 15px; }
+.cont-go + .fam-cards { margin-top: 14px; }

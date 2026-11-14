@@ -916,7 +916,7 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
     .all();
   const { results: sessions } = await env.DB
     .prepare(
-      `SELECT s.id, s.mode, s.score, s.submitted_at, COALESCE(s.title, e.title) AS title,
+      `SELECT s.id, s.exam_id, s.mode, s.score, s.submitted_at, COALESCE(s.title, e.title) AS title,
               (SELECT COALESCE(SUM(COALESCE(pp.points, 1)), 0) FROM attempt_event a JOIN problem pp ON pp.id = a.problem_id WHERE a.session_id = s.id) AS total
          FROM exam_session s JOIN exam e ON e.id = s.exam_id
         WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND COALESCE(s.subject, 'math') = ? ORDER BY s.submitted_at DESC LIMIT 20`

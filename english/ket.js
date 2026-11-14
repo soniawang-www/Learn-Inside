@@ -49,6 +49,8 @@ const RUBRIC = {
 const rub = (F, g) => RUBRIC[`${F.id}:${g.id}`] || '';
 
 // ───────── 套题列表 ─────────
+// 没交卷的试卷记在 en.cur.<试卷 id>：列表上那一格变成「继续」，英语首页和网站首页也会提示
+const curOf = (X, examId) => { const c = X.store.get(`en.cur.${examId}`); return c && c.dl > Date.now() ? c : null; };
 async function start(F, examId) {
   const r = await X.api('/api/sessions', { method: 'POST', body: { exam_id: examId, student_id: X.auth.student.id, mode: 'exam' } });
   location.hash = `#/${F.id}/exam/${r.session.id}`;
@@ -63,6 +65,8 @@ export async function renderKET(fam = 'ket') {
     <div class="hero"><h1>${F.name}</h1></div>
     ${nums.length ? `<section class="card tj-list">${nums.map((n) => `<div class="tj-row kt-row"><b>第 ${n} 套</b>
       <div class="tj-chips" style="grid-template-columns:repeat(${F.parts.length},minmax(0,1fr))">${F.parts.map(([k, name, full]) => { const e = sets.get(n)[k]; if (!e) return '<span></span>';
+        const c = curOf(X, e.id);
+        if (c) return `<a class="tj-chip cur" href="#/${F.id}/exam/${X.enc(c.sid)}">${name}<em>继续</em></a>`;
         return e.last_session ? `<a class="tj-chip done" href="#/${F.id}/review/${e.last_session}">${name}<em>${fmt(e.last_score)}/${full}</em></a>`
           : `<button class="tj-chip" data-start="${e.id}">${name}</button>`; }).join('')}</div>
       <button class="tj-pr" data-print="${n}" aria-label="打印第 ${n} 套">${PRINT_ICON}</button></div>`).join('')}</section>`
@@ -102,7 +106,9 @@ const taskBox = (F, g, t) => `<div class="tj-text kt-task">${t.prompt ? paras(t.
 export async function renderKETExam(sid) {
   const d = await X.api(`/api/sessions/${X.enc(sid)}`);
   const F = famOf(d.exam.id);
-  if (d.session.submitted) { location.replace(`#/${F.id}/review/${sid}`); return; }
+  const ck = `en.cur.${d.exam.id}`;
+  if (d.session.submitted) { if (X.store.get(ck)?.sid === sid) X.store.del(ck); location.replace(`#/${F.id}/review/${sid}`); return; }
+  X.store.set(ck, { sid, t: d.exam.title, f: F.id, dl: d.session.deadline_at - d.session.server_now + Date.now() });
   const G = d.exam.sections?.[0]?.groups || [];
   const P = d.problems;
   const inG = (g) => P.filter((p) => p.extra?.group === g.id);
@@ -122,7 +128,7 @@ export async function renderKETExam(sid) {
     const answers = {}; for (const p of counted()) if (S.answers[p.id] != null) answers[p.id] = S.answers[p.id];
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers, times: {} } });
-      X.store.del(key);
+      X.store.del(key); X.store.del(ck);
       if (auto) X.modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/${F.id}/review/${sid}`);
     } catch (e) { submitting = false; X.modal(`<h2>交卷没成功</h2><p>${X.esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }

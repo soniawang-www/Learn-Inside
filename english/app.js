@@ -11,8 +11,8 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111u';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111w';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261114a';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261114a';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261114b';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261114b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -176,7 +176,11 @@ async function renderHome() {
   const d = await api(`/api/english/banks?student=${enc(auth.student.id)}`);
   const n = d.banks.reduce((a, b) => a + (b.problem_count || 0), 0);
   const done = d.banks.reduce((a, b) => a + b.practiced, 0);
-  page(`<div class="hero"><h1>英语竞赛</h1></div>
+  const cur = []; // 没交卷的试卷（tj.js / ket.js 记的 en.cur.*），最近要到期的在前
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k.startsWith('en.cur.')) continue; const c = store.get(k); if (c?.sid && c.dl > Date.now()) cur.push(c); } } catch {}
+  cur.sort((a, b) => a.dl - b.dl);
+  page(`<div class="hero"><h1>英语备考</h1></div>
+    ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
     <div class="fam-cards">
       <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 10 套 · 阅读写作 听力</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 10 套 · 阅读 写作 听力</span><small></small><i>›</i></a>
