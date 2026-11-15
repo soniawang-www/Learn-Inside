@@ -311,7 +311,7 @@ function renderJoin() {
     <section class="auth-intro">
       <h1>竞赛真题边练边学</h1>
       <ul>
-        <li><b>数学真题</b>AMC 8 · 希望数学 · 思维 100</li>
+        <li><b>数学真题</b>AMC 8 · AMC 10 · 希望数学 · 思维 100</li>
         <li><b>语文真题</b>汉字小达人 · 古诗文大会 · 飞花令</li>
         <li><b>英语备考</b>KET · PET · 小托福</li>
         <li><b>知识图谱 · 错题本</b>数学、语文同一个账号</li>
@@ -723,8 +723,9 @@ function showInstructions(exam, mode) {
       <li>答对 1 题得 1 分，答错不扣分。</li>
       <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
       ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
-      <li>答对 1 题得 1 分，答错不扣分，所以每题都值得作答。</li>
-      <li>只允许使用草稿纸、笔、直尺和橡皮；不能用计算器、量角器、圆规或任何电子设备。</li>
+      ${/^amc10-/.test(exam.id) ? `<li>本站按答对题数计分。正式比赛答对 6 分、不答 1.5 分、答错 0 分。</li>
+      <li>只允许使用草稿纸、坐标纸、直尺、圆规、量角器和橡皮；不能用计算器或任何电子设备。</li>` : `<li>答对 1 题得 1 分，答错不扣分，所以每题都值得作答。</li>
+      <li>只允许使用草稿纸、笔、直尺和橡皮；不能用计算器、量角器、圆规或任何电子设备。</li>`}
       <li>图形不一定按比例绘制。</li>
       <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
       ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}`}
@@ -778,7 +779,7 @@ async function openExamPrint(exam, btn) {
   try { r = await api(`/math/api/exams/${enc(exam.id)}/print`); }
   catch (err) { if (btn) btn.disabled = false; return modal(`<h2>没能打开打印</h2><p>${esc(err.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
   if (btn) btn.disabled = false;
-  const en = /^amc8-/.test(exam.id); // 只有 AMC 8 有英文原题
+  const en = /^amc(8|10)-/.test(exam.id); // AMC 8 / AMC 10 有英文原题
   const sub = `共 ${r.items.length} 题 · ${Math.round(r.exam.duration_sec / 60)} 分钟`;
   store.set(printedKey(exam.id), 1);
   openMathPrint({
@@ -1463,7 +1464,7 @@ function openMistakesPrint(list) {
   ].filter(Boolean);
   const title = `${msCtx?.nickname || auth.student.nickname}的错题本`;
   openMathPrint({
-    name: '错题本', title, info: ['姓名', '日期', '得分'], en: all.some((m) => /^amc8-/.test(m.problem_id)), ans: true, file: 'mistakes',
+    name: '错题本', title, info: ['姓名', '日期', '得分'], en: all.some((m) => /^amc(8|10)-/.test(m.problem_id)), ans: true, file: 'mistakes',
     qr: '/math/#/mistakes', qrText: '扫码看错题本和解析',
     presets, pick: all.map((m) => ({ id: m.problem_id, label: m.label, sub: MS[m.status][0] })),
     fetch: async (want) => (await api(`/math/api/students/${auth.student.id}/mistakes/print`, { method: 'POST', body: { problem_ids: want } })).items,
@@ -1483,7 +1484,7 @@ async function renderPrintLink(token) {
   } catch (e) { return page(`<h2>打不开这张练习单</h2><p>${esc(e.message)}</p><a class="btn primary" href="/math/">回到数学</a>`); }
   if (!d.items?.length) return page('<h2>这张练习单没有题</h2><a class="btn primary" href="/math/">回到数学</a>');
   page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub || '')}</p>`);
-  const en = d.items.some((x) => /^amc8-/.test(x.problem_id));
+  const en = d.items.some((x) => /^amc(8|10)-/.test(x.problem_id));
   openMathPrint({
     name: d.title, title: d.title, info: d.exam_id ? ['姓名', '日期', '用时', '得分'] : ['姓名', '日期', '得分'], en, ans: !d.exam_id, file: d.exam_id ? 'exam' : 'mistakes',
     qr: d.exam_id ? `/math/#/fill/${enc(d.exam_id)}` : '/math/#/mistakes', qrText: d.exam_id ? '扫码回填答案、判分' : '扫码看错题本和解析',
