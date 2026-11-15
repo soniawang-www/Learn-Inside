@@ -166,8 +166,8 @@ export const UI_FEATURES = [
     }, expect: same('true/25/1') },
   ] },
   { id: 'U3', area: '界面', name: '知识图谱与错题本', cases: [
-    { id: 'U3-1', name: '知识图谱画出 30 个知识项', run: async (p, c) => { await c.go('#/graph'); await p.waitForTimeout(500); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('svg .kg-n').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
-    { id: 'U3-2', name: '列表视图（薄弱在前）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; await p.click('[data-view="list"]'); await p.waitForTimeout(500); return p.locator('.kl-row').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
+    { id: 'U3-1', name: '知识图谱画出 38 个知识项', run: async (p, c) => { await c.go('#/graph'); await p.waitForTimeout(500); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('svg .kg-n').count(); }, expect: { guest: '注册提示', user: 38, member: 38 } },
+    { id: 'U3-2', name: '列表视图（薄弱在前）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; await p.click('[data-view="list"]'); await p.waitForTimeout(500); return p.locator('.kl-row').count(); }, expect: { guest: '注册提示', user: 38, member: 38 } },
     { id: 'U3-3', name: '错题本列出错题', run: async (p, c) => { await c.go('#/mistakes'); if (await p.locator('.reg-wall').count()) return '注册提示'; return (await p.locator('.ms-row').count()) > 0; }, expect: { guest: '注册提示', user: true, member: true } },
     { id: 'U3-4', name: '复盘页：错因和知识项链接（游客只显示知识项名字）', run: async (p, c) => { await c.go(`#/review/${c.session}`); return `${await p.locator('.reason-chips').count() > 0}/${await p.locator('.kphead a').count() > 0}/${await p.locator('.kphead b').count() > 0}`; }, expect: { guest: 'false/false/true', user: 'true/true/true', member: 'true/true/true' } },
     { id: 'U3-8', name: '复盘页：互动解析是缩略图（有图、有步数），紧跟在解题思路下面；考点卡不再列「怎么认出这个考点」；点缩略图打开或提示解锁', run: async (p, c) => {

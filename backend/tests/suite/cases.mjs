@@ -55,9 +55,10 @@ export const FEATURES = [
 
   // ───────── B 考试与做题 ─────────
   { id: 'B1', area: '考试', name: '考试与试卷列表', cases: [
-    { id: 'B1-1', name: '考试种类（AMC 8、思维 100、希望数学）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,swb100,hope') },
+    { id: 'B1-1', name: '考试种类（AMC 8、AMC 10、思维 100、希望数学）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,amc10,swb100,hope') },
     { id: 'B1-2', name: 'AMC 8 试卷数', run: async (c) => (await c.get(`/math/api/exams?student=${c.sid}&family=amc8`)).data.length, expect: same(26) },
-    { id: 'B1-3', name: 'AMC 8 考情（大类占比、知识项）', run: async (c) => { const d = (await c.get(`/math/api/families/amc8?student=${c.sid}`)).data; return d.stats.exams === 26 && d.stats.units.length === 30; }, expect: same(true) },
+    { id: 'B1-3', name: 'AMC 8 考情（大类占比、知识项）', run: async (c) => { const d = (await c.get(`/math/api/families/amc8?student=${c.sid}`)).data; return d.stats.exams === 26 && d.stats.units.length === 38; }, expect: same(true) },
+    { id: 'B1-3b', name: 'AMC 10 考情（34 套）', run: async (c) => { const d = (await c.get(`/math/api/families/amc10?student=${c.sid}`)).data; return d.stats.exams === 34 && d.family.name === 'AMC 10'; }, expect: same(true) },
     { id: 'B1-4', name: '思维 100 有真题', run: async (c) => (await c.get(`/math/api/families/swb100?student=${c.sid}`)).data.stats.exams > 0, expect: same(true) },
   ] },
   { id: 'B2', area: '考试', name: '模考', cases: [
@@ -152,7 +153,7 @@ export const FEATURES = [
 
   // ───────── E 知识图谱 ─────────
   { id: 'E1', area: '知识图谱', name: '个人知识图谱', cases: [
-    { id: 'E1-1', name: '30 个知识项、前置关系、掌握度', run: async (c) => { const r = await c.get(`/math/api/students/${c.sid}/graph`); if (r.status !== 200) return r.status; const d = r.data; return d.nodes.length === 30 && d.edges.length > 20 && d.nodes.some((n) => n.mastery); }, expect: { guest: 403, user: true, member: true } },
+    { id: 'E1-1', name: '38 个知识项、前置关系、掌握度', run: async (c) => { const r = await c.get(`/math/api/students/${c.sid}/graph`); if (r.status !== 200) return r.status; const d = r.data; return d.nodes.length === 38 && d.edges.length > 20 && d.nodes.some((n) => n.mastery); }, expect: { guest: 403, user: true, member: true } },
     { id: 'E1-2', name: '错过的题挂在知识项上', run: async (c) => { const r = await c.get(`/math/api/students/${c.sid}/graph`); return r.status !== 200 ? r.status : r.data.nodes.some((n) => n.wrong?.total > 0); }, expect: { guest: 403, user: true, member: true } },
     { id: 'E1-3', name: '看不到别人家孩子的图谱', run: async (c) => st(await c.get(`/math/api/students/${c.outsider.sid}/graph`)), expect: { guest: 403, user: 404, member: 404 } },
   ] },
