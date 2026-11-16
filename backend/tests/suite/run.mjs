@@ -127,7 +127,8 @@ if (WITH_UI) {
     const url = (t) => BASE + (t === '#/account' ? '/account/' : t.startsWith('/') ? t : '/math/' + t);
     // 等页面稳定：占位块、换页变淡都结束
     const settle = async (pg) => { await pg.waitForTimeout(400); await pg.waitForFunction(() => !document.querySelector('.sk') && !document.getElementById('app')?.classList.contains('page-wait'), null, { timeout: 15000 }).catch(() => {}); await pg.waitForTimeout(300); };
-    const open = async (pg, t) => { await pg.goto(url(t)); await pg.reload().catch(() => {}); await settle(pg); };
+    // 每次都从空白页重新加载：只改 #hash 时 goto 是同一页面内跳转，旧页面的内容会残留到新页面渲染完之前（KET / PET 列表用例偶发失败的原因）
+    const open = async (pg, t) => { await pg.goto('about:blank'); await pg.goto(url(t)); await settle(pg); };
     c.role = role; c.settle = () => settle(page);
     // 语文答题用的标准答案（来自题库仓库 math-data，环境变量 DATA 指定目录）
     if (!c.zhKey) {
