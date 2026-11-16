@@ -326,10 +326,10 @@ function trials(box, p, api) {
 //   round: [{type: 'cyl' | 'cone' | 'frustum', c: [x, y, z]（底面圆心）, r, h, r2（圆台上底半径）, axis: 'z'（默认竖直，'x' / 'y' 横放，h 沿轴的正方向）, cls: 'jade' | 'plum' | 'warn'（填色，比如水）, top / base: false（不画上 / 下底）}]（圆柱、圆锥、圆台；只画轮廓线和底面圆；dyn 也能返回 round）,
 //   cubes: [[x, y, z], [x, y, z, 'plum'], …]（单位小方块堆，代替 V / F；第 4 项是这一块的颜色：plum / jade / ink / warn）, grid: false（同一平面上的小方块不画分隔线）, explode: true（加「拆开」按钮，点选方块时默认有）,
 //   labels: true, yaw: -35, pitch: 22（初始视角，度）, zoom: 1, vw: 360, vh: 280,
-//   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边）,
+//   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], curves: [[[点, 点, …], '类'], …]（一串点连成的曲线）, polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边）,
 //   额外的线、多边形的边被立体挡住的部分自动画成虚线（hide: false 整步关掉；类里写 dash 一直是虚线，写 solid 一直是实线）,
 //   balls: [{c: [x, y, z], r, cls, eq: true（画赤道，背面一半虚线）}], center: [x, y, z]（旋转中心，默认包围盒中心）,
-//   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, balls, round}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
+//   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, curves, balls, round}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
 //   info / goal / tip（变量：S 已选的键、has(键)、n 已选个数、滑块变量、yaw（0～360）、pitch（-89～89）当前视角）, solution: [要选的键], solution_vars: {滑块: 值}, solution_view: {yaw, pitch} }
 const FACE_DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const SD_KEYS = ['V', 'S', 'has', 'n', 'seen', 'yaw', 'pitch'];
@@ -435,11 +435,11 @@ function solid(box, p, api) {
   let R = M.R;
   if (dyn) {
     const vs = (p.vars || []).slice(0, 4); let combos = [{ ...v }];
-    vs.forEach((x) => { combos = combos.flatMap((c) => [{ ...c, [x.k]: x.min }, { ...c, [x.k]: x.max }]); });
+    vs.forEach((x) => { combos = combos.flatMap((c) => [x.min, (x.min + x.max) / 2, x.max].map((t) => ({ ...c, [x.k]: t }))); });
     const P0 = { ...M.V, ...(p.pts || {}) };
     combos.forEach((c) => {
       const D = run(dyn, { ...envOf(), ...c }, {}) || {}, P1 = { ...P0, ...(D.pts || {}) };
-      const qs = [...Object.values(D.pts || {}), ...(D.segs || []).flatMap((s) => [s[0], s[1]]), ...(D.polys || []).flatMap((s) => s[0])].map((k) => (Array.isArray(k) ? k : P1[k])).filter((q) => q && q.every(Number.isFinite));
+      const qs = [...Object.values(D.pts || {}), ...(D.segs || []).flatMap((s) => [s[0], s[1]]), ...(D.polys || []).flatMap((s) => s[0]), ...(D.curves || []).flatMap((s) => s[0])].map((k) => (Array.isArray(k) ? k : P1[k])).filter((q) => q && q.every(Number.isFinite));
       (D.balls || []).forEach((b) => qs.push(...[0, 1, 2].flatMap((i) => [-1, 1].map((sg) => b.c.map((t, j) => t + (j === i ? sg * b.r : 0))))));
       qs.forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
       if (D.round) Object.values(solidModel({ round: D.round }).V).forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
@@ -550,6 +550,15 @@ function solid(box, p, api) {
       else split(A, B).forEach((s) => { g += ln(s, `sd-x ${SD_CLS(cls)}${s[4] ? ' sd-hid' : ''}`); });
     });
     extra(p.polys, true); extra(D.polys, true); extra(p.segs); extra(D.segs);
+    for (const [ks, c] of [...(p.curves || []), ...(D.curves || [])]) {
+      const P2 = ks.map(pr); if (P2.length < 2 || P2.some((q) => !q)) continue;
+      const cls = c || 'plum', fixed = !auto || /\b(dash|solid)\b/.test(cls), runs = [];
+      for (let i = 0; i + 1 < P2.length; i++) for (const q of (fixed ? [[P2[i][0], P2[i][1], P2[i + 1][0], P2[i + 1][1], false]] : split(P2[i], P2[i + 1]))) {
+        const last = runs[runs.length - 1];
+        if (last && last.h === q[4]) last.pts.push(`${q[2]},${q[3]}`); else runs.push({ h: q[4], pts: [`${q[0]},${q[1]}`, `${q[2]},${q[3]}`] });
+      }
+      runs.forEach((r) => { g += `<polyline points="${r.pts.join(' ')}" class="sd-x ${SD_CLS(cls)}${r.h ? ' sd-hid' : ''}"/>`; });
+    }
     for (const bl of [...(p.balls || []), ...(D.balls || [])]) {
       const q = proj(bl.c), cls = SD_CLS(bl.cls || 'ink thin');
       g += `<circle cx="${q[0]}" cy="${q[1]}" r="${r2(bl.r * scale)}" class="sd-x sd-ball ${cls}"/>`;
