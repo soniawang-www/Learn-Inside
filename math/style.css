@@ -1272,7 +1272,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-poly.sd-plum { fill:var(--lp-plum); fill-opacity:.28; } .sdsvg .sd-poly.sd-jade { fill:var(--lp-jade); fill-opacity:.28; } .sdsvg .sd-poly.sd-ink { fill:var(--lp-ink); fill-opacity:.12; }
 .sdsvg .sd-dash { stroke-dasharray:5 4; }
 .sdsvg .sd-warn { stroke:var(--lp-warn); } .sdsvg .sd-poly.sd-warn { fill:var(--lp-warn); fill-opacity:.28; }
-.sdsvg .sd-thin { stroke-width:1.2; } .sdsvg .sd-nofill { fill:none !important; } .sdsvg .sd-noline { stroke:none !important; }
+.sdsvg .sd-poly.sd-opaque { fill-opacity:.92 !important; } .sdsvg .sd-thin { stroke-width:1.2; } .sdsvg .sd-nofill { fill:none !important; } .sdsvg .sd-noline { stroke:none !important; }
 .sdsvg .sd-ball { fill:none; }
 .sdsvg .sd-t { font-weight:700; fill:var(--lp-ink); pointer-events:none; } .sdsvg .sd-t.hid { opacity:.3; }
 .sdsvg .sd-t-plum { fill:var(--lp-plum); } .sdsvg .sd-t-jade { fill:var(--lp-jade); } .sdsvg .sd-t-warn { fill:var(--lp-warn); }

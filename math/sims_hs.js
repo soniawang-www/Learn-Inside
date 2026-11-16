@@ -326,7 +326,7 @@ function trials(box, p, api) {
 //   round: [{type: 'cyl' | 'cone' | 'frustum', c: [x, y, z]（底面圆心）, r, h, r2（圆台上底半径）, axis: 'z'（默认竖直，'x' / 'y' 横放，h 沿轴的正方向）, cls: 'jade' | 'plum' | 'warn'（填色，比如水）, top / base: false（不画上 / 下底）}]（圆柱、圆锥、圆台；只画轮廓线和底面圆；dyn 也能返回 round）,
 //   cubes: [[x, y, z], [x, y, z, 'plum'], …]（单位小方块堆，代替 V / F；第 4 项是这一块的颜色：plum / jade / ink / warn）, grid: false（同一平面上的小方块不画分隔线）, explode: true（加「拆开」按钮，点选方块时默认有）,
 //   labels: true, yaw: -35, pitch: 22（初始视角，度）, zoom: 1, vw: 360, vh: 280,
-//   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], curves: [[[点, 点, …], '类'], …]（一串点连成的曲线）, texts: [[点名或 [x, y, z], '文字', 'plum'|'jade'|'warn'], …]（写字，比如面上的数字；被挡住的变淡）, polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边）,
+//   pts: {M: [x, y, z]}（额外的点，带名字；pt_names: false 只画点不写名字）, segs: [['A', 'M', '类'], …], curves: [[[点, 点, …], '类'], …]（一串点连成的曲线）, texts: [[点名或 [x, y, z], '文字', 'plum'|'jade'|'warn'], …]（写字，比如面上的数字；被挡住的变淡）, polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边、' opaque' 不透明；多边形按远近排序）, fit: 'live'（每次按当前画面定中心和缩放，展开图折叠用）,
 //   额外的线、多边形的边被立体挡住的部分自动画成虚线（hide: false 整步关掉；类里写 dash 一直是虚线，写 solid 一直是实线）,
 //   balls: [{c: [x, y, z], r, cls, eq: true（画赤道，背面一半虚线）}], center: [x, y, z]（旋转中心，默认包围盒中心）,
 //   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, curves, texts, balls, round, cubes}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
@@ -463,18 +463,28 @@ function solid(box, p, api) {
   const modelFor = (D) => { const k = JSON.stringify([D.round, D.cubes]); if (k !== mKey) { mKey = k; mLast = solidModel({ ...p, round: [...(p.round || []), ...(D.round || [])], ...(D.cubes ? { cubes: D.cubes } : {}), center: M.c }); } return mLast; };
   const draw = () => {
     const a = (yaw * Math.PI) / 180, b = (pitch * Math.PI) / 180, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
-    const scale = scale0 / (1 + ex * 1.2);
-    // 视线方向（世界坐标）：d 越小越近
-    const W = [sa * cb, ca * cb, -sb];
-    const proj = (q) => {
-      const x = q[0] - M.c[0], y = q[1] - M.c[1], z = q[2] - M.c[2];
-      const x1 = x * ca - y * sa, y1 = x * sa + y * ca;
-      return [r2(vw / 2 + scale * x1), r2(vh / 2 - scale * (y1 * sb + z * cb)), y1 * cb - z * sb];
-    };
     const env = envOf();
     const D = run(dyn, env, {}) || {};
     const MM = D.round || D.cubes ? modelFor(D) : M, CUBES = !!(p.cubes || D.cubes);
     const PT = { ...MM.V, ...(p.pts || {}), ...(D.pts || {}) };
+    // fit: 'live'：按当前画面（含 dyn 画的东西）定中心和缩放，比如展开图折起来后正方体跟着变大
+    let C = M.c, scale = scale0 / (1 + ex * 1.2);
+    if (p.fit === 'live') {
+      const pt0 = (k) => (Array.isArray(k) ? k : PT[k]);
+      const Q = [...Object.values(MM.V), ...Object.entries({ ...(p.pts || {}), ...(D.pts || {}) }).filter(([k]) => !k.startsWith('_')).map(([, q]) => q), ...(D.segs || []).flatMap((x) => [x[0], x[1]]), ...(D.polys || []).flatMap((x) => x[0]), ...(D.curves || []).flatMap((x) => x[0]), ...(D.cubes || []).flatMap((cb2) => [0, 1].map((d) => cb2.slice(0, 3).map((t) => +t + d)))].map(pt0).filter((q) => q && q.every(Number.isFinite));
+      if (Q.length) {
+        C = [0, 1, 2].map((i) => (Math.min(...Q.map((q) => q[i])) + Math.max(...Q.map((q) => q[i]))) / 2);
+        const RL = Math.max(...Q.map((q) => Math.hypot(q[0] - C[0], q[1] - C[1], q[2] - C[2]))) || 1;
+        scale = (Math.min(vw, vh) * 0.42 * (p.zoom || 1)) / RL;
+      }
+    }
+    // 视线方向（世界坐标）：d 越小越近
+    const W = [sa * cb, ca * cb, -sb];
+    const proj = (q) => {
+      const x = q[0] - C[0], y = q[1] - C[1], z = q[2] - C[2];
+      const x1 = x * ca - y * sa, y1 = x * sa + y * ca;
+      return [r2(vw / 2 + scale * x1), r2(vh / 2 - scale * (y1 * sb + z * cb)), y1 * cb - z * sb];
+    };
     const at = (k) => (Array.isArray(k) ? k : PT[k]);
     const S2 = {}; for (const [k, q] of Object.entries(PT)) S2[k] = proj(q);
     const pr = (k) => (Array.isArray(k) ? proj(k) : S2[k]);
@@ -566,7 +576,8 @@ function solid(box, p, api) {
       if (!auto || /\b(dash|solid)\b/.test(cls)) g += ln([A[0], A[1], B[0], B[1]], `sd-x ${SD_CLS(cls)}`);
       else split(A, B).forEach((s) => { g += ln(s, `sd-x ${SD_CLS(cls)}${s[4] ? ' sd-hid' : ''}`); });
     });
-    extra(p.polys, true); extra(D.polys, true); extra(p.segs); extra(D.segs);
+    const depthOf = (ks) => { const L = ks.map(pr).filter(Boolean); return L.length ? L.reduce((t, q) => t + q[2], 0) / L.length : 0; };
+    extra([...(p.polys || []), ...(D.polys || [])].sort((x, y) => depthOf(y[0]) - depthOf(x[0])), true); extra(p.segs); extra(D.segs);
     for (const [ks, c] of [...(p.curves || []), ...(D.curves || [])]) {
       const P2 = ks.map(pr); if (P2.length < 2 || P2.some((q) => !q)) continue;
       const cls = c || 'plum', fixed = !auto || /\b(dash|solid)\b/.test(cls), runs = [];
@@ -595,13 +606,13 @@ function solid(box, p, api) {
     }
     if (!CUBES) {
       const named = Object.keys(PT).filter((k) => !k.startsWith('_'));
-      const ctr = proj(MM.c);
+      const ctr = proj(C);
       named.forEach((k) => {
         const [x, y] = S2[k]; let dx = x - ctr[0], dy = y - ctr[1]; const L = Math.hypot(dx, dy) || 1; dx = (dx / L) * 13; dy = (dy / L) * 13 || -13;
         const extraPt = !(k in MM.V);
         if (extraPt || p.pick === 'vertex') g += `<circle cx="${x}" cy="${y}" r="${extraPt ? 3.5 : 4}" class="sd-v${sel.has(k) ? ' on' : ''}${extraPt && auto && hidden(S2[k]) ? ' hid' : ''}"/>`;
         if (p.pick === 'vertex' && !extraPt) g += `<circle cx="${x}" cy="${y}" r="14" class="sd-vh" data-k="${esc(k)}"/>`;
-        if (p.labels !== false || extraPt) g += `<text x="${r2(x + dx)}" y="${r2(y + dy + 5)}" font-size="14" text-anchor="middle" class="st lbl">${esc(k)}</text>`;
+        if (extraPt ? p.pt_names !== false : p.labels !== false) g += `<text x="${r2(x + dx)}" y="${r2(y + dy + 5)}" font-size="14" text-anchor="middle" class="st lbl">${esc(k)}</text>`;
       });
     }
     box.querySelector('.sd-g').innerHTML = g;
