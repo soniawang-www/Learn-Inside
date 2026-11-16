@@ -434,6 +434,8 @@ export function openPrint(cfg) {
       pages.forEach((pg) => { const { host, sr } = isolated(sheetCss, cfg.links); host.className = 'lp-pw'; sr.appendChild(pg); pv.appendChild(host); });
       if (!pages.length || !(r.blocks || []).length) pv.innerHTML = '<div class="lp-msg">没有可打印的内容</div>';
       fit();
+      iosOut = null;
+      if (isIOS() && pages.length) prepareIOS(my);
     } catch (e) {
       console.error(e);
       if (my === building) { pages = []; pv.innerHTML = `<div class="lp-msg">${esc(e.message || '没能排版')}</div>`; }
@@ -463,23 +465,42 @@ export function openPrint(cfg) {
   // 所以和存 PDF 一样先把每页画成图片，再按纸张大小缩放打印
   async function makeCanvases() {
     if (pdf?.cvs) return pdf.cvs;
+    const my = building;
     const css = PAGE_CSS + '\n' + (cfg.css || '') + '\n' + ((await cfg.pdfCss?.()) || '');
     const cvs = await pageCanvases(pages.map((p) => { const c = p.cloneNode(true); c.style.transform = ''; return c; }), css);
-    pdf = { blob: makePdf(cvs), pages: cvs.length, cvs };
+    if (my === building) pdf = { blob: makePdf(cvs), pages: cvs.length, cvs };
     return cvs;
   }
-  async function printImages() {
-    let cvs;
-    try { cvs = await makeCanvases(); } catch (e) { console.error(e); modal('没能准备打印', '<p class="lp-note">请换 Safari 再试。</p>'); return; }
-    drawUi();
-    const out = document.createElement('div'); out.id = 'lp-out';
-    const imgs = cvs.map((cv) => { const im = new Image(); im.className = 'lp-img'; im.src = cv.toDataURL('image/jpeg', 0.92); out.appendChild(im); return im; });
+  // 排好版就在后台先画好图片：点「打印」时直接调起打印（拖太久苹果可能不认这是点按触发的）
+  let iosOut = null;
+  async function prepareIOS(my) {
+    try {
+      const cvs = await makeCanvases();
+      if (my !== building) return null;
+      const out = document.createElement('div'); out.id = 'lp-out';
+      const imgs = cvs.map((cv) => { const im = new Image(); im.className = 'lp-img'; im.src = cv.toDataURL('image/jpeg', 0.92); out.appendChild(im); return im; });
+      await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
+      if (my !== building) return null;
+      iosOut = { my, out };
+      drawUi();
+      return iosOut;
+    } catch (e) { console.error(e); return null; }
+  }
+  function printNow(out) {
+    document.getElementById('lp-out')?.remove();
     document.body.appendChild(out);
-    await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
     document.body.classList.add('lp-printing');
     const done = () => { document.body.classList.remove('lp-printing'); window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
     try { window.print(); } catch {}
+  }
+  async function printImages() {
+    if (iosOut?.my === building) return printNow(iosOut.out);
+    const btns = root.querySelectorAll('[data-a=print]');
+    btns.forEach((b) => { b.disabled = true; b.textContent = '正在准备…'; });
+    const r = await prepareIOS(building);
+    if (!r) { drawUi(); modal('没能准备打印', '<p class="lp-note">可以点「存成 PDF」，再从 PDF 打印。</p>'); return; }
+    printNow(r.out);
   }
 
   // ── 存成 PDF：先生成，再点一次保存（手机分享要在点击里调用） ──
@@ -502,7 +523,7 @@ export function openPrint(cfg) {
     let canShare = false; try { canShare = !!(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })); } catch {}
     let inFrame = true; try { inFrame = window.self !== window.top; } catch {}
     if (canShare && mobile && !inFrame && !inWeChat()) {
-      navigator.share({ files: [f], title: name }).catch((e) => { if (e?.name !== 'AbortError') download(name); });
+      navigator.share({ files: [f] }).catch((e) => { if (e?.name !== 'AbortError') download(name); });
       return;
     }
     download(name);
