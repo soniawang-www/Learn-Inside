@@ -2,7 +2,7 @@
 // slider 是通用组件：课程数据给出变量和表达式，表达式只来自后台导入的课程内容。
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmt = (x, d = 2) => (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : x.toFixed(d).replace(/0+$/, '').replace(/\.$/, ''));
+const fmt = (x, d = 2) => (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : ((s) => (s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s))(x.toFixed(d)));
 const bar = (html) => `<div class="lp-gbar">${html}</div>`;
 const btn = (cls, text) => `<button class="lp-ghost ${cls}">${text}</button>`;
 const SVG = (w, h, body, cls = '') => `<svg viewBox="0 0 ${w} ${h}" class="lp-sim ${cls}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
@@ -13,7 +13,7 @@ const num = (x) => Number(x).toLocaleString('en-US');
 
 // ── 通用滑块：vars 是变量，view / info / goal 是用这些变量写的表达式 ──
 // { vars: [{ k, min, max, step, init, label }], view: 'SVG 内容表达式', vw, vh, info: 'HTML 表达式', goal: '布尔表达式', say_ok }
-const H = { T, fmt, gcd, num, esc, pi: Math.PI, sqrt: Math.sqrt, abs: Math.abs, round: Math.round, floor: Math.floor, min: Math.min, max: Math.max, sin: Math.sin, cos: Math.cos };
+const H = { T, fmt, gcd, num, esc, pi: Math.PI, sqrt: Math.sqrt, abs: Math.abs, round: Math.round, floor: Math.floor, min: Math.min, max: Math.max, sin: Math.sin, cos: Math.cos, tan: Math.tan, atan2: Math.atan2, hypot: Math.hypot, ceil: Math.ceil, log: Math.log, exp: Math.exp };
 function compile(expr, keys) {
   // eslint-disable-next-line no-new-func
   return new Function('__v', '__h', `const {${Object.keys(H).join(',')}} = __h; const {${keys.join(',')}} = __v; return (${expr});`);

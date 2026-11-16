@@ -211,7 +211,7 @@ function trialsCore(p, seed) {
     for (let i = 0; i < k; i++) {
       const r = tf(H, R); S.n++; S.r = r;
       if (hf) { if (hf({ r }, H)) S.h++; } else S.sum += +r;
-      if (p.hist) { const key = typeof r === 'object' ? JSON.stringify(r) : String(r); S.counts[key] = (S.counts[key] || 0) + 1; }
+      const key = typeof r === 'object' ? JSON.stringify(r) : String(r); if (key in S.counts || Object.keys(S.counts).length < 500) S.counts[key] = (S.counts[key] || 0) + 1;
       if (S.n >= S.next) { S.series.push([S.n, hf ? S.h / S.n : S.sum / S.n]); S.next = Math.max(S.n + 1, Math.ceil(S.n * 1.06)); }
     }
   };
@@ -273,7 +273,8 @@ function trials(box, p, api) {
 // ───────── 立体图（拖动旋转） ─────────
 // { V: {A: [x, y, z], …}（z 朝上）, F: [['A', 'B', 'C', 'D'], …]（面，给了就能分出看得见 / 看不见的棱，按凸多面体算）, E: [['A', 'B'], …]（不给就从面里取）,
 //   cubes: [[x, y, z], …]（单位小方块堆，代替 V / F）, labels: true, yaw: -35, pitch: 22（初始视角，度）, zoom: 1, vw: 360, vh: 280,
-//   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink，加 ' dash' 是虚线）,
+//   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边）,
+//   balls: [{c: [x, y, z], r, cls}]（球的轮廓圆）, center: [x, y, z]（旋转中心，默认包围盒中心）,
 //   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys}（变量：滑块变量、V、S、has、n，可以跟着点选变）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
 //   info / goal / tip（变量：S 已选的键、has(键)、n 已选个数、滑块变量）, solution: [要选的键] }
 const FACE_DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
@@ -292,16 +293,19 @@ function solidModel(p) {
   }
   let E = (p.E || []).map((e) => e.slice(0, 2));
   if (!p.E && !p.cubes) { const seen = new Set(); Fc.forEach((f) => f.v.forEach((a, i) => { const b = f.v[(i + 1) % f.v.length], k = [a, b].sort().join('|'); if (!seen.has(k)) { seen.add(k); E.push([a, b]); } })); }
-  const all = Object.values(V); const c = [0, 1, 2].map((i) => (Math.min(...all.map((q) => q[i])) + Math.max(...all.map((q) => q[i]))) / 2);
+  const real = Object.entries(V).filter(([k]) => !k.startsWith('_') || p.cubes).map(([, q]) => q), all = [...Object.values(V), ...Object.values(p.pts || {}), ...(p.balls || []).flatMap((b) => [0, 1, 2].flatMap((i) => [-1, 1].map((sg) => b.c.map((t, j) => t + (j === i ? sg * b.r : 0)))))];
+  const c = p.center || [0, 1, 2].map((i) => (Math.min(...all.map((q) => q[i])) + Math.max(...all.map((q) => q[i]))) / 2);
+  // 判断面朝外用顶点的平均（包围盒中心可能在不对称的立体外面）
+  const m = [0, 1, 2].map((i) => real.reduce((s, q) => s + q[i], 0) / (real.length || 1));
   const R = Math.max(...all.map((q) => Math.hypot(q[0] - c[0], q[1] - c[1], q[2] - c[2]))) || 1;
-  return { V, F: Fc, E, c, R };
+  return { V, F: Fc, E, c, m, R };
 }
 const SD_CLS = (c) => (c || 'plum').split(' ').map((x) => `sd-${x}`).join(' ');
 function solid(box, p, api) {
   const M = solidModel(p), vw = p.vw || 360, vh = p.vh || 280;
   const scale = (Math.min(vw, vh) * 0.42 * (p.zoom || 1)) / M.R;
   const v = varsInit(p.vars), vk = (p.vars || []).map((x) => x.k), dyn = fnc(p.dyn, [...vk, 'V', 'S', 'has', 'n', 'seen']);
-  const keys = [...vk, 'S', 'has', 'n', 'seen'];
+  const keys = [...vk, 'V', 'S', 'has', 'n', 'seen'];
   const F = { info: fnc(p.info, keys), goal: fnc(p.goal, keys), tip: fnc(p.tip, keys) };
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   let yaw = p.yaw ?? -35, pitch = p.pitch ?? 22; const sel = new Set(), ever = new Set();
@@ -326,7 +330,7 @@ function solid(box, p, api) {
     const faces = M.F.map((f) => {
       const P0 = at(f.v[0]), nrm0 = cross(sub(at(f.v[1]), P0), sub(at(f.v[2]), P0));
       const ctr = [0, 1, 2].map((i) => f.v.reduce((s, k) => s + at(k)[i], 0) / f.v.length);
-      const ref = f.cube ? f.cube.split(',').map((t) => +t + 0.5) : M.c;
+      const ref = f.cube ? f.cube.split(',').map((t) => +t + 0.5) : M.m;
       const out = (nrm0[0] * (ctr[0] - ref[0]) + nrm0[1] * (ctr[1] - ref[1]) + nrm0[2] * (ctr[2] - ref[2])) < 0 ? nrm0.map((t) => -t) : nrm0;
       const tip = proj([ctr[0] + out[0], ctr[1] + out[1], ctr[2] + out[2]])[2] - proj(ctr)[2];
       return { ...f, front: tip < -1e-9, depth: proj(ctr)[2], pts: f.v.map((k) => S2[k].slice(0, 2).join(',')).join(' ') };
@@ -352,6 +356,7 @@ function solid(box, p, api) {
       g += `<line x1="${A[0]}" y1="${A[1]}" x2="${B[0]}" y2="${B[1]}" class="sd-x ${SD_CLS(c)}"/>`;
     });
     extra(p.polys, true); extra(D.polys, true); extra(p.segs); extra(D.segs);
+    for (const b of [...(p.balls || []), ...(D.balls || [])]) { const q = proj(b.c); g += `<circle cx="${q[0]}" cy="${q[1]}" r="${r2(b.r * scale)}" class="sd-x sd-ball ${SD_CLS(b.cls || 'ink thin')}"/>`; }
     if (!p.cubes) {
       const named = Object.keys(PT).filter((k) => !k.startsWith('_'));
       const ctr = proj(M.c);
@@ -365,7 +370,7 @@ function solid(box, p, api) {
     }
     box.querySelector('.sd-g').innerHTML = g;
     box.querySelectorAll('.sl-v').forEach((e) => { e.textContent = H.fmt(v[e.dataset.k]); });
-    const env = { ...v, S: [...sel], has: (k) => sel.has(k), n: sel.size, seen: ever.size };
+    const env = { ...v, V: M.V, S: [...sel], has: (k) => sel.has(k), n: sel.size, seen: ever.size };
     if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, env, ''); tex(el); }
     if (F.tip) { const t = run(F.tip, env, ''); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
     if (run(F.goal, env, false)) ok();

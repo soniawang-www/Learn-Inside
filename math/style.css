@@ -1262,6 +1262,11 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-plum { stroke:var(--lp-plum); } .sdsvg .sd-jade { stroke:var(--lp-jade); } .sdsvg .sd-ink { stroke:var(--lp-ink); }
 .sdsvg .sd-poly.sd-plum { fill:var(--lp-plum); fill-opacity:.28; } .sdsvg .sd-poly.sd-jade { fill:var(--lp-jade); fill-opacity:.28; } .sdsvg .sd-poly.sd-ink { fill:var(--lp-ink); fill-opacity:.12; }
 .sdsvg .sd-dash { stroke-dasharray:5 4; }
+.sdsvg .sd-warn { stroke:var(--lp-warn); } .sdsvg .sd-poly.sd-warn { fill:var(--lp-warn); fill-opacity:.28; }
+.sdsvg .sd-thin { stroke-width:1.2; } .sdsvg .sd-nofill { fill:none !important; } .sdsvg .sd-noline { stroke:none !important; }
+.sdsvg .sd-ball { fill:none; }
+.lp-sim .st.jade { fill:var(--lp-jade); } .lp-sim .st.muted { fill:var(--lp-soft); } .lp-sim .st.warn { fill:var(--lp-warn); }
+.sl-info .jade { color:var(--lp-jade); } .sl-info .warn { color:var(--lp-warn); }
 .sdsvg .st.lbl { font-weight:700; font-style:italic; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; }
 .lp-sim .st.tg-on { fill:var(--lp-card); font-weight:700; }
 .stp { display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; }
