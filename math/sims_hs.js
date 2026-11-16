@@ -475,7 +475,7 @@ function solid(box, p, api) {
       if (Q.length) {
         C = [0, 1, 2].map((i) => (Math.min(...Q.map((q) => q[i])) + Math.max(...Q.map((q) => q[i]))) / 2);
         const RL = Math.max(...Q.map((q) => Math.hypot(q[0] - C[0], q[1] - C[1], q[2] - C[2]))) || 1;
-        scale = (Math.min(vw, vh) * 0.42 * (p.zoom || 1)) / RL;
+        scale = (Math.min(vw, vh) * 0.42 * (p.zoom || 1)) / RL / (1 + ex * 1.2);
       }
     }
     // 视线方向（世界坐标）：d 越小越近
@@ -489,7 +489,7 @@ function solid(box, p, api) {
     const S2 = {}; for (const [k, q] of Object.entries(PT)) S2[k] = proj(q);
     const pr = (k) => (Array.isArray(k) ? proj(k) : S2[k]);
     // 小方块拆开：每块从中心往外挪
-    const off = (f) => (f.cube && ex ? f.cube.split(',').map((t, i) => (+t + 0.5 - MM.c[i]) * ex) : null);
+    const off = (f) => (f.cube && ex ? f.cube.split(',').map((t, i) => (+t + 0.5 - C[i]) * ex) : null);
     const faces = MM.F.filter((f) => !f.cube || ex > 0 || f.exposed).map((f) => {
       const o = off(f), L = f.v.map((k) => { const q = at(k); return o ? [q[0] + o[0], q[1] + o[1], q[2] + o[2]] : q; });
       const ctr = [0, 1, 2].map((i) => L.reduce((s, q) => s + q[i], 0) / L.length);
