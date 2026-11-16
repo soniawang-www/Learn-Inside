@@ -1239,6 +1239,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .plsvg .pl-h:focus-visible .pl-ring, .plsvg .pl-h:hover .pl-ring { opacity:1; stroke-width:3; }
 .plsvg .pl-nm { font-weight:700; font-style:italic; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; }
 .tr-chart { width:min(100%, 460px); }
+.tr-hist { width:100%; text-align:center; }
 .tr-last { font-size:.95rem; color:var(--lp-soft); min-height:1.2em; text-align:center; }
 .slsvg .tr-bar { fill:var(--lp-jade); fill-opacity:.7; }
 .sdsvg { touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; }
@@ -1253,11 +1254,14 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-eh:hover { stroke:var(--lp-plum); stroke-opacity:.15; }
 .sdsvg .sd-v { fill:var(--lp-ink); pointer-events:none; } .sdsvg .sd-v.on { fill:var(--lp-plum); r:6; }
 .sdsvg .sd-vh { fill:transparent; cursor:pointer; }
-.sdsvg .sd-cf { stroke:var(--lp-ink); stroke-width:1.1; stroke-linejoin:round; }
-.sdsvg .sd-cf.sd-d0 { fill:color-mix(in srgb, var(--lp-jade) 38%, var(--lp-card)); }
-.sdsvg .sd-cf.sd-d1 { fill:color-mix(in srgb, var(--lp-jade) 22%, var(--lp-card)); }
-.sdsvg .sd-cf.sd-d2 { fill:color-mix(in srgb, var(--lp-jade) 10%, var(--lp-card)); }
-.sdsvg .sd-cf.on { fill:color-mix(in srgb, var(--lp-plum) 45%, var(--lp-card)); }
+.sdsvg .sd-cf { --cc:var(--lp-jade); fill:var(--fc); stroke:var(--lp-ink); stroke-width:1.1; stroke-linejoin:round; }
+.sdsvg .sd-cf.cc-plum { --cc:var(--lp-plum); } .sdsvg .sd-cf.cc-ink { --cc:var(--lp-ink); } .sdsvg .sd-cf.cc-warn { --cc:var(--lp-warn); }
+.sdsvg .sd-cf.sd-d0 { --fc:color-mix(in srgb, var(--cc) 38%, var(--lp-card)); }
+.sdsvg .sd-cf.sd-d1 { --fc:color-mix(in srgb, var(--cc) 22%, var(--lp-card)); }
+.sdsvg .sd-cf.sd-d2 { --fc:color-mix(in srgb, var(--cc) 10%, var(--lp-card)); }
+.sdsvg .sd-cf.nol { stroke:var(--fc); stroke-width:.4; }
+.sdsvg .sd-cf.on { --fc:color-mix(in srgb, var(--lp-plum) 55%, var(--lp-card)); stroke:var(--lp-plum); stroke-width:2; }
+.sdsvg .sd-ce { stroke:var(--lp-ink); stroke-width:1.3; stroke-linecap:round; pointer-events:none; }
 .sdsvg .sd-x { fill:none; stroke-width:2.4; stroke-linecap:round; pointer-events:none; }
 .sdsvg .sd-plum { stroke:var(--lp-plum); } .sdsvg .sd-jade { stroke:var(--lp-jade); } .sdsvg .sd-ink { stroke:var(--lp-ink); }
 .sdsvg .sd-poly.sd-plum { fill:var(--lp-plum); fill-opacity:.28; } .sdsvg .sd-poly.sd-jade { fill:var(--lp-jade); fill-opacity:.28; } .sdsvg .sd-poly.sd-ink { fill:var(--lp-ink); fill-opacity:.12; }
@@ -1265,6 +1269,12 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-warn { stroke:var(--lp-warn); } .sdsvg .sd-poly.sd-warn { fill:var(--lp-warn); fill-opacity:.28; }
 .sdsvg .sd-thin { stroke-width:1.2; } .sdsvg .sd-nofill { fill:none !important; } .sdsvg .sd-noline { stroke:none !important; }
 .sdsvg .sd-ball { fill:none; }
+.sdsvg .sd-hid { stroke-dasharray:5 4; stroke-opacity:.75; }
+.sdsvg .sd-v.hid { fill:var(--lp-soft); }
+.plsvg .pl-h.cur .pl-ring { opacity:.8; }
+.pl-cur { font-weight:600; min-width:6.5em; font-variant-numeric:tabular-nums; }
+.lp-ghost.pl-nb { min-width:2.4em; padding-left:.55em; padding-right:.55em; }
+.lp-gbar:has(.pl-nb) { gap:6px; }
 .lp-sim .st.jade { fill:var(--lp-jade); } .lp-sim .st.muted { fill:var(--lp-soft); } .lp-sim .st.warn { fill:var(--lp-warn); }
 .sl-info .jade { color:var(--lp-jade); } .sl-info .warn { color:var(--lp-warn); }
 .sdsvg .st.lbl { font-weight:700; font-style:italic; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; }
