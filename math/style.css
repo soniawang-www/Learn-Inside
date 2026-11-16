@@ -1217,6 +1217,52 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tgsvg .tg-c { stroke:var(--lp-ink); stroke-width:1.4; transition:fill .12s; }
 .tgsvg .tg-i:hover .tg-c { stroke:var(--lp-plum); stroke-width:2.2; }
 .tg-bad, .gf-bad { stroke:var(--lp-warn) !important; stroke-width:3.4 !important; stroke-dasharray:5 3; }
+/* 坐标平面（plane）、随机模拟（trials）、立体图（solid） */
+.plsvg .pl-gr { stroke:var(--lp-line); stroke-width:1; }
+.slsvg .pl-ax { stroke:var(--lp-soft); stroke-width:1.3; fill:none; }
+.slsvg .pl-tk { fill:var(--lp-soft); }
+.slsvg .pl-ln { stroke:var(--lp-ink); stroke-width:1.6; fill:none; }
+.slsvg .pl-dash { stroke:var(--lp-soft); stroke-width:1.4; stroke-dasharray:5 4; fill:none; }
+.slsvg .pl-c1 { stroke:var(--lp-plum); stroke-width:2.4; fill:none; stroke-linejoin:round; }
+.slsvg .pl-c2 { stroke:var(--lp-jade); stroke-width:2.4; fill:none; stroke-linejoin:round; }
+.slsvg .pl-sh { fill:var(--lp-plum); fill-opacity:.25; stroke:var(--lp-plum); stroke-width:1.5; }
+.slsvg .pl-sh2 { fill:var(--lp-jade); fill-opacity:.25; stroke:var(--lp-jade); stroke-width:1.5; }
+.slsvg .pl-dot1 { fill:var(--lp-plum); } .slsvg .pl-dot2 { fill:var(--lp-jade); }
+.plsvg { user-select:none; -webkit-user-select:none; }
+.plsvg .pl-h { cursor:grab; touch-action:none; outline:none; }
+.plsvg .pl-h.fixed { cursor:default; }
+.plsvg .pl-hit { fill:transparent; pointer-events:all; }
+.plsvg .pl-ring { fill:none; stroke-width:2; opacity:.45; }
+.plsvg .pl-pt.pl-plum, .plsvg .pl-ring.pl-plum { fill:var(--lp-plum); stroke:var(--lp-plum); } .plsvg .pl-ring.pl-plum { fill:none; }
+.plsvg .pl-pt.pl-jade, .plsvg .pl-ring.pl-jade { fill:var(--lp-jade); stroke:var(--lp-jade); } .plsvg .pl-ring.pl-jade { fill:none; }
+.plsvg .pl-pt.pl-ink { fill:var(--lp-ink); }
+.plsvg .pl-h:focus-visible .pl-ring, .plsvg .pl-h:hover .pl-ring { opacity:1; stroke-width:3; }
+.plsvg .pl-nm { font-weight:700; font-style:italic; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; }
+.tr-chart { width:min(100%, 460px); }
+.tr-last { font-size:.95rem; color:var(--lp-soft); min-height:1.2em; text-align:center; }
+.slsvg .tr-bar { fill:var(--lp-jade); fill-opacity:.7; }
+.sdsvg { touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; }
+.sdsvg .sd-f { fill:transparent; stroke:none; }
+.sdsvg .sd-f.front { fill:var(--lp-jade); fill-opacity:.07; }
+.sdsvg .sd-f.pk { cursor:pointer; } .sdsvg .sd-f.pk:hover { fill:var(--lp-plum); fill-opacity:.12; }
+.sdsvg .sd-f.on { fill:var(--lp-plum); fill-opacity:.32; }
+.sdsvg .sd-e { stroke:var(--lp-ink); stroke-width:1.8; stroke-linecap:round; pointer-events:none; }
+.sdsvg .sd-e.hid { stroke:var(--lp-soft); stroke-width:1.2; stroke-dasharray:5 4; }
+.sdsvg .sd-e.on { stroke:var(--lp-plum); stroke-width:3.4; }
+.sdsvg .sd-eh { stroke:transparent; stroke-width:16; cursor:pointer; }
+.sdsvg .sd-eh:hover { stroke:var(--lp-plum); stroke-opacity:.15; }
+.sdsvg .sd-v { fill:var(--lp-ink); pointer-events:none; } .sdsvg .sd-v.on { fill:var(--lp-plum); r:6; }
+.sdsvg .sd-vh { fill:transparent; cursor:pointer; }
+.sdsvg .sd-cf { stroke:var(--lp-ink); stroke-width:1.1; stroke-linejoin:round; }
+.sdsvg .sd-cf.sd-d0 { fill:color-mix(in srgb, var(--lp-jade) 38%, var(--lp-card)); }
+.sdsvg .sd-cf.sd-d1 { fill:color-mix(in srgb, var(--lp-jade) 22%, var(--lp-card)); }
+.sdsvg .sd-cf.sd-d2 { fill:color-mix(in srgb, var(--lp-jade) 10%, var(--lp-card)); }
+.sdsvg .sd-cf.on { fill:color-mix(in srgb, var(--lp-plum) 45%, var(--lp-card)); }
+.sdsvg .sd-x { fill:none; stroke-width:2.4; stroke-linecap:round; pointer-events:none; }
+.sdsvg .sd-plum { stroke:var(--lp-plum); } .sdsvg .sd-jade { stroke:var(--lp-jade); } .sdsvg .sd-ink { stroke:var(--lp-ink); }
+.sdsvg .sd-poly.sd-plum { fill:var(--lp-plum); fill-opacity:.28; } .sdsvg .sd-poly.sd-jade { fill:var(--lp-jade); fill-opacity:.28; } .sdsvg .sd-poly.sd-ink { fill:var(--lp-ink); fill-opacity:.12; }
+.sdsvg .sd-dash { stroke-dasharray:5 4; }
+.sdsvg .st.lbl { font-weight:700; font-style:italic; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; }
 .lp-sim .st.tg-on { fill:var(--lp-card); font-weight:700; }
 .stp { display:flex; flex-direction:column; gap:8px; align-items:center; width:100%; }
 .stp-code { align-self:stretch; text-align:left; margin:0; padding:8px 10px; background:var(--lp-card); border:1px solid var(--lp-line); border-radius:8px; font-size:.85rem; line-height:1.55; overflow-x:auto; color:var(--lp-ink); }
