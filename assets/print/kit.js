@@ -219,11 +219,12 @@ async function pageCanvases(pages, css) {
   for (const pg of pages) {
     const wrap = document.createElement('div');
     wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-    wrap.style.cssText = `width:${PW}px;height:${PH}px;background:#fff`;
+    // Safari 不按 viewBox 缩放 foreignObject 里的内容（只画在左上角约 64% 的区域），所以用 CSS 自己放大到整张图
+    wrap.style.cssText = `width:${PW}px;height:${PH}px;background:#fff;transform:scale(${W / PW},${H / PH});transform-origin:0 0`;
     const st = document.createElement('style'); st.textContent = css; wrap.appendChild(st);
     wrap.appendChild(pg.cloneNode(true));
     const xml = new XMLSerializer().serializeToString(wrap);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${PW} ${PH}"><foreignObject x="0" y="0" width="${PW}" height="${PH}">${xml}</foreignObject></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">${xml}</foreignObject></svg>`;
     const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     let img = await loadImg(src);
     if (isWebKit()) { // Safari 第一次画时字体和图片常常还没就绪：先画一次，等一下再重新加载
