@@ -217,6 +217,15 @@ const W = 1240, H = 1754; // A4 图片（150 dpi）
 const loadImg = (src) => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error('img')); im.src = src; });
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 const isWebKit = () => /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg|Android/.test(navigator.userAgent);
+// 苹果手机打印时系统一定会在纸的四周加页边距（网页关不掉）：把纸面自己的页边距裁掉，只留系统那一圈，
+// 免得两层空白、字被缩小
+function trimMargins(cv) {
+  const k = W / PW, x0 = PAD_X - 10, y0 = PAD_T - 12, x1 = PW - PAD_X + 10, y1 = PH - 18;
+  const out = document.createElement('canvas');
+  out.width = Math.round((x1 - x0) * k); out.height = Math.round((y1 - y0) * k);
+  out.getContext('2d').drawImage(cv, x0 * k, y0 * k, out.width, out.height, 0, 0, out.width, out.height);
+  return out;
+}
 async function pageCanvases(pages, css) {
   const out = [];
   for (const pg of pages) {
@@ -478,7 +487,7 @@ export function openPrint(cfg) {
       const cvs = await makeCanvases();
       if (my !== building) return null;
       const out = document.createElement('div'); out.id = 'lp-out';
-      const imgs = cvs.map((cv) => { const im = new Image(); im.className = 'lp-img'; im.src = cv.toDataURL('image/jpeg', 0.92); out.appendChild(im); return im; });
+      const imgs = cvs.map((cv) => { const im = new Image(); im.className = 'lp-img'; im.src = trimMargins(cv).toDataURL('image/jpeg', 0.92); out.appendChild(im); return im; });
       await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
       if (my !== building) return null;
       iosOut = { my, out };
