@@ -1270,6 +1270,8 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-warn { stroke:var(--lp-warn); } .sdsvg .sd-poly.sd-warn { fill:var(--lp-warn); fill-opacity:.28; }
 .sdsvg .sd-thin { stroke-width:1.2; } .sdsvg .sd-nofill { fill:none !important; } .sdsvg .sd-noline { stroke:none !important; }
 .sdsvg .sd-ball { fill:none; }
+.sdsvg .sd-t { font-weight:700; fill:var(--lp-ink); pointer-events:none; } .sdsvg .sd-t.hid { opacity:.3; }
+.sdsvg .sd-t-plum { fill:var(--lp-plum); } .sdsvg .sd-t-jade { fill:var(--lp-jade); } .sdsvg .sd-t-warn { fill:var(--lp-warn); }
 .sdsvg .sd-hid { stroke-dasharray:5 4; stroke-opacity:.75; }
 .sdsvg .sd-v.hid { fill:var(--lp-soft); }
 .plsvg .pl-h.cur .pl-ring { opacity:.8; }
