@@ -30,6 +30,10 @@ export const PRINT_CSS = `.lp-sheet{font-family:-apple-system,"PingFang SC","Mic
 .lp-sheet .ai .key{color:${PLUM};font-weight:800;font-size:12pt;margin-right:.8em}
 .lp-sheet .ai .kp{color:${SOFT};font-size:9.5pt}
 .lp-sheet .ai .sol{margin-top:2px;overflow-wrap:anywhere}
+.lp-sheet .kg{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid ${LINE};border-left:1px solid ${LINE};margin-top:10px}
+.lp-sheet .kg span{display:flex;align-items:baseline;gap:10px;padding:9px 12px;border-right:1px solid ${LINE};border-bottom:1px solid ${LINE};break-inside:avoid}
+.lp-sheet .kg i{font-style:normal;color:${JADE};font-weight:800;min-width:1.6em}
+.lp-sheet .kg b{color:${PLUM};font-size:13pt;overflow-wrap:anywhere}
 .lp-sheet .katex{font-size:1.05em}`;
 
 /** 一道错题在纸上的样子：预览和 PDF 共用同一份 HTML */
@@ -58,9 +62,13 @@ function answerHtml(it, i, h) {
     ${it.basic ? `<div class="sol">${h.rich(it.basic)}</div>` : ''}
   </div></div>`;
 }
-/** 拆成分页用的块：每题一块；附答案时另起一页 */
-export function sheetBlocks({ items, withAns, space }, h) {
+/** 拆成分页用的块：每题一块；附答案时另起一页（错题单：答案和解题思路；整套试卷：只有答案表） */
+export function sheetBlocks({ items, withAns, withKeys, space }, h) {
   const out = items.map((it, i) => itemHtml(it, i, h, space));
+  if (withKeys && items.length) {
+    out.push({ html: '<div class="ah"><h1>答案</h1></div>', page: true, keep: true });
+    out.push(`<div class="kg blk">${items.map((it, i) => `<span><i>${it.no ?? i + 1}</i><b>${h.esc(it.answer ?? '')}</b></span>`).join('')}</div>`);
+  }
   if (withAns && items.length) {
     out.push({ html: '<div class="ah"><h1>答案和解题思路</h1></div>', page: true, keep: true });
     items.forEach((it, i) => out.push(answerHtml(it, i, h)));

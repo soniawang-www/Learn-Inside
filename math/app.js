@@ -7,7 +7,7 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
 import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261116r';
 import { draftSync } from '/assets/draft.js?v=20261114a';
-import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261111';
+import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261116s';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
 
 // 同一份前端两种用法：/math/ 数学板块；/account/ 全站账号页（账号、会员、激活码，数学语文通用）
@@ -226,7 +226,8 @@ async function router() {
     const printTok = new URLSearchParams(location.search).get('print');
     if (printTok) return await renderPrintLink(printTok);
     if (!auth.token) { // 没登录：直接建一个游客用起来；登录过的设备、账号页、#/join 才给登录表单
-      if (SECTION === 'account' || page === 'join' || store.get('li.hadAccount')) return renderJoin();
+      const scan = page === 'fill' || page === 'sol'; // 扫卷子二维码进来的：不挡，直接以游客回填 / 看解析（回填页上有「登录」）
+      if (!scan && (SECTION === 'account' || page === 'join' || store.get('li.hadAccount'))) return renderJoin();
       await autoGuest();
     }
     if (page === 'join') { location.replace('#/'); return; }
@@ -234,8 +235,9 @@ async function router() {
     if (page === 'account' && id !== 'paid') { location.replace(ACCOUNT_URL); return; } // 账号是全站的，在 /account/
     if (page === 'exam') return await renderExam(id);
     if (page === 'review') return await renderReview(id);
-    if (page === 'fill') { ev('scan_fill'); store.set('li.scanned', true); }
-    if (page === 'fill') return await startFill({ id: decodeURIComponent(id || '') }); // 试卷页脚二维码：扫码回填答案
+    if (page === 'fill') { ev('scan_fill'); store.set('li.scanned', true); await ensureMe(); ev(isGuest() ? 'scan_fill_guest' : 'scan_fill_user'); }
+    if (page === 'fill') return await startFill({ id: decodeURIComponent(id || '') }); // 试卷页脚二维码：扫码回填答案（也可以跳过直接看解析）
+    if (page === 'sol') return await renderSolutions(decodeURIComponent(id || ''));
     if (page === 'kp') return await renderKp(id);
     if (page === 'problem') return await renderProblem(id);
     if (page === 'profile') { location.replace('#/graph'); return; } // 画像并进了知识图谱
@@ -746,18 +748,19 @@ const printedKey = (examId) => `amc8.printed.${auth.student?.id}.${examId}`;
 // 统一打印预览里的数学纸面：题干按选的语言出，公式用 KaTeX 排版
 const katexHref = () => document.querySelector('link[href*="katex"]')?.href;
 const typesetReady = async (el) => { for (let i = 0; i < 100 && !window.renderMathInElement; i++) await new Promise((r) => setTimeout(r, 60)); typeset(el); };
-function openMathPrint({ name, title, info, items, presets, pick, fetch, en, ans, opts, link, file, standalone, home, onClose, qr, qrText }) {
+function openMathPrint({ name, title, info, items, presets, pick, fetch, en, ans, keys, opts, link, file, standalone, home, onClose, qr, qrText }) {
   const cache = new Map();
   const first = presets[0];
   return openPrint({
     name, title, info, label: en ? '数学 · AMC 8' : '数学', unit: '题', file, standalone, home, onClose, qr, qrText,
     remember: 'math.print', force: opts || null,
-    opts: { lang: en ? lang.get() : 'zh', space: true, ans: true, ids: first.ids(), rangeLabel: first.label },
+    opts: { lang: en ? lang.get() : 'zh', space: true, ans: true, keys: false, ids: first.ids(), rangeLabel: first.label },
     controls: [
       ...(pick ? [{ type: 'range', label: '范围', presets, items: pick, max: PR_MAX }] : []),
       ...(en ? [{ type: 'seg', key: 'lang', label: '语言', options: Object.entries(LANGS) }] : []),
       { type: 'toggle', key: 'space', label: '每题下面留演算空白' },
       ...(ans ? [{ type: 'toggle', key: 'ans', label: '附答案和解题思路' }] : []),
+      ...(keys ? [{ type: 'toggle', key: 'keys', label: '附答案' }] : []),
     ],
     async build(o) {
       const need = (o.ids || []).filter((id) => !cache.has(id));
@@ -765,14 +768,15 @@ function openMathPrint({ name, title, info, items, presets, pick, fetch, en, ans
       const its = (o.ids || []).map((id) => cache.get(id)).filter(Boolean);
       const L = en ? o.lang : 'zh';
       const h = { esc, rich, stemHtml: (p) => withLang(L, () => stemHtml(p)), isFig, lang: () => L };
-      return { blocks: withLang(L, () => sheetBlocks({ items: its, withAns: ans && o.ans, space: o.space }, h)), count: its.length };
+      return { blocks: withLang(L, () => sheetBlocks({ items: its, withAns: ans && o.ans, withKeys: keys && o.keys, space: o.space }, h)), count: its.length };
     },
     css: PRINT_CSS, links: [katexHref()].filter(Boolean), typeset: typesetReady, pdfCss: embeddedKatexCss,
     link,
   });
 }
 
-// ───────── 纸笔做：打印整套试卷（不带答案），做完回来填答案判分（和模考一样进成绩、错题本、知识图谱） ─────────
+// ───────── 纸笔做：打印整套试卷（可附答案表），做完扫码回填判分（和模考一样进成绩、错题本、知识图谱），也可以跳过回填直接看解析 ─────────
+const FILL_QR_TEXT = '扫码回填答案、看解析';
 async function openExamPrint(exam, btn) {
   if (btn) btn.disabled = true;
   let r;
@@ -783,12 +787,12 @@ async function openExamPrint(exam, btn) {
   const sub = `共 ${r.items.length} 题 · ${Math.round(r.exam.duration_sec / 60)} 分钟`;
   store.set(printedKey(exam.id), 1);
   openMathPrint({
-    name: r.exam.title, title: r.exam.title, info: ['姓名', '日期', '用时', '得分'], en, ans: false, file: 'exam',
-    qr: `/math/#/fill/${enc(exam.id)}`, qrText: '扫码回填答案、判分',
+    name: r.exam.title, title: r.exam.title, info: ['姓名', '日期', '用时', '得分'], en, ans: false, keys: true, file: 'exam',
+    qr: `/math/#/fill/${enc(exam.id)}`, qrText: FILL_QR_TEXT,
     presets: [{ label: `整套 ${r.items.length} 题`, ids: () => r.items.map((x) => x.problem_id) }],
     fetch: async () => r.items,
     link: async (o) => printLinkUrl((await api(`/math/api/exams/${enc(exam.id)}/print-link`, { method: 'POST',
-      body: { student_id: auth.student.id, sub, space: o.space, lang: en ? o.lang : 'zh' } })).token),
+      body: { student_id: auth.student.id, sub, space: o.space, lang: en ? o.lang : 'zh', with_ans: !!o.keys } })).token),
     onClose: () => { if (/^#\/(contest|$)/.test(location.hash) || !location.hash) router(); }, // 卡片上出现「回填答案」
   });
 }
@@ -821,13 +825,21 @@ function renderPaper(sid, data) {
     : `<span class="pp-opts" data-pid="${esc(p.id)}">${Object.keys(p.choices).map((k) => `<button class="pp-opt" data-pick="${k}" aria-pressed="${S.answers[p.id] === k}">${k}</button>`).join('')}</span>`}</div>`;
   $app.innerHTML = `${topnav()}<main class="page">
     <a href="${fam ? `#/contest/${enc(fam)}` : '#/'}" class="back">${BACK_IC}返回试卷</a>
-    <header class="ph"><div><h1>${esc(data.exam.title)}</h1><p class="muted">回填答案</p></div></header>
+    <header class="ph"><div><h1>${esc(data.exam.title)}</h1><p class="muted">回填答案${isGuest() ? ' · <a href="javascript:" id="pp-login">已有账号？登录</a>' : ''}</p></div><button class="btn pp-skip">直接看解析</button></header>
     <div class="card pp-card">
       <label class="pp-time">用时 <input id="pp-used" type="number" inputmode="numeric" min="0" max="600" value="${esc(S.used)}"> 分钟</label>
       ${ps.some(isFillP) ? '<p class="small muted pp-fmt">分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</p>' : ''}
       <div class="pp-list">${ps.map(row).join('')}</div>
-      <div class="pp-foot"><span class="muted" id="pp-count"></span><button class="btn primary" id="pp-submit">交卷判分</button></div>
+      <div class="pp-foot"><span class="muted" id="pp-count"></span><span class="pp-acts"><button class="btn pp-skip">直接看解析</button><button class="btn primary" id="pp-submit">交卷判分</button></span></div>
     </div></main>`;
+  $app.querySelector('#pp-login')?.addEventListener('click', () => { // 游客回填页上登录：登录后回到这一页，记到账号上
+    store.set('li.back', `${location.pathname}#/fill/${enc(data.exam.id)}`); auth.clear(); lastMe = null; joinTab = 'login'; location.hash = '#/join';
+  });
+  const skip = () => modal(`<h2>跳过回填？</h2>
+      <p>不回填就不会判分，错题不会收进错题本，知识图谱（孩子的薄弱点画像）也不会更新。</p>
+      <div class="actions"><button class="btn" data-close>回去填答案</button><a class="btn primary" href="#/sol/${enc(data.exam.id)}" id="skip-yes">直接看解析</a></div>`,
+    (el) => { el.querySelector('#skip-yes').addEventListener('click', () => ev('skip_fill')); });
+  $app.querySelectorAll('.pp-skip').forEach((b) => (b.onclick = skip));
   const count = () => { $app.querySelector('#pp-count').textContent = `已填 ${ps.filter((p) => S.answers[p.id]).length} / ${total}`; };
   count();
   $app.querySelectorAll('.pp-opts').forEach((box) => box.addEventListener('click', (e) => {
@@ -1027,6 +1039,36 @@ async function renderExam(sid) {
 
 // ───────── 复盘 ─────────
 const REASONS = [['unknown', '不会'], ['careless', '粗心'], ['no_time', '没时间'], ['reading', '没读懂题']];
+
+// ───────── 整套解析（扫码后跳过回填）：每题的答案、解题思路、互动解析和考点；不记成绩 ─────────
+async function renderSolutions(examId) {
+  const r = await api(`/math/api/exams/${enc(examId)}/solutions`);
+  await ensureMe();
+  const en = hasEn(r.items);
+  $app.innerHTML = `${topnav()}<main class="page">
+    <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">答案和解析</p></div>${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
+    <div class="cols rev"><aside class="col-side rev-side"><div class="card">
+      <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="sol-q">${it.number}</a>`).join('')}</div>
+      <div class="rev-btns"><button class="btn primary" id="sol-fill">回填答案、判分</button></div>
+    </div></aside>
+    <div class="col-main">${r.items.map((it) => `<details class="ritem sol" id="q${it.number}">
+      <summary><b>${qLabel(it.number, en)}</b><span class="muted small">答案 <b class="sol-key">${esc(it.answer)}</b></span></summary>
+      <div class="body">
+        <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
+        ${isFillP(it) ? '' : `<ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>`}
+        ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
+        ${it.advanced ? advCard(it.problem_id, it.advanced) : ''}
+        <div class="section-label">考点</div>${typeChips(it.types)}${kpCards(it.kps)}
+      </div></details>`).join('')}</div></div>
+  </main>`;
+  $app.querySelectorAll('[data-jump]').forEach((a) => (a.onclick = () => { const d = document.getElementById('q' + a.dataset.jump); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+  $app.querySelector('#sol-fill').onclick = (e) => startFill({ id: r.exam.id }, e.currentTarget);
+  typeset($app);
+  bindKpCards($app);
+  $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv)));
+  paintThumbs($app, Object.fromEntries(r.items.filter((x) => x.advanced).map((x) => [x.problem_id, x.advanced])));
+  onLang($app, router);
+}
 
 async function renderReview(sid) {
   const r = await api(`/math/api/sessions/${sid}/review`);
@@ -1486,10 +1528,10 @@ async function renderPrintLink(token) {
   page(`<h2>${esc(d.title)}</h2><p class="muted">${esc(d.sub || '')}</p>`);
   const en = d.items.some((x) => /^amc(8|10)-/.test(x.problem_id));
   openMathPrint({
-    name: d.title, title: d.title, info: d.exam_id ? ['姓名', '日期', '用时', '得分'] : ['姓名', '日期', '得分'], en, ans: !d.exam_id, file: d.exam_id ? 'exam' : 'mistakes',
-    qr: d.exam_id ? `/math/#/fill/${enc(d.exam_id)}` : '/math/#/mistakes', qrText: d.exam_id ? '扫码回填答案、判分' : '扫码看错题本和解析',
+    name: d.title, title: d.title, info: d.exam_id ? ['姓名', '日期', '用时', '得分'] : ['姓名', '日期', '得分'], en, ans: !d.exam_id, keys: !!d.exam_id, file: d.exam_id ? 'exam' : 'mistakes',
+    qr: d.exam_id ? `/math/#/fill/${enc(d.exam_id)}` : '/math/#/mistakes', qrText: d.exam_id ? FILL_QR_TEXT : '扫码看错题本和解析',
     presets: [{ label: `这次的 ${d.items.length} 题`, ids: () => d.items.map((x) => x.problem_id) }],
-    fetch: async () => d.items, opts: { lang: d.lang || 'en', space: !!d.space, ans: !!d.with_ans },
+    fetch: async () => d.items, opts: { lang: d.lang || 'en', space: !!d.space, ans: !!d.with_ans, keys: !!d.with_ans },
     link: async () => printLinkUrl(token), standalone: true, home: d.exam_id ? '/math/' : '/math/#/mistakes',
   });
 }

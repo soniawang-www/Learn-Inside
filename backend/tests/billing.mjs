@@ -22,9 +22,9 @@ let acc = await call('/math/api/account', 'GET', null, T);
 ok(Object.keys(acc.data.memberships).length === 0 && acc.data.credits === 10 && acc.data.plans.length === 3 && acc.data.plans.every((p) => p.scope === 'math'), '新账号：非会员、10 次、数学和全科各三档');
 ok((await call('/api/account', 'GET', null, T)).status === 200, '全站接口 /api/account');
 
-// 做一道题才能看互动解析
+// 互动解析：没做过也能看（整套解析公开），但要用次数解锁
 const pid = 'amc8-2025-p05';
-ok((await call(`/math/api/problems/${pid}/advanced`, 'GET', null, T)).status === 403, '没做过不能看解析');
+ok((await call(`/math/api/problems/${pid}/advanced`, 'GET', null, T)).status === 402, '没做过也不用先做，但没解锁时是锁着的');
 const s = await call('/math/api/sessions', 'POST', { problem_ids: [pid, 'amc8-2026-p05'], student_id: sid }, T);
 await call(`/math/api/sessions/${s.data.session.id}/submit`, 'POST', { answers: {}, times: {}, flags: {} }, T);
 const lockedAdv = await call(`/math/api/problems/${pid}/advanced`, 'GET', null, T);

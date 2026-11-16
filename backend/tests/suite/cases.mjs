@@ -94,12 +94,18 @@ export const FEATURES = [
   ] },
 
   { id: 'B6', area: '考试', name: '纸笔做：打印整套试卷、回填答案判分', cases: [
-    { id: 'B6-1', name: '取整套试卷的打印内容：25 题，有题干和选项，不带答案和解题思路', run: async (c) => { const r = await c.get('/math/api/exams/amc8-2018/print'); const it = r.data.items || []; return r.status === 200 ? it.length === 25 && it[0].no === 1 && it.every((x) => x.stem && Object.keys(x.choices).length === 5 && !('answer' in x) && !('basic' in x)) : r.status; }, expect: same(true) },
+    { id: 'B6-1', name: '取整套试卷的打印内容：25 题，有题干、选项和答案（附答案页用），不带解题思路', run: async (c) => { const r = await c.get('/math/api/exams/amc8-2018/print'); const it = r.data.items || []; return r.status === 200 ? it.length === 25 && it[0].no === 1 && it.every((x) => x.stem && Object.keys(x.choices).length === 5 && /^[A-E]$/.test(x.answer) && !('basic' in x)) : r.status; }, expect: same(true) },
     { id: 'B6-2', name: '希望数学填空卷：题号对、填空题没有选项', run: async (c) => { const r = await c.get(`/math/api/exams/${HOPE}/print`); return r.status === 200 ? `${r.data.items.length}/${r.data.items[39].no}/${Object.keys(r.data.items[0].choices).length}` : r.status; }, expect: same('40/40/0') },
     { id: 'B6-3', name: '不存在的试卷', run: async (c) => st(await c.get('/math/api/exams/amc8-1999/print')), expect: same(404) },
     { id: 'B6-4', name: '不登录不能取试卷', run: async (c) => st(await c.anon('/math/api/exams/amc8-2018/print')), expect: same(401) },
     { id: 'B6-5', name: '生成整卷打印链接（安卓微信里换到浏览器用）', run: async (c) => { const r = await c.post('/math/api/exams/amc8-2018/print-link', { student_id: c.sid, sub: 's', space: true, lang: 'both' }); c.paperTok = r.data.token; return r.status === 200 && /^[0-9a-f]{64}$/.test(r.data.token); }, expect: same(true) },
-    { id: 'B6-6', name: '不登录用打印链接取试卷：25 题、选项都在，没有答案', run: async (c) => { const r = await c.anon(`/math/api/print/${c.paperTok}`); const it = r.data.items || []; return r.status === 200 && it.length === 25 && r.data.lang === 'both' && r.data.with_ans === false && it.every((x) => !('answer' in x)); }, expect: same(true) },
+    { id: 'B6-6', name: '不登录用打印链接取试卷：25 题、选项都在，没有答案', run: async (c) => { const r = await c.anon(`/math/api/print/${c.paperTok}`); const it = r.data.items || []; return r.status === 200 && it.length === 25 && r.data.lang === 'both' && r.data.with_ans === false && it.every((x) => !('basic' in x)); }, expect: same(true) },
+    { id: 'B6-17', name: '附答案的整卷打印链接：记住「附答案」', run: async (c) => { const t = (await c.post('/math/api/exams/amc8-2018/print-link', { student_id: c.sid, with_ans: true })).data.token; const r = await c.anon(`/math/api/print/${t}`); return r.status === 200 && r.data.with_ans === true && r.data.items.every((x) => /^[A-E]$/.test(x.answer)); }, expect: same(true) },
+    { id: 'B6-18', name: '整套解析（扫码跳过回填）：25 题都有答案和解题思路', run: async (c) => { const r = await c.get('/math/api/exams/amc8-2025/solutions'); const it = r.data.items || []; return r.status === 200 ? it.length === 25 && it.every((x) => x.answer && x.basic) && it.some((x) => x.advanced) : r.status; }, expect: same(true) },
+    { id: 'B6-19', name: '整套解析：不存在的试卷', run: async (c) => st(await c.get('/math/api/exams/amc8-1999/solutions')), expect: same(404) },
+    { id: 'B6-20', name: '整套解析：不登录不能取（扫码会自动建游客）', run: async (c) => st(await c.anon('/math/api/exams/amc8-2025/solutions')), expect: same(401) },
+    { id: 'B6-21', name: '整套解析：语文卷子不能从这里取', run: async (c) => st(await c.get('/math/api/exams/gsw-2021-cx/solutions')), expect: same(404) },
+    { id: 'B6-22', name: '整套解析：互动解析的锁（会员开，其他人锁着）', run: async (c) => { const it = (await c.get('/math/api/exams/amc8-2022/solutions')).data.items || []; const a = it.find((x) => x.number === 20)?.advanced; return a ? (a.locked ? 'locked' : 'open') : 'none'; }, expect: { guest: 'locked', user: 'locked', member: 'open' } },
     { id: 'B6-7', name: '给别人家孩子生成整卷打印链接', run: async (c) => st(await c.post('/math/api/exams/amc8-2018/print-link', { student_id: c.outsider.sid })), expect: same(404) },
     { id: 'B6-8', name: '开始回填：题目不含答案、不给提示，回填期限 30 天', run: async (c) => { const r = await c.post('/math/api/sessions', { exam_id: 'amc8-2018', student_id: c.sid, mode: 'paper' }); c.paperS = r.data; const s = r.data.session; return `${s.mode}/${r.data.problems.length}/${r.data.problems.some((p) => 'answer' in p || p.hint_count)}/${Math.round((s.deadline_at - s.started_at) / 86400000)}`; }, expect: same('paper/25/false/30') },
     { id: 'B6-9', name: '回填时不能拿提示', run: async (c) => st(await c.post(`/math/api/sessions/${c.paperS.session.id}/hint`, { problem_id: c.paperS.problems[0].id, level: 1 })), expect: same(403) },
@@ -118,7 +124,7 @@ export const FEATURES = [
   { id: 'C1', area: '互动解析', name: '单题页', cases: [
     { id: 'C1-1', name: '没做过的题不给答案', run: async (c) => 'answer' in (await c.get(`/math/api/problems/amc8-2022-p20?student=${c.sid}`)).data, expect: same(false) },
     { id: 'C1-2', name: '做过的题给答案和解题思路', run: async (c) => { const d = (await c.get(`/math/api/problems/${P25(1)}?student=${c.sid}`)).data; return !!(d.answer && d.basic); }, expect: same(true) },
-    { id: 'C1-3', name: '没做过的题不能看互动解析（防止考前偷看）', run: async (c) => st(await c.get('/math/api/problems/amc8-2022-p20/advanced')), expect: same(403) },
+    { id: 'C1-3', name: '没做过的题也能看互动解析（整套解析公开），仍要次数或会员', run: async (c) => st(await c.get('/math/api/problems/amc8-2022-p20/advanced')), expect: { guest: 402, user: 402, member: 200 } },
   ] },
   { id: 'C2', area: '互动解析', name: '免费样板', cases: [
     { id: 'C2-1', name: '2026 年互动解析不用次数也能看', run: async (c) => st(await c.get(`/math/api/problems/${SAMPLE}/advanced`)), expect: same(200) },

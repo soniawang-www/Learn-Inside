@@ -96,7 +96,7 @@ ok((await adv('amc8-2026-p01', T)).status === 200, '次数用完，免费样板�
 const rv = (await call(`/math/api/problems/${p25(3)}?student=${sid}`, 'GET', null, T)).data;
 const rv10 = (await call(`/math/api/problems/${p25(10)}?student=${sid}`, 'GET', null, T)).data;
 ok(rv.advanced?.locked === false && rv10.advanced?.locked === true, '题目页的锁标记正确（解锁的开、没解锁的锁）');
-ok((await call('/math/api/problems/amc8-2022-p20/advanced', 'GET', null, T)).status === 403, '没做过的题不能看解析（防止考前偷看）');
+ok([200, 402].includes((await call('/math/api/problems/amc8-2022-p20/advanced', 'GET', null, T)).status), '没做过的题也能取互动解析（按次数 / 会员判断锁）');
 ok((await call('/api/unlock', 'POST', { item: 'adv:nope' }, T)).status === 404 && (await call('/api/unlock', 'POST', { item: 'x:y' }, T)).status === 400, '解锁项校验');
 await adminDo(aid, 'add_credits', 3);
 ok((await acct(T)).credits === 3, '后台加 3 次');

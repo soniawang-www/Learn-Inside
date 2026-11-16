@@ -41,7 +41,7 @@ const ex = await call('/math/api/sessions', 'POST', { exam_id: examId, student_i
 ok(ex.data.problems.every((p) => p.hint_count === 0 && !('answer' in p)), '模考：题目不含答案、不给提示');
 const p1 = ex.data.problems[0].id;
 ok((await call(`/math/api/sessions/${ex.data.session.id}/hint`, 'POST', { problem_id: p1, level: 1 })).status === 403, '模考拒绝提示');
-ok((await call(`/math/api/problems/${p1}/advanced`)).status === 403, '做题前不能看解析');
+ok((await call(`/math/api/problems/${p1}/advanced`)).status !== 403, '做题前也能取互动解析（整套解析公开）');
 
 // 练习模式
 const pr = await call('/math/api/sessions', 'POST', { exam_id: examId, student_id: sid, mode: 'practice' });

@@ -688,6 +688,35 @@ async function reviewPayload(env, acc, sessionId) {
   };
 }
 
+// 整套解析：不回填、不交卷也能看（扫卷子二维码后「直接看解析」）。只有题、答案和解析，不记成绩
+route('GET', '/api/exams/:id/solutions', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ? AND published = 1').bind(p.id).first();
+  if (!exam || subjectOf(p.id) !== 'math') throw new HttpError(404, '试卷不存在');
+  const ctx = await billing.accessCtx(env, acc);
+  const { results: rows } = await env.DB
+    .prepare(
+      `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types, p.section, p.input_hint,
+              sb.content AS basic, sa.tier AS adv_tier, sa.content AS adv_content
+         FROM problem p
+         LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic'
+         LEFT JOIN solution sa ON sa.problem_id = p.id AND sa.kind = 'advanced'
+        WHERE p.exam_id = ? ORDER BY p.number`
+    )
+    .bind(exam.id)
+    .all();
+  const kpByProblem = await kpTags(env, acc, rows.map((r) => r.id));
+  return json({
+    exam: { id: exam.id, title: exam.title, duration_sec: exam.duration_sec },
+    items: rows.map((r) => ({
+      problem_id: r.id, number: r.number, stem: r.stem, stem_zh: r.stem_zh, figure: r.figure, choices: JSON.parse(r.choices),
+      choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null, answer: r.answer, basic: r.basic, section: r.section, input_hint: r.input_hint,
+      advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)), ...advThumb(r.adv_content, r.id) } : null,
+      kps: kpByProblem[r.id] || [], types: parseJ(r.types, []),
+    })),
+  });
+});
+
 route('GET', '/api/sessions/:id/review', async (req, env, p) => {
   const acc = await requireAccount(req, env);
   const s = await loadSession(env, acc, p.id);
@@ -712,14 +741,9 @@ route('PATCH', '/api/attempts/:id', async (req, env, p) => {
   return json({ ok: true });
 });
 
-// 高级解析（付费 + 必须做过这道题，防止考前偷看）
+// 高级解析（付费）。整套解析对所有人公开（扫码可以跳过回填直接看），所以不再要求先做过这道题
 route('GET', '/api/problems/:id/advanced', async (req, env, p) => {
   const acc = await requireAccount(req, env);
-  const done = await env.DB
-    .prepare('SELECT 1 FROM attempt_event ae JOIN student st ON st.id = ae.student_id WHERE ae.problem_id = ? AND st.account_id = ? LIMIT 1')
-    .bind(p.id, acc.id)
-    .first();
-  if (!done) throw new HttpError(403, '做完这道题后才能看解析');
   const sol = await env.DB.prepare("SELECT * FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(p.id).first();
   if (!sol) throw new HttpError(404, '这道题还没有高级解析');
   if (sol.tier !== 'free') {
@@ -1069,17 +1093,17 @@ route('GET', '/api/print/:token', async (_req, env, p) => {
   return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, items: await printItems(env, job.student_id, pl.problem_ids || []) });
 });
 
-// 整套试卷打印（纸笔做）：只有题，不带答案和解题思路——做完回填答案、交卷后在复盘里看
+// 整套试卷打印（纸笔做）：题目 + 答案（勾「附答案」时印在最后一页，只有答案字母）；解题思路扫码回网站看
 async function examPrint(env, examId) {
   const exam = await env.DB.prepare('SELECT id, title, duration_sec FROM exam WHERE id = ? AND published = 1').bind(examId).first();
   if (!exam || subjectOf(examId) !== 'math') throw new HttpError(404, '试卷不存在');
   const { results } = await env.DB
-    .prepare('SELECT id, number, stem, stem_zh, figure, choices, choices_zh FROM problem WHERE exam_id = ? ORDER BY number')
+    .prepare('SELECT id, number, stem, stem_zh, figure, choices, choices_zh, answer FROM problem WHERE exam_id = ? ORDER BY number')
     .bind(examId).all();
   return {
     exam: { id: exam.id, title: exam.title, duration_sec: exam.duration_sec },
     items: results.map((r) => ({ problem_id: r.id, no: r.number, label: '', stem: r.stem, stem_zh: r.stem_zh, figure: r.figure,
-      choices: JSON.parse(r.choices), choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null })),
+      choices: JSON.parse(r.choices), choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null, answer: r.answer })),
   };
 }
 route('GET', '/api/exams/:id/print', async (req, env, p) => {
@@ -1126,7 +1150,7 @@ route('POST', '/api/exams/:id/print-link', async (req, env, p) => {
   const { exam } = await examPrint(env, p.id);
   const token = (uid() + uid()).replace(/-/g, '');
   const t = now();
-  const payload = { exam_id: exam.id, title: exam.title, sub: String(b.sub || '').slice(0, 80), with_ans: false, space: !!b.space, lang: ['en', 'zh', 'both'].includes(b.lang) ? b.lang : 'en' };
+  const payload = { exam_id: exam.id, title: exam.title, sub: String(b.sub || '').slice(0, 80), with_ans: !!b.with_ans, space: !!b.space, lang: ['en', 'zh', 'both'].includes(b.lang) ? b.lang : 'en' };
   await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
   await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
     .bind(token, st.id, JSON.stringify(payload), t, t + PRINT_LINK_MS).run();

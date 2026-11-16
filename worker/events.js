@@ -14,6 +14,9 @@ export const CLIENT_EVENTS = {
   view_english: '打开英语',
   view_join: '打开登录 / 注册页',
   scan_fill: '扫卷子二维码回填',
+  scan_fill_user: '扫卷子二维码（已注册）',
+  scan_fill_guest: '扫卷子二维码（游客）',
+  skip_fill: '跳过回填直接看解析',
   quick_start: '点首页「开始做题」',
   reg_prompt: '点注册提示',
 };
