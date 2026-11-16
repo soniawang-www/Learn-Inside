@@ -308,7 +308,8 @@ export const closePrint = () => active?.close();
  *   css         各科纸面样式（写在 .lp-sheet 下面）
  *   typeset(el) 排版公式（数学）；pdfCss() 存 PDF 时额外要带的样式（如公式字体）
  *   link(o)     不用登录也能打开的打印链接（安卓微信去浏览器、发到手机）
- *   file        存 PDF 的文件名
+ *   file        旧的文件名前缀（现在文件名是 learn-inside-科目-类别-标题；file 含 mistakes 时加日期）
+ *   nameExtra   文件名在标题后面再加的一段（如诗名）；dated 文件名加日期
  *   remember    记住版式和开关的本地存储键
  *   standalone  打印链接打开的独立页：没有关闭按钮；home 是「返回」去的地方
  */
@@ -531,11 +532,13 @@ export function openPrint(cfg) {
   // 存 PDF 和打印用的文件名：learn-inside-科目-标题[-附答案][-日期]，方便整理；错题本内容会变，加日期
   function docName() {
     const d = new Date(), ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const subj = (cfg.label || '').split('·')[0].trim();
+    const [subj = '', cat = ''] = (cfg.label || '').split('·').map((x) => x.trim());
     const title = (typeof cfg.title === 'function' ? cfg.title(o) : cfg.title) || cfg.name || '';
+    const showCat = cat && !title.includes(cat) && !title.includes(cat.split(' ')[0]); // 类别（小托福、古诗文大会…）标题里没有才加
+    const extra = (typeof cfg.nameExtra === 'function' ? cfg.nameExtra(o) : cfg.nameExtra) || '';
     const ans = visible().some((c) => c.type === 'toggle' && (c.key === 'ans' || c.key === 'keys') && o[c.key]);
     const dated = cfg.dated ?? /mistakes/.test(cfg.file || '');
-    return ['learn-inside', subj, title, ans ? '附答案' : '', dated ? ymd : ''].filter(Boolean).join('-')
+    return ['learn-inside', subj, showCat ? cat : '', title, extra, ans ? '附答案' : '', dated ? ymd : ''].filter(Boolean).join('-')
       .replace(/[\\/:*?"<>|\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
   }
   // 打印时系统用网页标题当文件名（苹果手机分享 / 存 PDF）：打印期间临时换成 docName

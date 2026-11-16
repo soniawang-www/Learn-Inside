@@ -1,6 +1,6 @@
 // 语文打印：古诗（学习版 / 提示字版 / 默写版）和诗人卡、常识卡，放进统一打印预览。
 // 应用里（每日背诗、诗页、知识卡列表）和打印链接页（/chinese/print.html，不用登录）共用。
-import { openPrint, esc } from '/assets/print/kit.js?v=20261116u';
+import { openPrint, esc } from '/assets/print/kit.js?v=20261116v';
 
 const HAN = /[㐀-鿿]/;
 const by = (p) => `${p.dynasty ? `〔${esc(p.dynasty)}〕` : ''}${esc(p.author || '')}`;
@@ -118,6 +118,7 @@ export function openPoemPrint({ name, poems, presets, standalone, home, opts }) 
   const first = presets[0];
   return openPrint({
     name: name || '古诗', label: '语文 · 古诗文大会', unit: '篇', file: 'gushi',
+    nameExtra: name && name !== '每日背诗' ? name : '', dated: name === '每日背诗',
     title: (o) => TITLE[o.v] || TITLE.study,
     info: (o) => (o.v === 'study' ? false : ['姓名', '日期', '得分']),
     remember: 'cn.print.poem', force: opts || null,

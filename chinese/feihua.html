@@ -691,7 +691,7 @@ const FCSS = '.lp-sheet{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\
   '.lp-sheet .pf{font-size:15px;padding:4px 0 2px 2em;color:#33464f}.lp-sheet .pe{color:#33464f}';
 const cOf = p => p[0].includes(cur) ? cur : (CH.map(x=>x[0]).find(x=>p[0].includes(x)) || '');
 function openPrint(ids0, force){
-  import('/assets/print/kit.js?v=20261116u').then(({ openPrint: kit })=>{
+  import('/assets/print/kit.js?v=20261116v').then(({ openPrint: kit })=>{
     const sel = [...printSel].filter(s=>PBY.has(s)), list = currentList(), all = pool(cur);
     const presets = [];
     if(ids0 && ids0.length) presets.push({label:'这次的 '+ids0.length+' 句', ids:()=>ids0});
@@ -974,7 +974,7 @@ document.body.classList.add('home');
   document.body.classList.remove('net-wait');
   window.__FHL = j.data;
   window.__FHL_LOCKFINAL = !j.member;
-  if (!j.member) document.querySelector('a[data-v="final"] .pill').textContent = '语文会员';
+  if (!j.member) document.querySelector('a[data-v="final"] .head')?.insertAdjacentHTML('beforeend', '<span class="pill">语文会员</span>'); // 卡片上原来的标记已删掉：没有就补上，免得报错后面的会背同步也不跑
   // 会背记录：和账号里的合并（两边都算会背），之后每点一次「我会背了」都同步到账号
   const sid = (() => { try { return JSON.parse(localStorage.getItem('li.student') || 'null')?.id; } catch (e) { return null; } })();
   if (sid) {
