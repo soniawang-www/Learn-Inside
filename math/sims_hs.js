@@ -323,13 +323,13 @@ function trials(box, p, api) {
 
 // ───────── 立体图（拖动旋转） ─────────
 // { V: {A: [x, y, z], …}（z 朝上）, F: [['A', 'B', 'C', 'D'], …]（面，给了就能分出看得见 / 看不见的棱；凹的立体也行，面要围成封闭的表面）, E: [['A', 'B'], …]（不给就从面里取）,
-//   round: [{type: 'cyl' | 'cone' | 'frustum', c: [x, y, z]（底面圆心）, r, h, r2（圆台上底半径）, top / base: false（不画上 / 下底）}]（圆柱、圆锥、圆台，轴竖直；只画轮廓线和底面圆）,
+//   round: [{type: 'cyl' | 'cone' | 'frustum', c: [x, y, z]（底面圆心）, r, h, r2（圆台上底半径）, axis: 'z'（默认竖直，'x' / 'y' 横放，h 沿轴的正方向）, cls: 'jade' | 'plum' | 'warn'（填色，比如水）, top / base: false（不画上 / 下底）}]（圆柱、圆锥、圆台；只画轮廓线和底面圆；dyn 也能返回 round）,
 //   cubes: [[x, y, z], [x, y, z, 'plum'], …]（单位小方块堆，代替 V / F；第 4 项是这一块的颜色：plum / jade / ink / warn）, grid: false（同一平面上的小方块不画分隔线）, explode: true（加「拆开」按钮，点选方块时默认有）,
 //   labels: true, yaw: -35, pitch: 22（初始视角，度）, zoom: 1, vw: 360, vh: 280,
 //   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边）,
 //   额外的线、多边形的边被立体挡住的部分自动画成虚线（hide: false 整步关掉；类里写 dash 一直是虚线，写 solid 一直是实线）,
 //   balls: [{c: [x, y, z], r, cls, eq: true（画赤道，背面一半虚线）}], center: [x, y, z]（旋转中心，默认包围盒中心）,
-//   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, balls}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
+//   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, balls, round}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
 //   info / goal / tip（变量：S 已选的键、has(键)、n 已选个数、滑块变量、yaw（0～360）、pitch（-89～89）当前视角）, solution: [要选的键], solution_vars: {滑块: 值}, solution_view: {yaw, pitch} }
 const FACE_DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const SD_KEYS = ['V', 'S', 'has', 'n', 'seen', 'yaw', 'pitch'];
@@ -345,17 +345,20 @@ function solidModel(p) {
   // 叠在一起的两个形体（圆锥放在圆台上）接缝处坐标相同的点共用，接缝才能按一条棱分虚实
   const byPos = new Map();
   (p.round || []).forEach((s, gi) => {
-    const n = s.n || 48, [cx, cy, cz] = s.c, r = s.r, h = s.h, rt = s.type === 'cone' ? 0 : s.type === 'cyl' ? r : (s.r2 ?? r), g = `r${gi}`;
+    const n = s.n || 48, r = s.r, h = s.h, rt = s.type === 'cone' ? 0 : s.type === 'cyl' ? r : (s.r2 ?? r), g = `r${gi}`;
+    // axis：轴的方向（默认 z 竖直；'x' / 'y' 横放）。在 (圆周 e1, e2, 轴 e3) 里算好再换回世界坐标
+    const ax = { x: [[0, 1, 0], [0, 0, 1], [1, 0, 0]], y: [[0, 0, 1], [1, 0, 0], [0, 1, 0]] }[s.axis] || [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const W3 = (u, v, w) => [0, 1, 2].map((j) => r6(s.c[j] + u * ax[0][j] + v * ax[1][j] + w * ax[2][j]));
     const ring = (rr, zz, tag) => Array.from({ length: n }, (_, i) => {
-      const a = (2 * Math.PI * i) / n, q = [r6(cx + rr * Math.cos(a)), r6(cy + rr * Math.sin(a)), r6(zz)], pk = q.join(',');
+      const a = (2 * Math.PI * i) / n, q = W3(rr * Math.cos(a), rr * Math.sin(a), zz), pk = q.join(',');
       if (byPos.has(pk)) return byPos.get(pk);
       const k = `_${g}${tag}${i}`; V[k] = q; byPos.set(pk, k); return k;
     });
-    const B = ring(r, cz, 'b'), T = rt > 0 ? ring(rt, cz + h, 't') : null;
-    let apex = null; if (!T) { apex = `_${g}a`; V[apex] = [cx, cy, cz + h]; }
-    if (s.base !== false) Fc.push({ k: `_${g}B`, v: B.slice().reverse(), cap: g });
-    if (T && s.top !== false) Fc.push({ k: `_${g}T`, v: T, cap: g });
-    for (let i = 0; i < n; i++) { const j = (i + 1) % n; Fc.push({ k: `_${g}s${i}`, v: T ? [B[i], B[j], T[j], T[i]] : [B[i], B[j], apex], grp: g }); }
+    const B = ring(r, 0, 'b'), T = rt > 0 ? ring(rt, h, 't') : null;
+    let apex = null; if (!T) { apex = `_${g}a`; V[apex] = W3(0, 0, h); }
+    if (s.base !== false) Fc.push({ k: `_${g}B`, v: B.slice().reverse(), cap: g, rc: s.cls });
+    if (T && s.top !== false) Fc.push({ k: `_${g}T`, v: T, cap: g, rc: s.cls });
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; Fc.push({ k: `_${g}s${i}`, v: T ? [B[i], B[j], T[j], T[i]] : [B[i], B[j], apex], grp: g, rc: s.cls }); }
   });
   // 小方块：每块 6 个面都记下，exposed 表示露在外面；inner[i] 表示第 i 条边外侧同一平面上还接着同色的露面（grid: false 时不画这条线）
   let cubeCls = null;
@@ -439,12 +442,16 @@ function solid(box, p, api) {
       const qs = [...Object.values(D.pts || {}), ...(D.segs || []).flatMap((s) => [s[0], s[1]]), ...(D.polys || []).flatMap((s) => s[0])].map((k) => (Array.isArray(k) ? k : P1[k])).filter((q) => q && q.every(Number.isFinite));
       (D.balls || []).forEach((b) => qs.push(...[0, 1, 2].flatMap((i) => [-1, 1].map((sg) => b.c.map((t, j) => t + (j === i ? sg * b.r : 0))))));
       qs.forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
+      if (D.round) Object.values(solidModel({ round: D.round }).V).forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
     });
   }
   const scale0 = (Math.min(vw, vh) * 0.42 * (p.zoom || 1)) / R;
   const canEx = p.cubes && (p.explode ?? p.pick === 'cube'); let ex = 0, exT = 0, exAnim = null;
   box.innerHTML = `<svg viewBox="0 0 ${vw} ${vh}" class="lp-sim slsvg sdsvg" xmlns="http://www.w3.org/2000/svg"><g class="sd-g"></g></svg><div class="sl-info"></div>${varsHtml(p.vars, v)}${bar(btn('sd-spin', '转一圈') + btn('sd-home', '复位') + (canEx ? btn('sd-ex', '拆开') : '') + (p.pick ? btn('sd-clear', '清空') : ''))}`;
   const svg = box.querySelector('svg');
+  // dyn 返回 round（比如跟着滑块升高的液面圆锥）时按它重建模型，旋转中心不变
+  let mKey = null, mLast = null;
+  const modelFor = (rd) => { const k = JSON.stringify(rd); if (k !== mKey) { mKey = k; mLast = solidModel({ ...p, round: [...(p.round || []), ...rd], center: M.c }); } return mLast; };
   const draw = () => {
     const a = (yaw * Math.PI) / 180, b = (pitch * Math.PI) / 180, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
     const scale = scale0 / (1 + ex * 1.2);
@@ -457,19 +464,20 @@ function solid(box, p, api) {
     };
     const env = envOf();
     const D = run(dyn, env, {}) || {};
-    const PT = { ...M.V, ...(p.pts || {}), ...(D.pts || {}) };
+    const MM = D.round ? modelFor(D.round) : M;
+    const PT = { ...MM.V, ...(p.pts || {}), ...(D.pts || {}) };
     const at = (k) => (Array.isArray(k) ? k : PT[k]);
     const S2 = {}; for (const [k, q] of Object.entries(PT)) S2[k] = proj(q);
     const pr = (k) => (Array.isArray(k) ? proj(k) : S2[k]);
     // 小方块拆开：每块从中心往外挪
-    const off = (f) => (f.cube && ex ? f.cube.split(',').map((t, i) => (+t + 0.5 - M.c[i]) * ex) : null);
-    const faces = M.F.filter((f) => !f.cube || ex > 0 || f.exposed).map((f) => {
+    const off = (f) => (f.cube && ex ? f.cube.split(',').map((t, i) => (+t + 0.5 - MM.c[i]) * ex) : null);
+    const faces = MM.F.filter((f) => !f.cube || ex > 0 || f.exposed).map((f) => {
       const o = off(f), L = f.v.map((k) => { const q = at(k); return o ? [q[0] + o[0], q[1] + o[1], q[2] + o[2]] : q; });
       const ctr = [0, 1, 2].map((i) => L.reduce((s, q) => s + q[i], 0) / L.length);
       let out;
       if (f.cube) out = FACE_DIRS[f.dir];
       else if (f.vo) out = newell(f.vo.map(at));
-      else { const n0 = newell(L), ref = M.m; out = vdot(n0, vsub(ctr, ref)) < 0 ? n0.map((t) => -t) : n0; }
+      else { const n0 = newell(L), ref = MM.m; out = vdot(n0, vsub(ctr, ref)) < 0 ? n0.map((t) => -t) : n0; }
       const P2 = L.map(proj);
       return { ...f, P2, front: vdot(out, W) < -1e-9 * Math.hypot(...out), depth: proj(ctr)[2], pts: P2.map((q) => `${q[0]},${q[1]}`).join(' ') };
     });
@@ -513,14 +521,14 @@ function solid(box, p, api) {
       });
     } else {
       // 面：远的先画，点选时近的在上面；圆柱等的侧面不单独画，整体填一次色
-      faces.slice().sort((a2, b2) => b2.depth - a2.depth).forEach((f) => { if (!f.grp) g += `<polygon points="${f.pts}" class="sd-f${f.front ? ' front' : ''}${sel.has(f.k) ? ' on' : ''}${p.pick === 'face' && !f.cap ? ' pk' : ''}" data-k="${esc(f.k)}"/>`; });
-      [...new Set(faces.filter((f) => f.grp).map((f) => f.grp))].forEach((gp) => { g = `<polygon points="${hull2(faces.filter((f) => f.grp === gp).flatMap((f) => f.P2)).map((q) => `${q[0]},${q[1]}`).join(' ')}" class="sd-f front"/>` + g; });
+      faces.slice().sort((a2, b2) => b2.depth - a2.depth).forEach((f) => { if (!f.grp) g += `<polygon points="${f.pts}" class="sd-f${f.front ? ' front' : ''}${f.rc ? ` rc-${f.rc}` : ''}${sel.has(f.k) ? ' on' : ''}${p.pick === 'face' && !f.cap ? ' pk' : ''}" data-k="${esc(f.k)}"/>`; });
+      [...new Set(faces.filter((f) => f.grp).map((f) => f.grp))].forEach((gp) => { const fs = faces.filter((f) => f.grp === gp), rc = fs[0].rc; g = `<polygon points="${hull2(fs.flatMap((f) => f.P2)).map((q) => `${q[0]},${q[1]}`).join(' ')}" class="sd-f front${rc ? ` rc-${rc}` : ''}"/>` + g; });
       const frontOf = (fi) => faces[fi].front;
-      M.E.forEach(([a2, b2]) => {
+      MM.E.forEach(([a2, b2]) => {
         const kk = ekey(a2, b2), k = [a2, b2].sort().join(''), A = S2[a2], B = S2[b2], on = sel.has(k) ? ' on' : '';
-        const L = M.adj.get(kk) || [];
-        if (M.smooth.has(kk)) { if (frontOf(L[0]) !== frontOf(L[1])) g += ln([A[0], A[1], B[0], B[1]], 'sd-e'); return; }
-        if (M.convex || !L.length) {
+        const L = MM.adj.get(kk) || [];
+        if (MM.smooth.has(kk)) { if (frontOf(L[0]) !== frontOf(L[1])) g += ln([A[0], A[1], B[0], B[1]], 'sd-e'); return; }
+        if (MM.convex || !L.length) {
           const shown = L.length ? L.some(frontOf) : true;
           g += ln([A[0], A[1], B[0], B[1]], `sd-e${shown ? '' : ' hid'}${on}`);
         } else split(A, B).forEach((q) => { g += ln(q, `sd-e${q[4] ? ' hid' : ''}${on}`); });
@@ -554,10 +562,10 @@ function solid(box, p, api) {
     }
     if (!p.cubes) {
       const named = Object.keys(PT).filter((k) => !k.startsWith('_'));
-      const ctr = proj(M.c);
+      const ctr = proj(MM.c);
       named.forEach((k) => {
         const [x, y] = S2[k]; let dx = x - ctr[0], dy = y - ctr[1]; const L = Math.hypot(dx, dy) || 1; dx = (dx / L) * 13; dy = (dy / L) * 13 || -13;
-        const extraPt = !(k in M.V);
+        const extraPt = !(k in MM.V);
         if (extraPt || p.pick === 'vertex') g += `<circle cx="${x}" cy="${y}" r="${extraPt ? 3.5 : 4}" class="sd-v${sel.has(k) ? ' on' : ''}${extraPt && auto && hidden(S2[k]) ? ' hid' : ''}"/>`;
         if (p.pick === 'vertex' && !extraPt) g += `<circle cx="${x}" cy="${y}" r="14" class="sd-vh" data-k="${esc(k)}"/>`;
         if (p.labels !== false || extraPt) g += `<text x="${r2(x + dx)}" y="${r2(y + dy + 5)}" font-size="14" text-anchor="middle" class="st lbl">${esc(k)}</text>`;

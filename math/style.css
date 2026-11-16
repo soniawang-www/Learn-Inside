@@ -1246,6 +1246,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-f { fill:transparent; stroke:none; }
 .sdsvg .sd-f.front { fill:var(--lp-jade); fill-opacity:.07; }
 .sdsvg .sd-f.pk { cursor:pointer; } .sdsvg .sd-f.pk:hover { fill:var(--lp-plum); fill-opacity:.12; }
+.sdsvg .sd-f.rc-jade { fill:var(--lp-jade); fill-opacity:.3; } .sdsvg .sd-f.rc-plum { fill:var(--lp-plum); fill-opacity:.25; } .sdsvg .sd-f.rc-warn { fill:var(--lp-warn); fill-opacity:.25; }
 .sdsvg .sd-f.on { fill:var(--lp-plum); fill-opacity:.32; }
 .sdsvg .sd-e { stroke:var(--lp-ink); stroke-width:1.8; stroke-linecap:round; pointer-events:none; }
 .sdsvg .sd-e.hid { stroke:var(--lp-soft); stroke-width:1.2; stroke-dasharray:5 4; }
