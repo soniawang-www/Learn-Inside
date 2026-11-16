@@ -183,9 +183,9 @@ async function renderHome() {
   page(`<div class="hero"><h1>英语备考</h1></div>
     ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
     <div class="fam-cards">
-      <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 10 套 · 阅读写作 听力</span><small></small><i>›</i></a>
-      <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 10 套 · 阅读 写作 听力</span><small></small><i>›</i></a>
-      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 10 套 · 听力 语言 阅读</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 20 套 · 阅读写作 听力</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 20 套 · 阅读 写作 听力</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 20 套 · 听力 语言 阅读</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/esdp"><b>ESDP</b><span>${n ? `口语 · 写作 ${n} 题` : '录入中'}</span><small>${done ? `已练 ${done} 题` : ''}</small><i>›</i></a>
     </div>
     ${recentCard(d.recent)}`, 'home');
