@@ -1,7 +1,7 @@
 // 小托福（TOEFL Junior 标准考试）仿真模拟：原创题，每套拆成听力 / 语言形式与含义 / 阅读三份卷
 // 路由：#/tj（套题列表）  #/tj/exam/:会话 id（做题）  #/tj/review/:会话 id（复盘）
 // 题目材料在 exam.sections[0].groups：听力组有 audio、script，语言题和阅读组有 title、text（[[n]] 是空）
-import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261116t';
+import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261116u';
 import { playerHTML, bindPlayers } from './player.js?v=20261114a';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup

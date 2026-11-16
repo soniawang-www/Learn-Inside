@@ -467,6 +467,7 @@ export function openPrint(cfg) {
     document.body.classList.add('lp-printing');
     const done = () => { document.body.classList.remove('lp-printing'); window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
+    withTitle();
     try { window.print(); } catch {} // 打印结束（afterprint）或关掉预览时恢复页面
   }
 
@@ -501,6 +502,7 @@ export function openPrint(cfg) {
     document.body.classList.add('lp-printing');
     const done = () => { document.body.classList.remove('lp-printing'); window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
+    withTitle();
     try { window.print(); } catch {}
   }
   async function printImages() {
@@ -526,8 +528,25 @@ export function openPrint(cfg) {
       modal('没能生成 PDF', '<p class="lp-note">请换 Safari 或 Chrome 再试，也可以点「打印」，在打印窗口里选「存储为 PDF」。</p>');
     }
   }
+  // 存 PDF 和打印用的文件名：learn-inside-科目-标题[-附答案][-日期]，方便整理；错题本内容会变，加日期
+  function docName() {
+    const d = new Date(), ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const subj = (cfg.label || '').split('·')[0].trim();
+    const title = (typeof cfg.title === 'function' ? cfg.title(o) : cfg.title) || cfg.name || '';
+    const ans = visible().some((c) => c.type === 'toggle' && (c.key === 'ans' || c.key === 'keys') && o[c.key]);
+    const dated = cfg.dated ?? /mistakes/.test(cfg.file || '');
+    return ['learn-inside', subj, title, ans ? '附答案' : '', dated ? ymd : ''].filter(Boolean).join('-')
+      .replace(/[\\/:*?"<>|\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  }
+  // 打印时系统用网页标题当文件名（苹果手机分享 / 存 PDF）：打印期间临时换成 docName
+  function withTitle() {
+    const old = document.title; document.title = docName();
+    const back = () => { document.title = old; window.removeEventListener('afterprint', back); };
+    window.addEventListener('afterprint', back);
+    setTimeout(back, 60000);
+  }
   function savePdf() {
-    const d = new Date(), name = `${cfg.file || 'learn-inside'}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.pdf`;
+    const name = `${docName()}.pdf`;
     const f = typeof File === 'function' ? new File([pdf.blob], name, { type: 'application/pdf' }) : null;
     let canShare = false; try { canShare = !!(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })); } catch {}
     let inFrame = true; try { inFrame = window.self !== window.top; } catch {}
