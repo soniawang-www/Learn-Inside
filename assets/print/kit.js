@@ -128,6 +128,8 @@ body.lp-open{overflow:hidden}
   html,body{background:#fff!important;margin:0!important;padding:0!important}
   body.lp-printing>*:not(#lp-out){display:none!important}
   body.lp-printing #lp-out{display:block!important}
+  #lp-out .lp-img{display:block;max-width:100%;max-height:100vh;width:auto;height:auto;margin:0 auto;break-after:page;page-break-after:always}
+  #lp-out .lp-img:last-child{break-after:auto;page-break-after:auto}
 }
 `;
 
@@ -213,6 +215,7 @@ function buildPages(groups, head) {
 // ───────── 存成 PDF：每页的 HTML 放进 SVG 的 foreignObject 画成图片，再拼成 PDF ─────────
 const W = 1240, H = 1754; // A4 图片（150 dpi）
 const loadImg = (src) => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error('img')); im.src = src; });
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 const isWebKit = () => /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg|Android/.test(navigator.userAgent);
 async function pageCanvases(pages, css) {
   const out = [];
@@ -442,6 +445,7 @@ export function openPrint(cfg) {
   // ── 打印：把分好的页按原尺寸放进打印区 ──
   async function doPrint() {
     document.getElementById('lp-out')?.remove();
+    if (isIOS()) return printImages();
     const { host: out, sr, ready } = isolated(sheetCss, cfg.links);
     out.id = 'lp-out';
     const box = document.createElement('div'); box.className = 'lp-out';
@@ -455,15 +459,36 @@ export function openPrint(cfg) {
     try { window.print(); } catch {} // 打印结束（afterprint）或关掉预览时恢复页面
   }
 
+  // 苹果手机打印：隔离区里的公式字体打印时还没就绪（公式变空白），系统又会加页边距（一页拆成两页），
+  // 所以和存 PDF 一样先把每页画成图片，再按纸张大小缩放打印
+  async function makeCanvases() {
+    if (pdf?.cvs) return pdf.cvs;
+    const css = PAGE_CSS + '\n' + (cfg.css || '') + '\n' + ((await cfg.pdfCss?.()) || '');
+    const cvs = await pageCanvases(pages.map((p) => { const c = p.cloneNode(true); c.style.transform = ''; return c; }), css);
+    pdf = { blob: makePdf(cvs), pages: cvs.length, cvs };
+    return cvs;
+  }
+  async function printImages() {
+    let cvs;
+    try { cvs = await makeCanvases(); } catch (e) { console.error(e); modal('没能准备打印', '<p class="lp-note">请换 Safari 再试。</p>'); return; }
+    drawUi();
+    const out = document.createElement('div'); out.id = 'lp-out';
+    const imgs = cvs.map((cv) => { const im = new Image(); im.className = 'lp-img'; im.src = cv.toDataURL('image/jpeg', 0.92); out.appendChild(im); return im; });
+    document.body.appendChild(out);
+    await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
+    document.body.classList.add('lp-printing');
+    const done = () => { document.body.classList.remove('lp-printing'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    try { window.print(); } catch {}
+  }
+
   // ── 存成 PDF：先生成，再点一次保存（手机分享要在点击里调用） ──
   async function doPdf(btn) {
     if (pdf) return savePdf();
     const label = btn.innerHTML;
     btn.disabled = true; btn.textContent = '正在生成…';
     try {
-      const css = PAGE_CSS + '\n' + (cfg.css || '') + '\n' + ((await cfg.pdfCss?.()) || '');
-      const cvs = await pageCanvases(pages.map((p) => { const c = p.cloneNode(true); c.style.transform = ''; return c; }), css);
-      pdf = { blob: makePdf(cvs), pages: cvs.length };
+      await makeCanvases();
       drawUi();
     } catch (e) {
       console.error(e);

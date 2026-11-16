@@ -9,10 +9,10 @@
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
-import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261116p';
-import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261116p';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261116p';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261116p';
+import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261116q';
+import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261116q';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261116q';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261116q';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 

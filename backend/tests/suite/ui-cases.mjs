@@ -149,6 +149,20 @@ export const UI_FEATURES = [
       const next = await p.evaluate(() => document.activeElement === document.querySelectorAll('.pp-in')[1]);
       return `${n}/${next}/${await c.text('#pp-count')}/${await p.locator('.pp-fmt').count()}`;
     }, expect: same('24/true/已填 1 / 25/1') },
+    { id: 'U2-9', name: '苹果手机打印整卷：先把每页画成图片再打印（公式不丢、一页不拆成两页），张数和页数一样', run: async (p, c) => {
+      const token = await p.evaluate(() => localStorage.getItem('li.token')), student = await p.evaluate(() => localStorage.getItem('li.student'));
+      const b = p.context().browser();
+      const ip = await b.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const q = await ip.newPage();
+      await q.goto(c.base + '/admin/'); await q.evaluate(([t, s]) => { localStorage.setItem('li.token', t); localStorage.setItem('li.student', s); }, [token, student]);
+      await q.goto(c.base + '/math/#/contest/amc8'); await q.reload(); await q.waitForSelector('[data-paper="amc8-2017"]');
+      await q.click('[data-paper="amc8-2017"]'); await lpWait(q);
+      await q.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+      const n = await q.evaluate(() => document.querySelector('#lp .lp-pv').querySelectorAll('.lp-pw').length);
+      await q.click('#lp .lp-bot [data-a=print]');
+      await q.waitForFunction(() => window.__printed > 0, null, { timeout: 60000 });
+      const imgs = await q.locator('#lp-out img.lp-img').count(); await ip.close();
+      return `${imgs === n && n > 0}`;
+    }, expect: same('true') },
     { id: 'U2-8', name: '安卓微信打印整卷 → 主按钮「去浏览器打开」，链接换到地址栏；没登录的浏览器打开链接直接进打印预览', run: async (p, c) => {
       const token = await p.evaluate(() => localStorage.getItem('li.token')), student = await p.evaluate(() => localStorage.getItem('li.student'));
       const b = p.context().browser();
