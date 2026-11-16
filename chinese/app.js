@@ -4,6 +4,7 @@
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
+import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261111w';
@@ -148,10 +149,11 @@ async function renderHome() {
     isGuest() ? { mistakes: [] } : api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
   ]);
   // 最上面的「继续」条只放没做完的模考；今天做什么：下一套没做过的卷子 + 错题
-  const unfinished = [...exams, ...gexams].filter((e) => store.get(`hz.cur.${e.id}`));
+  const curOf = (e) => (e.open_mode === 'exam' ? e.open_session : null); // 没交卷的模考（跟着账号走）
+  const unfinished = [...exams, ...gexams].filter(curOf);
   const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
-  const strip = unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${store.get(`hz.cur.${e.id}`)}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`);
-  const next = exams.find((e) => !e.id.endsWith('-mock') && !e.last_session && !store.get(`hz.cur.${e.id}`)) || exams.find((e) => !e.last_session && !store.get(`hz.cur.${e.id}`));
+  const strip = unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${enc(curOf(e))}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`);
+  const next = exams.find((e) => !e.id.endsWith('-mock') && !e.last_session && !curOf(e)) || exams.find((e) => !e.last_session && !curOf(e));
   const tasks = [
     todo && `<a class="task" href="#/mistakes"><b>${todo}</b><span>订正错题<small>错题本</small></span></a>`,
     next && `<a class="task" href="#/intro/${enc(next.id)}"><i class="ico">›</i><span>做一套${next.id.endsWith('-mock') ? '模拟题' : '真题'}<small>${esc(next.title)}</small></span></a>`,
@@ -431,7 +433,7 @@ async function renderIntro(examId) {
   const exams = await api(`/api/exams?student=${enc(auth.student.id)}&family=${famOf(examId)}`);
   const e = exams.find((x) => x.id === examId);
   if (!e) return errorPage('试卷不存在');
-  const saved = store.get(`hz.cur.${examId}`);
+  const saved = e.open_mode === 'exam' ? e.open_session : null; // 没交卷的模考（跟着账号走）
   const per = Math.round(e.duration_sec / Math.max(1, e.problem_count));
   page(`<a class="back" href="${gsw ? '#/gsw' : '#/hanzi'}">${BACK_IC}${gsw ? '古诗文大会' : '汉字小达人'}</a>
     <div class="hero"><h1>${esc(e.title)}</h1></div>
@@ -460,7 +462,6 @@ async function renderIntro(examId) {
     ev.target.disabled = true;
     try {
       const r = await api('/api/sessions', { method: 'POST', body: { exam_id: examId, student_id: auth.student.id, mode: 'exam' } });
-      store.set(`hz.cur.${examId}`, r.session.id);
       location.hash = `#/exam/${r.session.id}`;
     } catch (x) { ev.target.disabled = false; modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
   };
@@ -482,8 +483,8 @@ async function renderExam(sid) {
   let qTimer = null;
   const P = d.problems;
   const key = `hz.s.${sid}`;
-  const S = Object.assign({ cur: 0, answers: {}, times: {}, checked: {} }, store.get(key, {}));
-  const save = () => store.set(key, S);
+  const D = draftSync({ api, store, key, sid, server: d.session.draft, init: { cur: 0, answers: {}, times: {}, checked: {} } });
+  const { S, save } = D;
   const skew = d.session.server_now - Date.now();
   const left = () => (d.session.deadline_at - (Date.now() + skew)) / 1000;
   const sections = d.exam.sections || [];
@@ -498,8 +499,8 @@ async function renderExam(sid) {
     $app.querySelector('.ex-next')?.setAttribute('disabled', '');
     try {
       await api(`/api/sessions/${enc(sid)}/submit`, { method: 'POST', body: { answers: S.answers, times: S.times } });
-      store.del(key);
-      Object.keys(localStorage).forEach((k) => { if (k.startsWith('hz.cur.') && store.get(k) === sid) store.del(k); });
+      D.stop(true); store.del(key);
+      Object.keys(localStorage).forEach((k) => { if (k.startsWith('hz.cur.') && store.get(k) === sid) store.del(k); }); // 旧版本记在本机的「没交卷」
       if (auto) modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/review/${sid}`);
     } catch (x) {
@@ -654,8 +655,8 @@ function renderPaper(d, sid) {
   clearInterval(timerId);
   const P = d.problems;
   const key = `hz.s.${sid}`;
-  const S = Object.assign({ answers: {} }, store.get(key, {}));
-  const save = () => store.set(key, S);
+  const D = draftSync({ api, store, key, sid, server: d.session.draft, init: { answers: {} } });
+  const { S, save } = D;
   const skew = d.session.server_now - Date.now();
   const left = () => (d.session.deadline_at - (Date.now() + skew)) / 1000;
   const secs = d.exam.sections || [];
@@ -689,8 +690,8 @@ function renderPaper(d, sid) {
     clearInterval(timerId);
     try {
       await api(`/api/sessions/${enc(sid)}/submit`, { method: 'POST', body: { answers: S.answers, times: {} } });
-      store.del(key);
-      Object.keys(localStorage).forEach((k) => { if (k.startsWith('hz.cur.') && store.get(k) === sid) store.del(k); });
+      D.stop(true); store.del(key);
+      Object.keys(localStorage).forEach((k) => { if (k.startsWith('hz.cur.') && store.get(k) === sid) store.del(k); }); // 旧版本记在本机的「没交卷」
       if (auto) modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/review/${sid}`);
     } catch (x) {

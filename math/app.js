@@ -6,6 +6,7 @@ import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
 import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261111u';
+import { draftSync } from '/assets/draft.js?v=20261114a';
 import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261111';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
 
@@ -582,12 +583,9 @@ async function renderDashboard() {
   ].filter(Boolean);
   const startFam = fams.find((x) => x.id === dashFam && x.exams) || fams.find((x) => x.exams);
   if (!tasks.length && startFam) tasks.push(`<a class="task" href="#/contest/${enc(startFam.id)}"><i class="ico">›</i><span>做一套真题<small>${esc(startFam.name)}</small></span></a>`);
-  // 没做完的模考：浏览器里存着答题进度的会话，向服务器确认还没交卷、没过期
-  let live = null;
-  for (const k of Object.keys(localStorage).filter((k) => k.startsWith('amc8.s.')).slice(0, 5)) {
-    const d = await api(`/math/api/sessions/${enc(k.slice(7))}`).catch(() => null);
-    if (d && !d.session.submitted && d.session.deadline_at > d.session.server_now) { live = { sid: d.session.id, title: d.exam.title }; break; }
-  }
+  // 没做完的模考：跟着账号走（换台设备也能看到）
+  const op = (await api(`/math/api/students/${enc(st.id)}/open?subject=math`).catch(() => null))?.sessions?.[0];
+  const live = op ? { sid: op.id, title: op.title } : null;
   // 一步开始：没有做到一半的卷子时，直接给一套最新的、还没做过的真题（练习模式，不弹说明）
   let quick = null;
   if (!live && startFam) {
@@ -662,7 +660,8 @@ function examGrid(f, allExams, fid, limit = 0) {
         <div class="et-btns">
           <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
           <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
-          ${store.get(paperKey(e.id)) || store.get(printedKey(e.id)) ? `<button class="btn et-fill" data-fill="${e.id}">${store.get(paperKey(e.id)) ? '继续回填' : '回填答案'}</button>` : ''}
+          ${e.open_session && e.open_mode !== 'paper' ? `<a class="btn et-fill" href="#/exam/${enc(e.open_session)}">继续答题</a>` : ''}
+          ${store.get(paperKey(e.id)) || store.get(printedKey(e.id)) || e.open_mode === 'paper' ? `<button class="btn et-fill" data-fill="${e.id}">${store.get(paperKey(e.id)) || e.open_mode === 'paper' ? '继续回填' : '回填答案'}</button>` : ''}
         </div></div>`; }).join('')}
     </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
   return { html, exams };
@@ -795,7 +794,7 @@ async function openExamPrint(exam, btn) {
 async function startFill(exam, btn) {
   if (btn) btn.disabled = true;
   try {
-    let sid = store.get(paperKey(exam.id));
+    let sid = store.get(paperKey(exam.id)) || (exam.open_mode === 'paper' ? exam.open_session : null);
     if (sid) {
       const d = await api(`/math/api/sessions/${enc(sid)}`).catch(() => null);
       if (!d || d.session.submitted || d.session.deadline_at < d.session.server_now) { store.del(paperKey(exam.id)); sid = null; }
@@ -811,9 +810,10 @@ async function startFill(exam, btn) {
 /** 回填答案：一屏列出所有题号，选择题点字母，填空题填答案；可填用时 */
 function renderPaper(sid, data) {
   const key = `amc8.s.${sid}`;
-  const S = Object.assign({ answers: {}, used: '' }, store.get(key, {}));
+  const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, used: '' } });
+  const { S, save } = D;
+  cleanup = () => D.stop();
   const ps = data.problems, total = ps.length;
-  const save = () => store.set(key, S);
   const fam = dashFam; // 从哪种考试的试卷列表进来的
   const row = (p) => `<div class="pp-row"><span class="pp-no">${p.number}</span>${isFillP(p)
     ? `<input class="pp-in" data-fill="${esc(p.id)}" type="text" autocomplete="off" autocapitalize="off" enterkeyhint="next" maxlength="40" value="${esc(S.answers[p.id] || '')}" aria-label="第 ${p.number} 题">`
@@ -854,7 +854,7 @@ function renderPaper(sid, data) {
       try {
         await api(`/math/api/sessions/${sid}/submit`, { method: 'POST', body: { answers: S.answers, used_min: S.used === '' ? null : Number(S.used) } });
       } catch (e) { close(); return modal(`<h2>交卷失败</h2><p>${esc(e.message)}</p><p class="small muted">填的答案已保存在本机。</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
-      store.del(key); store.del(paperKey(data.exam.id));
+      D.stop(true); store.del(key); store.del(paperKey(data.exam.id));
       close(); location.hash = `#/review/${sid}`;
     }; });
   };
@@ -871,7 +871,8 @@ async function renderExam(sid) {
   const li = /^(hope|swb100)-/.test(data.exam.id || '') || (data.session.drill && !hasEn(data.problems));
   document.body.classList.toggle('exam-li', !!li);
   const key = `amc8.s.${sid}`;
-  const S = Object.assign({ answers: {}, flags: {}, times: {}, hints: {}, cur: 0, big: false }, store.get(key, {}));
+  const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, flags: {}, times: {}, hints: {}, cur: 0, big: false } });
+  const { S } = D;
   const problems = data.problems;
   const clockOffset = data.session.server_now - Date.now();
   const practice = data.session.mode === 'practice';
@@ -880,7 +881,7 @@ async function renderExam(sid) {
   let submitting = false;
   let cardOpen = false; // 窄屏时答题卡默认收起
 
-  const save = () => store.set(key, S);
+  const save = D.save;
   const flushTime = () => {
     const p = problems[S.cur];
     S.times[p.id] = (S.times[p.id] || 0) + (Date.now() - enteredAt) / 1000;
@@ -1003,7 +1004,7 @@ async function renderExam(sid) {
     else if (e.key === 'ArrowLeft') go(S.cur - 1);
   };
   document.addEventListener('keydown', onKey);
-  cleanup = () => { clearInterval(timer); document.removeEventListener('keydown', onKey); };
+  cleanup = () => { clearInterval(timer); document.removeEventListener('keydown', onKey); D.stop(); };
 
   async function submit(auto) {
     if (submitting) return;
@@ -1011,7 +1012,7 @@ async function renderExam(sid) {
     if (auto) modal('<h2>考试时间到</h2><p>系统正在自动交卷…</p>');
     try {
       await api(`/math/api/sessions/${sid}/submit`, { method: 'POST', body: { answers: S.answers, times: S.times, flags: S.flags } });
-      store.del(key);
+      D.stop(true); store.del(key);
       $modal.innerHTML = '';
       location.hash = `#/review/${sid}`;
     } catch (e) {

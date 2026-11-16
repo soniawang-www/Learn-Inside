@@ -3,6 +3,7 @@
 // 题目材料在 exam.sections[0].groups：听力组有 audio、script，语言题和阅读组有 title、text（[[n]] 是空）
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
 import { playerHTML, bindPlayers } from './player.js?v=20261114a';
+import { draftSync } from '/assets/draft.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup
 export const initTJ = (ctx) => { X = ctx; };
 
@@ -13,8 +14,6 @@ const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${String(Math.floo
 const paras = (t) => X.esc(t).split(/\n\s*\n/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 
 // ───────── 套题列表 ─────────
-// 没交卷的试卷记在 en.cur.<试卷 id>：列表上那一格变成「继续」，英语首页和网站首页也会提示
-const curOf = (X, examId) => { const c = X.store.get(`en.cur.${examId}`); return c && c.dl > Date.now() ? c : null; };
 // 一套一行：三个部分是三个小按钮（没做过点了直接开始；做过显示分数，点了看复盘），右边是打印
 async function start(examId) {
   const r = await X.api('/api/sessions', { method: 'POST', body: { exam_id: examId, student_id: X.auth.student.id, mode: 'exam' } });
@@ -30,8 +29,7 @@ export async function renderTJ() {
     <div class="hero"><h1>小托福</h1></div>
     ${nums.length ? `<section class="card tj-list">${nums.map((n) => `<div class="tj-row"><b>第 ${n} 套</b>
       <div class="tj-chips">${['l', 'f', 'r'].map((k) => { const e = sets.get(n)[k]; if (!e) return '<span></span>';
-        const c = curOf(X, e.id);
-        if (c) return `<a class="tj-chip cur" href="#/tj/exam/${X.enc(c.sid)}">${SHORT[k]}<em>继续</em></a>`;
+        if (e.open_session) return `<a class="tj-chip cur" href="#/tj/exam/${X.enc(e.open_session)}">${SHORT[k]}<em>继续</em></a>`;
         return e.last_session ? `<a class="tj-chip done" href="#/tj/review/${e.last_session}">${SHORT[k]}<em>${e.last_score}/${e.problem_count}</em></a>`
           : `<button class="tj-chip" data-start="${e.id}">${SHORT[k]}</button>`; }).join('')}</div>
       <button class="tj-pr" data-print="${n}" aria-label="打印第 ${n} 套">${PRINT_ICON}</button></div>`).join('')}</section>`
@@ -108,25 +106,23 @@ export function printTJ(n, part = 'r') {
 // 一屏一组材料：听力是一段录音 + 它的题；语言题是一篇带空的短文；阅读是一篇文章 + 它的题
 export async function renderTJExam(sid) {
   const d = await X.api(`/api/sessions/${X.enc(sid)}`);
-  const ck = `en.cur.${d.exam.id}`;
-  if (d.session.submitted) { if (X.store.get(ck)?.sid === sid) X.store.del(ck); location.replace(`#/tj/review/${sid}`); return; }
-  X.store.set(ck, { sid, t: d.exam.title, f: 'tj', dl: d.session.deadline_at - d.session.server_now + Date.now() });
+  if (d.session.submitted) { location.replace(`#/tj/review/${sid}`); return; }
   const part = partOf(d.exam.id);
   const G = d.exam.sections?.[0]?.groups || [];
   const P = d.problems; const byNum = new Map(P.map((p) => [p.number, p]));
   const key = `tj.s.${sid}`;
-  const S = Object.assign({ g: 0, answers: {}, pos: {} }, X.store.get(key, {}));
-  const save = () => X.store.set(key, S);
+  const D = draftSync({ api: X.api, store: X.store, key, sid, server: d.session.draft, init: { g: 0, answers: {}, pos: {} } });
+  const { S, save } = D;
   const skew = d.session.server_now - Date.now();
   const left = () => (d.session.deadline_at - (Date.now() + skew)) / 1000;
   let timer = null, audio = null, submitting = false;
-  X.setCleanup(() => { clearInterval(timer); audio?.(); });
+  X.setCleanup(() => { clearInterval(timer); audio?.(); D.stop(); });
 
   async function submit(auto) {
     if (submitting) return; submitting = true; clearInterval(timer); audio?.();
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers: S.answers, times: {} } });
-      X.store.del(key); X.store.del(ck);
+      D.stop(true); X.store.del(key);
       if (auto) X.modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/tj/review/${sid}`);
     } catch (e) { submitting = false; X.modal(`<h2>交卷没成功</h2><p>${X.esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }

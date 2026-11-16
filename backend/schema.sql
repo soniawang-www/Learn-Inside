@@ -113,7 +113,8 @@ CREATE TABLE IF NOT EXISTS exam_session (
   submitted_at INTEGER,
   score        INTEGER,
   title        TEXT,                          -- 突击 / 单题练习的标题（exam_id = 'drill' 时用）
-  kp_id        TEXT                           -- 知识点突击对应的知识点
+  kp_id        TEXT,                          -- 知识点突击对应的知识点
+  draft        TEXT                           -- 没交卷时的答题进度（JSON），换设备接着做
 );
 
 -- 突击 / 单题练习：一次会话包含哪些题（跨试卷）

@@ -123,6 +123,8 @@ const MIGRATIONS = [
   'ALTER TABLE exam ADD COLUMN problem_count INTEGER',
   // 考情统计等「所有人都一样、只在导入题目时变」的结果，算一次存起来
   'CREATE TABLE IF NOT EXISTS stat_cache (key TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL)',
+  // 没交卷时的答题进度（JSON），跟着账号走：换台设备也能接着做
+  'ALTER TABLE exam_session ADD COLUMN draft TEXT',
 ];
 // 每次都执行的数据修正（幂等）
 const FIXUPS = [

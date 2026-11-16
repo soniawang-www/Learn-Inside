@@ -332,17 +332,14 @@ const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&qu
 $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").matches,cur=document.documentElement.dataset.theme||(dark?"dark":"light"),nx=cur==="dark"?"light":"dark";document.documentElement.dataset.theme=nx;store.set("li-theme",nx)};
 {const d=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);if(store.get("li.ev.view_home")!==JSON.stringify(d)){store.set("li.ev.view_home",JSON.stringify(d));fetch("/api/ev",{method:"POST",headers:{"content-type":"application/json"},body:'{"e":"view_home"}',keepalive:true}).catch(()=>{})}}
 {const t=store.get("li-theme","");if(t)document.documentElement.dataset.theme=t}
-/* 继续上次：登录过的才显示。没做完的模考（本地记录，向服务器确认还没交卷、没过期）> 三科里最近一次成绩；再加数学、语文待订正的错题数 */
+/* 继续上次：登录过的才显示。没交卷、没过期的试卷（跟着账号走）> 三科里最近一次成绩；再加数学、语文待订正的错题数 */
 window.__liResume=(async()=>{let tok=null,st=null;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null")}catch(e){}
 if(!tok||!st||!st.id)return;
 const get=async u=>{try{const r=await fetch(u,{headers:{authorization:"Bearer "+tok}});return r.ok?await r.json():null}catch(e){return null}};
-const keys=[];try{for(let i=0;i<localStorage.length;i++)keys.push(localStorage.key(i))}catch(e){}
-const pend=[...keys.filter(k=>/^amc8\.s\./.test(k)).map(k=>({sid:k.slice(7),sub:"math"})),...keys.filter(k=>/^hz\.cur\./.test(k)).map(k=>{let v=null;try{v=JSON.parse(localStorage.getItem(k))}catch(e){}return{sid:v,sub:"chinese"}}).filter(x=>x.sid),...keys.filter(k=>/^en\.cur\./.test(k)).map(k=>{let v=null;try{v=JSON.parse(localStorage.getItem(k))}catch(e){}return{sid:v&&v.sid,sub:"english"}}).filter(x=>x.sid)];
 const id=encodeURIComponent(st.id);
-const [me,pm,pc,pe,mc,...ss]=await Promise.all([get("/api/me"),get(`/api/students/${id}/profile`),get(`/api/students/${id}/profile?subject=chinese`),get(`/api/students/${id}/profile?subject=english`),get(`/api/students/${id}/mistakes?subject=chinese`),...pend.slice(0,6).map(x=>get(`/${x.sub==="math"?"math/":""}api/sessions/${encodeURIComponent(x.sid)}`))]);
+const [me,pm,pc,pe,mc,op]=await Promise.all([get("/api/me"),get(`/api/students/${id}/profile`),get(`/api/students/${id}/profile?subject=chinese`),get(`/api/students/${id}/profile?subject=english`),get(`/api/students/${id}/mistakes?subject=chinese`),get(`/api/students/${id}/open`)]);
 if(!me)return;
-const now=Date.now();let live=null;
-ss.forEach((d,i)=>{if(d&&d.session&&!d.session.submitted&&d.session.deadline_at>(d.session.server_now||now)&&!live)live={...pend[i],exam_id:d.exam&&d.exam.id,title:d.exam&&d.exam.title||"上次的试卷"}});
+const o=op&&op.sessions&&op.sessions[0];const live=o?{sid:o.id,exam_id:o.exam_id,sub:o.subject,title:o.title||"上次的试卷"}:null;
 const last=[...((pm&&pm.sessions)||[]).map(x=>({...x,sub:"math"})),...((pc&&pc.sessions)||[]).map(x=>({...x,sub:"chinese"})),...((pe&&pe.sessions)||[]).map(x=>({...x,sub:"english"}))].sort((a,b)=>b.submitted_at-a.submitted_at)[0];
 const todo=(arr)=>(arr||[]).filter(m=>m.status==="pending"||m.status==="due").length;
 const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);

@@ -143,10 +143,12 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
       `SELECT e.id, e.title, e.year, e.grade, e.source, e.duration_sec,
               COALESCE(e.problem_count, (SELECT COUNT(*) FROM problem p WHERE p.exam_id = e.id)) AS problem_count,
               (SELECT s.score FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_score,
-              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session
+              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session,
+              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NULL AND s.deadline_at > ? ORDER BY s.started_at DESC LIMIT 1) AS open_session,
+              (SELECT s.mode FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NULL AND s.deadline_at > ? ORDER BY s.started_at DESC LIMIT 1) AS open_mode
          FROM exam e WHERE e.published = 1${prefix ? ' AND e.id LIKE ?' : ''} ORDER BY e.year DESC, e.grade, e.id`
     )
-    .bind(studentId, studentId, ...(prefix ? [prefix + '%'] : []))
+    .bind(studentId, studentId, studentId, now(), studentId, now(), ...(prefix ? [prefix + '%'] : []))
     .all();
   return json(fam ? results.filter((e) => familyOf(e.id)?.id === fam) : results);
 });
@@ -265,7 +267,8 @@ async function sessionPayload(env, sessionId) {
     .map((p, i) => { const { rubric, ...extra } = parseJ(p.extra, {}) || {}; return { ...p, extra: p.extra ? extra : null, label: labelOf(p), seq: i + 1, number: drill ? i + 1 : p.number }; });
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
-    session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill },
+    session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill,
+      draft: s.submitted_at ? null : parseJ(s.draft, null) },
     exam,
     problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), choices_zh: p.choices_zh ? JSON.parse(p.choices_zh) : null, hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
     hints_seen: seen,
@@ -276,6 +279,35 @@ route('GET', '/api/sessions/:id', async (req, env, p) => {
   const acc = await requireAccount(req, env);
   await loadSession(env, acc, p.id);
   return json(await sessionPayload(env, p.id));
+});
+
+// 答题进度存到账号上（前端改动后几秒存一次）：换台设备打开同一份卷，接着做
+route('POST', '/api/sessions/:id/draft', async (req, env, p) => {
+  const acc = await requireAccount(req, env);
+  const s = await loadSession(env, acc, p.id);
+  if (s.submitted_at) return json({ ok: false });
+  const { draft } = await body(req);
+  const txt = JSON.stringify(draft ?? null);
+  if (txt.length > 200000) throw new HttpError(413, '答题记录太大');
+  await env.DB.prepare('UPDATE exam_session SET draft = ? WHERE id = ? AND submitted_at IS NULL').bind(txt, s.id).run();
+  return json({ ok: true });
+});
+
+// 没交卷、没过期的试卷（首页和各科首页的「继续答题」）；subject 不传 = 三科都要
+route('GET', '/api/students/:id/open', async (req, env, p, url) => {
+  const acc = await requireAccount(req, env);
+  const st = await requireStudent(env, acc, p.id);
+  const sub = url.searchParams.get('subject');
+  const { results } = await env.DB
+    .prepare(
+      `SELECT s.id, s.exam_id, s.mode, s.deadline_at, COALESCE(s.subject, 'math') AS subject, COALESCE(s.title, e.title) AS title
+         FROM exam_session s LEFT JOIN exam e ON e.id = s.exam_id
+        WHERE s.student_id = ? AND s.submitted_at IS NULL AND s.deadline_at > ?${SUBJECTS.includes(sub) ? " AND COALESCE(s.subject, 'math') = ?" : ''}
+        ORDER BY s.started_at DESC LIMIT 5`
+    )
+    .bind(st.id, now(), ...(SUBJECTS.includes(sub) ? [sub] : []))
+    .all();
+  return json({ sessions: results, server_now: now() });
 });
 
 // 练习模式取提示：必须逐级解锁

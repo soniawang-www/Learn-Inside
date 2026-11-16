@@ -11,8 +11,8 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261111u';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261111w';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261114b';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261114b';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261114c';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261114c';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -176,9 +176,10 @@ async function renderHome() {
   const d = await api(`/api/english/banks?student=${enc(auth.student.id)}`);
   const n = d.banks.reduce((a, b) => a + (b.problem_count || 0), 0);
   const done = d.banks.reduce((a, b) => a + b.practiced, 0);
-  const cur = []; // 没交卷的试卷（tj.js / ket.js 记的 en.cur.*），最近要到期的在前
-  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k.startsWith('en.cur.')) continue; const c = store.get(k); if (c?.sid && c.dl > Date.now()) cur.push(c); } } catch {}
-  cur.sort((a, b) => a.dl - b.dl);
+  // 没交卷的试卷（跟着账号走），最近开始的在前
+  const open = ((await api(`/api/students/${enc(auth.student.id)}/open?subject=english`).catch(() => null))?.sessions || [])
+    .map((x) => ({ sid: x.id, t: x.title, f: x.exam_id.startsWith('ket-') ? 'ket' : x.exam_id.startsWith('pet-') ? 'pet' : 'tj' }));
+  const cur = open;
   page(`<div class="hero"><h1>英语备考</h1></div>
     ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
     <div class="fam-cards">

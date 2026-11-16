@@ -5,6 +5,7 @@
 // 题型：选择（kind choice）、填空（kind fill，没有选项）、写作（kind self，交卷后按官方评分项自评）
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261111u';
 import { playerHTML, bindPlayers } from './player.js?v=20261114a';
+import { draftSync } from '/assets/draft.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup
 export const initKET = (ctx) => { X = ctx; };
 
@@ -49,8 +50,6 @@ const RUBRIC = {
 const rub = (F, g) => RUBRIC[`${F.id}:${g.id}`] || '';
 
 // ───────── 套题列表 ─────────
-// 没交卷的试卷记在 en.cur.<试卷 id>：列表上那一格变成「继续」，英语首页和网站首页也会提示
-const curOf = (X, examId) => { const c = X.store.get(`en.cur.${examId}`); return c && c.dl > Date.now() ? c : null; };
 async function start(F, examId) {
   const r = await X.api('/api/sessions', { method: 'POST', body: { exam_id: examId, student_id: X.auth.student.id, mode: 'exam' } });
   location.hash = `#/${F.id}/exam/${r.session.id}`;
@@ -65,8 +64,7 @@ export async function renderKET(fam = 'ket') {
     <div class="hero"><h1>${F.name}</h1></div>
     ${nums.length ? `<section class="card tj-list">${nums.map((n) => `<div class="tj-row kt-row"><b>第 ${n} 套</b>
       <div class="tj-chips" style="grid-template-columns:repeat(${F.parts.length},minmax(0,1fr))">${F.parts.map(([k, name, full]) => { const e = sets.get(n)[k]; if (!e) return '<span></span>';
-        const c = curOf(X, e.id);
-        if (c) return `<a class="tj-chip cur" href="#/${F.id}/exam/${X.enc(c.sid)}">${name}<em>继续</em></a>`;
+        if (e.open_session) return `<a class="tj-chip cur" href="#/${F.id}/exam/${X.enc(e.open_session)}">${name}<em>继续</em></a>`;
         return e.last_session ? `<a class="tj-chip done" href="#/${F.id}/review/${e.last_session}">${name}<em>${fmt(e.last_score)}/${full}</em></a>`
           : `<button class="tj-chip" data-start="${e.id}">${name}</button>`; }).join('')}</div>
       <button class="tj-pr" data-print="${n}" aria-label="打印第 ${n} 套">${PRINT_ICON}</button></div>`).join('')}</section>`
@@ -106,29 +104,27 @@ const taskBox = (F, g, t) => `<div class="tj-text kt-task">${t.prompt ? paras(t.
 export async function renderKETExam(sid) {
   const d = await X.api(`/api/sessions/${X.enc(sid)}`);
   const F = famOf(d.exam.id);
-  const ck = `en.cur.${d.exam.id}`;
-  if (d.session.submitted) { if (X.store.get(ck)?.sid === sid) X.store.del(ck); location.replace(`#/${F.id}/review/${sid}`); return; }
-  X.store.set(ck, { sid, t: d.exam.title, f: F.id, dl: d.session.deadline_at - d.session.server_now + Date.now() });
+  if (d.session.submitted) { location.replace(`#/${F.id}/review/${sid}`); return; }
   const G = d.exam.sections?.[0]?.groups || [];
   const P = d.problems;
   const inG = (g) => P.filter((p) => p.extra?.group === g.id);
   const key = `ket.s.${sid}`;
-  const S = Object.assign({ g: 0, answers: {}, pos: {}, pick: {} }, X.store.get(key, {}));
-  const save = () => X.store.set(key, S);
+  const D = draftSync({ api: X.api, store: X.store, key, sid, server: d.session.draft, init: { g: 0, answers: {}, pos: {}, pick: {} } });
+  const { S, save } = D;
   const skew = d.session.server_now - Date.now();
   const left = () => (d.session.deadline_at - (Date.now() + skew)) / 1000;
   const has = (p) => String(S.answers[p.id] ?? '').trim() !== '';
   // 二选一的写作题：只算选中的那道
   const counted = () => P.filter((p) => { const g = G.find((x) => x.id === p.extra?.group); return !(g?.kind === 'choose' && (S.pick[g.id] ?? 0) !== p.extra.opt); });
   let timer = null, audio = null, submitting = false;
-  X.setCleanup(() => { clearInterval(timer); audio?.(); });
+  X.setCleanup(() => { clearInterval(timer); audio?.(); D.stop(); });
 
   async function submit(auto) {
     if (submitting) return; submitting = true; clearInterval(timer); audio?.();
     const answers = {}; for (const p of counted()) if (S.answers[p.id] != null) answers[p.id] = S.answers[p.id];
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers, times: {} } });
-      X.store.del(key); X.store.del(ck);
+      D.stop(true); X.store.del(key);
       if (auto) X.modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/${F.id}/review/${sid}`);
     } catch (e) { submitting = false; X.modal(`<h2>交卷没成功</h2><p>${X.esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
