@@ -11,11 +11,11 @@ const WX_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKi
 
 export const UI_FEATURES = [
   { id: 'U1', area: '界面', name: '数学首页', cases: [
-    { id: 'U1-1', name: '只放竞赛入口卡片（AMC 8 / 思维 100 / 希望数学），不铺试卷', run: async (p, c) => { await c.go('#/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('.exam-tile').count()}`; }, expect: same('3/0') },
+    { id: 'U1-1', name: '只放竞赛入口卡片（AMC 8 / AMC 10 / 思维 100 / 希望数学），不铺试卷', run: async (p, c) => { await c.go('#/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('.exam-tile').count()}`; }, expect: same('4/0') },
     { id: 'U1-2', name: '点竞赛卡片进到这个竞赛的试卷', run: async (p, c) => { await c.go('#/'); await p.locator('a.fam-card', { hasText: 'AMC 8' }).click(); await c.settle(); return `${p.url().endsWith('#/contest/amc8')}/${await p.locator('.exam-tile').count()}`; }, expect: same('true/26') },
     { id: 'U1-3', name: '「今天做什么」「最近成绩」一直显示', run: async (p, c) => { await c.go('#/'); return p.locator('.dash-grid > .card').count(); }, expect: same(2) },
     { id: 'U1-4', name: '侧栏底部身份（游客是注册提示）', run: async (p, c) => { await c.go('#/'); const t = await c.text('.sn-who small'); return t.includes('注册送') ? '注册提示' : t.includes('会员') ? '会员' : t.replace(/\s/g, ''); }, expect: { guest: '注册提示', user: '免费次数10', member: '会员' } },
-    { id: 'U1-5', name: '知识图谱页最上面的掌握地图（游客换成注册提示）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('.mm-tile').count(); }, expect: { guest: '注册提示', user: 30, member: 30 } },
+    { id: 'U1-5', name: '知识图谱页最上面的掌握地图（游客换成注册提示）', run: async (p, c) => { await c.go('#/graph'); if (await p.locator('.reg-wall').count()) return '注册提示'; return p.locator('.mm-tile').count(); }, expect: { guest: '注册提示', user: 38, member: 38 } },
     { id: 'U1-6', name: '选过的竞赛和年级记住：希望数学选四年级，刷新后还是四年级', run: async (p, c) => { await c.go('#/contest/hope'); await p.locator('[data-grade="4"]').click(); await c.settle(); await c.go('#/contest/hope'); return c.text('.grade-tabs button.on'); }, expect: same('四年级') },
   ] },
   { id: 'U7', area: '界面', name: '注册要输两遍密码', cases: [
@@ -369,7 +369,7 @@ export const UI_FEATURES = [
     { id: 'U13-4', name: '网快时换页：不出骨架也不弹漫画', run: async (p, c) => { await c.go('#/contest/amc8'); await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(250); return `${await p.locator('.sk').count()}/${await p.locator('.li-load').count()}`; }, expect: same('0/0') },
   ] },
   { id: 'U14', area: '界面', name: '网站首页', cases: [
-    { id: 'U14-1', name: '数学、语文、英语三张科目卡片', run: async (p, c) => { await c.go('/'); return `${await p.locator('a.subj').count()}/${await p.locator('.subj-soon').count()}`; }, expect: same('3/0') },
+    { id: 'U14-1', name: '数学、语文、英语三张科目卡片', run: async (p, c) => { await c.go('/'); return `${await p.locator('a.subj').count()}/${await p.locator('.subj-soon').count()}`; }, expect: same('4/0') },
     { id: 'U14-2', name: '漫画弹窗：新访客弹，做过题的不弹（看「继续上次」）', run: async (p, c) => {
       const ctx = await p.context().browser().newContext(); const q = await ctx.newPage(); await q.goto(c.base + '/'); await q.waitForTimeout(1200);
       const fresh = await q.locator('#promo').isVisible(); await ctx.close();

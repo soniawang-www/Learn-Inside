@@ -686,7 +686,7 @@ async function renderContest(fid, tab = 'exams') {
       const units = S.units.filter((u) => u.rate).sort((a, b) => b.share - a.share);
  body = `<div class="stats-grid"><div class="card"><h2>各大类占比</h2>
         
-        <div class="mods">${S.modules.map((m) => `<div class="mrow"><span>${esc(m.name)}</span><span class="mbar"><i style="width:${(m.share / maxM) * 100}%"></i></span><span class="num">${m.share.toFixed(1)}%</span></div>`).join('')}</div></div>
+        <div class="mods">${S.modules.filter((m) => m.share > 0).map((m) => `<div class="mrow"><span>${esc(m.name)}</span><span class="mbar"><i style="width:${(m.share / maxM) * 100}%"></i></span><span class="num">${m.share.toFixed(1)}%</span></div>`).join('')}</div></div>
       <div class="card"><h2>各知识项考情</h2>
         
         <table class="utable"><tr><th>知识项</th><th>占比</th><th>考过的年份</th><th>每届</th><th>常见题号</th></tr>
