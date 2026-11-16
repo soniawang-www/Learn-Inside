@@ -31,7 +31,7 @@ const pair = (s, d) => (Array.isArray(s) ? [+s[0], +s[1]] : [s ?? d, s ?? d]);
 //   circ(C, r, 类)、arc(C, r, 起角, 终角, 类)（度，逆时针）、sector(C, r, 起角, 终角, 类)（扇形）、plot(x => …, 类, a, b)（函数图像，自动断开、裁到画布里）、dot(A, 类)、lab(A, 文字, dx, dy, 类)、
 //   dist(A, B)、slope(A, B)、mid(A, B)、area([A, B, C])、ang(A, O, B)（度）、inter(A, B, C, D)（直线 AB 与 CD 的交点，平行时 null）、
 //   foot(P, A, B)（P 到直线 AB 的垂足）、refl(P, A, B)（P 关于直线 AB 的对称点）、rot(P, O, 度)（P 绕 O 逆时针转）。点可以写 {x, y} 也可以写 [x, y]。
-//   类：ln（实线）、dash（虚线）、sh / sh2（填色）、c1 / c2（紫 / 绿粗线）、dot1 / dot2。
+//   类：ln（实线）、dash（虚线）、sh / sh2（填色）、c1 / c2（紫 / 绿粗线）、dot1 / dot2 / dot0（紫 / 绿 / 黑点）、hollow（空心点，取不到的端点）。
 const PL_HELP = ['sx', 'sy', 'seg', 'line', 'ray', 'poly', 'circ', 'arc', 'sector', 'plot', 'dot', 'lab', 'dist', 'slope', 'mid', 'area', 'ang', 'inter', 'foot', 'refl', 'rot'];
 function planeFrame(p) {
   const vw = p.vw || 360, vh = p.vh || 300, pad = p.pad ?? 16;
@@ -329,10 +329,12 @@ function trials(box, p, api) {
 //   pts: {M: [x, y, z]}（额外的点，带名字）, segs: [['A', 'M', '类'], …], curves: [[[点, 点, …], '类'], …]（一串点连成的曲线）, texts: [[点名或 [x, y, z], '文字', 'plum'|'jade'|'warn'], …]（写字，比如面上的数字；被挡住的变淡）, polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边）,
 //   额外的线、多边形的边被立体挡住的部分自动画成虚线（hide: false 整步关掉；类里写 dash 一直是虚线，写 solid 一直是实线）,
 //   balls: [{c: [x, y, z], r, cls, eq: true（画赤道，背面一半虚线）}], center: [x, y, z]（旋转中心，默认包围盒中心）,
-//   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, curves, texts, balls, round}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
-//   info / goal / tip（变量：S 已选的键、has(键)、n 已选个数、滑块变量、yaw（0～360）、pitch（-89～89）当前视角）, solution: [要选的键], solution_vars: {滑块: 值}, solution_view: {yaw, pitch} }
+//   vars: 滑块变量, dyn: '表达式，返回 {pts, segs, polys, curves, texts, balls, round, cubes}（变量：滑块变量、V、S、has、n、seen、yaw、pitch）', pick: 'vertex' | 'edge' | 'face' | 'cube'（点选；single: true 一次只选一个，seen 是点过几个不同的；键是 'A'、'AB'（棱的两端按字母排序）、'ABCD'（照 F 里的写法）、'x,y,z'）,
+//   info / goal / tip（变量：S 已选的键、has(键)、n 已选个数、滑块变量、yaw（0～360）、pitch（-89～89）当前视角、side（'前' 从 -y 看 / '后' / '左' / '右' / '上' / '下'））, pick_color: 'plum'（选中方块的颜色，可 'warn' / 'ink' / 'jade'）, texts_back: true（被挡住的字画成淡色，默认不画）, solution: [要选的键], solution_vars: {滑块: 值}, solution_view: {yaw, pitch} }
 const FACE_DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-const SD_KEYS = ['V', 'S', 'has', 'n', 'seen', 'yaw', 'pitch'];
+const SD_KEYS = ['V', 'S', 'has', 'n', 'seen', 'yaw', 'pitch', 'side'];
+// 从哪面看：pitch 大于 45 是上、小于 -45 是下，否则按 yaw 分前（从 -y 往 +y 看）/ 后 / 左 / 右
+const sdSide = (yaw, pitch) => { if (pitch > 45) return '上'; if (pitch < -45) return '下'; const a = (yaw * Math.PI) / 180, x = -Math.sin(a), y = -Math.cos(a); return Math.abs(x) > Math.abs(y) ? (x > 0 ? '右' : '左') : (y > 0 ? '后' : '前'); };
 const vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const vdot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -385,7 +387,8 @@ function solidModel(p) {
   const smooth = new Set([...adj].filter(([, L]) => L.length === 2 && Fc[L[0]].grp && Fc[L[0]].grp === Fc[L[1]].grp).map(([k]) => k));
   const real = [...Object.values(V), ...ext];
   const all = [...real, ...Object.values(p.pts || {}), ...(p.balls || []).flatMap((b) => [0, 1, 2].flatMap((i) => [-1, 1].map((sg) => b.c.map((t, j) => t + (j === i ? sg * b.r : 0)))))];
-  const c = p.center || [0, 1, 2].map((i) => (Math.min(...all.map((q) => q[i])) + Math.max(...all.map((q) => q[i]))) / 2);
+  const empty = !all.length;
+  const c = p.center || (empty ? [0, 0, 0] : [0, 1, 2].map((i) => (Math.min(...all.map((q) => q[i])) + Math.max(...all.map((q) => q[i]))) / 2));
   // 判断面朝外用顶点的平均（包围盒中心可能在不对称的立体外面）
   const m = [0, 1, 2].map((i) => real.reduce((s, q) => s + q[i], 0) / (real.length || 1));
   const R = Math.max(...all.map((q) => Math.hypot(q[0] - c[0], q[1] - c[1], q[2] - c[2]))) || 1;
@@ -412,7 +415,7 @@ function solidModel(p) {
     const vol = poly.reduce((s, f) => { const L = f.vo.map(at); let t = 0; for (let i = 1; i + 1 < L.length; i++) t += vdot(L[0], vcross(L[i], L[i + 1])); return s + t; }, 0);
     if (vol < 0) poly.forEach((f) => f.vo.reverse());
   }
-  return { V, F: Fc, E, c, m, R, adj, smooth, convex, cubeCls };
+  return { V, F: Fc, E, c, m, R, adj, smooth, convex, cubeCls, empty };
 }
 const SD_CLS = (c) => (c || 'plum').split(' ').map((x) => `sd-${x}`).join(' ');
 // 二维凸包（圆柱、圆锥侧面的整体填色）
@@ -430,28 +433,34 @@ function solid(box, p, api) {
   const F = { info: fnc(p.info, keys), goal: fnc(p.goal, keys), tip: fnc(p.tip, keys) };
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   let yaw = p.yaw ?? -35, pitch = p.pitch ?? 22; const sel = new Set(), ever = new Set();
-  const envOf = () => ({ ...v, V: M.V, S: [...sel], has: (k) => sel.has(k), n: sel.size, seen: ever.size, yaw: r2((((yaw % 360) + 360) % 360)), pitch: r2(pitch) });
+  const envOf = () => ({ ...v, V: M.V, S: [...sel], has: (k) => sel.has(k), n: sel.size, seen: ever.size, yaw: r2((((yaw % 360) + 360) % 360)), pitch: r2(pitch), side: sdSide(yaw, pitch) });
   // dyn 画出来的点也要装进画面：滑块取两端各算一遍
   let R = M.R;
   if (dyn) {
     const vs = (p.vars || []).slice(0, 4); let combos = [{ ...v }];
     vs.forEach((x) => { combos = combos.flatMap((c) => [x.min, (x.min + x.max) / 2, x.max].map((t) => ({ ...c, [x.k]: t }))); });
     const P0 = { ...M.V, ...(p.pts || {}) };
+    const allQ = [];
     combos.forEach((c) => {
       const D = run(dyn, { ...envOf(), ...c }, {}) || {}, P1 = { ...P0, ...(D.pts || {}) };
       const qs = [...Object.values(D.pts || {}), ...(D.segs || []).flatMap((s) => [s[0], s[1]]), ...(D.polys || []).flatMap((s) => s[0]), ...(D.curves || []).flatMap((s) => s[0])].map((k) => (Array.isArray(k) ? k : P1[k])).filter((q) => q && q.every(Number.isFinite));
       (D.balls || []).forEach((b) => qs.push(...[0, 1, 2].flatMap((i) => [-1, 1].map((sg) => b.c.map((t, j) => t + (j === i ? sg * b.r : 0))))));
-      qs.forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
-      if (D.round) Object.values(solidModel({ round: D.round }).V).forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
+      allQ.push(...qs);
+      (D.cubes || []).forEach((cb) => [0, 1].forEach((d) => allQ.push(cb.slice(0, 3).map((t) => +t + d))));
+      if (D.round) allQ.push(...Object.values(solidModel({ round: D.round }).V));
     });
+    // 没有固定的立体（全靠 dyn 画）时，按 dyn 画出的东西定旋转中心
+    if (M.empty && !p.center && allQ.length) { M.c = [0, 1, 2].map((i) => (Math.min(...allQ.map((q) => q[i])) + Math.max(...allQ.map((q) => q[i]))) / 2); R = 0; }
+    allQ.forEach((q) => { R = Math.max(R, Math.hypot(q[0] - M.c[0], q[1] - M.c[1], q[2] - M.c[2])); });
+    R = R || 1;
   }
   const scale0 = (Math.min(vw, vh) * 0.42 * (p.zoom || 1)) / R;
-  const canEx = p.cubes && (p.explode ?? p.pick === 'cube'); let ex = 0, exT = 0, exAnim = null;
+  const canEx = (p.cubes || /cubes/.test(p.dyn || '')) && (p.explode ?? p.pick === 'cube'); let ex = 0, exT = 0, exAnim = null;
   box.innerHTML = `<svg viewBox="0 0 ${vw} ${vh}" class="lp-sim slsvg sdsvg" xmlns="http://www.w3.org/2000/svg"><g class="sd-g"></g></svg><div class="sl-info"></div>${varsHtml(p.vars, v)}${bar(btn('sd-spin', '转一圈') + btn('sd-home', '复位') + (canEx ? btn('sd-ex', '拆开') : '') + (p.pick ? btn('sd-clear', '清空') : ''))}`;
   const svg = box.querySelector('svg');
   // dyn 返回 round（比如跟着滑块升高的液面圆锥）时按它重建模型，旋转中心不变
   let mKey = null, mLast = null;
-  const modelFor = (rd) => { const k = JSON.stringify(rd); if (k !== mKey) { mKey = k; mLast = solidModel({ ...p, round: [...(p.round || []), ...rd], center: M.c }); } return mLast; };
+  const modelFor = (D) => { const k = JSON.stringify([D.round, D.cubes]); if (k !== mKey) { mKey = k; mLast = solidModel({ ...p, round: [...(p.round || []), ...(D.round || [])], ...(D.cubes ? { cubes: D.cubes } : {}), center: M.c }); } return mLast; };
   const draw = () => {
     const a = (yaw * Math.PI) / 180, b = (pitch * Math.PI) / 180, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
     const scale = scale0 / (1 + ex * 1.2);
@@ -464,7 +473,7 @@ function solid(box, p, api) {
     };
     const env = envOf();
     const D = run(dyn, env, {}) || {};
-    const MM = D.round ? modelFor(D.round) : M;
+    const MM = D.round || D.cubes ? modelFor(D) : M, CUBES = !!(p.cubes || D.cubes);
     const PT = { ...MM.V, ...(p.pts || {}), ...(D.pts || {}) };
     const at = (k) => (Array.isArray(k) ? k : PT[k]);
     const S2 = {}; for (const [k, q] of Object.entries(PT)) S2[k] = proj(q);
@@ -490,6 +499,14 @@ function solid(box, p, api) {
       return { P2, n: best, o: P2[0], bb: [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)] };
     }).filter(Boolean);
     const eps = 1e-3 * R;
+    const onBack = (w) => faces.some((f) => {
+      if (f.front) return false;
+      const L = f.P2.length ? f.v.map(at) : null; if (!L || L.some((q) => !q)) return false;
+      const nr = newell(L), nl = Math.hypot(...nr) || 1; if (Math.abs(vdot(nr, vsub(w, L[0]))) / nl > eps * 5) return false;
+      const q = proj(w); let c = false;
+      for (let i = 0, j = f.P2.length - 1; i < f.P2.length; j = i++) { const [xi, yi] = f.P2[i], [xj, yj] = f.P2[j]; if ((yi > q[1]) !== (yj > q[1]) && q[0] < ((xj - xi) * (q[1] - yi)) / (yj - yi) + xi) c = !c; }
+      return c;
+    });
     const inside = (P2, x, y) => {
       let c = false, md = Infinity;
       for (let i = 0, j = P2.length - 1; i < P2.length; j = i++) {
@@ -513,10 +530,10 @@ function solid(box, p, api) {
     };
     const ln = (q, cls) => `<line x1="${q[0]}" y1="${q[1]}" x2="${q[2]}" y2="${q[3]}" class="${cls}"/>`;
     let g = '';
-    if (p.cubes) {
+    if (CUBES) {
       faces.filter((f) => f.front).sort((a2, b2) => b2.depth - a2.depth).forEach((f) => {
         const merge = p.grid === false && !ex && f.inner.some(Boolean);
-        g += `<polygon points="${f.pts}" class="sd-cf sd-d${Math.floor(f.dir / 2)}${f.cls ? ` cc-${f.cls}` : ''}${merge ? ' nol' : ''}${sel.has(f.cube) ? ' on' : ''}" data-k="${f.cube}"/>`;
+        g += `<polygon points="${f.pts}" class="sd-cf sd-d${Math.floor(f.dir / 2)}${f.cls ? ` cc-${f.cls}` : ''}${merge ? ' nol' : ''}${sel.has(f.cube) ? ` on pk-${p.pick_color || 'plum'}` : ''}" data-k="${f.cube}"/>`;
         if (merge) f.P2.forEach((q, i) => { if (!f.inner[i]) { const r = f.P2[(i + 1) % 4]; g += ln([q[0], q[1], r[0], r[1]], 'sd-ce'); } });
       });
     } else {
@@ -572,9 +589,11 @@ function solid(box, p, api) {
     // texts：任意位置写字（面上的数字等），被挡住的变淡
     for (const [k, txt, c] of [...(p.texts || []), ...(D.texts || [])]) {
       const q = pr(k); if (!q) continue;
-      g += `<text x="${q[0]}" y="${r2(q[1] + 5)}" font-size="15" text-anchor="middle" class="st sd-t${c ? ' sd-t-' + c : ''}${auto && hidden(q) ? ' hid' : ''}">${esc(txt)}</text>`;
+      const w = at(k), hid = auto && (hidden(q) || (w && onBack(w)));
+      if (hid && !p.texts_back) continue;
+      g += `<text x="${q[0]}" y="${r2(q[1] + 5)}" font-size="15" text-anchor="middle" class="st sd-t${c ? ' sd-t-' + c : ''}${hid ? ' hid' : ''}">${esc(txt)}</text>`;
     }
-    if (!p.cubes) {
+    if (!CUBES) {
       const named = Object.keys(PT).filter((k) => !k.startsWith('_'));
       const ctr = proj(MM.c);
       named.forEach((k) => {
@@ -630,4 +649,4 @@ function solid(box, p, api) {
 }
 
 export const SIMS_HS = { plane, trials, solid };
-export const HS_CORE = { planeState, planeKeys, planeFrame, trialsCore, trialFn, solidModel, varsInit, RNG_KEYS, SD_KEYS };
+export const HS_CORE = { planeState, planeKeys, planeFrame, trialsCore, trialFn, solidModel, varsInit, RNG_KEYS, SD_KEYS, sdSide };
