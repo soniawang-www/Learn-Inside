@@ -118,7 +118,7 @@ const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 const fn = (expr, keys) => (expr ? compile(expr, keys) : null);
 const run = (f, v, dflt) => { if (!f) return dflt; try { return f(v, H); } catch (e) { return dflt; } };
 const COLORS = { card: 'var(--lp-card)', jade: 'var(--lp-jade)', plum: 'var(--lp-plum)', ink: 'var(--lp-ink)', soft: 'var(--lp-soft)', warn: 'var(--lp-warn)', jsoft: 'var(--lp-jade-soft)', psoft: 'var(--lp-plum-soft)', line: 'var(--lp-line)' };
-const col = (c) => COLORS[c] || c || 'var(--lp-card)';
+const col = (c) => (c === 'none' ? 'transparent' : COLORS[c] || c || 'var(--lp-card)'); // 'none'：不画填充（颜色自己在 bg 里按 on() 画）
 
 // ── 开关格：点一下在几种状态间切换（真话/假话、黑/白、左/右、选/不选） ──
 // { items: [{k, x, y, w, h, r, label}]（r 给了画圆，否则画矩形；pts: [[x, y], …] 画多边形、d: 'SVG path' 画任意形状，文字放在 cx / cy（多边形默认重心）；

@@ -748,9 +748,9 @@ function solid(box, p, api) {
 //             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, fixed（不能动）}],
 //   rotate: true（能转；方格 90°，三角格 60°，也可写度数）, flip: false（能翻面）, bg / fg: 'SVG 表达式', info, goal, tip, solution: {k: [x, y, r, f]}, say_ok }
 // 表达式里：P（k → {x, y, r, f}）、cells(k)（方格拼块现在占的格 'x,y' 数组）、cover（'x,y' → 盖了几层）、
-//   overlap（有没有格子被盖两层）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
+//   overlap（有没有格子被盖两层）、filled（目标格 / 目标点里已经盖住的个数）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
 //   poly(k)（多边形拼块现在的顶点）、sx(x) sy(y)（格坐标换成像素）。
-const PZ_KEYS = ['P', 'cells', 'cover', 'overlap', 'exact', 'inside', 'hits', 'poly', 'sx', 'sy'];
+const PZ_KEYS = ['P', 'cells', 'cover', 'overlap', 'exact', 'filled', 'inside', 'hits', 'poly', 'sx', 'sy'];
 const SQ3 = Math.sqrt(3) / 2;
 function pzCells(pc, st) {
   // 方格拼块：先翻面（左右镜像）再转，归一到左上角，再平移
@@ -777,7 +777,8 @@ function pzEnv(p, P) {
   const TP = p.target_pts || [];
   const exactPts = TP.length > 0 && TP.every((q) => hits(q) === 1);
   const exact = (T.size > 0 && [...T].every((c) => cover[c] === 1) && pcs.filter((pc) => pc.cells && onBoard(pc.k)).every((pc) => inside(pc.k))) || exactPts;
-  return { P, cells: (k) => C[k] || [], cover, overlap: overlap || TP.some((q) => hits(q) > 1), exact, inside, hits, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
+  const filled = [...T].filter((c) => cover[c] >= 1).length + TP.filter((q) => hits(q) >= 1).length;
+  return { P, cells: (k) => C[k] || [], cover, overlap: overlap || TP.some((q) => hits(q) > 1), exact, filled, inside, hits, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
 }
 function pzState(p, sol) {
   const P = {};

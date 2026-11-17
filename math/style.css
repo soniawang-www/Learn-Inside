@@ -1416,7 +1416,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 /* 拼块（sims_hs.js pieces）：拖动、旋转、翻面 */
 .pzsvg { touch-action:none; user-select:none; }
 .pzsvg .pz-gr { stroke:var(--lp-line); stroke-width:1; }
-.pzsvg .pz-tg { fill:var(--lp-jade-soft); }
+.pzsvg .pz-tg { fill:color-mix(in srgb, var(--lp-jade) 22%, var(--lp-card)); stroke:color-mix(in srgb, var(--lp-jade) 45%, var(--lp-card)); stroke-width:1; }
 .pzsvg .pz-ol { fill:none; stroke:var(--lp-ink); stroke-width:2.4; stroke-linejoin:round; }
 .pzsvg .pz-p { --pc:var(--lp-plum); cursor:grab; }
 .pzsvg .pz-p.fixed { cursor:default; }
