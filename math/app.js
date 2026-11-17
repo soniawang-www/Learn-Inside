@@ -649,7 +649,7 @@ function examGrid(f, allExams, fid, limit = 0) {
   // 分年级的考试：卷名去掉考试名和年级，大字只放「年份 场次」，其余（个人战 / 决赛 / 回忆版）放到下一行
   const label = (e) => {
     if (!f.grades) return { t: e.year || '', sub: '' };
-    const s = e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/（(.+?)）/g, ' $1').replace(/\s+/g, ' ').trim();
+    const s = e.title.replace(f.name, '').replace(GRADE[e.grade] || '', '').replace(/Level [A-F]\b/, '').replace(/（(.+?)）/g, ' $1').replace(/\s+/g, ' ').trim();
     const m = s.match(/^(\d{4}\s*\S+)\s*(.*)$/);
     return m ? { t: m[1], sub: m[2].split(' ').filter(Boolean).join(' · ') } : { t: s, sub: '' };
   };
