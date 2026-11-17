@@ -1422,6 +1422,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .pzsvg .pz-p.fixed { cursor:default; }
 .pzsvg .pz-p .pz-cell, .pzsvg .pz-p .pz-poly { fill:color-mix(in srgb, var(--pc) 55%, var(--lp-card)); fill-opacity:.88; }
 .pzsvg .pz-p .pz-cell { stroke:color-mix(in srgb, var(--pc) 40%, var(--lp-card)); stroke-width:.8; }
+.pzsvg .pz-p .pz-cell.nol { stroke:color-mix(in srgb, var(--pc) 55%, var(--lp-card)); stroke-width:.6; }
 .pzsvg .pz-p .pz-poly { stroke:var(--lp-ink); stroke-width:1.6; stroke-linejoin:round; }
 .pzsvg .pz-p .pz-edge { stroke:var(--lp-ink); stroke-width:1.8; stroke-linecap:round; }
 .pzsvg .pz-p.cur .pz-poly, .pzsvg .pz-p.cur .pz-edge { stroke:var(--pc); stroke-width:3; }

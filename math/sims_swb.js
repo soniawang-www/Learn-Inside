@@ -122,7 +122,7 @@ const col = (c) => (c === 'none' ? 'transparent' : COLORS[c] || c || 'var(--lp-c
 
 // ── 开关格：点一下在几种状态间切换（真话/假话、黑/白、左/右、选/不选） ──
 // { items: [{k, x, y, w, h, r, label}]（r 给了画圆，否则画矩形；pts: [[x, y], …] 画多边形、d: 'SVG path' 画任意形状，文字放在 cx / cy（多边形默认重心）；
-//            stroke: false 不描边；states: 这一格自己的状态（覆盖全局）；flip: [k, …] 点这一格时这些格也一起切换；fixed: 不能点）
+//            seg: [[x1, y1], [x2, y2]]（点线段：沿线段的细长热区，w 宽度，默认不描边）；stroke: false 不描边；states: 这一格自己的状态（覆盖全局）；flip: [k, …] 点这一格时这些格也一起切换；fixed: 不能点）
 //   也可用 grid: [行, 列], cell, x0, y0 自动生成 k='r行c列'）,
 //   states: [{label, fill, text}]（默认两种：空 / 绿；fill 可以是主题色名 card / jade / plum / ink / soft / warn / jsoft / psoft / line，也可以写固定颜色 '#d64545'，深色模式不变）,
 //   init: {k: 状态号}, stroke: false（所有格都不描边，透明热区叠在图上时用）,
@@ -130,7 +130,8 @@ const col = (c) => (c === 'none' ? 'transparent' : COLORS[c] || c || 'var(--lp-c
 //   found: '表达式，返回当前摆法的名字（字符串，不算数的摆法返回空）'：记住找到过的不同摆法，表达式里 nfound 是个数、seen 是名字数组（「找出全部 4 种」用 goal: 'nfound >= 4'）,
 //   表达式里可用：S（k→状态号）、L（按 items 顺序的状态号数组）、K（k 数组）、cnt(状态号)、on(k)（状态号≠0）、nfound、seen }
 function toggles(box, p, api) {
-  let items = p.items || [];
+  // seg：线段热区，自动换成沿线段的细长多边形（宽 w，默认 14），默认不描边；状态的 fill 写 'none' 时颜色自己在 bg 里按 on() 画
+  let items = (p.items || []).map((it) => { if (!it.seg) return it; const [[x1, y1], [x2, y2]] = it.seg, L = Math.hypot(x2 - x1, y2 - y1) || 1, h = (it.w || 14) / 2, nx = (-(y2 - y1) / L) * h, ny = ((x2 - x1) / L) * h; return { stroke: false, cx: (x1 + x2) / 2, cy: (y1 + y2) / 2, ...it, pts: [[x1 + nx, y1 + ny], [x2 + nx, y2 + ny], [x2 - nx, y2 - ny], [x1 - nx, y1 - ny]].map((q) => q.map((t) => Math.round(t * 10) / 10)) }; });
   if (p.grid) {
     const [R, C] = p.grid, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10;
     items = []; for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) items.push({ k: `r${i}c${j}`, x: x0 + j * c, y: y0 + i * c, w: c, h: c, ...(p.cells?.[`r${i}c${j}`] || {}) });

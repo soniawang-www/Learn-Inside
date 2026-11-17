@@ -747,6 +747,7 @@ function solid(box, p, api) {
 //   pieces: [{k, cells: [[x, y], …]（方格拼块：由单位格组成）或 pts: [[x, y], …]（任意多边形，绕 (0, 0) 转），
 //             nums: [[x, y, 字], …]（方格拼块上写的数字 / 字，拼块自己的格坐标）, svg: '画在多边形拼块上的图（拼块自己的坐标，单位格，跟着转）',
 //             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, lx / ly（多边形标签位置，拼块自己的坐标）, fixed（不能动）}],
+//   cell_lines: false（方格拼块里不画单位格之间的线，只画外轮廓；也可以写在某一块上）,
 //   rotate: true（能转；方格 90°，三角格 60°，也可写度数）, flip: false（能翻面）, bg / fg: 'SVG 表达式', info, goal, tip, solution: {k: [x, y, r, f]}, say_ok }
 // 表达式里：P（k → {x, y, r, f}）、cells(k)（方格拼块现在占的格 'x,y' 数组）、cover（'x,y' → 盖了几层）、
 //   at(k, x, y, 转角)（拼块 k 是不是放在这里；转角可省）、overlap（有没有格子被盖两层）、filled（目标格 / 目标点里已经盖住的个数）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
@@ -823,7 +824,7 @@ function pieces(box, p, api) {
     const st = P[pc.k], c = pc.color || 'plum', on = cur === pc ? ' cur' : '', cls = `pz-p pz-${c}${pc.fixed ? ' fixed' : ''}${on}`;
     if (pc.cells) {
       const L = pzCells(pc, st), K = new Set(L.map((q) => q.join(',')));
-      let g = L.map(([x, y]) => `<rect x="${sx(x)}" y="${sy(y)}" width="${u}" height="${u}" class="pz-cell"/>`).join('');
+      let g = L.map(([x, y]) => `<rect x="${sx(x)}" y="${sy(y)}" width="${u}" height="${u}" class="pz-cell${p.cell_lines === false || pc.cell_lines === false ? ' nol' : ''}"/>`).join('');
       // 外轮廓：相邻格之间的边不画
       for (const [x, y] of L) for (const [dx, dy, x1, y1, x2, y2] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) if (!K.has(`${x + dx},${y + dy}`)) g += `<line x1="${sx(x + x1)}" y1="${sy(y + y1)}" x2="${sx(x + x2)}" y2="${sy(y + y2)}" class="pz-edge"/>`;
       const cx = L.reduce((t, q) => t + q[0], 0) / L.length + 0.5, cy = L.reduce((t, q) => t + q[1], 0) / L.length + 0.5;
