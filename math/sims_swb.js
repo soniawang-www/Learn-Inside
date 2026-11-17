@@ -158,7 +158,9 @@ function toggles(box, p, api) {
         : it.pts ? `<polygon points="${it.pts.map((q) => q.join(',')).join(' ')}" ${fill} class="${cls}"/>`
         : it.d ? `<path d="${esc(it.d)}" ${fill} class="${cls}"/>`
         : `<rect x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" rx="${p.rx ?? 4}" ${fill} class="${cls}"/>`;
-      const [cx, cy] = it.cx !== undefined ? [it.cx, it.cy] : it.r ? [it.x, it.y] : it.pts ? [it.pts.reduce((t, q) => t + q[0], 0) / it.pts.length, it.pts.reduce((t, q) => t + q[1], 0) / it.pts.length] : [it.x + it.w / 2, it.y + it.h / 2];
+      const dN = it.d && it.cx === undefined ? (String(it.d).match(/-?\d*\.?\d+/g) || []).map(Number) : null; // path：取数字两两成点的包围盒中心（近似）
+      const dC = dN && dN.length >= 2 ? (() => { const X = dN.filter((_, i) => i % 2 === 0), Y = dN.filter((_, i) => i % 2 === 1); return [(Math.min(...X) + Math.max(...X)) / 2, (Math.min(...Y) + Math.max(...Y)) / 2]; })() : null;
+      const [cx, cy] = it.cx !== undefined ? [it.cx, it.cy] : dC ? dC : it.r ? [it.x, it.y] : it.pts ? [it.pts.reduce((t, q) => t + q[0], 0) / it.pts.length, it.pts.reduce((t, q) => t + q[1], 0) / it.pts.length] : [it.x + it.w / 2, it.y + it.h / 2];
       const txt = st.text ?? it.label ?? '';
       g += `<g class="tg-i${it.fixed ? ' fixed' : ''}" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}"${st.color ? ` style="fill:${st.color}"` : ''}>${esc(txt)}</text>` : ''}${it.sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.h !== undefined ? it.y + it.h : cy + 10) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(it.sub)}</text>` : ''}</g>`;
     }

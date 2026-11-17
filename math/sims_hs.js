@@ -745,12 +745,12 @@ function solid(box, p, api) {
 //   target: [[x, y], …]（要铺满的格子，画浅色底；方格拼块用）, target_pts: [[x, y], …]（多边形拼块要盖住的小格中心，三角格拼满用；有了它 exact 也对多边形生效）,
 //   outline: [[x, y], …]（目标轮廓线，多边形，格坐标）,
 //   pieces: [{k, cells: [[x, y], …]（方格拼块：由单位格组成）或 pts: [[x, y], …]（任意多边形，绕 (0, 0) 转），
-//             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, fixed（不能动）}],
+//             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, lx / ly（多边形标签位置，拼块自己的坐标）, fixed（不能动）}],
 //   rotate: true（能转；方格 90°，三角格 60°，也可写度数）, flip: false（能翻面）, bg / fg: 'SVG 表达式', info, goal, tip, solution: {k: [x, y, r, f]}, say_ok }
 // 表达式里：P（k → {x, y, r, f}）、cells(k)（方格拼块现在占的格 'x,y' 数组）、cover（'x,y' → 盖了几层）、
-//   overlap（有没有格子被盖两层）、filled（目标格 / 目标点里已经盖住的个数）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
+//   at(k, x, y, 转角)（拼块 k 是不是放在这里；转角可省）、overlap（有没有格子被盖两层）、filled（目标格 / 目标点里已经盖住的个数）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
 //   poly(k)（多边形拼块现在的顶点）、sx(x) sy(y)（格坐标换成像素）。
-const PZ_KEYS = ['P', 'cells', 'cover', 'overlap', 'exact', 'filled', 'inside', 'hits', 'poly', 'sx', 'sy'];
+const PZ_KEYS = ['P', 'at', 'cells', 'cover', 'overlap', 'exact', 'filled', 'inside', 'hits', 'poly', 'sx', 'sy'];
 const SQ3 = Math.sqrt(3) / 2;
 function pzCells(pc, st) {
   // 方格拼块：先翻面（左右镜像）再转，归一到左上角，再平移
@@ -778,7 +778,8 @@ function pzEnv(p, P) {
   const exactPts = TP.length > 0 && TP.every((q) => hits(q) === 1);
   const exact = (T.size > 0 && [...T].every((c) => cover[c] === 1) && pcs.filter((pc) => pc.cells && onBoard(pc.k)).every((pc) => inside(pc.k))) || exactPts;
   const filled = [...T].filter((c) => cover[c] >= 1).length + TP.filter((q) => hits(q) >= 1).length;
-  return { P, cells: (k) => C[k] || [], cover, overlap: overlap || TP.some((q) => hits(q) > 1), exact, filled, inside, hits, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
+  const at = (k, x, y, r) => !!P[k] && Math.abs(P[k].x - x) < 1e-6 && Math.abs(P[k].y - y) < 1e-6 && (r === undefined || ((P[k].r - r) % 360 + 360) % 360 === 0);
+  return { P, at, cells: (k) => C[k] || [], cover, overlap: overlap || TP.some((q) => hits(q) > 1), exact, filled, inside, hits, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
 }
 function pzState(p, sol) {
   const P = {};
@@ -814,6 +815,7 @@ function pieces(box, p, api) {
   }
   uid++;
   base = (p.target || []).map(([x, y]) => `<rect x="${sx(x)}" y="${sy(y)}" width="${u}" height="${u}" class="pz-tg"/>`).join('') + base;
+  if (p.target && !p.outline) { const TK = new Set(p.target.map((q) => q.join(','))); for (const [x, y] of p.target) for (const [dx, dy, x1, y1, x2, y2] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) if (!TK.has(`${x + dx},${y + dy}`)) base += `<line x1="${sx(x + x1)}" y1="${sy(y + y1)}" x2="${sx(x + x2)}" y2="${sy(y + y2)}" class="pz-ol"/>`; }
   if (p.outline) base += `<polygon points="${p.outline.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}" class="pz-ol"/>`;
   const env = () => ({ ...pzEnv(p, P), sx, sy });
   const shapeOf = (pc) => {
@@ -826,7 +828,8 @@ function pieces(box, p, api) {
       const cx = L.reduce((t, q) => t + q[0], 0) / L.length + 0.5, cy = L.reduce((t, q) => t + q[1], 0) / L.length + 0.5;
       return `<g class="${cls}" data-k="${esc(pc.k)}">${g}${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
     }
-    const Q = pzPoly(pc, st), cx = Q.reduce((t, q) => t + q[0], 0) / Q.length, cy = Q.reduce((t, q) => t + q[1], 0) / Q.length;
+    const Q = pzPoly(pc, st), L0 = pc.lx !== undefined ? pzPoly({ pts: [[pc.lx, pc.ly]] }, st)[0] : null;
+    const cx = L0 ? L0[0] : Q.reduce((t, q) => t + q[0], 0) / Q.length, cy = L0 ? L0[1] : Q.reduce((t, q) => t + q[1], 0) / Q.length;
     return `<g class="${cls}" data-k="${esc(pc.k)}"><polygon points="${Q.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}" class="pz-poly"/>${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
   };
   const draw = () => {
