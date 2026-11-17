@@ -18,6 +18,9 @@ const FAMILIES = [
   { id: 'amc8', name: 'AMC 8', prefix: 'amc8-', desc: '美国数学竞赛 8 年级组：25 道选择题，40 分钟', subject: 'math' },
   { id: 'amc10', name: 'AMC 10', prefix: 'amc10-', desc: '美国数学竞赛 10 年级组：25 道选择题，75 分钟', subject: 'math' },
   { id: 'amc12', name: 'AMC 12', prefix: 'amc12-', desc: '美国数学竞赛 12 年级组：25 道选择题，75 分钟', subject: 'math' },
+  // 袋鼠数学按等级分卷：试卷的 grade 是等级的起始年级（A=1、B=3 … F=11），页面上按 gradeLabels 显示
+  { id: 'kangaroo', name: '袋鼠数学', prefix: 'kangaroo-', desc: '袋鼠数学（Math Kangaroo）：按等级分卷，A、B 级 24 题，C～F 级 30 题，五选一，75 分钟', grades: true,
+    gradeLabels: { 1: 'Level A · 1–2 年级', 3: 'Level B · 3–4 年级', 5: 'Level C · 5–6 年级', 7: 'Level D · 7–8 年级', 9: 'Level E · 9–10 年级', 11: 'Level F · 11–12 年级' }, subject: 'math' },
   { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 STEM 应用能力活动（数学）：按年级分卷，填空题为主，60 分钟', grades: true, subject: 'math' },
   { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true, subject: 'math' },
   // 语文（learn-inside.com/chinese）
@@ -949,7 +952,7 @@ route('GET', '/api/families/:id', async (req, env, p, url) => {
                WHERE s.student_id = ? AND s.submitted_at IS NOT NULL AND s.exam_id LIKE ? ORDER BY s.submitted_at DESC LIMIT 50`)
     .bind(studentId, fam.prefix + '%').all() : { results: [] };
   return json({
-    family: { id: fam.id, name: fam.name, desc: fam.desc, grades: !!fam.grades },
+    family: { id: fam.id, name: fam.name, desc: fam.desc, grades: !!fam.grades, ...(fam.gradeLabels ? { grade_labels: fam.gradeLabels } : {}) },
     stats: {
       exams: stats.exams, years: stats.years, max_num: stats.max_num, cut: stats.cut,
       modules: kps.filter((k) => !k.parent_id).map((m) => ({ id: m.id, name: m.name, share: stats.modules?.[m.id] || 0 })),
