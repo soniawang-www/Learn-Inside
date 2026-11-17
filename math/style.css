@@ -1216,6 +1216,9 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tgsvg .tg-i { cursor:pointer; }
 .tgsvg .tg-c { stroke:var(--lp-ink); stroke-width:1.4; transition:fill .12s; }
 .tgsvg .tg-i:hover .tg-c { stroke:var(--lp-plum); stroke-width:2.2; }
+.tgsvg .tg-c.tg-ns { stroke:none; } .tgsvg .tg-i:hover .tg-c.tg-ns { stroke:var(--lp-plum); stroke-width:2; stroke-dasharray:4 3; }
+.tgsvg .tg-i.fixed { cursor:default; } .tgsvg .tg-i.fixed:hover .tg-c { stroke:var(--lp-ink); stroke-width:1.4; } .tgsvg .tg-i.fixed:hover .tg-c.tg-ns { stroke:none; }
+.gfsvg .gf-c.gf-round, .gfsvg .gf-blk.gf-round { rx:50%; }
 .tg-bad, .gf-bad { stroke:var(--lp-warn) !important; stroke-width:3.4 !important; stroke-dasharray:5 3; }
 /* 坐标平面（plane）、随机模拟（trials）、立体图（solid） */
 .plsvg .pl-gr { stroke:var(--lp-line); stroke-width:1; }
@@ -1257,12 +1260,16 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sdsvg .sd-vh { fill:transparent; cursor:pointer; }
 .sdsvg .sd-cf { --cc:var(--lp-jade); fill:var(--fc); stroke:var(--lp-ink); stroke-width:1.1; stroke-linejoin:round; }
 .sdsvg .sd-cf.cc-plum { --cc:var(--lp-plum); } .sdsvg .sd-cf.cc-ink { --cc:var(--lp-ink); } .sdsvg .sd-cf.cc-warn { --cc:var(--lp-warn); }
+/* 固定颜色的方块（红、蓝、黄…）：深色模式下也不变，和白色混出明暗面 */
+.sdsvg .sd-cf.cc-red { --cc:#d64545; } .sdsvg .sd-cf.cc-blue { --cc:#3b6fd4; } .sdsvg .sd-cf.cc-yellow { --cc:#f2c230; } .sdsvg .sd-cf.cc-green { --cc:#3a9a5b; } .sdsvg .sd-cf.cc-orange { --cc:#ee8a2e; } .sdsvg .sd-cf.cc-brown { --cc:#8a5a2b; } .sdsvg .sd-cf.cc-gray { --cc:#9aa1a8; } .sdsvg .sd-cf.cc-black { --cc:#2b2f33; } .sdsvg .sd-cf.cc-white { --cc:#ffffff; } .sdsvg .sd-cf.cc-purple { --cc:#8a4fc4; }
 .sdsvg .sd-cf.sd-d0 { --fc:color-mix(in srgb, var(--cc) 38%, var(--lp-card)); }
 .sdsvg .sd-cf.sd-d1 { --fc:color-mix(in srgb, var(--cc) 22%, var(--lp-card)); }
 .sdsvg .sd-cf.sd-d2 { --fc:color-mix(in srgb, var(--cc) 10%, var(--lp-card)); }
 .sdsvg .sd-cf[class*="cc-"].sd-d0 { --fc:color-mix(in srgb, var(--cc) 72%, var(--lp-card)); }
 .sdsvg .sd-cf[class*="cc-"].sd-d1 { --fc:color-mix(in srgb, var(--cc) 58%, var(--lp-card)); }
 .sdsvg .sd-cf[class*="cc-"].sd-d2 { --fc:color-mix(in srgb, var(--cc) 44%, var(--lp-card)); }
+.sdsvg .sd-cf.cf-fix.sd-d0 { --fc:color-mix(in srgb, var(--cc) 94%, #fff); } .sdsvg .sd-cf.cf-fix.sd-d1 { --fc:color-mix(in srgb, var(--cc) 80%, #fff); } .sdsvg .sd-cf.cf-fix.sd-d2 { --fc:color-mix(in srgb, var(--cc) 64%, #fff); }
+.sdsvg .sd-cf.cc-white.sd-d1 { --fc:#ececec; } .sdsvg .sd-cf.cc-white.sd-d2 { --fc:#d9d9d9; } .sdsvg .sd-cf.cf-fix { stroke:#2b2f33; }
 .sdsvg .sd-cf.nol { stroke:var(--fc); stroke-width:.4; }
 .sdsvg .sd-cf.on { --pc:var(--lp-plum); --fc:color-mix(in srgb, var(--pc) 62%, var(--lp-card)); stroke:var(--pc); stroke-width:2.2; }
 .sdsvg .sd-cf.on.pk-warn { --pc:var(--lp-warn); } .sdsvg .sd-cf.on.pk-ink { --pc:var(--lp-ink); } .sdsvg .sd-cf.on.pk-jade { --pc:var(--lp-jade); }

@@ -15,6 +15,7 @@ function frames(box, p, api) {
   const n = p.frames.length;
   box.innerHTML = SVG(p.vw || 360, p.vh || 220, '<g class="fr-g"></g>', 'slsvg') + '<div class="sl-info fr-info"></div>' +
     bar(`<span class="fr-no"></span>${btn('fr-prev', '上一张')}${btn('fr-next', p.next || '下一步')}`);
+  if (p.maxw) Object.assign(box.querySelector('svg').style, { maxWidth: `${p.maxw}px`, marginInline: 'auto' }); // 小图别拉满整宽
   const ok = once(() => api.solved(p.say_ok));
   const paint = (speak) => {
     const f = p.frames[k];

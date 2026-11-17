@@ -404,7 +404,7 @@ function trials(box, p, api) {
 // ───────── 立体图（拖动旋转） ─────────
 // { V: {A: [x, y, z], …}（z 朝上）, F: [['A', 'B', 'C', 'D'], …]（面，给了就能分出看得见 / 看不见的棱；凹的立体也行，面要围成封闭的表面）, E: [['A', 'B'], …]（不给就从面里取）,
 //   round: [{type: 'cyl' | 'cone' | 'frustum', c: [x, y, z]（底面圆心）, r, h, r2（圆台上底半径）, axis: 'z'（默认竖直，'x' / 'y' 横放，h 沿轴的正方向）, cls: 'jade' | 'plum' | 'warn'（填色，比如水）, top / base: false（不画上 / 下底）}]（圆柱、圆锥、圆台；只画轮廓线和底面圆；dyn 也能返回 round）,
-//   cubes: [[x, y, z], [x, y, z, 'plum'], …]（单位小方块堆，代替 V / F；第 4 项是这一块的颜色：plum / jade / ink / warn）, grid: false（同一平面上的小方块不画分隔线）, explode: true（加「拆开」按钮，点选方块时默认有）,
+//   cubes: [[x, y, z], [x, y, z, 'plum'], …]（单位小方块堆，代替 V / F；第 4 项是这一块的颜色：主题色 plum / jade / ink / warn，或固定色 red / blue / yellow / green / orange / brown / gray / black / white / purple，深色模式不变）, grid: false（同一平面上的小方块不画分隔线）, explode: true（加「拆开」按钮，点选方块时默认有）,
 //   labels: true, yaw: -35, pitch: 22（初始视角，度）, zoom: 1, vw: 360, vh: 280,
 //   pts: {M: [x, y, z]}（额外的点，带名字；pt_names: false 只画点不写名字）, segs: [['A', 'M', '类'], …], curves: [[[点, 点, …], '类'], …]（一串点连成的曲线）, texts: [[点名或 [x, y, z], '文字', 'plum'|'jade'|'warn'], …]（写字，比如面上的数字；被挡住的变淡）, polys: [[['A', 'B', 'M'], '类'], …]（类：plum / jade / ink / warn，加 ' dash' 虚线、' thin' 细线、' nofill' 不填色、' noline' 不描边、' opaque' 不透明；多边形按远近排序）, fit: 'live'（每次按当前画面定中心和缩放，展开图折叠用）,
 //   额外的线、多边形的边被立体挡住的部分自动画成虚线（hide: false 整步关掉；类里写 dash 一直是虚线，写 solid 一直是实线）,
@@ -623,7 +623,7 @@ function solid(box, p, api) {
     if (CUBES) {
       faces.filter((f) => f.front).sort((a2, b2) => b2.depth - a2.depth).forEach((f) => {
         const merge = p.grid === false && !ex && f.inner.some(Boolean);
-        g += `<polygon points="${f.pts}" class="sd-cf sd-d${Math.floor(f.dir / 2)}${f.cls ? ` cc-${f.cls}` : ''}${merge ? ' nol' : ''}${sel.has(f.cube) ? ` on pk-${p.pick_color || 'plum'}` : ''}" data-k="${f.cube}"/>`;
+        g += `<polygon points="${f.pts}" class="sd-cf sd-d${Math.floor(f.dir / 2)}${f.cls ? ` cc-${f.cls}${CUBE_FIX.has(f.cls) ? ' cf-fix' : ''}` : ''}${merge ? ' nol' : ''}${sel.has(f.cube) ? ` on pk-${p.pick_color || 'plum'}` : ''}" data-k="${f.cube}"/>`;
         if (merge) f.P2.forEach((q, i) => { if (!f.inner[i]) { const r = f.P2[(i + 1) % 4]; g += ln([q[0], q[1], r[0], r[1]], 'sd-ce'); } });
       });
     } else {
@@ -739,5 +739,6 @@ function solid(box, p, api) {
   draw();
 }
 
+const CUBE_FIX = new Set(['red', 'blue', 'yellow', 'green', 'orange', 'brown', 'gray', 'black', 'white', 'purple']);
 export const SIMS_HS = { plane, trials, solid };
 export const HS_CORE = { planeState, planeKeys, planeFrame, trialsCore, trialFn, solidModel, varsInit, RNG_KEYS, SD_KEYS, sdSide };

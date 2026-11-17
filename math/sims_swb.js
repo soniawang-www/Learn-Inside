@@ -121,10 +121,14 @@ const COLORS = { card: 'var(--lp-card)', jade: 'var(--lp-jade)', plum: 'var(--lp
 const col = (c) => COLORS[c] || c || 'var(--lp-card)';
 
 // ── 开关格：点一下在几种状态间切换（真话/假话、黑/白、左/右、选/不选） ──
-// { items: [{k, x, y, w, h, r, label}]（r 给了画圆，否则画矩形；也可用 grid: [行, 列], cell, x0, y0 自动生成 k='r行c列'）,
-//   states: [{label, fill, text}]（默认两种：空 / 绿）, init: {k: 状态号},
+// { items: [{k, x, y, w, h, r, label}]（r 给了画圆，否则画矩形；pts: [[x, y], …] 画多边形、d: 'SVG path' 画任意形状，文字放在 cx / cy（多边形默认重心）；
+//            stroke: false 不描边；states: 这一格自己的状态（覆盖全局）；flip: [k, …] 点这一格时这些格也一起切换；fixed: 不能点）
+//   也可用 grid: [行, 列], cell, x0, y0 自动生成 k='r行c列'）,
+//   states: [{label, fill, text}]（默认两种：空 / 绿；fill 可以是主题色名 card / jade / plum / ink / soft / warn / jsoft / psoft / line，也可以写固定颜色 '#d64545'，深色模式不变）,
+//   init: {k: 状态号}, stroke: false（所有格都不描边，透明热区叠在图上时用）,
 //   bg: 'SVG 内容（画在格子下面，表达式）', fg: '画在格子上面', info: 'HTML 表达式', goal: '布尔表达式', bad: '表达式，返回要标红的 k 数组',
-//   表达式里可用：S（k→状态号）、L（按 items 顺序的状态号数组）、K（k 数组）、cnt(状态号)、on(k)（状态号≠0） }
+//   found: '表达式，返回当前摆法的名字（字符串，不算数的摆法返回空）'：记住找到过的不同摆法，表达式里 nfound 是个数、seen 是名字数组（「找出全部 4 种」用 goal: 'nfound >= 4'）,
+//   表达式里可用：S（k→状态号）、L（按 items 顺序的状态号数组）、K（k 数组）、cnt(状态号)、on(k)（状态号≠0）、nfound、seen }
 function toggles(box, p, api) {
   let items = p.items || [];
   if (p.grid) {
@@ -132,23 +136,31 @@ function toggles(box, p, api) {
     items = []; for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) items.push({ k: `r${i}c${j}`, x: x0 + j * c, y: y0 + i * c, w: c, h: c, ...(p.cells?.[`r${i}c${j}`] || {}) });
   }
   const states = p.states || [{ fill: 'card' }, { fill: 'jade' }];
+  const stOf = (it) => it.states || states;
   const S = {}; items.forEach((it) => { S[it.k] = (p.init || {})[it.k] ?? 0; });
-  const keys = ['S', 'L', 'K', 'cnt', 'on'];
-  const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: fn(p.goal, keys), bad: fn(p.bad, keys) };
+  const keys = ['S', 'L', 'K', 'cnt', 'on', 'nfound', 'seen'];
+  const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: fn(p.goal, keys), bad: fn(p.bad, keys), found: fn(p.found, keys) };
+  const seen = [];
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   const tip = fn(p.tip, keys);
   const vw = p.vw || 360, vh = p.vh || 220;
   box.innerHTML = SVG(vw, vh, '<g class="tg-g"></g>', 'slsvg tgsvg', 1.6) + '<div class="sl-info"></div>' + bar(btn('tg-reset', '重来'));
-  const env = () => { const L = items.map((it) => S[it.k]); return { S, L, K: items.map((it) => it.k), cnt: (v) => L.filter((x) => x === v).length, on: (k) => S[k] !== 0 }; };
+  const env = () => { const L = items.map((it) => S[it.k]); return { S, L, K: items.map((it) => it.k), cnt: (v) => L.filter((x) => x === v).length, on: (k) => S[k] !== 0, nfound: seen.length, seen }; };
   const draw = () => {
-    const v = env(), bad = new Set(run(F.bad, v, []) || []);
+    let v = env();
+    if (F.found) { const nm = run(F.found, v, ''); if (nm && !seen.includes(String(nm))) { seen.push(String(nm)); v = env(); } }
+    const bad = new Set(run(F.bad, v, []) || []);
     let g = run(F.bg, v, '') || '';
     for (const it of items) {
-      const st = states[S[it.k]] || states[0], cls = `tg-c${bad.has(it.k) ? ' tg-bad' : ''}`;
-      const shape = it.r ? `<circle cx="${it.x}" cy="${it.y}" r="${it.r}" style="fill:${col(st.fill)}" class="${cls}"/>` : `<rect x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" rx="${p.rx ?? 4}" style="fill:${col(st.fill)}" class="${cls}"/>`;
-      const cx = it.r ? it.x : it.x + it.w / 2, cy = it.r ? it.y : it.y + it.h / 2;
+      const sts = stOf(it), st = sts[S[it.k]] || sts[0], cls = `tg-c${bad.has(it.k) ? ' tg-bad' : ''}${it.stroke === false || (p.stroke === false && it.stroke !== true) ? ' tg-ns' : ''}`;
+      const fill = `style="fill:${col(st.fill)}"`;
+      const shape = it.r ? `<circle cx="${it.x}" cy="${it.y}" r="${it.r}" ${fill} class="${cls}"/>`
+        : it.pts ? `<polygon points="${it.pts.map((q) => q.join(',')).join(' ')}" ${fill} class="${cls}"/>`
+        : it.d ? `<path d="${esc(it.d)}" ${fill} class="${cls}"/>`
+        : `<rect x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" rx="${p.rx ?? 4}" ${fill} class="${cls}"/>`;
+      const [cx, cy] = it.cx !== undefined ? [it.cx, it.cy] : it.r ? [it.x, it.y] : it.pts ? [it.pts.reduce((t, q) => t + q[0], 0) / it.pts.length, it.pts.reduce((t, q) => t + q[1], 0) / it.pts.length] : [it.x + it.w / 2, it.y + it.h / 2];
       const txt = st.text ?? it.label ?? '';
-      g += `<g class="tg-i" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}">${esc(txt)}</text>` : ''}${it.sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.y + it.h) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(it.sub)}</text>` : ''}</g>`;
+      g += `<g class="tg-i${it.fixed ? ' fixed' : ''}" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}"${st.color ? ` style="fill:${st.color}"` : ''}>${esc(txt)}</text>` : ''}${it.sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.h !== undefined ? it.y + it.h : cy + 10) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(it.sub)}</text>` : ''}</g>`;
     }
     g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.tg-g').innerHTML = g;
@@ -160,7 +172,8 @@ function toggles(box, p, api) {
     if (e.target.closest('.tg-reset')) { items.forEach((it) => { S[it.k] = (p.init || {})[it.k] ?? 0; }); draw(); return; }
     const g = e.target.closest('.tg-i'); if (!g) return;
     const it = items.find((x) => x.k === g.dataset.k); if (!it || it.fixed) return;
-    S[it.k] = (S[it.k] + 1) % states.length; draw();
+    for (const k of [it.k, ...(it.flip || [])]) { const x = items.find((y) => y.k === k); if (x) S[k] = (S[k] + 1) % stOf(x).length; }
+    draw();
   });
   draw();
 }
@@ -208,27 +221,30 @@ function stepper(box, p, api) {
 }
 
 // ── 格子填数：点格子，再点下面的数字填进去；实时检查 ──
-// { rows, cols, cell, given: {'r,c': 值}（题目给的，不能改）, block: ['r,c']（不能填的格，画灰）, nums: [可填的值],
+// { rows, cols, cell, gap（格子间距，默认 0 挨着）, round: true（圆格）, fills: {'r,c': 颜色}（格子底色，主题色名或固定色）,
+//   given: {'r,c': 值}（题目给的，不能改）, block: ['r,c']（不能填的格，画灰；配 hide_block: true 就不画，用来摆出三角形、圆圈等任意形状）, nums: [可填的值],
 //   bg / fg: 'SVG 表达式', info, goal, bad（返回要标红的 'r,c' 数组）。表达式里：G（二维数组，空格是 null）、R、C、filled（填满了没有） }
 function gridfill(box, p, api) {
-  const R = p.rows, C = p.cols, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10;
+  const R = p.rows, C = p.cols, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10, gap = p.gap || 0, st = c + gap;
   const G = Array.from({ length: R }, () => Array(C).fill(null)), given = p.given || {}, block = new Set(p.block || []);
   for (const [k, v] of Object.entries(given)) { const [r, cc] = k.split(',').map(Number); G[r][cc] = v; }
   const keys = ['G', 'R', 'C', 'filled'];
   const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: fn(p.goal, keys), bad: fn(p.bad, keys) };
   const ok = once(() => api.solved(p.say_ok));
   let sel = null;
-  const vw = p.vw || x0 * 2 + C * c, vh = p.vh || y0 * 2 + R * c;
-  box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg', 1.5) + '<div class="sl-info"></div>' +
+  const vw = p.vw || x0 * 2 + C * st - gap, vh = p.vh || y0 * 2 + R * st - gap;
+  box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg gfsvg', 1.5) + '<div class="sl-info"></div>' +
     `<div class="gf-pad">${(p.nums || [1, 2, 3, 4, 5, 6, 7, 8, 9]).map((v) => `<button class="lp-ghost gf-n" data-v="${esc(v)}">${esc(v)}</button>`).join('')}<button class="lp-ghost gf-n" data-v="">清除</button></div>` + bar(btn('gf-reset', '重来'));
   const env = () => ({ G, R, C, filled: G.every((row, i) => row.every((v, j) => v !== null || block.has(`${i},${j}`))) });
   const draw = () => {
     const v = env(), bad = new Set(run(F.bad, v, []) || []);
     let g = run(F.bg, v, '') || '';
     for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) {
-      const k = `${i},${j}`, x = x0 + j * c, y = y0 + i * c, val = G[i][j];
-      const cls = block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`;
-      g += `<g class="gf-i" data-k="${k}"><rect x="${x}" y="${y}" width="${c}" height="${c}" class="${cls}"/>${val !== null && val !== undefined ? `<text x="${x + c / 2}" y="${y + c / 2 + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : ''}</g>`;
+      const k = `${i},${j}`, x = x0 + j * st, y = y0 + i * st, val = G[i][j];
+      if (block.has(k) && p.hide_block) continue;
+      const cls = (block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`) + (p.round ? ' gf-round' : '');
+      const fl = p.fills?.[k] && !bad.has(k) && sel !== k ? ` style="fill:${col(p.fills[k])}"` : '';
+      g += `<g class="gf-i" data-k="${k}"><rect x="${x}" y="${y}" width="${c}" height="${c}"${p.round ? ` rx="${c / 2}"` : ''} class="${cls}"${fl}/>${val !== null && val !== undefined ? `<text x="${x + c / 2}" y="${y + c / 2 + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : ''}</g>`;
     }
     g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.gf-g').innerHTML = g;

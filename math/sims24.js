@@ -6,7 +6,8 @@ const fmt = (x, d = 2) => (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.roun
 const bar = (html) => `<div class="lp-gbar">${html}</div>`;
 const btn = (cls, text) => `<button class="lp-ghost ${cls}">${text}</button>`;
 const SVG = (w, h, body, cls = '') => `<svg viewBox="0 0 ${w} ${h}" class="lp-sim ${cls}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
-const T = (x, y, s, o = {}) => `<text x="${x}" y="${y}" text-anchor="${o.anchor || 'middle'}" font-size="${o.size || 15}" class="${o.cls || 'st'}"${o.italic ? ' font-style="italic"' : ''}>${esc(s)}</text>`;
+// T(x, y, 文字, {size, anchor, cls, italic, bold, color})：color 写固定颜色（如 '#1f2933'），画在白底题图上时深色模式也看得清
+const T = (x, y, s, o = {}) => `<text x="${x}" y="${y}" text-anchor="${o.anchor || 'middle'}" font-size="${o.size || 15}" class="${o.cls || 'st'}"${o.italic ? ' font-style="italic"' : ''}${o.bold ? ' font-weight="700"' : ''}${o.color ? ` style="fill:${o.color}"` : ''}>${esc(s)}</text>`;
 const once = (fn) => { let done = false; return (...a) => { if (!done) { done = true; fn(...a); } }; };
 const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
 const num = (x) => Number(x).toLocaleString('en-US');
@@ -25,6 +26,7 @@ function slider(box, p, api) {
   const v = Object.fromEntries(p.vars.map((x) => [x.k, x.init ?? x.min]));
   box.innerHTML = (view ? SVG(p.vw || 360, p.vh || 220, '<g class="sl-g"></g>', 'slsvg') : '') + '<div class="sl-info"></div>' +
     p.vars.map((x) => bar(`<span>${esc(x.label || x.k)} = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}</span><input type="range" min="${x.min}" max="${x.max}" step="${x.step || 1}" value="${v[x.k]}" data-k="${x.k}" aria-label="${esc(x.label || x.k)}">`)).join('');
+  if (p.maxw && box.querySelector('svg')) Object.assign(box.querySelector('svg').style, { maxWidth: `${p.maxw}px`, marginInline: 'auto' }); // 小图别拉满整宽
   const ok = once(() => api.solved(p.say_ok));
   let lastTip = '';
   const draw = () => {
