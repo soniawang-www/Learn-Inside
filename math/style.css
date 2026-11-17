@@ -1427,4 +1427,4 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .pzsvg .pz-p.cur .pz-poly, .pzsvg .pz-p.cur .pz-edge { stroke:var(--pc); stroke-width:3; }
 .pzsvg .pz-jade { --pc:var(--lp-jade); } .pzsvg .pz-warn { --pc:var(--lp-warn); } .pzsvg .pz-ink { --pc:var(--lp-ink); }
 .pzsvg .pz-red { --pc:#d64545; } .pzsvg .pz-blue { --pc:#3b6fd4; } .pzsvg .pz-yellow { --pc:#e0ac1e; } .pzsvg .pz-green { --pc:#3a9a5b; } .pzsvg .pz-orange { --pc:#ee8a2e; } .pzsvg .pz-gray { --pc:#8a9299; }
-.pzsvg .pz-lb { pointer-events:none; }
+.pzsvg .pz-lb, .pzsvg .pz-pic { pointer-events:none; }

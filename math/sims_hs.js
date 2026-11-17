@@ -745,6 +745,7 @@ function solid(box, p, api) {
 //   target: [[x, y], …]（要铺满的格子，画浅色底；方格拼块用）, target_pts: [[x, y], …]（多边形拼块要盖住的小格中心，三角格拼满用；有了它 exact 也对多边形生效）,
 //   outline: [[x, y], …]（目标轮廓线，多边形，格坐标）,
 //   pieces: [{k, cells: [[x, y], …]（方格拼块：由单位格组成）或 pts: [[x, y], …]（任意多边形，绕 (0, 0) 转），
+//             nums: [[x, y, 字], …]（方格拼块上写的数字 / 字，拼块自己的格坐标）, svg: '画在多边形拼块上的图（拼块自己的坐标，单位格，跟着转）',
 //             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, lx / ly（多边形标签位置，拼块自己的坐标）, fixed（不能动）}],
 //   rotate: true（能转；方格 90°，三角格 60°，也可写度数）, flip: false（能翻面）, bg / fg: 'SVG 表达式', info, goal, tip, solution: {k: [x, y, r, f]}, say_ok }
 // 表达式里：P（k → {x, y, r, f}）、cells(k)（方格拼块现在占的格 'x,y' 数组）、cover（'x,y' → 盖了几层）、
@@ -826,11 +827,15 @@ function pieces(box, p, api) {
       // 外轮廓：相邻格之间的边不画
       for (const [x, y] of L) for (const [dx, dy, x1, y1, x2, y2] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) if (!K.has(`${x + dx},${y + dy}`)) g += `<line x1="${sx(x + x1)}" y1="${sy(y + y1)}" x2="${sx(x + x2)}" y2="${sy(y + y2)}" class="pz-edge"/>`;
       const cx = L.reduce((t, q) => t + q[0], 0) / L.length + 0.5, cy = L.reduce((t, q) => t + q[1], 0) / L.length + 0.5;
+      // nums：拼块自己格子上的字（拼块坐标 [x, y, 字]），跟着拼块走、转
+      if (pc.nums) { const d0 = pzCells(pc, st); const idx = (q) => pc.cells.findIndex((c) => c[0] === q[0] && c[1] === q[1]); pc.nums.forEach((q) => { const j = idx(q); if (j >= 0) { const [x, y] = d0[j]; g += `<text x="${sx(x + 0.5)}" y="${sy(y + 0.5) + 6}" text-anchor="middle" font-size="${Math.round(u * 0.5)}" class="st lbl pz-lb">${esc(q[2])}</text>`; } }); }
       return `<g class="${cls}" data-k="${esc(pc.k)}">${g}${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
     }
     const Q = pzPoly(pc, st), L0 = pc.lx !== undefined ? pzPoly({ pts: [[pc.lx, pc.ly]] }, st)[0] : null;
     const cx = L0 ? L0[0] : Q.reduce((t, q) => t + q[0], 0) / Q.length, cy = L0 ? L0[1] : Q.reduce((t, q) => t + q[1], 0) / Q.length;
-    return `<g class="${cls}" data-k="${esc(pc.k)}"><polygon points="${Q.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}" class="pz-poly"/>${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
+    // svg：画在拼块上的图（拼块自己的坐标，单位是格），跟着拼块平移、转、翻
+    const pic = pc.svg ? `<g transform="translate(${sx(st.x)} ${sy(st.y)}) rotate(${st.r}) scale(${st.f ? -u : u} ${u})" class="pz-pic">${pc.svg}</g>` : '';
+    return `<g class="${cls}" data-k="${esc(pc.k)}"><polygon points="${Q.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}" class="pz-poly"/>${pic}${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
   };
   const draw = () => {
     const e = env();

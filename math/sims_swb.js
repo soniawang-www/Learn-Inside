@@ -153,7 +153,7 @@ function toggles(box, p, api) {
     let g = run(F.bg, v, '') || '';
     for (const it of items) {
       const sts = stOf(it), st = sts[S[it.k]] || sts[0], cls = `tg-c${bad.has(it.k) ? ' tg-bad' : ''}${it.stroke === false || (p.stroke === false && it.stroke !== true) ? ' tg-ns' : ''}`;
-      const fill = `style="fill:${col(st.fill)}"`;
+      const fill = `style="fill:${col(st.fill)}${st.opacity !== undefined ? `;fill-opacity:${st.opacity}` : ''}"`;
       const shape = it.r ? `<circle cx="${it.x}" cy="${it.y}" r="${it.r}" ${fill} class="${cls}"/>`
         : it.pts ? `<polygon points="${it.pts.map((q) => q.join(',')).join(' ')}" ${fill} class="${cls}"/>`
         : it.d ? `<path d="${esc(it.d)}" ${fill} class="${cls}"/>`
