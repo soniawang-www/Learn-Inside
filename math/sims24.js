@@ -13,7 +13,7 @@ const num = (x) => Number(x).toLocaleString('en-US');
 
 // ── 通用滑块：vars 是变量，view / info / goal 是用这些变量写的表达式 ──
 // { vars: [{ k, min, max, step, init, label }], view: 'SVG 内容表达式', vw, vh, info: 'HTML 表达式', goal: '布尔表达式', say_ok }
-const H = { T, fmt, gcd, num, esc, pi: Math.PI, sqrt: Math.sqrt, abs: Math.abs, round: Math.round, floor: Math.floor, min: Math.min, max: Math.max, sin: Math.sin, cos: Math.cos, tan: Math.tan, atan2: Math.atan2, hypot: Math.hypot, ceil: Math.ceil, log: Math.log, exp: Math.exp };
+const H = { T, fmt, gcd, num, esc, pi: Math.PI, sqrt: Math.sqrt, abs: Math.abs, round: Math.round, floor: Math.floor, min: Math.min, max: Math.max, sin: Math.sin, cos: Math.cos, tan: Math.tan, atan2: Math.atan2, hypot: Math.hypot, ceil: Math.ceil, log: Math.log, exp: Math.exp, atan: Math.atan, asin: Math.asin, acos: Math.acos, sign: Math.sign, sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, log2: Math.log2, log10: Math.log10, cbrt: Math.cbrt, pow: Math.pow, trunc: Math.trunc };
 function compile(expr, keys) {
   // eslint-disable-next-line no-new-func
   return new Function('__v', '__h', `const {${Object.keys(H).join(',')}} = __h; const {${keys.join(',')}} = __v; return (${expr});`);

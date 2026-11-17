@@ -24,15 +24,22 @@ const pair = (s, d) => (Array.isArray(s) ? [+s[0], +s[1]] : [s ?? d, s ?? d]);
 // ───────── 坐标平面 ─────────
 // { xr: [-5, 5], yr: [-5, 5], vw: 360, vh: 300, equal: true（横纵同比例）, step: 1 或 [横, 纵]（网格）, tick（刻度数字间隔，默认自动，也可 [横, 纵]）, grid: true, axes: true,
 //   pts: [{k: 'A', x, y, label（默认 k，'' 不写）, snap（默认 p.snap ?? 1，也可 [横, 纵]）, fixed, color: 'plum'|'jade'|'ink',
-//          on: 'x'（只能横着拖）| 'y'（只能竖着拖）, f: 'y 关于 x 的表达式（可用滑块变量）'（点在曲线上）, c: [cx, cy, r]（点在圆上，deg: 角度吸附）, xr / yr: 拖动范围}],
-//   calc: {Q: '由点和滑块算出的点 / 数（表达式，按顺序算，后面的能用前面的）'}, nudge: true / false（微调按钮，默认吸附小于 0.5 时出现）,
+//          on: 'x'（只能横着拖）| 'y'（只能竖着拖）, f: 'y 关于 x 的表达式（可用滑块变量）'（点在曲线上）,
+//          c: [cx, cy, r]（点在圆上，三项都可以写成滑块变量的表达式字符串；deg: 角度吸附；arc: [起角, 终角]（度，逆时针）只能在这段弧上）,
+//          pc: '参数 t 的表达式，返回 [x, y]'（点在参数曲线上，tr: [t0, t1]，tsnap: t 的吸附间隔）, xr / yr: 拖动范围}],
+//   calc: {Q: '由点和滑块算出的点 / 数（表达式，按顺序算，后面的能用前面的；返回两个数的数组会变成点，不想变就用 arr(a, b)；可以是 null）'}, nudge: true / false（微调按钮，默认吸附小于 0.5 时出现）,
+//   xlabel / ylabel: 坐标轴名字（默认 x、y）, tick_pi: n（横轴刻度按 π/n 标，如 2 → π/2、π、3π/2）,
 //   vars: 滑块变量（同 slider）, bg: '画在网格上、点下面（SVG 表达式）', fg: '画在点上面', info, goal, tip, solution: {A: [x, y], a: 值} }
 // 表达式里：点名（{x, y}）、calc 的名字、滑块变量，以及 sx(x) sy(y)（换成画布坐标）、seg(A, B, 类) line(A, B, 类)（整条直线）、ray(A, B, 类)、poly([A, B, C], 类)、
-//   circ(C, r, 类)、arc(C, r, 起角, 终角, 类)（度，逆时针）、sector(C, r, 起角, 终角, 类)（扇形）、plot(x => …, 类, a, b)（函数图像，自动断开、裁到画布里）、dot(A, 类)、lab(A, 文字, dx, dy, 类)、
+//   circ(C, r, 类)、arc(C, r, 起角, 终角, 类)（度，逆时针）、sector(C, r, 起角, 终角, 类)（扇形）、ellipse(C, a, b, 类, 转角)（椭圆，a 横半轴、b 纵半轴）、
+//   plot(x => …, 类, a, b, n, brk)（函数图像，自动断开、裁到画布里；brk: 在这些 x 处断开，数字表示每隔多少断一次，如取整函数写 1）、
+//   curve(t => [x, y], 类, t0, t1, n)（参数曲线：斜放的抛物线、双曲线、复数轨迹…）、dot(A, 类)、lab(A, 文字, dx, dy, 类)、
 //   dist(A, B)、slope(A, B)、mid(A, B)、area([A, B, C])、ang(A, O, B)（度）、inter(A, B, C, D)（直线 AB 与 CD 的交点，平行时 null）、
-//   foot(P, A, B)（P 到直线 AB 的垂足）、refl(P, A, B)（P 关于直线 AB 的对称点）、rot(P, O, 度)（P 绕 O 逆时针转）。点可以写 {x, y} 也可以写 [x, y]。
+//   foot(P, A, B)（P 到直线 AB 的垂足）、refl(P, A, B)（P 关于直线 AB 的对称点）、rot(P, O, 度)（P 绕 O 逆时针转）、circum(A, B, C)（外接圆心）、
+//   circ2(O1, r1, O2, r2)（两圆交点，数组，可能为空）、roots([最高次系数, …, 常数])（实根，从小到大）、croots([…])（全部复根，数组里每个是 {x, y}）、arr(…)（不变成点的数组）。
+//   点可以写 {x, y} 也可以写 [x, y]。点名、calc 名、滑块变量名不要和上面的函数重名（如 T、seg、dot）。
 //   类：ln（实线）、dash（虚线）、sh / sh2（填色）、c1 / c2（紫 / 绿粗线）、dot1 / dot2 / dot0（紫 / 绿 / 黑点）、hollow（空心点，取不到的端点）。
-const PL_HELP = ['sx', 'sy', 'seg', 'line', 'ray', 'poly', 'circ', 'arc', 'sector', 'plot', 'dot', 'lab', 'dist', 'slope', 'mid', 'area', 'ang', 'inter', 'foot', 'refl', 'rot'];
+const PL_HELP = ['sx', 'sy', 'seg', 'line', 'ray', 'poly', 'circ', 'arc', 'sector', 'ellipse', 'plot', 'curve', 'dot', 'lab', 'dist', 'slope', 'mid', 'area', 'ang', 'inter', 'foot', 'refl', 'rot', 'circum', 'circ2', 'roots', 'croots', 'arr'];
 function planeFrame(p) {
   const vw = p.vw || 360, vh = p.vh || 300, pad = p.pad ?? 16;
   const [x0, x1] = p.xr || [-5, 5], [y0, y1] = p.yr || [-5, 5];
@@ -72,19 +79,31 @@ function planeHelpers(fr) {
   const arcPts = (O, r, a0, a1) => { O = Q(O); let d = a1 - a0; if (d < 0) d += 360 * Math.ceil(-d / 360); const n = Math.max(2, Math.ceil(d / 3)); return Array.from({ length: n + 1 }, (_, i) => { const a = ((a0 + (d * i) / n) * Math.PI) / 180; return `${sx(O.x + r * Math.cos(a))},${sy(O.y + r * Math.sin(a))}`; }); };
   const arc = (O, r, a0, a1, c) => `<polyline points="${arcPts(O, r, a0, a1).join(' ')}" class="${C(c, 'ln')}"/>`;
   const sector = (O, r, a0, a1, c) => { const o = Q(O); return `<polygon points="${sx(o.x)},${sy(o.y)} ${arcPts(O, r, a0, a1).join(' ')}" class="${C(c, 'sh')}"/>`; };
-  const plot = (f, c, a, b, n) => {
-    a = a ?? fr.X0; b = b ?? fr.X1; n = n || 300;
-    const span = fr.Y1 - fr.Y0, parts = []; let cur = [], prev = null;
-    for (let i = 0; i <= n; i++) {
-      const x = a + ((b - a) * i) / n; let y; try { y = f(x); } catch (e) { y = NaN; }
-      const okv = Number.isFinite(y) && Math.abs(y - (fr.Y0 + fr.Y1) / 2) < span * 4;
-      if (!okv || (prev !== null && Math.abs(y - prev) > span * 1.5)) { if (cur.length > 1) parts.push(cur); cur = []; }
+  // 取点画折线：值不合法、跳得太远（或 cut 说要断）就断开
+  const polyl = (pts, c, cut) => {
+    const spanY = fr.Y1 - fr.Y0, spanX = fr.X1 - fr.X0, cy = (fr.Y0 + fr.Y1) / 2, cx = (fr.X0 + fr.X1) / 2, parts = []; let cur = [], prev = null;
+    pts.forEach(([x, y], i) => {
+      const okv = Number.isFinite(x) && Number.isFinite(y) && Math.abs(y - cy) < spanY * 4 && Math.abs(x - cx) < spanX * 4;
+      if (!okv || (prev && (Math.abs(y - prev[1]) > spanY * 1.5 || Math.abs(x - prev[0]) > spanX * 1.5)) || (cut && cut(i))) { if (cur.length > 1) parts.push(cur); cur = []; }
       if (okv) cur.push(`${sx(x)},${sy(y)}`);
-      prev = okv ? y : null;
-    }
+      prev = okv ? [x, y] : null;
+    });
     if (cur.length > 1) parts.push(cur);
     return parts.map((L) => `<polyline points="${L.join(' ')}" class="${C(c, 'c1')}"/>`).join('');
   };
+  const plot = (f, c, a, b, n, brk) => {
+    a = a ?? fr.X0; b = b ?? fr.X1; n = n || 300;
+    const xs = Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
+    // 断点处左右各取一个贴近的点，跳变画成两段、不连竖线
+    let B = typeof brk === 'number' && brk > 0 ? Array.from({ length: Math.floor((b - a) / brk) + 2 }, (_, i) => (Math.floor(a / brk) + i) * brk) : Array.isArray(brk) ? brk : [];
+    B = B.filter((t) => t > a && t <= b);
+    // 断点正好在终点时，终点那个值属于下一段，不画
+    const eps = (b - a) * 1e-6, X = [...xs.filter((x) => !B.some((t) => Math.abs(x - t) < eps)), ...B.flatMap((t) => [t - eps, t + eps])].filter((x) => x <= b).sort((u, w) => u - w);
+    const pts = X.map((x) => { let y; try { y = f(x); } catch (e) { y = NaN; } return [x, y]; });
+    return polyl(pts, c, B.length ? (i) => i > 0 && B.some((t) => X[i - 1] < t && X[i] > t) : null);
+  };
+  const curve = (g, c, t0 = 0, t1 = 2 * Math.PI, n = 360) => polyl(Array.from({ length: n + 1 }, (_, i) => { let q; try { q = g(t0 + ((t1 - t0) * i) / n); } catch (e) { q = null; } q = q && Q(q); return q ? [q.x, q.y] : [NaN, NaN]; }), c);
+  const ellipse = (O, a, b, c, rot = 0) => { O = Q(O); const r = (rot * Math.PI) / 180; return polyl(Array.from({ length: 181 }, (_, i) => { const t = (i * Math.PI) / 90; return [O.x + a * Math.cos(t) * Math.cos(r) - b * Math.sin(t) * Math.sin(r), O.y + a * Math.cos(t) * Math.sin(r) + b * Math.sin(t) * Math.cos(r)]; }), c || 'ln'); };
   const dot = (A, c) => { A = Q(A); return `<circle cx="${sx(A.x)}" cy="${sy(A.y)}" r="4" class="${C(c, 'dot1')}"/>`; };
   const lab = (A, s, dx = 8, dy = -8, c) => { A = Q(A); const nm = NAME_RE.test(String(s)); return `<text x="${r2(sx(A.x) + dx)}" y="${r2(sy(A.y) + dy)}" font-size="${nm ? 15 : 14}" text-anchor="middle" class="st lbl${nm ? ' pl-nm' : ''}${c ? ' ' + c : ''}">${esc(s)}</text>`; };
   const dist = (A, B) => { A = Q(A); B = Q(B); return Math.hypot(B.x - A.x, B.y - A.y); };
@@ -92,7 +111,7 @@ function planeHelpers(fr) {
   const mid = (A, B) => { A = Q(A); B = Q(B); return { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }; };
   const area = (L) => { L = L.map(Q); let s = 0; for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; s += a.x * b.y - b.x * a.y; } return Math.abs(s) / 2; };
   const ang = (A, O, B) => { A = Q(A); O = Q(O); B = Q(B); const u = Math.atan2(A.y - O.y, A.x - O.x), w = Math.atan2(B.y - O.y, B.x - O.x); let d = Math.abs(u - w) * 180 / Math.PI; return d > 180 ? 360 - d : d; };
-  return { sx, sy, seg, line, ray, poly, circ, arc, sector, plot, dot, lab, dist, slope, mid, area, ang, ...PL_GEO };
+  return { sx, sy, seg, line, ray, poly, circ, arc, sector, ellipse, plot, curve, dot, lab, dist, slope, mid, area, ang, ...PL_GEO };
 }
 // 不依赖画布的几何函数（检查脚本也能用）
 const PL_GEO = {
@@ -100,15 +119,64 @@ const PL_GEO = {
   foot: (P, A, B) => { P = Q(P); A = Q(A); B = Q(B); const ux = B.x - A.x, uy = B.y - A.y, t = ((P.x - A.x) * ux + (P.y - A.y) * uy) / (ux * ux + uy * uy || 1); return { x: r6(A.x + t * ux), y: r6(A.y + t * uy) }; },
   refl: (P, A, B) => { const F = PL_GEO.foot(P, A, B); P = Q(P); return { x: r6(2 * F.x - P.x), y: r6(2 * F.y - P.y) }; },
   rot: (P, O, deg) => { P = Q(P); O = Q(O); const a = (deg * Math.PI) / 180, dx = P.x - O.x, dy = P.y - O.y; return { x: r6(O.x + dx * Math.cos(a) - dy * Math.sin(a)), y: r6(O.y + dx * Math.sin(a) + dy * Math.cos(a)) }; },
+  circum: (A, B, C) => { A = Q(A); B = Q(B); C = Q(C); const d = 2 * (A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y)); if (Math.abs(d) < 1e-12) return null; const a2 = A.x * A.x + A.y * A.y, b2 = B.x * B.x + B.y * B.y, c2 = C.x * C.x + C.y * C.y; return { x: r6((a2 * (B.y - C.y) + b2 * (C.y - A.y) + c2 * (A.y - B.y)) / d), y: r6((a2 * (C.x - B.x) + b2 * (A.x - C.x) + c2 * (B.x - A.x)) / d) }; },
+  circ2: (O1, r1, O2, r2) => { O1 = Q(O1); O2 = Q(O2); const dx = O2.x - O1.x, dy = O2.y - O1.y, d = Math.hypot(dx, dy); if (d < 1e-12 || d > r1 + r2 + 1e-9 || d < Math.abs(r1 - r2) - 1e-9) return arr(); const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, r1 * r1 - a * a)), mx = O1.x + (a * dx) / d, my = O1.y + (a * dy) / d; const P1 = { x: r6(mx - (h * dy) / d), y: r6(my + (h * dx) / d) }, P2 = { x: r6(mx + (h * dy) / d), y: r6(my - (h * dx) / d) }; return h < 1e-9 ? arr(P1) : arr(P1, P2); },
+  croots: (cf) => croots(cf),
+  roots: (cf) => arr(...croots(cf).filter((z) => Math.abs(z.y) < 1e-7).map((z) => z.x).sort((u, w) => u - w)),
+  arr: (...a) => arr(...a),
 };
+// 不会被当成点的数组（calc 里返回两个数时用）
+function arr(...a) { Object.defineProperty(a, 'raw', { value: true }); return a; }
+// 多项式全部复根（Durand–Kerner），系数从最高次到常数
+function croots(cf) {
+  cf = cf.map(Number); while (cf.length > 1 && Math.abs(cf[0]) < 1e-14) cf = cf.slice(1);
+  const n = cf.length - 1; if (n < 1) return arr();
+  const a = cf.map((c) => c / cf[0]);
+  let z = Array.from({ length: n }, (_, i) => [Math.cos((2 * Math.PI * i) / n + 0.4) * 1.1, Math.sin((2 * Math.PI * i) / n + 0.4) * 1.1]);
+  const mul = (p, q) => [p[0] * q[0] - p[1] * q[1], p[0] * q[1] + p[1] * q[0]];
+  const div = (p, q) => { const d = q[0] * q[0] + q[1] * q[1] || 1e-300; return [(p[0] * q[0] + p[1] * q[1]) / d, (p[1] * q[0] - p[0] * q[1]) / d]; };
+  const ev = (x) => a.reduce((s, c) => { const m = mul(s, x); return [m[0] + c, m[1]]; }, [0, 0]);
+  for (let it = 0; it < 500; it++) {
+    let mv = 0;
+    z = z.map((zi, i) => { let d = [1, 0]; z.forEach((zj, j) => { if (j !== i) d = mul(d, [zi[0] - zj[0], zi[1] - zj[1]]); }); const s = div(ev(zi), d); mv = Math.max(mv, Math.hypot(s[0], s[1])); return [zi[0] - s[0], zi[1] - s[1]]; });
+    if (mv < 1e-14) break;
+  }
+  return arr(...z.map(([x, y]) => ({ x: r6(x), y: Math.abs(y) < 1e-9 ? 0 : r6(y) })).sort((u, w) => u.x - w.x || u.y - w.y));
+}
 // 按约束把 (x, y) 放到点上
+// 点所在的圆：c 的三项可以是滑块变量的表达式
+function planeCirc(pt, v, fcache) {
+  return pt.c.map((e, i) => (typeof e === 'string' ? (fcache[`${pt.k}#c${i}`] || (fcache[`${pt.k}#c${i}`] = compile(e, Object.keys(v))))(v, H) : +e));
+}
+// 角度 a（度）限制在弧 [a0, a1]（逆时针）上：在弧外就放到较近的端点
+function arcClamp(a, arc) {
+  if (!arc) return a;
+  const n = (t) => ((t % 360) + 360) % 360, a0 = n(arc[0]), w = n(arc[1] - arc[0]) || 360, d = n(a - a0);
+  if (d <= w) return a0 + d;
+  return d - w < 360 - d ? a0 + w : a0;
+}
+function planePC(pt, t, v, fcache) {
+  const f = fcache[`${pt.k}#pc`] || (fcache[`${pt.k}#pc`] = compile(pt.pc, ['t', ...Object.keys(v)]));
+  const q = Q(f({ t, ...v }, H)); return { x: r6(q.x), y: r6(q.y), t };
+}
 function planePlace(pt, x, y, v, fr, p, fcache) {
   const [s1, s2] = pair(pt.snap ?? p.snap, 1);
   const xr = pt.xr || [fr.X0, fr.X1], yr = pt.yr || [fr.Y0, fr.Y1];
   if (pt.c) {
-    const [cx, cy, r] = pt.c; let a = Math.atan2(y - cy, x - cx);
-    if (pt.deg) a = (Math.round((a * 180) / Math.PI / pt.deg) * pt.deg * Math.PI) / 180;
+    const [cx, cy, r] = planeCirc(pt, v, fcache); let a = (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
+    if (pt.deg) a = Math.round(a / pt.deg) * pt.deg;
+    a = (arcClamp(a, pt.arc) * Math.PI) / 180;
     return { x: r6(cx + r * Math.cos(a)), y: r6(cy + r * Math.sin(a)) };
+  }
+  if (pt.pc) {
+    // 参数曲线：取最近的 t（先粗扫再细化），再按 tsnap 吸附
+    const [t0, t1] = pt.tr || [0, 1], N = 400; let best = t0, bd = Infinity;
+    const d2 = (t) => { const q = planePC(pt, t, v, fcache); return Number.isFinite(q.x) && Number.isFinite(q.y) ? ((q.x - x) * fr.ux) ** 2 + ((q.y - y) * fr.uy) ** 2 : Infinity; };
+    for (let i = 0; i <= N; i++) { const t = t0 + ((t1 - t0) * i) / N, d = d2(t); if (d < bd) { bd = d; best = t; } }
+    let h = (t1 - t0) / N;
+    for (let k = 0; k < 30; k++) { for (const t of [best - h, best + h]) if (t >= t0 && t <= t1) { const d = d2(t); if (d < bd) { bd = d; best = t; } } h /= 2; }
+    if (pt.tsnap) best = clamp(snapTo(best, pt.tsnap), t0, t1);
+    return planePC(pt, r6(best), v, fcache);
   }
   if (pt.f) { const nx = clamp(snapTo(x, s1), xr[0], xr[1]); return { x: nx, y: planeFy(pt, nx, v, fcache) }; }
   if (pt.on === 'x') return { x: clamp(snapTo(x, s1), xr[0], xr[1]), y: pt.y };
@@ -120,6 +188,12 @@ function planeFy(pt, x, v, fcache) {
   return r6(f({ x, ...v }, H));
 }
 const calcKeys = (p) => Object.keys(p.calc || {});
+// x 是 π/n 的几倍，写成 π/2、π、3π/2、−π
+function piLabel(x, n) {
+  const k = Math.round((x * n) / Math.PI), g = (function gg(a, b) { return b ? gg(b, a % b) : Math.abs(a); })(k, n), a = k / g, b = n / g;
+  const s = a < 0 ? '−' : '', m = Math.abs(a) === 1 ? '' : Math.abs(a);
+  return `${s}${m}π${b === 1 ? '' : '/' + b}`;
+}
 function planeKeys(p) { return [...(p.vars || []).map((x) => x.k), ...(p.pts || []).map((x) => x.k), ...calcKeys(p), ...PL_HELP]; }
 const CALC = new WeakMap();
 function planeEnv(p, P, v, fr) {
@@ -128,8 +202,8 @@ function planeEnv(p, P, v, fr) {
     let cf = CALC.get(p);
     if (!cf) { const keys = planeKeys(p); cf = Object.entries(p.calc).map(([k, e]) => [k, compile(e, keys)]); CALC.set(p, cf); }
     for (const [k, f] of cf) {
-      let val; try { val = f(env, H); } catch (e) { val = null; }
-      env[k] = Array.isArray(val) && val.length === 2 && val.every((t) => typeof t === 'number') ? Q(val) : val;
+      let val; try { val = f(env, H); } catch (e) { val = undefined; }
+      env[k] = Array.isArray(val) && !val.raw && val.length === 2 && val.every((t) => typeof t === 'number') ? Q(val) : val;
     }
   }
   return env;
@@ -141,7 +215,7 @@ function planeState(p, sol) {
   const P = {};
   for (const pt of p.pts || []) {
     const s = sol && sol[pt.k];
-    P[pt.k] = s ? planePlace(pt, s[0], s[1], v, fr, p, fc) : pt.f ? { x: pt.x, y: planeFy(pt, pt.x, v, fc) } : { x: pt.x, y: pt.y };
+    P[pt.k] = s ? planePlace(pt, s[0], s[1], v, fr, p, fc) : pt.f ? { x: pt.x, y: planeFy(pt, pt.x, v, fc) } : pt.pc ? planePC(pt, pt.t ?? (pt.tr || [0, 1])[0], v, fc) : pt.c && (pt.x === undefined || typeof pt.c[0] === 'string' || typeof pt.c[1] === 'string' || typeof pt.c[2] === 'string') ? planePlace(pt, pt.x ?? 1e9, pt.y ?? 0, v, fr, p, fc) : { x: pt.x, y: pt.y };
   }
   return { fr, env: planeEnv(p, P, v, fr), P, v };
 }
@@ -150,7 +224,7 @@ function plane(box, p, api) {
   const F = { bg: fnc(p.bg, keys), fg: fnc(p.fg, keys), info: fnc(p.info, keys), goal: fnc(p.goal, keys), tip: fnc(p.tip, keys) };
   const st = planeState(p, null), P = st.P, v = st.v, fc = {};
   const pts = p.pts || [], cid = `plc${++uid}`, movable = pts.filter((x) => !x.fixed);
-  const nudge = p.nudge ?? movable.some((x) => !x.c && Math.min(...pair(x.snap ?? p.snap, 1).filter((t) => t > 0)) < 0.5);
+  const nudge = p.nudge ?? movable.some((x) => (x.c ? !x.deg || x.deg < 5 : x.pc ? true : Math.min(...pair(x.snap ?? p.snap, 1).filter((t) => t > 0)) < 0.5));
   let cur = movable[0] || null;
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   const nb = (d, t) => btn('pl-nb', t, `data-d="${d}" aria-label="${t}"`);
@@ -158,7 +232,8 @@ function plane(box, p, api) {
   const svg = box.querySelector('svg');
   // 网格和坐标轴（不变，只画一次）
   const [stx, sty] = pair(p.step, 1);
-  const [tkx, tky] = Array.isArray(p.tick) ? pair(p.tick) : [p.tick || stx * Math.max(1, Math.ceil(24 / (stx * fr.ux))), p.tick || sty * Math.max(1, Math.ceil(24 / (sty * fr.uy)))];
+  let [tkx, tky] = Array.isArray(p.tick) ? pair(p.tick) : [p.tick || stx * Math.max(1, Math.ceil(24 / (stx * fr.ux))), p.tick || sty * Math.max(1, Math.ceil(24 / (sty * fr.uy)))];
+  if (p.tick_pi) tkx = Math.PI / p.tick_pi;
   let base = '';
   if (p.grid !== false) {
     for (let x = Math.ceil(fr.X0 / stx) * stx; x <= fr.X1; x = r6(x + stx)) base += `<line x1="${sx(x)}" y1="0" x2="${sx(x)}" y2="${vh}" class="pl-gr"/>`;
@@ -173,15 +248,19 @@ function plane(box, p, api) {
     // 坐标轴贴着画布边（原点不在画面里）时，刻度数字放到画布里面那一侧
     const below = ay < vh - 20, left = ax > 30;
     const tyX = below ? ay + 14 : ay - 6, txY = left ? ax - 5 : ax + 5, anY = left ? 'end' : 'start';
-    base += `<text x="${vw - 6}" y="${below ? ay - 8 : ay - 22}" font-size="13" text-anchor="end" class="st lbl" font-style="italic">x</text><text x="${left ? ax + 8 : ax + 8}" y="13" font-size="13" class="st lbl" font-style="italic">y</text>`;
+    base += `<text x="${vw - 6}" y="${below ? ay - 8 : ay - 22}" font-size="13" text-anchor="end" class="st lbl" font-style="italic">${esc(p.xlabel ?? 'x')}</text><text x="${left ? ax + 8 : ax + 8}" y="13" font-size="13" class="st lbl" font-style="italic">${esc(p.ylabel ?? 'y')}</text>`;
     if (p.ticks !== false) {
-      for (let x = Math.ceil((x0 > 0 ? x0 : fr.X0) / tkx) * tkx; x <= (x1 < 0 ? x1 : fr.X1 - tkx * 0.5); x = r6(x + tkx)) if (Math.abs(x) > 1e-9 && sx(x) > 8 && Math.abs(sx(x) - ax) > (left ? 10 : 4)) base += `<text x="${sx(x)}" y="${tyX}" font-size="11" text-anchor="middle" class="st lbl pl-tk">${H.fmt(x)}</text>`;
+      for (let x = Math.ceil((x0 > 0 ? x0 : fr.X0) / tkx) * tkx; x <= (x1 < 0 ? x1 : fr.X1 - tkx * 0.5); x = r6(x + tkx)) if (Math.abs(x) > 1e-9 && sx(x) > 8 && Math.abs(sx(x) - ax) > (left ? 10 : 4)) base += `<text x="${sx(x)}" y="${tyX}" font-size="11" text-anchor="middle" class="st lbl pl-tk">${p.tick_pi ? piLabel(x, p.tick_pi) : H.fmt(x)}</text>`;
       for (let y = Math.ceil((y0 > 0 ? y0 : fr.Y0) / tky) * tky; y <= (y1 < 0 ? y1 : fr.Y1 - tky * 0.5); y = r6(y + tky)) if (Math.abs(y) > 1e-9 && sy(y) < vh - 6 && sy(y) > 18 && Math.abs(sy(y) - ay) > (below ? 10 : 18)) base += `<text x="${txY}" y="${sy(y) + 4}" font-size="11" text-anchor="${anY}" class="st lbl pl-tk">${H.fmt(y)}</text>`;
       if (Math.abs(ax - sx(0)) < 0.5 && Math.abs(ay - sy(0)) < 0.5) base += `<text x="${txY}" y="${tyX}" font-size="11" text-anchor="${anY}" class="st lbl pl-tk">0</text>`;
     }
   }
   const draw = () => {
-    for (const pt of pts) if (pt.f) P[pt.k] = { x: P[pt.k].x, y: planeFy(pt, P[pt.k].x, v, fc) };
+    for (const pt of pts) {
+      if (pt.f) P[pt.k] = { x: P[pt.k].x, y: planeFy(pt, P[pt.k].x, v, fc) };
+      else if (pt.pc) P[pt.k] = planePC(pt, P[pt.k].t ?? (pt.tr || [0, 1])[0], v, fc);
+      else if (pt.c && pt.c.some((e) => typeof e === 'string')) { const [cx, cy, r] = planeCirc(pt, v, fc), o = P[pt.k], a = Math.atan2(o.y - (o.cy ?? cy), o.x - (o.cx ?? cx)); P[pt.k] = { x: r6(cx + r * Math.cos(a)), y: r6(cy + r * Math.sin(a)), cx, cy }; }
+    }
     const env = planeEnv(p, P, v, fr);
     let g = `<g clip-path="url(#${cid})">${base}${run(F.bg, env, '') || ''}</g>`;
     g += `<g clip-path="url(#${cid})" style="pointer-events:none">${run(F.fg, env, '') || ''}</g>`;
@@ -200,7 +279,8 @@ function plane(box, p, api) {
   // 按一下挪一格（吸附间隔；圆上的点挪 deg 度）
   const step = (pt, dx, dy) => {
     const [s1, s2] = pair(pt.snap ?? p.snap, 1), o = P[pt.k];
-    if (pt.c) { const [cx, cy, r] = pt.c, a = Math.atan2(o.y - cy, o.x - cx) + ((dx || dy) * (pt.deg || 5) * Math.PI) / 180; P[pt.k] = planePlace(pt, cx + r * Math.cos(a), cy + r * Math.sin(a), v, fr, p, fc); }
+    if (pt.c) { const [cx, cy, r] = planeCirc(pt, v, fc), a = Math.atan2(o.y - cy, o.x - cx) + ((dx || dy) * (pt.deg || 1) * Math.PI) / 180; P[pt.k] = planePlace(pt, cx + r * Math.cos(a), cy + r * Math.sin(a), v, fr, p, fc); }
+    else if (pt.pc) { const [t0, t1] = pt.tr || [0, 1]; P[pt.k] = planePC(pt, r6(clamp((o.t ?? t0) + (dx || dy) * (pt.tsnap || (t1 - t0) / 100), t0, t1)), v, fc); }
     else P[pt.k] = planePlace(pt, o.x + dx * (s1 || 0.1), o.y + dy * (s2 || 0.1), v, fr, p, fc);
     draw();
   };
