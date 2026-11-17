@@ -742,14 +742,15 @@ function solid(box, p, api) {
 
 // ───────── 拼块：拖动、旋转、翻面，吸附到格点 ─────────
 // { unit: 每格多少像素（默认 30）, vw, vh（像素）, board: [x, y, 宽, 高]（画格线的区域，格坐标）, lattice: 'square'（默认）| 'tri'（三角格）,
-//   target: [[x, y], …]（要铺满的格子，画浅色底；方格拼块用）, outline: [[x, y], …]（目标轮廓线，多边形，格坐标）,
+//   target: [[x, y], …]（要铺满的格子，画浅色底；方格拼块用）, target_pts: [[x, y], …]（多边形拼块要盖住的小格中心，三角格拼满用；有了它 exact 也对多边形生效）,
+//   outline: [[x, y], …]（目标轮廓线，多边形，格坐标）,
 //   pieces: [{k, cells: [[x, y], …]（方格拼块：由单位格组成）或 pts: [[x, y], …]（任意多边形，绕 (0, 0) 转），
 //             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, fixed（不能动）}],
 //   rotate: true（能转；方格 90°，三角格 60°，也可写度数）, flip: false（能翻面）, bg / fg: 'SVG 表达式', info, goal, tip, solution: {k: [x, y, r, f]}, say_ok }
 // 表达式里：P（k → {x, y, r, f}）、cells(k)（方格拼块现在占的格 'x,y' 数组）、cover（'x,y' → 盖了几层）、
 //   overlap（有没有格子被盖两层）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
 //   poly(k)（多边形拼块现在的顶点）、sx(x) sy(y)（格坐标换成像素）。
-const PZ_KEYS = ['P', 'cells', 'cover', 'overlap', 'exact', 'inside', 'poly', 'sx', 'sy'];
+const PZ_KEYS = ['P', 'cells', 'cover', 'overlap', 'exact', 'inside', 'hits', 'poly', 'sx', 'sy'];
 const SQ3 = Math.sqrt(3) / 2;
 function pzCells(pc, st) {
   // 方格拼块：先翻面（左右镜像）再转，归一到左上角，再平移
@@ -769,8 +770,14 @@ function pzEnv(p, P) {
   const onBoard = (k) => (C[k] || []).some((c) => { const [x, y] = c.split(',').map(Number); return x >= bx && x < bx + bw && y >= by && y < by + bh; });
   const inside = (k) => (C[k] || []).every((c) => T.has(c));
   const overlap = Object.values(cover).some((n) => n > 1);
-  const exact = T.size > 0 && [...T].every((c) => cover[c] === 1) && pcs.filter((pc) => pc.cells && onBoard(pc.k)).every((pc) => inside(pc.k));
-  return { P, cells: (k) => C[k] || [], cover, overlap, exact, inside, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
+  // 多边形拼块（三角格等）：target_pts 是目标里每个小格的中心，hits(点) 数有几块盖住它
+  const polys = pcs.filter((pc) => pc.pts && !pc.fixed).map((pc) => pzPoly(pc, P[pc.k]));
+  const inPoly = (Q, [x, y]) => { let c = false; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const [xi, yi] = Q[i], [xj, yj] = Q[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
+  const hits = (q) => polys.filter((Q) => inPoly(Q, q)).length;
+  const TP = p.target_pts || [];
+  const exactPts = TP.length > 0 && TP.every((q) => hits(q) === 1);
+  const exact = (T.size > 0 && [...T].every((c) => cover[c] === 1) && pcs.filter((pc) => pc.cells && onBoard(pc.k)).every((pc) => inside(pc.k))) || exactPts;
+  return { P, cells: (k) => C[k] || [], cover, overlap: overlap || TP.some((q) => hits(q) > 1), exact, inside, hits, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
 }
 function pzState(p, sol) {
   const P = {};
