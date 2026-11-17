@@ -739,6 +739,129 @@ function solid(box, p, api) {
   draw();
 }
 
+
+// ───────── 拼块：拖动、旋转、翻面，吸附到格点 ─────────
+// { unit: 每格多少像素（默认 30）, vw, vh（像素）, board: [x, y, 宽, 高]（画格线的区域，格坐标）, lattice: 'square'（默认）| 'tri'（三角格）,
+//   target: [[x, y], …]（要铺满的格子，画浅色底；方格拼块用）, outline: [[x, y], …]（目标轮廓线，多边形，格坐标）,
+//   pieces: [{k, cells: [[x, y], …]（方格拼块：由单位格组成）或 pts: [[x, y], …]（任意多边形，绕 (0, 0) 转），
+//             x, y（起始位置：方格拼块是左上角，多边形是 (0, 0) 所在的点）, r（起始转角）, f（起始是否翻面）, color, label, fixed（不能动）}],
+//   rotate: true（能转；方格 90°，三角格 60°，也可写度数）, flip: false（能翻面）, bg / fg: 'SVG 表达式', info, goal, tip, solution: {k: [x, y, r, f]}, say_ok }
+// 表达式里：P（k → {x, y, r, f}）、cells(k)（方格拼块现在占的格 'x,y' 数组）、cover（'x,y' → 盖了几层）、
+//   overlap（有没有格子被盖两层）、exact（target 每格正好盖一层，而且放在 board 里的拼块都没出 target）、inside(k)（拼块整个在 target 里）、
+//   poly(k)（多边形拼块现在的顶点）、sx(x) sy(y)（格坐标换成像素）。
+const PZ_KEYS = ['P', 'cells', 'cover', 'overlap', 'exact', 'inside', 'poly', 'sx', 'sy'];
+const SQ3 = Math.sqrt(3) / 2;
+function pzCells(pc, st) {
+  // 方格拼块：先翻面（左右镜像）再转，归一到左上角，再平移
+  let L = pc.cells.map(([x, y]) => [st.f ? -x : x, y]);
+  for (let i = 0; i < (((st.r / 90) % 4) + 4) % 4; i++) L = L.map(([x, y]) => [-y, x]);
+  const mx = Math.min(...L.map((q) => q[0])), my = Math.min(...L.map((q) => q[1]));
+  return L.map(([x, y]) => [x - mx + st.x, y - my + st.y]);
+}
+function pzPoly(pc, st) {
+  const a = (st.r * Math.PI) / 180;
+  return pc.pts.map(([x, y]) => { const u = st.f ? -x : x; return [r6(st.x + u * Math.cos(a) - y * Math.sin(a)), r6(st.y + u * Math.sin(a) + y * Math.cos(a))]; });
+}
+function pzEnv(p, P) {
+  const pcs = p.pieces || [], cover = {}, C = {};
+  for (const pc of pcs) if (pc.cells) { C[pc.k] = pzCells(pc, P[pc.k]).map((q) => q.join(',')); C[pc.k].forEach((k) => { cover[k] = (cover[k] || 0) + 1; }); }
+  const T = new Set((p.target || []).map((q) => q.join(','))), [bx, by, bw, bh] = p.board || [0, 0, 0, 0];
+  const onBoard = (k) => (C[k] || []).some((c) => { const [x, y] = c.split(',').map(Number); return x >= bx && x < bx + bw && y >= by && y < by + bh; });
+  const inside = (k) => (C[k] || []).every((c) => T.has(c));
+  const overlap = Object.values(cover).some((n) => n > 1);
+  const exact = T.size > 0 && [...T].every((c) => cover[c] === 1) && pcs.filter((pc) => pc.cells && onBoard(pc.k)).every((pc) => inside(pc.k));
+  return { P, cells: (k) => C[k] || [], cover, overlap, exact, inside, poly: (k) => { const pc = pcs.find((q) => q.k === k); return pc && pc.pts ? pzPoly(pc, P[k]) : []; } };
+}
+function pzState(p, sol) {
+  const P = {};
+  for (const pc of p.pieces || []) { const s = sol && sol[pc.k]; P[pc.k] = s ? { x: s[0], y: s[1], r: s[2] || 0, f: !!s[3] } : { x: pc.x || 0, y: pc.y || 0, r: pc.r || 0, f: !!pc.f }; }
+  return P;
+}
+// 吸附到最近的格点：方格取整（多边形按 snap，默认 1）；三角格按 (1, 0)、(1/2, √3/2) 两个方向
+function pzSnap(p, pc, x, y) {
+  if (p.lattice === 'tri') { const b = Math.round(y / SQ3), a = Math.round(x - b / 2); return [r6(a + b / 2), r6(b * SQ3)]; }
+  const s = pc.cells ? 1 : pc.snap ?? p.snap ?? 1; return [r6(Math.round(x / s) * s), r6(Math.round(y / s) * s)];
+}
+function pieces(box, p, api) {
+  const u = p.unit || 30, vw = p.vw || 360, vh = p.vh || 240, sx = (x) => r2(x * u), sy = (y) => r2(y * u);
+  const keys = PZ_KEYS, F = { bg: fnc(p.bg, keys), fg: fnc(p.fg, keys), info: fnc(p.info, keys), goal: fnc(p.goal, keys), tip: fnc(p.tip, keys) };
+  const pcs = p.pieces || [], P = pzState(p, null), step = p.rotate === false ? 0 : typeof p.rotate === 'number' ? p.rotate : p.lattice === 'tri' ? 60 : 90;
+  let cur = pcs.find((x) => !x.fixed) || null, drag = null, lastTip = '';
+  const ok = once(() => api.solved(p.say_ok));
+  box.innerHTML = `<svg viewBox="0 0 ${vw} ${vh}" class="lp-sim slsvg pzsvg" xmlns="http://www.w3.org/2000/svg"><g class="pz-g"></g></svg><div class="sl-info"></div>`
+    + bar(`${step ? btn('pz-rot', '↻ 转') : ''}${p.flip ? btn('pz-flip', '⇋ 翻面') : ''}${btn('pz-reset', '重来')}`);
+  const svg = box.querySelector('svg');
+  // 底：格线、目标格、目标轮廓
+  let base = '';
+  if (p.board) {
+    const [bx, by, bw, bh] = p.board;
+    if (p.lattice === 'tri') {
+      for (let j = 0; j <= bh; j++) base += `<line x1="${sx(bx)}" y1="${sy(by + j * SQ3)}" x2="${sx(bx + bw)}" y2="${sy(by + j * SQ3)}" class="pz-gr"/>`;
+      for (let i = -bh; i <= bw + bh; i++) { base += `<line x1="${sx(bx + i)}" y1="${sy(by)}" x2="${sx(bx + i + bh / 2)}" y2="${sy(by + bh * SQ3)}" class="pz-gr"/><line x1="${sx(bx + i)}" y1="${sy(by)}" x2="${sx(bx + i - bh / 2)}" y2="${sy(by + bh * SQ3)}" class="pz-gr"/>`; }
+      base = `<clipPath id="pzc${uid + 1}"><rect x="${sx(bx)}" y="${sy(by)}" width="${sx(bw)}" height="${sy(bh * SQ3)}"/></clipPath><g clip-path="url(#pzc${uid + 1})">${base}</g>`;
+    } else {
+      for (let i = 0; i <= bw; i++) base += `<line x1="${sx(bx + i)}" y1="${sy(by)}" x2="${sx(bx + i)}" y2="${sy(by + bh)}" class="pz-gr"/>`;
+      for (let j = 0; j <= bh; j++) base += `<line x1="${sx(bx)}" y1="${sy(by + j)}" x2="${sx(bx + bw)}" y2="${sy(by + j)}" class="pz-gr"/>`;
+    }
+  }
+  uid++;
+  base = (p.target || []).map(([x, y]) => `<rect x="${sx(x)}" y="${sy(y)}" width="${u}" height="${u}" class="pz-tg"/>`).join('') + base;
+  if (p.outline) base += `<polygon points="${p.outline.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}" class="pz-ol"/>`;
+  const env = () => ({ ...pzEnv(p, P), sx, sy });
+  const shapeOf = (pc) => {
+    const st = P[pc.k], c = pc.color || 'plum', on = cur === pc ? ' cur' : '', cls = `pz-p pz-${c}${pc.fixed ? ' fixed' : ''}${on}`;
+    if (pc.cells) {
+      const L = pzCells(pc, st), K = new Set(L.map((q) => q.join(',')));
+      let g = L.map(([x, y]) => `<rect x="${sx(x)}" y="${sy(y)}" width="${u}" height="${u}" class="pz-cell"/>`).join('');
+      // 外轮廓：相邻格之间的边不画
+      for (const [x, y] of L) for (const [dx, dy, x1, y1, x2, y2] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) if (!K.has(`${x + dx},${y + dy}`)) g += `<line x1="${sx(x + x1)}" y1="${sy(y + y1)}" x2="${sx(x + x2)}" y2="${sy(y + y2)}" class="pz-edge"/>`;
+      const cx = L.reduce((t, q) => t + q[0], 0) / L.length + 0.5, cy = L.reduce((t, q) => t + q[1], 0) / L.length + 0.5;
+      return `<g class="${cls}" data-k="${esc(pc.k)}">${g}${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
+    }
+    const Q = pzPoly(pc, st), cx = Q.reduce((t, q) => t + q[0], 0) / Q.length, cy = Q.reduce((t, q) => t + q[1], 0) / Q.length;
+    return `<g class="${cls}" data-k="${esc(pc.k)}"><polygon points="${Q.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ')}" class="pz-poly"/>${pc.label ? `<text x="${sx(cx)}" y="${sy(cy) + 5}" text-anchor="middle" font-size="14" class="st lbl pz-lb">${esc(pc.label)}</text>` : ''}</g>`;
+  };
+  const draw = () => {
+    const e = env();
+    let g = base + (run(F.bg, e, '') || '');
+    // 正在拖的、选中的画在最上面
+    const order = [...pcs].sort((a, b) => (a === drag?.pc) - (b === drag?.pc) || (a === cur) - (b === cur));
+    g += order.map(shapeOf).join('');
+    g += `<g style="pointer-events:none">${run(F.fg, e, '') || ''}</g>`;
+    box.querySelector('.pz-g').innerHTML = g;
+    if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, e, ''); tex(el); }
+    if (F.tip) { const t = run(F.tip, e, ''); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
+    if (!drag && run(F.goal, e, false)) ok();
+  };
+  const at = (ev) => { const m = svg.getScreenCTM(); if (!m) return null; const q = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m.inverse()); return [q.x / u, q.y / u]; };
+  svg.addEventListener('pointerdown', (ev) => {
+    const h = ev.target.closest('.pz-p'); if (!h) return;
+    const pc = pcs.find((x) => x.k === h.dataset.k); if (!pc || pc.fixed) return;
+    const xy = at(ev); if (!xy) return;
+    cur = pc; drag = { pc, dx: xy[0] - P[pc.k].x, dy: xy[1] - P[pc.k].y };
+    svg.setPointerCapture?.(ev.pointerId); ev.preventDefault(); draw();
+  });
+  svg.addEventListener('pointermove', (ev) => {
+    if (!drag) return; const xy = at(ev); if (!xy) return;
+    const st = P[drag.pc.k];
+    st.x = clamp(xy[0] - drag.dx, -1, vw / u); st.y = clamp(xy[1] - drag.dy, -1, vh / u); draw();
+  });
+  const end = () => { if (!drag) return; const st = P[drag.pc.k]; [st.x, st.y] = pzSnap(p, drag.pc, st.x, st.y); drag = null; draw(); };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  box.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.classList.contains('pz-reset')) { Object.assign(P, pzState(p, null)); cur = pcs.find((x) => !x.fixed) || null; draw(); return; }
+    if (!cur) return;
+    const st = P[cur.k];
+    if (b.classList.contains('pz-rot')) st.r = (st.r + step) % 360;
+    if (b.classList.contains('pz-flip')) st.f = !st.f;
+    draw();
+  });
+  // 点通脚本用：按 solution 直接摆好
+  box._pzSet = (k, x, y, r = 0, f = false) => { if (P[k]) { Object.assign(P[k], { x, y, r, f: !!f }); draw(); } };
+  draw();
+}
+
 const CUBE_FIX = new Set(['red', 'blue', 'yellow', 'green', 'orange', 'brown', 'gray', 'black', 'white', 'purple']);
-export const SIMS_HS = { plane, trials, solid };
-export const HS_CORE = { planeState, planeKeys, planeFrame, trialsCore, trialFn, solidModel, varsInit, RNG_KEYS, SD_KEYS, sdSide };
+export const SIMS_HS = { plane, trials, solid, pieces };
+export const HS_CORE = { planeState, planeKeys, planeFrame, trialsCore, trialFn, solidModel, varsInit, RNG_KEYS, SD_KEYS, sdSide, pzState, pzEnv, PZ_KEYS };

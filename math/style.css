@@ -1412,3 +1412,19 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
   .reg-nudge .btn { padding-left: 22px; padding-right: 22px; }
   .reg-nudge .x { position: absolute; top: 6px; right: 6px; }
 }
+
+/* 拼块（sims_hs.js pieces）：拖动、旋转、翻面 */
+.pzsvg { touch-action:none; user-select:none; }
+.pzsvg .pz-gr { stroke:var(--lp-line); stroke-width:1; }
+.pzsvg .pz-tg { fill:var(--lp-jade-soft); }
+.pzsvg .pz-ol { fill:none; stroke:var(--lp-ink); stroke-width:2.4; stroke-linejoin:round; }
+.pzsvg .pz-p { --pc:var(--lp-plum); cursor:grab; }
+.pzsvg .pz-p.fixed { cursor:default; }
+.pzsvg .pz-p .pz-cell, .pzsvg .pz-p .pz-poly { fill:color-mix(in srgb, var(--pc) 55%, var(--lp-card)); fill-opacity:.88; }
+.pzsvg .pz-p .pz-cell { stroke:color-mix(in srgb, var(--pc) 40%, var(--lp-card)); stroke-width:.8; }
+.pzsvg .pz-p .pz-poly { stroke:var(--lp-ink); stroke-width:1.6; stroke-linejoin:round; }
+.pzsvg .pz-p .pz-edge { stroke:var(--lp-ink); stroke-width:1.8; stroke-linecap:round; }
+.pzsvg .pz-p.cur .pz-poly, .pzsvg .pz-p.cur .pz-edge { stroke:var(--pc); stroke-width:3; }
+.pzsvg .pz-jade { --pc:var(--lp-jade); } .pzsvg .pz-warn { --pc:var(--lp-warn); } .pzsvg .pz-ink { --pc:var(--lp-ink); }
+.pzsvg .pz-red { --pc:#d64545; } .pzsvg .pz-blue { --pc:#3b6fd4; } .pzsvg .pz-yellow { --pc:#e0ac1e; } .pzsvg .pz-green { --pc:#3a9a5b; } .pzsvg .pz-orange { --pc:#ee8a2e; } .pzsvg .pz-gray { --pc:#8a9299; }
+.pzsvg .pz-lb { pointer-events:none; }
