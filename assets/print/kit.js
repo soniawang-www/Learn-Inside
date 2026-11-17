@@ -298,7 +298,7 @@ export const closePrint = () => active?.close();
  *   title(o)    纸面大标题
  *   info        纸面标题下的填写栏，如 ['姓名','日期','用时','得分']；false 不要
  *   foot        纸面左下角，默认 learn-inside.com
- *   qr(o)       页脚二维码指向的网址（相对本站也行）；qrText 二维码旁边的一句话
+ *   qr(o)       页脚二维码指向的网址（相对本站也行）；qrText 二维码旁边的一句话；有 qr 时自动加「二维码」开关，关掉后页脚不印二维码和网址
  *   opts        初始选项（ids 是要打印的内容 id）
  *   controls    [{type:'range', label, presets:[{label, ids()}], items:[{id,label,sub,group}], max}
  *                {type:'seg', key, label, options:[[值, 文字]], show(o)}
@@ -315,7 +315,9 @@ export const closePrint = () => active?.close();
  */
 export function openPrint(cfg) {
   active?.close(true);
-  const o = Object.assign({}, cfg.opts);
+  // 有二维码的打印都能关掉二维码（发到小红书等平台的附件不能带二维码和网址）
+  if (cfg.qr && !(cfg.controls || []).some((c) => c.key === 'qr')) cfg = { ...cfg, controls: [...(cfg.controls || []), { type: 'toggle', key: 'qr', label: '二维码' }] };
+  const o = Object.assign({ qr: true }, cfg.opts);
   const keys = (cfg.controls || []).filter((c) => c.key && c.type !== 'range').map((c) => c.key);
   if (cfg.remember) { try { const s = JSON.parse(localStorage.getItem(cfg.remember) || '{}'); keys.forEach((k) => { if (k in s) o[k] = s[k]; }); } catch {} }
   Object.assign(o, cfg.force || {}); // 从特定入口进来：指定版式（如模拟比赛卡片 → 模拟题单）
@@ -433,8 +435,8 @@ export function openPrint(cfg) {
         first: `<div class="lp-head"><div class="lp-brand"><span class="lp-mark">Li</span><span>learn-inside</span></div><span>${esc(cfg.label || '')}</span></div>
           <h1 class="lp-title">${esc(title)}</h1>${info?.length ? `<div class="lp-info">${info.map((t) => `<span>${esc(t)}<i style="width:${t === '姓名' ? 120 : t === '日期' ? 96 : 72}px"></i></span>`).join('')}</div>` : ''}<div class="lp-rule"></div>`,
         run: `<div class="lp-run"><span>${esc(title)}</span><span>learn-inside</span></div>`,
-        foot: cfg.foot || 'learn-inside.com',
-        qr: qrSvg(typeof cfg.qr === 'function' ? cfg.qr(o) : cfg.qr),
+        foot: o.qr === false ? '' : cfg.foot || 'learn-inside.com',
+        qr: o.qr === false ? '' : qrSvg(typeof cfg.qr === 'function' ? cfg.qr(o) : cfg.qr),
         qrText: typeof cfg.qrText === 'function' ? cfg.qrText(o) : cfg.qrText,
       };
       const groups = await paginate(r.blocks || [], head, cfg.typeset, sheetCss, cfg.links);

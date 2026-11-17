@@ -691,7 +691,7 @@ const FCSS = '.lp-sheet{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\
   '.lp-sheet .pf{font-size:15px;padding:4px 0 2px 2em;color:#33464f}.lp-sheet .pe{color:#33464f}';
 const cOf = p => p[0].includes(cur) ? cur : (CH.map(x=>x[0]).find(x=>p[0].includes(x)) || '');
 function openPrint(ids0, force){
-  import('/assets/print/kit.js?v=20261116v').then(({ openPrint: kit })=>{
+  import('/assets/print/kit.js?v=20261117a').then(({ openPrint: kit })=>{
     const sel = [...printSel].filter(s=>PBY.has(s)), list = currentList(), all = pool(cur);
     const presets = [];
     if(ids0 && ids0.length) presets.push({label:'这次的 '+ids0.length+' 句', ids:()=>ids0});

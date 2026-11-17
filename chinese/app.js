@@ -6,8 +6,8 @@
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
-import { PRINT_ICON } from '/assets/print/kit.js?v=20261116v';
-import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261116v';
+import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';

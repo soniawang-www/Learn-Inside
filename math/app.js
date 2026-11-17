@@ -5,7 +5,7 @@ import { SIMS } from './sims.js';
 import { sideNav } from '/assets/sidenav.js?v=20261107e';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
-import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261116v';
+import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261117a';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261116s';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
