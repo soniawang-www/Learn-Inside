@@ -243,6 +243,7 @@ async function router() {
     if (page === 'profile') { location.replace('#/graph'); return; } // 画像并进了知识图谱
     if (page === 'graph') return await renderGraphPage(id);
     if (page === 'plan') return await renderPlan();
+    if (page === 'start') return await renderStart();
     if (page === 'mistakes') return await renderMistakes();
     if (page === 'account' && id === 'paid') return await renderPaid(sub);
     if (page === 'account') return await renderAccount();
@@ -589,6 +590,8 @@ async function renderDashboard() {
   // 没做完的模考：跟着账号走（换台设备也能看到）
   const op = (await api(`/math/api/students/${enc(st.id)}/open?subject=math`).catch(() => null))?.sessions?.[0];
   const pr = await api(`/math/api/students/${enc(st.id)}/prep`).catch(() => null); // 每日打卡 / 备战计划
+  // 新来的人（游客，或注册了还没做过题）先走新手引导：考什么、什么时候考、每天几题
+  if (pr && !pr.plan && !pr.total && !pr.day && !store.get('li.obSkip') && (guest || !(prof.sessions || []).length)) { location.replace('#/start'); return; }
   const live = op ? { sid: op.id, title: op.title } : null;
   // 一步开始：没有做到一半的卷子时，直接给一套最新的、还没做过的真题（练习模式，不弹说明）
   let quick = null;
@@ -598,10 +601,7 @@ async function renderDashboard() {
     quick = pool.find((e) => e.last_score === null) || pool[0] || null;
   }
   const pl = pr?.plan, pd = pr?.day;
-  const prepCard = pr ? `<div class="prep-box"><a class="cont-go prep ${pd?.done ? 'done' : ''}" href="javascript:" data-prep>
-      <b>${pl ? (pl.days_left > 0 ? `距 ${esc(pl.name)} 还有 ${pl.days_left} 天` : `${esc(pl.name)} 加油`) : '今日两题'}</b>
-      <span>${pd?.done ? `已打卡 · 连续 ${pr.streak} 天` : `${pl ? `今日 ${pd?.n || pl.per_day} 题` : '2 道真题'}${pr.streak ? ` · 已连续 ${pr.streak} 天` : ''}`}</span><i>${pd?.done ? '✓' : '›'}</i></a>
-      <a class="prep-set" href="#/plan">${pl ? `高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a></div>` : '';
+  const prepCard = pr ? streakCard(pr) : '';
   const strip = [
     live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
     quick && `<a class="cont-go" href="javascript:" data-quick="${esc(quick.id)}"><b>开始做题</b><span>${esc(quick.title)} · ${quick.problem_count} 题 · 练习</span><i>›</i></a>`,
@@ -680,6 +680,96 @@ function examGrid(f, allExams, fid, limit = 0) {
     </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
   return { html, exams };
 }
+// ───────── 打卡（参考多邻国）：火苗 + 连续天数 + 本周格子 ─────────
+const FLAME = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1c1.2 4.2-1.6 6.2-3.4 8.6C6.6 12.2 5 14.4 5 17.4 5 22 8.2 26 12 26s7-3.6 7-8.2c0-3.6-1.9-5.9-3.4-7.7-.4 1.7-1.2 2.9-2.4 3.5.5-4.2-.2-8.6-1.2-12.6z"/><path class="fl-in" d="M12 25c-2.2 0-3.8-1.8-3.8-4.2 0-2 1.2-3.3 2.3-4.6.3 1.1.9 1.9 1.7 2.2-.1-1.6.4-3.2 1.4-4.4 1.2 2 2.2 3.6 2.2 6.4 0 2.6-1.6 4.6-3.8 4.6z"/></svg>';
+const WEEK = '一二三四五六日';
+const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i) => `<span class="${d.done ? 'done' : ''} ${d.today ? 'today' : ''}"><i>${WEEK[i]}</i><em>${d.done ? '✓' : ''}</em></span>`).join('')}</div>`;
+function streakCard(pr) {
+  const pl = pr.plan, pd = pr.day, done = !!pd?.done, n = pd?.n || pl?.per_day || 2;
+  const title = pl ? (pl.days_left > 0 ? `距 ${esc(pl.name)} 还有 ${pl.days_left} 天` : `${esc(pl.name)} 加油`) : '每日真题';
+  const sub = done ? '今天已打卡' : pr.streak ? `已连续 ${pr.streak} 天，今天还没打卡` : `今天 ${n} 题`;
+  return `<section class="card streak-card ${done ? 'done' : ''}">
+    <div class="sc-top"><span class="sc-flame ${done ? 'on' : ''}">${FLAME}<b>${pr.streak}</b></span><div class="sc-txt"><b>${title}</b><span>${sub}</span></div></div>
+    ${weekRow(pr.week)}
+    <button class="btn ${done ? '' : 'primary'} block" data-prep>${done ? '看今天的解析' : `开始今天的 ${n} 题`}</button>
+    <a class="prep-set" href="#/plan">${pl ? `备战计划 · 高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a>
+  </section>`;
+}
+// 打卡完成：火苗跳一下、天数加一、本周格子点亮
+function celebrate(r, sid) {
+  const p = r.session.prep || {}, k = p.streak || 1;
+  const used = Math.max(0, (r.session.submitted_at - r.session.started_at) / 1000);
+  $app.innerHTML = `<main class="cele">
+    <div class="cele-flame">${FLAME}</div>
+    <div class="cele-n"><b id="cn">${k - 1}</b><span>天连续打卡</span></div>
+    ${weekRow(p.week)}
+    <div class="cele-stats"><span><b>${r.session.score}/${r.total}</b>答对</span><span><b>${fmtTime(used)}</b>用时</span></div>
+    <div class="cele-acts"><a class="btn primary block" href="#/review/${enc(sid)}">看解析</a><a class="btn block" href="#/">回首页</a></div>
+  </main>`;
+  setTimeout(() => { const el = document.getElementById('cn'); if (el) { el.textContent = k; el.parentElement.classList.add('bump'); } }, 650);
+}
+
+// ───────── 新手引导：考什么 → 什么时候考 → 每天几题 → 开始第一天 ─────────
+async function renderStart() {
+  await ensureMe();
+  const st = auth.student || lastMe?.students?.[0];
+  const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
+  const fams = pr.families || [];
+  const A = { fam: null, date: null, per: null, when: null };
+  let step = 0;
+  const addM = (m) => { const d = new Date(Date.now() + 8 * 3600e3); d.setUTCMonth(d.getUTCMonth() + m); return d.toISOString().slice(0, 10); };
+  const daysTo = (d) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T00:00:00Z`)) / 864e5);
+  const minDate = new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
+  const WHEN = [['1 个月后', 1], ['2 个月后', 2], ['3 个月后', 3], ['半年后', 6]];
+  const PER = [[2, '轻松', '约 5 分钟'], [5, '认真', '约 15 分钟'], [10, '冲刺', '约 30 分钟']];
+  const opt = (on, key, val, main, sub = '') => `<button class="ob-opt ${on ? 'on' : ''}" data-${key}="${esc(String(val))}"><b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  const go = async () => {
+    if (!A.fam) { // 还没定：直接做今日两题
+      store.set('li.obSkip', true);
+      const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
+      location.hash = `#/exam/${r.session_id}`; return;
+    }
+    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: A.fam.id, exam_date: A.date, per_day: A.per } });
+    const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
+    location.hash = `#/exam/${r.session_id}`;
+  };
+  function draw() {
+    const steps = [
+      () => `<h1>你打算考什么？</h1><div class="ob-list">${fams.map((f) => opt(A.fam?.id === f.id, 'fam', f.id, esc(f.name), `${f.exams} 套真题`)).join('')}
+        ${opt(A.fam === false, 'fam', '', '还没定', '每天先练两道真题')}</div>`,
+      () => `<h1>什么时候考？</h1><div class="ob-list">${WHEN.map(([t, m]) => opt(A.when === m, 'when', m, t)).join('')}
+        ${opt(A.when === 'pick', 'when', 'pick', '选日期')}
+        ${A.when === 'pick' ? `<input type="date" class="ob-date" id="obd" min="${minDate}" value="${esc(A.date || '')}">` : ''}</div>`,
+      () => `<h1>每天练多少？</h1><div class="ob-list">${PER.map(([n, t, m]) => opt(A.per === n, 'per', n, `${t} · ${n} 题`, m)).join('')}</div>`,
+      () => { const d = daysTo(A.date), hi = A.fam.high, can = Math.min(hi, d * A.per);
+        return `<div class="ob-sum"><span class="sc-flame on big">${FLAME}</span><h1>距 ${esc(A.fam.name)} 还有 ${d} 天</h1>
+        <p>每天 ${A.per} 题，考前能练到 <b>${can}</b> 个高频知识项${can >= hi ? '（全部）' : ''}</p></div>`; },
+    ];
+    const ready = [() => A.fam !== null, () => !!A.date, () => !!A.per, () => true][step]();
+    $app.innerHTML = `<main class="ob">
+      <header class="ob-top">${step ? '<button class="ob-back" id="obb" aria-label="上一步">‹</button>' : '<span></span>'}
+        <div class="ob-bar"><i style="width:${((step + 1) / 4) * 100}%"></i></div>
+        ${step ? '<span></span>' : '<a class="ob-skip" href="#/" id="obs">跳过</a>'}</header>
+      <div class="ob-body">${steps[step]()}</div>
+      <footer class="ob-foot"><button class="btn primary block" id="obn" ${ready ? '' : 'disabled'}>${step === 3 ? '开始第一天' : '继续'}</button></footer>
+    </main>`;
+    $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { A.fam = b.dataset.fam ? fams.find((f) => f.id === b.dataset.fam) : false; draw(); }));
+    $app.querySelectorAll('[data-when]').forEach((b) => (b.onclick = () => { const v = b.dataset.when; A.when = v === 'pick' ? 'pick' : +v; A.date = v === 'pick' ? A.date : addM(+v); draw(); }));
+    $app.querySelectorAll('[data-per]').forEach((b) => (b.onclick = () => { A.per = +b.dataset.per; draw(); }));
+    const di = $app.querySelector('#obd');
+    if (di) di.onchange = () => { A.date = di.value && di.value >= minDate ? di.value : null; $app.querySelector('#obn').disabled = !A.date; };
+    $app.querySelector('#obb')?.addEventListener('click', () => { step--; draw(); });
+    $app.querySelector('#obs')?.addEventListener('click', () => store.set('li.obSkip', true));
+    $app.querySelector('#obn').onclick = async (e) => {
+      if (step === 0 && A.fam === false) { e.currentTarget.disabled = true; return go(); }
+      if (step < 3) { step++; draw(); return; }
+      e.currentTarget.disabled = true;
+      try { await go(); } catch (x) { e.currentTarget.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+    };
+  }
+  draw();
+}
+
 // ───────── 备战计划：考什么、哪天考、每天几题 ─────────
 async function renderPlan() {
   await ensureMe();
@@ -1092,9 +1182,10 @@ async function renderExam(sid) {
     submitting = true; flushTime(); save();
     if (auto) modal('<h2>考试时间到</h2><p>系统正在自动交卷…</p>');
     try {
-      await api(`/math/api/sessions/${sid}/submit`, { method: 'POST', body: { answers: S.answers, times: S.times, flags: S.flags } });
+      const r = await api(`/math/api/sessions/${sid}/submit`, { method: 'POST', body: { answers: S.answers, times: S.times, flags: S.flags } });
       D.stop(true); store.del(key);
       $modal.innerHTML = '';
+      if (prepS && r.session?.prep?.done) { cleanup?.(); cleanup = null; document.body.classList.remove('exam-mode', 'exam-li'); return celebrate(r, sid); }
       location.hash = `#/review/${sid}`;
     } catch (e) {
       submitting = false;

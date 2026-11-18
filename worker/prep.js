@@ -40,7 +40,10 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const done = new Set(results.map((r) => r.day));
     let d = dayNum(today) - (done.has(today) ? 0 : 1), n = 0;
     while (done.has(new Date(d * DAY).toISOString().slice(0, 10))) { n++; d--; }
-    return { streak: n, total: results.length };
+    // 本周（周一到周日）哪几天打了卡，给首页和打卡完成页画一周的小格子
+    const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const week = Array.from({ length: 7 }, (_, i) => { const day = new Date((dayNum(today) - dow + i) * DAY).toISOString().slice(0, 10); return { day, done: done.has(day), today: day === today }; });
+    return { streak: n, total: results.length, week };
   }
 
   // 每个知识项（主考点）：这个学生做过几次、错几次；计划开始后做过几次
@@ -55,6 +58,17 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
       x.n++; if (!r.correct) x.wrong++; if (since != null && r.created_at >= since) x.since++;
     }
     return h;
+  }
+
+  // 能定计划的考试（新手引导里选「考什么」）
+  async function familyList(env) {
+    const out = [];
+    for (const [id, f] of Object.entries(PREP_FAMILIES)) {
+      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM exam WHERE published = 1 AND source = 'official' AND id LIKE ?").bind(f.prefix + '%').first();
+      const { high } = await highItems(env, id);
+      out.push({ id, name: f.name, exams: r?.n || 0, high: high.length });
+    }
+    return out;
   }
 
   async function highItems(env, family) {
@@ -127,7 +141,8 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const plan = await getPlan(env, sid);
     const day = await env.DB.prepare('SELECT d.session_id, d.kind, d.done_at, (SELECT COUNT(*) FROM session_problem sp WHERE sp.session_id = d.session_id) AS n FROM prep_day d WHERE d.student_id = ? AND d.day = ?')
       .bind(sid, today).first();
-    const out = { today, ...(await streak(env, sid, today)), plan: null, day: day ? { session_id: day.session_id, n: day.n, done: !!day.done_at } : null };
+    const out = { today, ...(await streak(env, sid, today)), plan: null, day: day ? { session_id: day.session_id, n: day.n, done: !!day.done_at } : null,
+      families: await familyList(env) };
     if (plan) {
       const { high } = await highItems(env, plan.family);
       const hist = await itemHistory(env, sid, plan.created_at);
