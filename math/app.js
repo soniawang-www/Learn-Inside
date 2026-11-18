@@ -781,12 +781,13 @@ async function renderStart(subject) {
   const fams = pr.families || [];
   const have = (pr.items || []).filter((x) => x.plan);
   const adding = have.length > 0;
-  const A = { grade: pr.grade || null, subj: SUBJ_NAME[subject] ? subject : null, sel: [], dates: {}, wk: null, lv: null, team: null };
-  const flow = [
-    !A.grade && 'grade', !A.subj && 'subject', 'fams', 'dates', !adding && 'how', !adding && 'team',
-  ].filter(Boolean);
+  // 先选科目（可多选，从某一科进来的先勾上），再一科一科选比赛
+  const A = { grade: pr.grade || null, subjs: SUBJ_NAME[subject] ? [subject] : [], sel: [], dates: {}, wk: null, lv: null, team: null };
+  const needGrade = !A.grade;
+  const flowOf = () => [needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`),
+    'dates', !adding && 'how', !adding && 'team'].filter(Boolean);
   let step = 0;
-  const inSubj = () => fams.filter((f) => f.subject === A.subj && !have.some((h) => h.family === f.id))
+  const inSubj = (sj) => fams.filter((f) => f.subject === sj && !have.some((h) => h.family === f.id))
     .sort((x, y) => (y.grades.includes(A.grade) ? 1 : 0) - (x.grades.includes(A.grade) ? 1 : 0));
   const sel = () => A.sel.map((id) => fams.find((f) => f.id === id)).filter(Boolean);
   const opt = (on, key, val, main, sub = '', tag = '') => `<button class="ob-opt ${on ? 'on' : ''}" data-${key}="${esc(String(val))}">${tag}<b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
@@ -800,10 +801,11 @@ async function renderStart(subject) {
   };
   const VIEW = {
     grade: () => `<div class="ob-pal">${pencil('happy')}</div><h1>孩子几年级？</h1><div class="ob-grid">${GRADE9.map(([g, t]) => opt(A.grade === g, 'grade', g, t)).join('')}</div>`,
-    subject: () => `${flow[0] === 'subject' ? `<div class="ob-pal">${pencil('happy')}</div>` : ''}<h1>${adding ? '加哪一科？' : '先准备哪一科？'}</h1><div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
-      const fs = fams.filter((f) => f.subject === id);
-      return `<button class="ob-subj s-${id} ${A.subj === id ? 'on' : ''}" data-subj="${id}"><i>${ic}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
-    fams: () => `<h1>准备哪些${SUBJ_NAME[A.subj]}比赛？</h1><p class="ob-sub">可以多选</p><div class="ob-list">${inSubj().map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), esc(f.sets))).join('')}</div>`,
+    subjects: () => `${needGrade ? '' : `<div class="ob-pal">${pencil('happy')}</div>`}<h1>${adding ? '加哪些科目？' : '准备哪些科目？'}</h1><p class="ob-sub">可以多选</p><div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
+      const fs = inSubj(id);
+      if (!fs.length) return '';
+      return `<button class="ob-subj s-${id} ${A.subjs.includes(id) ? 'on' : ''}" data-subj="${id}"><i>${ic}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
+    fams: (sj) => `<h1>准备哪些${SUBJ_NAME[sj]}比赛？</h1><p class="ob-sub">可以多选</p><div class="ob-list">${inSubj(sj).map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), esc(f.sets))).join('')}</div>`,
     dates: () => `<h1>什么时候考？</h1><div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
     how: () => `<h1>怎么练？</h1><div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
         <div class="ob-list ob-gap">${LEVEL.map(([k, t]) => opt(A.lv === k, 'lv', k, t, perLabel(fams, A.sel, k))).join('')}</div>`,
@@ -811,19 +813,24 @@ async function renderStart(subject) {
         <div class="ob-items">${sel().map((f) => `<div><i class="tc-tag s-${f.subject}">${esc(f.subject_name)}</i><b>${esc(f.name)}</b><span>还有 ${daysTo(A.dates[f.id])} 天</span></div>`).join('')}</div></div>
         <h2 class="ob-q">和同学一起备考？</h2><div class="ob-list">${opt(A.team === true, 'team', 1, '组队', '建一个队，或用邀请码加入')}${opt(A.team === false, 'team', 0, '先自己练')}</div>`,
   };
-  const READY = { grade: () => !!A.grade, subject: () => !!A.subj, fams: () => A.sel.length > 0, dates: () => A.sel.every((id) => A.dates[id]), how: () => !!A.wk && !!A.lv, team: () => A.team !== null };
+  const READY = { grade: () => !!A.grade, subjects: () => A.subjs.length > 0, fams: (sj) => A.sel.some((id) => fams.find((f) => f.id === id)?.subject === sj), dates: () => A.sel.every((id) => A.dates[id]), how: () => !!A.wk && !!A.lv, team: () => A.team !== null };
   function draw() {
-    const cur = flow[step], LAST = flow.length - 1;
+    const flow = flowOf(), [cur, arg] = flow[step].split(':'), LAST = flow.length - 1;
     $app.innerHTML = `<main class="ob">
       <header class="ob-top">${step ? '<button class="ob-back" id="obb" aria-label="上一步">‹</button>' : '<span></span>'}
         <div class="ob-bar"><i style="width:${((step + 1) / flow.length) * 100}%"></i></div>
         ${step ? '<span></span>' : `<a class="ob-skip" href="${adding ? 'javascript:history.back()' : '/'}" id="obs">${adding ? '取消' : '跳过'}</a>`}</header>
-      <div class="ob-body">${VIEW[cur]()}</div>
-      <footer class="ob-foot"><button class="btn primary block" id="obn" ${READY[cur]() ? '' : 'disabled'}>${step === LAST ? (A.team ? '去组队' : adding ? '开始' : '开始第一天') : '继续'}</button></footer>
+      <div class="ob-body">${VIEW[cur](arg)}</div>
+      <footer class="ob-foot"><button class="btn primary block" id="obn" ${READY[cur](arg) ? '' : 'disabled'}>${step === LAST ? (A.team ? '去组队' : adding ? '开始' : '开始第一天') : '继续'}</button></footer>
     </main>`;
     const redraw = () => { const y = scrollY; draw(); scrollTo(0, y); };
     $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { A.grade = +b.dataset.grade; redraw(); }));
-    $app.querySelectorAll('[data-subj]').forEach((b) => (b.onclick = () => { if (A.subj !== b.dataset.subj) { A.subj = b.dataset.subj; A.sel = []; } redraw(); }));
+    $app.querySelectorAll('[data-subj]').forEach((b) => (b.onclick = () => {
+      const sj = b.dataset.subj;
+      if (A.subjs.includes(sj)) { A.subjs = A.subjs.filter((x) => x !== sj); A.sel = A.sel.filter((id) => fams.find((f) => f.id === id)?.subject !== sj); }
+      else A.subjs = [...A.subjs, sj];
+      redraw();
+    }));
     $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => {
       const id = b.dataset.fam;
       A.sel = A.sel.includes(id) ? A.sel.filter((x) => x !== id) : [...A.sel, id];
