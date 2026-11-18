@@ -50,3 +50,21 @@
 :root[data-theme="dark"] .tc-tag.s-english { background: #1F3346; color: #8CC0EA; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tc-tag.s-english { background: #1F3346; color: #8CC0EA; } }
 .tc-foot span { display: flex; gap: 16px; }
+/* 手机：信息排紧一点 */
+@media (max-width: 600px) {
+  .today-card { padding: 12px; gap: 10px; border-radius: 14px; margin-bottom: 12px; }
+  .today-card .sc-flame { width: 40px; height: 46px; }
+  .today-card .sc-flame b { font-size: 15px; top: 7px; }
+  .today-card .tc-top { gap: 10px; }
+  .today-card .tc-txt b { font-size: 16px; }
+  .today-card .tc-txt span { font-size: 13px; }
+  .today-card .sc-week { gap: 4px; }
+  .today-card .sc-week span { gap: 2px; }
+  .today-card .sc-week em { width: 26px; height: 26px; font-size: 12px; }
+  .tc-items { gap: 6px; }
+  .tc-item { padding: 8px 10px; gap: 8px; }
+  .tc-item b { font-size: 15px; }
+  .tc-item small { font-size: 12px; }
+  .tc-item em { padding: 6px 14px; font-size: 14px; }
+  .tc-foot { font-size: 13px; }
+}

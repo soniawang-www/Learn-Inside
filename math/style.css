@@ -1657,3 +1657,33 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .ob-subj b { font-size: 19px; }
 .ob-subj span { color: var(--muted); font-size: 13px; line-height: 1.45; }
 .ob-subj.on { border-color: var(--accent); background: var(--accent-soft); }
+
+/* 电脑：人离屏幕远，整体放大 */
+@media (min-width: 1000px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.15; } }
+@media (min-width: 1400px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.25; } }
+/* 手机：引导选项排紧一点 */
+@media (max-width: 600px) {
+  .ob-top { padding: 12px 0; }
+  .ob-body { padding-top: 6px; }
+  .ob-body h1 { font-size: 22px; margin-bottom: 14px; }
+  .ob-body h1 + .ob-sub { margin: -10px 0 12px; }
+  .ob-list, .ob-subjs { gap: 8px; }
+  .ob-opt { padding: 12px 14px; border-bottom-width: 3px; border-radius: 14px; }
+  .ob-opt b { font-size: 16px; }
+  .ob-opt span { font-size: 13px; }
+  .ob-grid { gap: 8px; }
+  .ob-grid .ob-opt { padding: 11px 4px; }
+  .ob-subj { padding: 12px; column-gap: 12px; grid-template-columns: 46px 1fr; border-bottom-width: 3px; border-radius: 14px; }
+  .ob-subj i { width: 46px; height: 46px; font-size: 20px; border-radius: 13px; }
+  .ob-subj b { font-size: 17px; }
+  .ob-date-row { padding: 12px 14px; gap: 6px; border-radius: 14px; }
+  .ob-pal .pencil { width: 50px; height: 70px; }
+  .ob-gap { margin-top: 12px; }
+  .ob-q { margin: 18px 0 10px; }
+  .ob-sum { gap: 4px; }
+  .ob-sum .sc-flame.big { width: 72px; height: 84px; }
+  .ob-items div { padding: 8px 12px; }
+  .ob-foot { padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); }
+  .plan-form { gap: 10px; }
+  .pf-item { padding: 8px 10px; gap: 6px; }
+}

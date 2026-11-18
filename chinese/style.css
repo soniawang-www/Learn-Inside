@@ -170,7 +170,7 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
   .card { padding: 16px; }
   .topnav { padding: 8px 12px; }
   .topnav .brandbar svg + svg { display: none; }
-  .ex { flex-direction: column; gap: 0; padding: 0 0 40px; }
+  .ex { flex-direction: column; gap: 0; padding: 0 0 40px; align-items: stretch; }
   .ex-clock { position: sticky; top: 0; z-index: 5; width: 100%; display: flex; justify-content: center; align-items: baseline; gap: 10px; border-width: 0 0 1px; box-shadow: none; padding: 8px; }
   .ex-clock b { border: 0; padding: 0; margin: 0; font-size: 16px; }
   .ex-paper { padding: 18px 16px 28px; box-shadow: none; min-height: calc(100vh - 40px); }
@@ -466,3 +466,7 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
   .fam-card i { display: none; }
 }
 .fam-card small:empty { display: none; }
+
+/* 电脑：人离屏幕远，整体放大 */
+@media (min-width: 1000px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.15; } }
+@media (min-width: 1400px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.25; } }
