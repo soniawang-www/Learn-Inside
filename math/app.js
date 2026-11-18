@@ -764,12 +764,13 @@ const perLabel = (fams, ids, lv) => { const i = LEVEL.findIndex(([k]) => k === l
   return ids.map((id) => fams.find((f) => f.id === id)).filter((f) => f && !seen.has(f.subject) && seen.add(f.subject)).map((f) => `${f.subject_name} ${f.per[i]} ${f.unit || '题'}`).join(' · '); };
 // 一行考试日期：官方日期写在旁边；没公布的给几个快捷选项
 const dateRow = (f, val) => `<div class="ob-date-row" data-df="${esc(f.id)}"><div class="odr-h"><b>${esc(f.name)}</b>${f.next ? `<span>${esc(f.next.label)}</span>` : ''}</div>
-  <input type="date" class="ob-date" min="${tomorrow()}" value="${esc(val || '')}">
+  <label class="ob-dwrap ${val ? '' : 'empty'}"><input type="date" class="ob-date" min="${tomorrow()}" value="${esc(val || '')}"><span>选日期</span></label>
   ${f.next ? '' : `<div class="odr-quick">${[['1 个月后', 1], ['2 个月后', 2], ['3 个月后', 3], ['半年后', 6]].map(([t, m]) => `<button type="button" data-qm="${m}">${t}</button>`).join('')}</div>`}</div>`;
 const bindDates = (root, dates, onChange) => root.querySelectorAll('[data-df]').forEach((row) => {
   const f = row.dataset.df, inp = row.querySelector('input');
-  inp.onchange = () => { dates[f] = inp.value && inp.value >= tomorrow() ? inp.value : null; onChange(); };
-  row.querySelectorAll('[data-qm]').forEach((b) => (b.onclick = () => { inp.value = dates[f] = addMonths(+b.dataset.qm); onChange(); }));
+  const wrap = row.querySelector('.ob-dwrap');
+  inp.onchange = () => { dates[f] = inp.value && inp.value >= tomorrow() ? inp.value : null; wrap.classList.toggle('empty', !inp.value); onChange(); };
+  row.querySelectorAll('[data-qm]').forEach((b) => (b.onclick = () => { inp.value = dates[f] = addMonths(+b.dataset.qm); wrap.classList.remove('empty'); onChange(); }));
 });
 
 // subject：从某一科进来（#/start/math …）就不用再选科目；已经有备考项的是「加一项」：不再问年级、怎么练、组队
@@ -845,6 +846,7 @@ async function renderStart(subject) {
     $app.querySelector('#obs')?.addEventListener('click', () => { if (!adding) store.set('li.obSkip', true); });
     $app.querySelector('#obn').onclick = async (e) => {
       const btn = e.currentTarget;
+      if (cur === 'grade') api(`/math/api/students/${enc(st.id)}/grade`, { method: 'PUT', body: { grade: A.grade } }).catch(() => {}); // 年级只问一次
       if (step < LAST) { step++; draw(); scrollTo(0, 0); return; }
       btn.disabled = true;
       try { await go(); } catch (x) { btn.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }

@@ -36,6 +36,9 @@ export const PREP_MIGRATIONS = [
      session_id TEXT NOT NULL, kind TEXT NOT NULL, done_at INTEGER, PRIMARY KEY (student_id, day, family))`,
   'CREATE INDEX IF NOT EXISTS idx_checkin_session ON checkin(session_id)',
   'ALTER TABLE exam_session ADD COLUMN part TEXT', // 英语打卡：只做这套卷子里的这几个 Part
+  // 年级只问一次：记下是哪个学年填的，每年 9 月自动升一级
+  'ALTER TABLE student ADD COLUMN grade INTEGER',
+  'ALTER TABLE student ADD COLUMN grade_year INTEGER',
   // 只有数学时建的两张表：搬过来后清空（顺序执行，搬完才清）
   `INSERT OR IGNORE INTO prep_item (student_id, family, subject, exam_date, per_day, per_week, created_at, updated_at)
      SELECT student_id, family, 'math', exam_date, per_day, per_week, created_at, updated_at FROM prep_plan`,
@@ -80,6 +83,8 @@ const UNTIMED_DAYS = 30;
 const HIGH_RATE = 50; // 高频知识项：一半以上的届数都考过
 // 古诗文按学段出题：小学按年级，初中分预初·初一（6）、初二·初三（8）
 const gswGrade = (g) => (g >= 8 ? 8 : g >= 6 ? 6 : g);
+// 学年：9 月 1 日起算新学年（北京时间）
+const schoolYear = (day) => { const [y, m] = day.split('-').map(Number); return m >= 9 ? y : y - 1; };
 
 const parseJ = (s, d = null) => { try { return s == null ? d : JSON.parse(s); } catch { return d; } };
 const bjDay = (t) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间的日期
@@ -88,6 +93,13 @@ const dayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY);
 function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
 
 export function registerPrep({ route, json, HttpError, body, requireAccount, requireStudent, uid, now, kpStats, mistakeBook, bump, gswPool, gradeOk }) {
+  // 孩子现在几年级：填的年级 + 过了几个 9 月
+  async function gradeOf(env, sid, today) {
+    const r = await env.DB.prepare('SELECT grade, grade_year FROM student WHERE id = ?').bind(sid).first();
+    if (!r?.grade) return null;
+    return Math.min(12, r.grade + Math.max(0, schoolYear(today) - (r.grade_year ?? schoolYear(today))));
+  }
+  const saveGrade = (env, sid, g, today) => env.DB.prepare('UPDATE student SET grade = ?, grade_year = ? WHERE id = ?').bind(g, schoolYear(today), sid).run();
   const items = async (env, sid) => (await env.DB.prepare('SELECT family, subject, grade, exam_date, per_day, per_week, created_at FROM prep_item WHERE student_id = ? ORDER BY created_at, family').bind(sid).all()).results;
   const getPlan = (env, sid, family) => env.DB.prepare('SELECT family, subject, grade, exam_date, per_day, per_week, created_at FROM prep_item WHERE student_id = ? AND family = ?').bind(sid, family).first();
   // 连续按天还是按周：一周几次是所有备考项共用的
@@ -147,8 +159,12 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const seen = new Set(seenRows.map((r) => r.problem_id));
     let pool;
     if (fam === 'gushiwen') pool = (await gswPool(env)).filter((x) => gradeOk(x, plan?.grade || null)).map((x) => x.id);
-    else pool = (await env.DB.prepare(`SELECT p.id FROM problem p JOIN exam e ON e.id = p.exam_id WHERE e.published = 1 AND e.source = 'official'
-                                         AND p.id LIKE 'hanzi-%' AND p.kind = 'choice' ORDER BY p.id`).all()).results.map((r) => r.id);
+    else { // 汉字小达人：有选项的单选题（kind 有的卷子没写）；真题不够就连模拟卷一起
+      const q = (official) => env.DB.prepare(`SELECT p.id FROM problem p JOIN exam e ON e.id = p.exam_id WHERE e.published = 1 ${official ? "AND e.source = 'official'" : ''}
+          AND p.id LIKE 'hanzi-%' AND COALESCE(p.kind, 'choice') = 'choice' AND p.choices IS NOT NULL AND p.choices NOT IN ('', '{}', 'null', '[]') ORDER BY p.id`).all();
+      pool = (await q(true)).results.map((r) => r.id);
+      if (pool.length < n) pool = (await q(false)).results.map((r) => r.id);
+    }
     const fresh = pool.filter((id) => !seen.has(id));
     const src = fresh.length >= n ? fresh : pool;
     const ms = (await mistakeBook(env, sid, 'chinese')).filter((m) => (m.status === 'pending' || m.status === 'due') && m.problem_id.startsWith(PREP_FAMILIES[fam].prefix))
@@ -314,12 +330,23 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
       out.push({ family: d.family, subject: d.subject, name: f.name, subject_name: PREP_SUBJECTS[d.subject].name, plan: false, per_day: PREP_SUBJECTS[d.subject].daily, today: todayOf(d.family) });
     }
     const first = plans[0];
+    const grade = (await gradeOf(env, sid, today)) ?? first?.grade ?? null;
     const level = first ? LEVELS[Math.max(0, PREP_SUBJECTS[first.subject].per.indexOf(first.per_day))] : 'easy';
     for (const it of out) it.unit = PREP_SUBJECTS[it.subject].unit;
-    return { today, ...(await streak(env, sid, today, await perWeekOf(env, sid))), grade: first?.grade ?? null, level, items: out,
+    return { today, ...(await streak(env, sid, today, await perWeekOf(env, sid))), grade, level, items: out,
       subjects: Object.entries(PREP_SUBJECTS).map(([id, x]) => ({ id, name: x.name })),
       families: await families(env, today), points: await points(env, sid, today) };
   }
+
+  // 新手引导第一步：年级先存下来（之后不再问）
+  route('PUT', '/api/students/:id/grade', async (req, env, p) => {
+    const acc = await requireAccount(req, env);
+    const st = await requireStudent(env, acc, p.id);
+    const g = Number((await body(req)).grade);
+    if (!(Number.isInteger(g) && g >= 1 && g <= 12)) throw new HttpError(400, '请选择年级');
+    await saveGrade(env, st.id, g, bjDay(now()));
+    return json({ grade: g });
+  });
 
   route('GET', '/api/students/:id/prep', async (req, env, p) => {
     const acc = await requireAccount(req, env);
@@ -345,6 +372,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
       if (dayNum(it.exam_date) - dayNum(today) > 730) throw new HttpError(400, '考试日期太远了');
     }
     const t = now();
+    await saveGrade(env, st.id, g, today);
     const old = await items(env, st.id);
     const keep = new Set(want.map((x) => x.family));
     const stmts = (merge ? [] : old).filter((o) => !keep.has(o.family)).map((o) => env.DB.prepare('DELETE FROM prep_item WHERE student_id = ? AND family = ?').bind(st.id, o.family));
@@ -377,7 +405,10 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const t = now(), today = bjDay(t);
     const have = await env.DB.prepare('SELECT session_id FROM checkin WHERE student_id = ? AND day = ? AND family = ?').bind(st.id, today, family).first();
     if (have) return json({ session_id: have.session_id, subject });
-    const plan = await getPlan(env, st.id, family);
+    let plan = await getPlan(env, st.id, family);
+    const g = await gradeOf(env, st.id, today); // 按现在的年级出题（每年 9 月自动升级）
+    if (plan && g) plan = { ...plan, grade: family === 'gushiwen' ? gswGrade(Math.min(9, g)) : g };
+    else if (!plan && g) plan = null;
     const id = uid();
     const stmts = [];
     if (subject === 'english') {

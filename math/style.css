@@ -1687,3 +1687,11 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
   .plan-form { gap: 10px; }
   .pf-item { padding: 8px 10px; gap: 6px; }
 }
+
+/* 日期框：iPhone 上空的日期框什么都不显示、还会撑出卡片 */
+.ob-dwrap { position: relative; display: block; min-width: 0; }
+.ob-dwrap .ob-date { display: block; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; -webkit-appearance: none; appearance: none; min-height: 44px; text-align: left; }
+.ob-dwrap .ob-date::-webkit-date-and-time-value { text-align: left; }
+.ob-dwrap span { display: none; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.ob-dwrap.empty span { display: block; }
+.ob-dwrap.empty .ob-date { color: transparent; }
