@@ -1,3 +1,4 @@
+import { FLAME, WEEK, pencil, STAR, weekRow, todayCard, bindToday, examUrl } from '/assets/pal.js?v=20261118j';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -244,6 +245,7 @@ async function router() {
     if (page === 'graph') return await renderGraphPage(id);
     if (page === 'plan') return await renderPlan();
     if (page === 'start') return await renderStart();
+    if (page === 'done') { const r = await api(`/math/api/sessions/${enc(id)}/review`); return r.session?.prep?.done ? celebrate(r, id) : location.replace(examUrl(r.session?.prep?.subject || 'math', id, true)); } // 语文打卡做完跳到这里放完成动画
     if (page === 'team') return await renderTeam(id);
     if (page === 'mistakes') return await renderMistakes();
     if (page === 'account' && id === 'paid') return await renderPaid(sub);
@@ -594,10 +596,9 @@ async function renderDashboard() {
     api(`/math/api/students/${enc(st.id)}/prep`).catch(() => null),
     api(`/math/api/students/${enc(st.id)}/team`).catch(() => null)]);
   // 新来的人（游客，或注册了还没做过题）先走新手引导：考什么、什么时候考、每天几题
-  if (pr && !pr.plan && !pr.total && !pr.day && !store.get('li.obSkip') && (guest || !(prof.sessions || []).length)) { location.replace('#/start'); return; }
+  if (pr && !pr.items?.length && !pr.total && !store.get('li.obSkip') && (guest || !(prof.sessions || []).length)) { location.replace('#/start'); return; }
   const live = op ? { sid: op.id, title: op.title } : null;
-  const pl = pr?.plan, pd = pr?.day;
-  const prepCard = pr ? streakCard(pr) + teamCard(tm) : '';
+  const prepCard = pr ? todayCard(pr, { team: tm, only: 'math' }) : '';
   const strip = [
     live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
     pending + due ? `<a class="cont-go alt" href="#/mistakes"><b>${pending + due} 道错题</b><span>${pending ? `${pending} 道待订正` : ''}${pending && due ? '，' : ''}${due ? `${due} 道该复习` : ''}</span><i>›</i></a>` : '',
@@ -619,21 +620,17 @@ async function renderDashboard() {
         ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>` : ''}
         ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">›</span></a>`}
       </section>` : ''}
-      <section class="card recent">
-        <div class="card-h"><h2>最近成绩</h2>${sessions.length ? `<a href="#/contest/${enc(dashFam)}/records">全部 ›</a>` : ''}</div>
-        ${sessions.length ? `<div class="scores">${sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
+      ${sessions.length ? `<section class="card recent">
+        <div class="card-h"><h2>最近成绩</h2><a href="#/contest/${enc(dashFam)}/records">全部 ›</a></div>
+        <div class="scores">${sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${modeName(x.mode)} · ${fmtDate(x.submitted_at)}</small></span>
-          <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>`
-        : '<p class="muted">还没有成绩</p>'}
-      </section>
+          <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>
+      </section>` : ''}
     </div>
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>还没绑定手机号</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
-  $app.querySelector('[data-prep]')?.addEventListener('click', async () => {
-    const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
-    location.hash = pd?.done ? `#/review/${r.session_id}` : `#/exam/${r.session_id}`;
-  });
+  bindToday($app, { sid: st.id, token: auth.token });
 
 }
 
@@ -671,50 +668,6 @@ function examGrid(f, allExams, fid, limit = 0) {
   return { html, exams };
 }
 // ───────── 打卡（参考多邻国）：火苗 + 连续天数 + 本周格子 ─────────
-const FLAME = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1c1.2 4.2-1.6 6.2-3.4 8.6C6.6 12.2 5 14.4 5 17.4 5 22 8.2 26 12 26s7-3.6 7-8.2c0-3.6-1.9-5.9-3.4-7.7-.4 1.7-1.2 2.9-2.4 3.5.5-4.2-.2-8.6-1.2-12.6z"/><path class="fl-in" d="M12 25c-2.2 0-3.8-1.8-3.8-4.2 0-2 1.2-3.3 2.3-4.6.3 1.1.9 1.9 1.7 2.2-.1-1.6.4-3.2 1.4-4.4 1.2 2 2.2 3.6 2.2 6.4 0 2.6-1.6 4.6-3.8 4.6z"/></svg>';
-const WEEK = '一二三四五六日';
-// 吉祥物「小铅笔」：happy 答对、think 答错再看看、cheer 欢呼
-function pencil(mood = 'happy') {
-  const body = `<rect x="70" y="${mood === 'cheer' ? 22 : 28}" width="60" height="22" rx="10" fill="#E07C9F"/><rect x="70" y="${mood === 'cheer' ? 40 : 46}" width="60" height="12" fill="#DCD7CA"/>
-    <rect x="70" y="${mood === 'cheer' ? 50 : 56}" width="60" height="96" fill="#FFE38A"/><path d="M70 ${mood === 'cheer' ? 146 : 152} L100 ${mood === 'cheer' ? 180 : 186} L130 ${mood === 'cheer' ? 146 : 152} Z" fill="#F3D9B1"/>
-    <path d="M92 ${mood === 'cheer' ? 171 : 177} L100 ${mood === 'cheer' ? 180 : 186} L108 ${mood === 'cheer' ? 171 : 177} Z" fill="#1E2B28"/>`;
-  const face = {
-    happy: '<circle cx="88" cy="96" r="5.5" fill="#1E2B28"/><circle cx="112" cy="96" r="5.5" fill="#1E2B28"/><circle cx="90" cy="94" r="2" fill="#fff"/><circle cx="114" cy="94" r="2" fill="#fff"/><path d="M90 112 Q100 122 110 112" stroke="#1E2B28" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="80" cy="108" rx="5" ry="3.5" fill="#F6B3C8"/><ellipse cx="120" cy="108" rx="5" ry="3.5" fill="#F6B3C8"/>',
-    think: '<path d="M82 96 h12" stroke="#1E2B28" stroke-width="4.5" stroke-linecap="round"/><circle cx="112" cy="96" r="5.5" fill="#1E2B28"/><path d="M92 116 h16" stroke="#1E2B28" stroke-width="4" stroke-linecap="round"/>',
-    cheer: '<path d="M82 90 Q88 82 94 90" stroke="#1E2B28" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M106 90 Q112 82 118 90" stroke="#1E2B28" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M88 102 Q100 122 112 102 Z" fill="#1E2B28"/>',
-  }[mood];
-  const arms = {
-    happy: '<path d="M70 110 Q52 100 54 84" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M130 110 Q148 116 152 102" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/>',
-    think: '<path d="M130 112 Q150 98 134 76" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M70 112 Q58 124 62 140" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><text x="146" y="60" font-size="30" font-weight="800" fill="#B04A6F">?</text>',
-    cheer: '<path d="M70 100 Q50 80 50 58" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M130 100 Q150 80 150 58" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/>',
-  }[mood];
-  return `<svg class="pencil ${mood}" viewBox="40 10 125 185" aria-hidden="true">${mood === 'think' ? `<g transform="rotate(-8 100 110)">${body}${face}</g>` : body + face}${arms}</svg>`;
-}
-const STAR = '<svg viewBox="0 0 24 24" class="star" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg>';
-const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i) => `<span class="${d.done ? 'done' : ''} ${d.today ? 'today' : ''}"><i>${WEEK[i]}</i><em>${d.done ? '✓' : ''}</em></span>`).join('')}</div>`;
-function streakCard(pr) {
-  const pl = pr.plan, pd = pr.day, done = !!pd?.done, n = pd?.n || pl?.per_day || 2;
-  const title = pl ? (pl.days_left > 0 ? `距 ${esc(pl.name)} 还有 ${pl.days_left} 天` : `${esc(pl.name)} 加油`) : '每日真题';
-  const wk = (pr.per_week || 7) < 7, wc = pr.week_count || 0, pw = pr.per_week || 7;
-  const sub = wk
-    ? `本周 ${wc}/${pw} 次${done ? ' · 今天已打卡' : wc >= pw ? ' · 已达标' : ''}${pr.streak ? ` · 连续 ${pr.streak} 周达标` : ''}`
-    : done ? '今天已打卡' : pr.streak ? `已连续 ${pr.streak} 天，今天还没打卡` : `今天 ${n} 题`;
-  return `<section class="card streak-card ${done ? 'done' : ''}">
-    <div class="sc-top"><span class="sc-flame ${done ? 'on' : ''}">${FLAME}<b>${pr.streak}</b></span><div class="sc-txt"><b>${title}</b><span>${sub}</span></div>
-      <span class="pts-chip" title="积分：本周 ${pr.points?.week || 0}">${STAR}${pr.points?.total || 0}</span></div>
-    ${weekRow(pr.week)}
-    <button class="btn ${done ? '' : 'primary'} block" data-prep>${done ? '看今天的解析' : `开始今天的 ${n} 题`}</button>
-    <a class="prep-set" href="#/plan">${pl ? `备战计划 · 高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a>
-  </section>`;
-}
-// 首页的队伍小卡片：前三名 + 我；没队伍时只有一行入口
-function teamCard(t) {
-  if (!t?.team) return '<a class="team-entry" href="#/team">和同学组队，一起打卡 ›</a>';
-  const b = t.board, i = b.findIndex((x) => x.me);
-  const rows = b.slice(0, 3).concat(i >= 3 ? [b[i]] : []);
-  return `<a class="card team-mini" href="#/team"><div class="tm-h"><b>${esc(t.team.name)}</b><span>本周第 ${i + 1} / ${b.length} ›</span></div>
-    ${rows.map((x) => `<div class="tm-row ${x.me ? 'me' : ''}"><i>${b.indexOf(x) + 1}</i><span>${esc(x.nickname)}${x.me ? '（我）' : ''}</span><em>${x.week_points} 分</em></div>`).join('')}</a>`;
-}
 // 打卡完成：暖色光芒转动、火苗长大跳动、火星往上飘、天数翻页 +1、今天的格子点亮带波纹、两侧礼花炮 + 中间彩纸、统计卡依次升起
 const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
 function celebrate(r, sid) {
@@ -739,11 +692,18 @@ function celebrate(r, sid) {
       <span style="--i:2"><b class="big">${fmtTime(used)}</b><small>用时</small></span>
     </div>
     ${regAsk ? `<a class="cele-reg" href="#/account" id="cele-reg"><b>注册保存打卡记录</b><span>换手机也不断签 · 送 10 次互动解析</span></a>` : ''}
-    <div class="cele-acts"><a class="btn primary block" href="#/review/${enc(sid)}">看解析</a><a class="btn block" href="#/">回首页</a></div>
+    <div class="cele-acts">${p.next ? `<button class="btn primary block" id="cele-next">接着做${esc(p.next.name)} · ${p.next.n} 题</button><a class="btn block" href="${examUrl(p.subject, sid, true)}">看解析</a>`
+      : `<a class="btn primary block" href="${examUrl(p.subject, sid, true)}">看解析</a>`}<a class="btn block" href="/">回首页</a></div>
     <canvas class="cele-fx" aria-hidden="true"></canvas>
   </main>`;
   const root = $app.querySelector('.cele');
   root.querySelector('#cele-reg')?.addEventListener('click', () => { ev('reg_prompt'); store.set('li.back', `${location.pathname}#/`); });
+  root.querySelector('#cele-next')?.addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    const st = auth.student;
+    const t = await api(`/math/api/students/${enc(st.id)}/prep/today?family=${enc(p.next.family)}`, { method: 'POST' });
+    location.href = examUrl(t.subject, t.session_id, false);
+  });
   const td = root.querySelector('.sc-week .today');
   if (td) { td.classList.remove('done'); td.querySelector('em').textContent = ''; }
   setTimeout(() => {
@@ -792,66 +752,90 @@ function burst(cv) {
   })(t0);
 }
 
-// ───────── 新手引导：考什么 → 什么时候考 → 每天几题 → 开始第一天 ─────────
+// ───────── 新手引导（全站）：几年级 → 考哪些 → 考试时间（官方公布了的自动填）→ 一周几次、每次多少 → 要不要组队 → 开始第一天 ─────────
+const GRADE9 = [[1, '一年级'], [2, '二年级'], [3, '三年级'], [4, '四年级'], [5, '五年级'], [6, '六年级 / 预初'], [7, '初一'], [8, '初二'], [9, '初三']];
+const LEVEL = [['easy', '轻松'], ['normal', '认真'], ['hard', '冲刺']];
+const WKS = [[3, '每周 3 次'], [5, '每周 5 次'], [7, '每天']];
+const bjToday = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+const addMonths = (m) => { const d = new Date(Date.now() + 8 * 3600e3); d.setUTCMonth(d.getUTCMonth() + m); return d.toISOString().slice(0, 10); };
+const daysTo = (d) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${bjToday()}T00:00:00Z`)) / 864e5);
+const tomorrow = () => new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
+const perLabel = (fams, ids, lv) => { const i = LEVEL.findIndex(([k]) => k === lv); const seen = new Set();
+  return ids.map((id) => fams.find((f) => f.id === id)).filter((f) => f && !seen.has(f.subject) && seen.add(f.subject)).map((f) => `${f.subject_name} ${f.per[i]} 题`).join(' · '); };
+// 一行考试日期：官方日期写在旁边；没公布的给几个快捷选项
+const dateRow = (f, val) => `<div class="ob-date-row" data-df="${esc(f.id)}"><div class="odr-h"><b>${esc(f.name)}</b>${f.next ? `<span>${esc(f.next.label)}</span>` : ''}</div>
+  <input type="date" class="ob-date" min="${tomorrow()}" value="${esc(val || '')}">
+  ${f.next ? '' : `<div class="odr-quick">${[['1 个月后', 1], ['2 个月后', 2], ['3 个月后', 3], ['半年后', 6]].map(([t, m]) => `<button type="button" data-qm="${m}">${t}</button>`).join('')}</div>`}</div>`;
+const bindDates = (root, dates, onChange) => root.querySelectorAll('[data-df]').forEach((row) => {
+  const f = row.dataset.df, inp = row.querySelector('input');
+  inp.onchange = () => { dates[f] = inp.value && inp.value >= tomorrow() ? inp.value : null; onChange(); };
+  row.querySelectorAll('[data-qm]').forEach((b) => (b.onclick = () => { inp.value = dates[f] = addMonths(+b.dataset.qm); onChange(); }));
+});
+
 async function renderStart() {
   await ensureMe();
   const st = auth.student || lastMe?.students?.[0];
   const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
   const fams = pr.families || [];
-  const A = { fam: null, date: null, per: null, when: null, wk: null };
+  const A = { grade: null, sel: [], none: false, dates: {}, wk: null, lv: null, team: null };
   let step = 0;
-  const addM = (m) => { const d = new Date(Date.now() + 8 * 3600e3); d.setUTCMonth(d.getUTCMonth() + m); return d.toISOString().slice(0, 10); };
-  const daysTo = (d) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T00:00:00Z`)) / 864e5);
-  const minDate = new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
-  const WHEN = [['1 个月后', 1], ['2 个月后', 2], ['3 个月后', 3], ['半年后', 6]];
-  const PER = [[2, '轻松', '约 5 分钟'], [5, '认真', '约 15 分钟'], [10, '冲刺', '约 30 分钟']];
-  const WK = [[3, '每周 3 次'], [5, '每周 5 次'], [7, '每天']];
-  const opt = (on, key, val, main, sub = '') => `<button class="ob-opt ${on ? 'on' : ''}" data-${key}="${esc(String(val))}"><b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  const elig = () => fams.filter((f) => f.grades.includes(A.grade));
+  const sel = () => A.sel.map((id) => fams.find((f) => f.id === id)).filter(Boolean);
+  const opt = (on, key, val, main, sub = '', tag = '') => `<button class="ob-opt ${on ? 'on' : ''}" data-${key}="${esc(String(val))}">${tag}<b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  const startDaily = async () => { // 还没定：先按默认的考试每天练几道
+    store.set('li.obSkip', true);
+    const f = elig()[0] || fams[0];
+    const r = await api(`/math/api/students/${enc(st.id)}/prep/today?family=${enc(f.id)}`, { method: 'POST' });
+    location.href = examUrl(r.subject, r.session_id, false);
+  };
   const go = async () => {
-    if (!A.fam) { // 还没定：直接做今日两题
-      store.set('li.obSkip', true);
-      const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
-      location.hash = `#/exam/${r.session_id}`; return;
-    }
-    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: A.fam.id, exam_date: A.date, per_day: A.per, per_week: A.wk } });
-    const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
-    location.hash = `#/exam/${r.session_id}`;
+    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { grade: A.grade, per_week: A.wk, level: A.lv, items: A.sel.map((id) => ({ family: id, exam_date: A.dates[id] })) } });
+    store.set('li.obSkip', true);
+    if (A.team) { location.hash = '#/team'; return; }
+    const r = await api(`/math/api/students/${enc(st.id)}/prep/today?family=${enc(A.sel[0])}`, { method: 'POST' });
+    location.href = examUrl(r.subject, r.session_id, false);
   };
   function draw() {
     const steps = [
-      () => `<div class="ob-pal">${pencil('happy')}</div><h1>你打算考什么？</h1><div class="ob-list">${fams.map((f) => opt(A.fam?.id === f.id, 'fam', f.id, esc(f.name), `${f.exams} 套真题`)).join('')}
-        ${opt(A.fam === false, 'fam', '', '还没定', '每天先练两道真题')}</div>`,
-      () => `<h1>什么时候考？</h1><div class="ob-list">${WHEN.map(([t, m]) => opt(A.when === m, 'when', m, t)).join('')}
-        ${opt(A.when === 'pick', 'when', 'pick', '选日期')}
-        ${A.when === 'pick' ? `<input type="date" class="ob-date" id="obd" min="${minDate}" value="${esc(A.date || '')}">` : ''}</div>`,
-      () => `<h1>一周练几次？</h1><div class="ob-list">${WK.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>`,
-      () => `<h1>每次练多少？</h1><div class="ob-list">${PER.map(([n, t, m]) => opt(A.per === n, 'per', n, `${t} · ${n} 题`, m)).join('')}</div>`,
-      () => { const d = daysTo(A.date), hi = A.fam.high, can = Math.min(hi, Math.floor((d * A.wk) / 7) * A.per);
-        return `<div class="ob-sum"><span class="sc-flame on big">${FLAME}</span><h1>距 ${esc(A.fam.name)} 还有 ${d} 天</h1>
-        <p>${A.wk >= 7 ? '每天' : `每周 ${A.wk} 次，每次`} ${A.per} 题，考前能练到 <b>${can}</b> 个高频知识项${can >= hi ? '（全部）' : ''}</p></div>`; },
+      () => `<div class="ob-pal">${pencil('happy')}</div><h1>孩子几年级？</h1><div class="ob-grid">${GRADE9.map(([g, t]) => opt(A.grade === g, 'grade', g, t)).join('')}</div>`,
+      () => `<h1>准备哪些考试？</h1><p class="ob-sub">可以多选</p><div class="ob-list">${elig().map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), `${f.exams} 套真题`, `<i class="tc-tag s-${f.subject}">${esc(f.subject_name)}</i>`)).join('')}
+        ${opt(A.none, 'fam', '', '还没定', '先每天练几道真题')}</div>`,
+      () => `<h1>什么时候考？</h1><div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
+      () => `<h1>怎么练？</h1><div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
+        <div class="ob-list ob-gap">${LEVEL.map(([k, t]) => opt(A.lv === k, 'lv', k, t, perLabel(fams, A.sel, k))).join('')}</div>`,
+      () => `<div class="ob-sum"><span class="sc-flame on big">${FLAME}</span><h1>准备好了</h1>
+        <div class="ob-items">${sel().map((f) => `<div><i class="tc-tag s-${f.subject}">${esc(f.subject_name)}</i><b>${esc(f.name)}</b><span>还有 ${daysTo(A.dates[f.id])} 天</span></div>`).join('')}</div></div>
+        <h2 class="ob-q">和同学一起备考？</h2><div class="ob-list">${opt(A.team === true, 'team', 1, '组队', '建一个队，或用邀请码加入')}${opt(A.team === false, 'team', 0, '先自己练')}</div>`,
     ];
     const LAST = steps.length - 1;
-    const ready = [() => A.fam !== null, () => !!A.date, () => !!A.wk, () => !!A.per, () => true][step]();
+    const ready = [() => !!A.grade, () => A.none || A.sel.length > 0, () => A.sel.every((id) => A.dates[id]), () => !!A.wk && !!A.lv, () => A.team !== null][step]();
     $app.innerHTML = `<main class="ob">
       <header class="ob-top">${step ? '<button class="ob-back" id="obb" aria-label="上一步">‹</button>' : '<span></span>'}
         <div class="ob-bar"><i style="width:${((step + 1) / steps.length) * 100}%"></i></div>
-        ${step ? '<span></span>' : '<a class="ob-skip" href="#/" id="obs">跳过</a>'}</header>
+        ${step ? '<span></span>' : '<a class="ob-skip" href="/" id="obs">跳过</a>'}</header>
       <div class="ob-body">${steps[step]()}</div>
-      <footer class="ob-foot"><button class="btn primary block" id="obn" ${ready ? '' : 'disabled'}>${step === LAST ? '开始第一天' : '继续'}</button></footer>
+      <footer class="ob-foot"><button class="btn primary block" id="obn" ${ready ? '' : 'disabled'}>${step === LAST ? (A.team ? '去组队' : '开始第一天') : step === 1 && A.none ? '开始' : '继续'}</button></footer>
     </main>`;
-    $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { A.fam = b.dataset.fam ? fams.find((f) => f.id === b.dataset.fam) : false; draw(); }));
-    $app.querySelectorAll('[data-when]').forEach((b) => (b.onclick = () => { const v = b.dataset.when; A.when = v === 'pick' ? 'pick' : +v; A.date = v === 'pick' ? A.date : addM(+v); draw(); }));
-    $app.querySelectorAll('[data-per]').forEach((b) => (b.onclick = () => { A.per = +b.dataset.per; draw(); }));
-    $app.querySelectorAll('[data-wk]').forEach((b) => (b.onclick = () => { A.wk = +b.dataset.wk; draw(); }));
-    const di = $app.querySelector('#obd');
-    if (di) di.onchange = () => { A.date = di.value && di.value >= minDate ? di.value : null; $app.querySelector('#obn').disabled = !A.date; };
+    const redraw = () => { const y = scrollY; draw(); scrollTo(0, y); };
+    $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { if (A.grade !== +b.dataset.grade) { A.grade = +b.dataset.grade; A.sel = A.sel.filter((id) => elig().some((f) => f.id === id)); } redraw(); }));
+    $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => {
+      const id = b.dataset.fam;
+      if (!id) { A.none = !A.none; if (A.none) A.sel = []; }
+      else { A.none = false; A.sel = A.sel.includes(id) ? A.sel.filter((x) => x !== id) : [...A.sel, id]; const f = fams.find((x) => x.id === id); if (f?.next && !A.dates[id]) A.dates[id] = f.next.date; }
+      redraw();
+    }));
+    $app.querySelectorAll('[data-wk]').forEach((b) => (b.onclick = () => { A.wk = +b.dataset.wk; redraw(); }));
+    $app.querySelectorAll('[data-lv]').forEach((b) => (b.onclick = () => { A.lv = b.dataset.lv; redraw(); }));
+    $app.querySelectorAll('[data-team]').forEach((b) => (b.onclick = () => { A.team = b.dataset.team === '1'; redraw(); }));
+    bindDates($app, A.dates, () => { $app.querySelector('#obn').disabled = !A.sel.every((id) => A.dates[id]); });
     $app.querySelector('#obb')?.addEventListener('click', () => { step--; draw(); });
     $app.querySelector('#obs')?.addEventListener('click', () => store.set('li.obSkip', true));
     $app.querySelector('#obn').onclick = async (e) => {
-      if (step === 0 && A.fam === false) { e.currentTarget.disabled = true; return go(); }
-      if (step < LAST) { step++; draw(); return; }
-      e.currentTarget.disabled = true;
-      try { await go(); } catch (x) { e.currentTarget.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+      const btn = e.currentTarget;
+      const run = async (fn) => { btn.disabled = true; try { await fn(); } catch (x) { btn.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); } };
+      if (step === 1 && A.none) return run(startDaily);
+      if (step < LAST) { step++; draw(); scrollTo(0, 0); return; }
+      return run(go);
     };
   }
   draw();
@@ -943,39 +927,50 @@ async function renderTeam(code) {
     (el, close) => { el.querySelector('#yes').onclick = async () => { close(); await api('/math/api/teams/leave', { method: 'POST', body: { student_id: st.id } }); router(); }; });
 }
 
-// ───────── 备战计划：考什么、哪天考、每天几题 ─────────
+// ───────── 备考计划：年级、备考项（每项一个考试日期）、一周几次、每次多少；全部一起存 ─────────
 async function renderPlan() {
   await ensureMe();
   const st = auth.student || lastMe?.students?.[0];
   const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
-  const pl = pr.plan;
-  const min = new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
-  let per = pl?.per_day || 5, wkn = pl?.per_week || 7;
-  $app.innerHTML = `${topnav()}<main class="page narrow">
-    <header class="ph"><div><h1>备战计划</h1></div></header>
-    <form class="card plan-form" id="pf">
-      <label class="pf-row"><span>考试</span><b>AMC 8</b></label>
-      <label class="pf-row"><span>考试日期</span><input type="date" id="pf-date" min="${min}" value="${esc(pl?.exam_date || '')}" required></label>
-      <div class="pf-row"><span>一周</span><span class="lang-seg" id="pf-w">${[[3, '3 次'], [5, '5 次'], [7, '每天']].map(([n, t]) => `<button type="button" data-w="${n}" aria-pressed="${n === wkn}">${t}</button>`).join('')}</span></div>
-      <div class="pf-row"><span>每次</span><span class="lang-seg" id="pf-n">${[2, 5, 10].map((n) => `<button type="button" data-n="${n}" aria-pressed="${n === per}">${n} 题</button>`).join('')}</span></div>
-      <p class="pf-err" id="pf-err" hidden></p>
-      <button class="btn primary block" type="submit">${pl ? '保存' : '开始备战'}</button>
-      ${pl ? `<p class="pf-cover muted small">高频知识项已练 ${pl.cover.done} / ${pl.cover.total}</p><button class="btn block" type="button" id="pf-del">取消计划</button>` : ''}
-    </form></main>`;
-  $app.querySelector('#pf-w').onclick = (e) => { const b = e.target.closest('[data-w]'); if (!b) return; wkn = +b.dataset.w; $app.querySelectorAll('#pf-w [data-w]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.w === wkn))); };
-  $app.querySelector('#pf-n').onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; per = +b.dataset.n; $app.querySelectorAll('#pf-n [data-n]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.n === per))); };
-  $app.querySelector('#pf').onsubmit = async (e) => {
-    e.preventDefault();
-    const err = $app.querySelector('#pf-err');
-    try {
-      await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: 'amc8', exam_date: $app.querySelector('#pf-date').value, per_day: per, per_week: wkn } });
-      location.hash = '#/';
-    } catch (x) { err.hidden = false; err.textContent = x.message; }
-  };
-  $app.querySelector('#pf-del')?.addEventListener('click', async () => {
-    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'DELETE' });
-    location.hash = '#/';
-  });
+  const fams = pr.families || [];
+  const mine = (pr.items || []).filter((x) => x.plan);
+  const A = { grade: pr.grade || null, sel: mine.map((x) => x.family), dates: Object.fromEntries(mine.map((x) => [x.family, x.exam_date])), wk: mine.length ? pr.per_week : 7, lv: pr.level || 'easy' };
+  function draw() {
+    const elig = fams.filter((f) => !A.grade || f.grades.includes(A.grade) || A.sel.includes(f.id));
+    $app.innerHTML = `${topnav()}<main class="page narrow">
+      <header class="ph"><div><h1>备考计划</h1></div></header>
+      <form class="card plan-form" id="pf">
+        <label class="pf-row"><span>年级</span><select id="pf-g"><option value="">选择</option>${GRADE9.map(([g, t]) => `<option value="${g}" ${A.grade === g ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <div class="pf-items">${elig.map((f) => { const on = A.sel.includes(f.id);
+          return `<div class="pf-item ${on ? 'on' : ''}"><label class="pf-chk"><input type="checkbox" data-pf="${esc(f.id)}" ${on ? 'checked' : ''}><i class="tc-tag s-${f.subject}">${esc(f.subject_name)}</i><b>${esc(f.name)}</b></label>
+            ${on ? dateRow(f, A.dates[f.id]) : ''}</div>`; }).join('')}</div>
+        <div class="pf-row"><span>一周</span><span class="lang-seg" id="pf-w">${[[3, '3 次'], [5, '5 次'], [7, '每天']].map(([n, t]) => `<button type="button" data-w="${n}" aria-pressed="${n === A.wk}">${t}</button>`).join('')}</span></div>
+        <div class="pf-row"><span>每次</span><span class="lang-seg" id="pf-n">${LEVEL.map(([k, t]) => `<button type="button" data-n="${k}" aria-pressed="${k === A.lv}">${t}</button>`).join('')}</span></div>
+        ${A.sel.length ? `<p class="pf-per muted small">${perLabel(fams, A.sel, A.lv)}</p>` : ''}
+        <p class="pf-err" id="pf-err" hidden></p>
+        <button class="btn primary block" type="submit">保存</button>
+      </form></main>`;
+    $app.querySelector('#pf-g').onchange = (e) => { A.grade = +e.target.value || null; draw(); };
+    $app.querySelectorAll('[data-pf]').forEach((c) => (c.onchange = () => {
+      const id = c.dataset.pf, f = fams.find((x) => x.id === id);
+      A.sel = c.checked ? [...A.sel, id] : A.sel.filter((x) => x !== id);
+      if (c.checked && f?.next && !A.dates[id]) A.dates[id] = f.next.date;
+      draw();
+    }));
+    bindDates($app, A.dates, () => {});
+    $app.querySelector('#pf-w').onclick = (e) => { const b = e.target.closest('[data-w]'); if (b) { A.wk = +b.dataset.w; draw(); } };
+    $app.querySelector('#pf-n').onclick = (e) => { const b = e.target.closest('[data-n]'); if (b) { A.lv = b.dataset.n; draw(); } };
+    $app.querySelector('#pf').onsubmit = async (e) => {
+      e.preventDefault();
+      const err = $app.querySelector('#pf-err');
+      try {
+        if (!A.grade) throw new Error('请选择年级');
+        await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { grade: A.grade, per_week: A.wk, level: A.lv, items: A.sel.map((id) => ({ family: id, exam_date: A.dates[id] })) } });
+        if (history.length > 1) history.back(); else location.href = '/';
+      } catch (x) { err.hidden = false; err.textContent = x.message; }
+    };
+  }
+  draw();
 }
 
 async function renderContest(fid, tab = 'exams') {

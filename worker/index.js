@@ -98,7 +98,7 @@ registerEnglish({ route, json, HttpError, body, requireAccount, requireStudent, 
 registerEvents(route, { json, body, HttpError });
 // 备战计划和每日打卡（kpStats、mistakeBook 是下面的函数声明，调用时已经定义）
 const prep = registerPrep({ route, json, HttpError, body, requireAccount, requireStudent, uid, now,
-  kpStats: (...a) => kpStats(...a), mistakeBook: (...a) => mistakeBook(...a), bump });
+  kpStats: (...a) => kpStats(...a), mistakeBook: (...a) => mistakeBook(...a), bump, gswPool: (...a) => gswPoolData(...a), gradeOk: (...a) => gradeOk(...a) });
 // 后台：匿名事件计数（新用户在哪一步走掉）
 route('GET', '/api/admin/events', async (req, env, _p, url) => {
   const key = req.headers.get('x-admin-key');
@@ -313,7 +313,7 @@ route('GET', '/api/students/:id/open', async (req, env, p, url) => {
       `SELECT s.id, s.exam_id, s.mode, s.deadline_at, COALESCE(s.subject, 'math') AS subject, COALESCE(s.title, e.title) AS title
          FROM exam_session s LEFT JOIN exam e ON e.id = s.exam_id
         WHERE s.student_id = ? AND s.submitted_at IS NULL AND s.deadline_at > ?${SUBJECTS.includes(sub) ? " AND COALESCE(s.subject, 'math') = ?" : ''}
-          AND s.id NOT IN (SELECT session_id FROM prep_day WHERE student_id = s.student_id) -- 打卡题在数学首页的打卡卡片里，不进「继续答题」
+          AND s.id NOT IN (SELECT session_id FROM checkin WHERE student_id = s.student_id) -- 打卡题在打卡卡片里，不进「继续答题」
         ORDER BY s.started_at DESC LIMIT 5`
     )
     .bind(st.id, now(), ...(SUBJECTS.includes(sub) ? [sub] : []))
@@ -364,7 +364,7 @@ route('POST', '/api/sessions/:id/check', async (req, env, p) => {
   if (first.meta?.changes && correct && subjectOf(pr.id) === 'math') {
     const h = await env.DB.prepare('SELECT 1 FROM session_hint WHERE session_id = ? AND problem_id = ? LIMIT 1').bind(s.id, pr.id).first();
     pts = await award(env, s.student_id, 'solve', pr.id, h ? PTS.solve_hint : PTS.solve, s.id, now());
-  }
+  } else if (first.meta?.changes && correct && subjectOf(pr.id) === 'chinese') pts = await award(env, s.student_id, 'solve', pr.id, PTS.solve_chinese, s.id, now());
   return json({ correct, answer: pr.answer, basic: sol?.content ?? null, advanced, points: pts });
 });
 
@@ -588,15 +588,19 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
     ? env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ? WHERE id = ?').bind(t, score, s.id)
     : env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ?, started_at = ? WHERE id = ?').bind(t, score, paperStart, s.id));
   await env.DB.batch(stmts);
-  // 积分（数学）：交卷时答对、以前没加过分的题；练习里提交过的题按第一次提交算（那时已经加过或不该加）
+  // 积分（数学、语文）：交卷时答对、以前没加过分的题；练习里提交过的题按第一次提交算（那时已经加过或不该加）
   const { results: chk } = await env.DB.prepare('SELECT problem_id FROM session_check WHERE session_id = ?').bind(s.id).all();
   const checked = new Set(chk.map((r) => r.problem_id));
+  const ptsStmts = [];
   for (const pr of problems) {
-    if (checked.has(pr.id) || subjectOf(pr.id) !== 'math' || pr.kind === 'self') continue;
+    const sub = subjectOf(pr.id);
+    if (checked.has(pr.id) || !['math', 'chinese'].includes(sub) || pr.kind === 'self') continue;
     const choice = normalizeInput(parseJ(pr.choices, {}), answers[pr.id]);
-    if (judge({ choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) }, choice))
-      await award(env, s.student_id, 'solve', pr.id, hintMap[pr.id] ? PTS.solve_hint : PTS.solve, s.id, t);
+    if (!judge({ choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) }, choice)) continue;
+    const v = sub === 'chinese' ? PTS.solve_chinese : hintMap[pr.id] ? PTS.solve_hint : PTS.solve;
+    ptsStmts.push(env.DB.prepare('INSERT OR IGNORE INTO points_log (student_id, kind, ref, pts, session_id, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(s.student_id, 'solve', pr.id, v, s.id, t));
   }
+  if (ptsStmts.length) await env.DB.batch(ptsStmts);
   await recomputeMastery(env.DB, s.student_id);
   await bump(env, 'submit'); if (firstSubmit) await bump(env, 'first_submit');
   if (s.exam_id === 'drill') await prep.onSubmit(env, s.id, t);

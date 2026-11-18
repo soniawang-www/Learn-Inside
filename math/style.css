@@ -1607,3 +1607,35 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 @keyframes pal-in { from { transform: translateY(14px) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pts-pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .ck-top .pencil, .ck-pts, .ob-pal .pencil { animation: none; } }
+
+/* 新手引导（全站）和备考计划 */
+.ob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ob-grid .ob-opt { justify-content: center; padding: 14px 6px; text-align: center; }
+.ob-grid .ob-opt b { font-size: 15px; }
+.ob-body h1 + .ob-sub { margin: -14px 0 16px; color: var(--muted); font-size: 14px; }
+.ob-opt .tc-tag { flex: none; }
+.ob-opt .tc-tag + b { flex: 1; }
+.ob-gap { margin-top: 18px; }
+.ob-date-row { display: grid; gap: 8px; padding: 14px 16px; border: 2px solid var(--border); border-radius: 16px; background: var(--surface); }
+.odr-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.odr-h b { font-size: 17px; }
+.odr-h span { color: var(--accent); font-size: 14px; font-weight: 600; }
+.ob-date-row .ob-date { border-width: 1.5px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+.odr-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.odr-quick button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.ob-items { display: grid; gap: 8px; width: 100%; margin-top: 10px; }
+.ob-items div { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); text-align: left; }
+.ob-items b { flex: 1; }
+.ob-items span { color: var(--muted); font-size: 14px; }
+.ob-q { font-size: 18px; margin: 26px 0 12px; }
+.ob-sum + .ob-q { text-align: left; }
+.ob-sum { padding-top: 10px; }
+.plan-form select { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.pf-items { display: grid; gap: 8px; }
+.pf-item { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; }
+.pf-item.on { border-color: var(--accent); }
+.pf-chk { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.pf-chk input { width: 18px; height: 18px; accent-color: var(--accent); }
+.pf-item .ob-date-row { border: 0; padding: 0; background: none; }
+.pf-item .odr-h b { display: none; }
+.pf-per { margin: -6px 0 0; text-align: right; }

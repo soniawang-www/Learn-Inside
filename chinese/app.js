@@ -8,6 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
+import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261118j';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -142,49 +143,50 @@ window.addEventListener('hashchange', router);
 // ───────── 首页：试卷和成绩 ─────────
 async function renderHome() {
   const st = auth.student;
-  const [exams, gexams, prof, mk] = await Promise.all([
+  const [exams, gexams, prof, mk, pr, tm] = await Promise.all([
     api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`),
     api(`/api/exams?student=${enc(st.id)}&family=${GSW}`).catch(() => []),
     api(`/api/students/${enc(st.id)}/profile?subject=chinese`).catch(() => ({ sessions: [] })),
     isGuest() ? { mistakes: [] } : api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
+    api(`/api/students/${enc(st.id)}/prep`).catch(() => null),
+    api(`/api/students/${enc(st.id)}/team`).catch(() => null),
   ]);
+  // 第一次来（没定备考项、没打过卡、没做过题）：先走全站的新手引导
+  if (pr && !pr.items?.length && !pr.total && !store.get('li.obSkip') && !(prof.sessions || []).length) { location.replace(START_URL); return; }
   // 最上面的「继续」条只放没做完的模考；今天做什么：下一套没做过的卷子 + 错题
   const curOf = (e) => (e.open_mode === 'exam' ? e.open_session : null); // 没交卷的模考（跟着账号走）
   const unfinished = [...exams, ...gexams].filter(curOf);
   const todo = (mk.mistakes || []).filter((m) => m.status === 'pending' || m.status === 'due').length;
   const strip = unfinished.slice(0, 1).map((e) => `<a class="cont-go" href="#/exam/${enc(curOf(e))}"><b>继续答题</b><span>${esc(e.title)}</span><i>›</i></a>`);
-  const next = exams.find((e) => !e.id.endsWith('-mock') && !e.last_session && !curOf(e)) || exams.find((e) => !e.last_session && !curOf(e));
-  const tasks = [
-    todo && `<a class="task" href="#/mistakes"><b>${todo}</b><span>订正错题<small>错题本</small></span></a>`,
-    next && `<a class="task" href="#/intro/${enc(next.id)}"><i class="ico">›</i><span>做一套${next.id.endsWith('-mock') ? '模拟题' : '真题'}<small>${esc(next.title)}</small></span></a>`,
-  ].filter(Boolean);
+  if (todo) strip.push(`<a class="cont-go alt" href="#/mistakes"><b>${todo} 道错题</b><span>待订正</span><i>›</i></a>`);
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
   const lastScore = sessions[0] ? `最近 ${sessions[0].score ?? '–'} 分` : '';
   const allMk = (mk.mistakes || []).length;
   page(`<div class="hero"><h1>语文竞赛真题</h1></div>
+    ${pr ? todayCard(pr, { team: tm, only: 'chinese' }) : ''}
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
+    <h2 class="grp-h">真题</h2>
     <div class="fam-cards">
       <a class="fam-card" href="#/hanzi"><b>汉字小达人</b><span>${exams.length ? `${exams.length} 套真题和模拟题` : '录入中'}</span><small>${lastScore}</small><i>›</i></a>
       ${gexams.length ? `<a class="fam-card" href="#/gsw"><b>古诗文大会</b><span>${gexams.filter((e) => stageOf(e.id)).length} 套卷子 · ${gexams.some((e) => e.grade >= 6) ? '小学和初中' : '三至五年级'}</span><small></small><i>›</i></a>`
         : '<div class="fam-card soon" aria-disabled="true"><b>古诗文大会</b><span>即将上线</span><small></small></div>'}
+    </div>
+    <h2 class="grp-h">积累</h2>
+    <div class="fam-cards">
       <a class="fam-card" href="#/cards"><b>诗人卡和常识卡</b><span>字号称号、并称流派、节日节气……</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/beishi"><b>每日背诗</b><span>古诗文大会必背篇目</span><small></small><i>›</i></a>
       <a class="fam-card" href="/chinese/feihua.html"><b>飞花令</b><span>82 个常用字 · 5872 句诗词</span><small class="vip">语文会员</small><i>›</i></a>
     </div>
-    <div class="dash-grid">
-      <section class="card">
-        <div class="card-h"><h2>今天做什么</h2></div>
-        ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>` : '<p class="muted">暂无</p>'}
-        <a class="mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">${isGuest() ? '注册后可用' : `共 ${allMk} 题${todo ? ` · 待订正 ${todo}` : ''}`} ›</span></a>
-      </section>
-      <section class="card">
+    ${sessions.length || (allMk && !isGuest()) ? `<div class="dash-grid">
+      ${sessions.length ? `<section class="card">
         <div class="card-h"><h2>最近成绩</h2></div>
-        ${sessions.length ? `<div class="scores">${sessions.slice(0, 6).map((x) => `<a class="score-row" href="#/review/${x.id}">
+        <div class="scores">${sessions.slice(0, 6).map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${day(x.submitted_at)}</small></span>
-          <span class="sr-bar"><i style="width:${x.total ? ((x.score || 0) / x.total) * 100 : 0}%"></i></span><b>${x.score ?? '–'}<small>/${x.total}</small></b></a>`).join('')}</div>`
-        : '<p class="muted">还没有成绩</p>'}
-      </section>
-    </div>`, 'home');
+          <span class="sr-bar"><i style="width:${x.total ? ((x.score || 0) / x.total) * 100 : 0}%"></i></span><b>${x.score ?? '–'}<small>/${x.total}</small></b></a>`).join('')}</div>
+      </section>` : ''}
+      ${allMk && !isGuest() ? `<a class="card mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">共 ${allMk} 题${todo ? ` · 待订正 ${todo}` : ''} ›</span></a>` : ''}
+    </div>` : ''}`, 'home');
+  bindToday($app, { sid: st.id, token: auth.token });
 }
 
 // 卷子「打印」：整套题（不带答案），直接出打印预览
@@ -501,6 +503,7 @@ async function renderExam(sid) {
       await api(`/api/sessions/${enc(sid)}/submit`, { method: 'POST', body: { answers: S.answers, times: S.times } });
       D.stop(true); store.del(key);
       Object.keys(localStorage).forEach((k) => { if (k.startsWith('hz.cur.') && store.get(k) === sid) store.del(k); }); // 旧版本记在本机的「没交卷」
+      if (d.session.prep) { location.replace(`/math/#/done/${enc(sid)}`); return; } // 打卡：去放完成动画
       if (auto) modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/review/${sid}`);
     } catch (x) {
@@ -597,9 +600,9 @@ async function renderExam(sid) {
           : `<div class="ex-opts ${glyphs ? 'grid' : ''}">${choices.map(([k, v]) => `<label class="ex-opt ${checked ? (k === checked.answer ? 'right' : k === ans ? 'wrong' : '') : ''}">
               <input type="radio" name="o" value="${k}" ${ans === k ? 'checked' : ''} ${checked ? 'disabled' : ''}><span>${esc(v)}</span></label>`).join('')}</div>`}
         ${checked?.self ? `<div class="ex-fb"><b>参考答案</b><p>${txt(checked.answer)}</p>${checked.basic ? `<p>${txt(checked.basic)}</p>` : ''}</div>`
-        : checked ? `<div class="ex-fb ${checked.correct ? 'ok' : 'bad'}"><b>${checked.correct ? '答对了' : '答错了'}</b>${checked.correct ? '' : `　正确答案：<b>${esc(isFill(p) ? checked.answer : `${p.choices[checked.answer]}`)}</b>`}
+        : checked ? `<div class="ex-fb ${checked.correct ? 'ok' : 'bad'}">${checked.points ? `<span class="ck-pts">+${checked.points}${STAR}</span>` : ''}<b>${checked.correct ? '答对了' : '答错了'}</b>${checked.correct ? '' : `　正确答案：<b>${esc(isFill(p) ? checked.answer : `${p.choices[checked.answer]}`)}</b>`}
             ${checked.basic ? `<p>${txt(checked.basic)}</p>` : ''}</div>` : ''}
-        <div class="ex-foot"><button class="ex-next" ${ans ? '' : 'disabled'}>${practice && !checked ? '确定' : last ? '提交' : '下一页'}</button></div>
+        <div class="ex-foot"><button class="ex-next" ${ans ? '' : 'disabled'}>${practice && !checked ? '确定' : last ? (d.session.prep ? '完成打卡' : '提交') : '下一页'}</button></div>
       </section></div>`;
     const next = $app.querySelector('.ex-next');
     const setAns = (v) => { v = String(v || '').trim(); if (v) S.answers[p.id] = v; else delete S.answers[p.id]; save(); next.disabled = !v; };

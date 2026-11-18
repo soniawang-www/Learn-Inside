@@ -1,4 +1,4 @@
-// 备战计划 + 每日打卡（数学）
+// 备战计划 + 每日打卡（数学、语文；连续天数和积分全站共用：哪一科打了卡都算今天打过）
 //
 // 没有计划：每天「今日两题」，所有人同一套（AMC 8 真题，一道基础、一道中等），按日期轮换
 // 有计划：选考试（先只有 AMC 8）、考试日期、每天几题。每天出题：
@@ -28,8 +28,21 @@ export const PREP_MIGRATIONS = [
   // 练习里每题第一次提交的结果：以它为准（改答案再提交不加分）
   `CREATE TABLE IF NOT EXISTS session_check (session_id TEXT NOT NULL, problem_id TEXT NOT NULL, correct INTEGER NOT NULL,
      created_at INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
+  // 备考项：每个考试一项（数学 AMC 8、语文汉字小达人 / 古诗文大会……），每项每天一次打卡；连续天数和积分全站共用
+  `CREATE TABLE IF NOT EXISTS prep_item (student_id TEXT NOT NULL REFERENCES student(id), family TEXT NOT NULL, subject TEXT NOT NULL, grade INTEGER,
+     exam_date TEXT NOT NULL, per_day INTEGER NOT NULL, per_week INTEGER NOT NULL DEFAULT 7, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+     PRIMARY KEY (student_id, family))`,
+  `CREATE TABLE IF NOT EXISTS checkin (student_id TEXT NOT NULL REFERENCES student(id), day TEXT NOT NULL, family TEXT NOT NULL, subject TEXT NOT NULL,
+     session_id TEXT NOT NULL, kind TEXT NOT NULL, done_at INTEGER, PRIMARY KEY (student_id, day, family))`,
+  'CREATE INDEX IF NOT EXISTS idx_checkin_session ON checkin(session_id)',
+  // 只有数学时建的两张表：搬过来后清空（顺序执行，搬完才清）
+  `INSERT OR IGNORE INTO prep_item (student_id, family, subject, exam_date, per_day, per_week, created_at, updated_at)
+     SELECT student_id, family, 'math', exam_date, per_day, per_week, created_at, updated_at FROM prep_plan`,
+  'DELETE FROM prep_plan',
+  `INSERT OR IGNORE INTO checkin (student_id, day, family, subject, session_id, kind, done_at) SELECT student_id, day, 'amc8', 'math', session_id, kind, done_at FROM prep_day`,
+  'DELETE FROM prep_day',
 ];
-export const PTS = { solve: 10, solve_hint: 5, checkin: 20 };
+export const PTS = { solve: 10, solve_hint: 5, checkin: 20, solve_chinese: 3 };
 /** 记一笔积分；已经记过（同一道题 / 同一天打卡）返回 0 */
 export async function award(env, sid, kind, ref, pts, sessionId, t) {
   const r = await env.DB.prepare('INSERT OR IGNORE INTO points_log (student_id, kind, ref, pts, session_id, created_at) VALUES (?, ?, ?, ?, ?, ?)')
@@ -38,32 +51,41 @@ export async function award(env, sid, kind, ref, pts, sessionId, t) {
 }
 const TEAM_MAX = 30;
 
-const PREP_FAMILIES = { amc8: { name: 'AMC 8', prefix: 'amc8-' } };
-const PER_DAY = [2, 5, 10];
+// 能打卡的考试：grades = 适合哪些年级（1–9，7–9 是初中）；next = 下一次考试日期（官方公布了才写，没写的让家长自己选）
+const PREP_FAMILIES = {
+  amc8: { name: 'AMC 8', prefix: 'amc8-', subject: 'math', grades: [3, 4, 5, 6, 7, 8], next: [['2027-01-21', '2027 年 1 月 21–27 日']] },
+  hanzi: { name: '汉字小达人', prefix: 'hanzi-', subject: 'chinese', grades: [1, 2, 3, 4, 5] },
+  gushiwen: { name: '古诗文大会', prefix: 'gsw-', subject: 'chinese', grades: [3, 4, 5, 6, 7, 8, 9], byGrade: true },
+};
+// 每科：轻松 / 认真 / 冲刺 各几题；没计划时每天几题、默认练哪个考试
+export const PREP_SUBJECTS = {
+  math: { per: [2, 5, 10], daily: 2, name: '数学', fam: 'amc8', path: '/math/' },
+  chinese: { per: [10, 20, 30], daily: 10, name: '语文', fam: 'hanzi', path: '/chinese/' },
+};
+const LEVELS = ['easy', 'normal', 'hard'];
 const DAY = 86400000;
 const UNTIMED_DAYS = 30;
 const HIGH_RATE = 50; // 高频知识项：一半以上的届数都考过
+// 古诗文按学段出题：小学按年级，初中分预初·初一（6）、初二·初三（8）
+const gswGrade = (g) => (g >= 8 ? 8 : g >= 6 ? 6 : g);
 
 const bjDay = (t) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间的日期
 const dayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY);
 // 稳定的伪随机：同一个种子永远给同一个数
 function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
 
-export function registerPrep({ route, json, HttpError, body, requireAccount, requireStudent, uid, now, kpStats, mistakeBook, bump }) {
-  const famOf = (id) => PREP_FAMILIES[id] ? id : null;
-
-  async function getPlan(env, sid) {
-    return env.DB.prepare('SELECT family, exam_date, per_day, per_week, created_at FROM prep_plan WHERE student_id = ?').bind(sid).first();
-  }
-  const perWeekOf = async (env, sid) => (await getPlan(env, sid))?.per_week || 7;
+export function registerPrep({ route, json, HttpError, body, requireAccount, requireStudent, uid, now, kpStats, mistakeBook, bump, gswPool, gradeOk }) {
+  const items = async (env, sid) => (await env.DB.prepare('SELECT family, subject, grade, exam_date, per_day, per_week, created_at FROM prep_item WHERE student_id = ? ORDER BY created_at, family').bind(sid).all()).results;
+  const getPlan = (env, sid, family) => env.DB.prepare('SELECT family, subject, grade, exam_date, per_day, per_week, created_at FROM prep_item WHERE student_id = ? AND family = ?').bind(sid, family).first();
+  // 连续按天还是按周：一周几次是所有备考项共用的
+  const perWeekOf = async (env, sid) => (await env.DB.prepare('SELECT MAX(per_week) AS w FROM prep_item WHERE student_id = ?').bind(sid).first())?.w || 7;
 
   // 连续：每天练的按天算（今天打了从今天往前数，没打从昨天往前数）；一周几次的按周算（每周打满目标次数算一周达标，本周达标了也算上）
   async function streak(env, sid, today, perWeek = 7) {
-    const { results } = await env.DB.prepare('SELECT day FROM prep_day WHERE student_id = ? AND done_at IS NOT NULL ORDER BY day DESC LIMIT 400').bind(sid).all();
+    const { results } = await env.DB.prepare('SELECT DISTINCT day FROM checkin WHERE student_id = ? AND done_at IS NOT NULL ORDER BY day DESC LIMIT 400').bind(sid).all();
     const done = new Set(results.map((r) => r.day));
     const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
     const mon = dayNum(today) - dow; // 本周一
-    // 本周（周一到周日）哪几天打了卡，给首页和打卡完成页画一周的小格子
     const week = Array.from({ length: 7 }, (_, i) => { const day = new Date((mon + i) * DAY).toISOString().slice(0, 10); return { day, done: done.has(day), today: day === today }; });
     const weekCount = week.filter((d) => d.done).length;
     let n = 0;
@@ -93,23 +115,33 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     return h;
   }
 
-  // 能定计划的考试（新手引导里选「考什么」）
-  async function familyList(env) {
-    const out = [];
-    for (const [id, f] of Object.entries(PREP_FAMILIES)) {
-      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM exam WHERE published = 1 AND source = 'official' AND id LIKE ?").bind(f.prefix + '%').first();
-      const { high } = await highItems(env, id);
-      out.push({ id, name: f.name, exams: r?.n || 0, high: high.length });
-    }
-    return out;
-  }
-
   async function highItems(env, family) {
     const st = await kpStats(env, family);
     const { results: names } = await env.DB.prepare('SELECT id, name FROM knowledge_point WHERE parent_id IS NOT NULL').all();
     const name = Object.fromEntries(names.map((r) => [r.id, r.name]));
     const all = Object.entries(st.kps).map(([id, k]) => ({ id, name: name[id] || id, per_exam: k.per_exam, rate: k.rate })).sort((a, b) => b.per_exam - a.per_exam);
     return { all, high: all.filter((x) => x.rate >= HIGH_RATE) };
+  }
+
+  // 语文：从汉字小达人真题 / 古诗文题库里出没做过的题；错题本里该订正、该复习的混进来
+  async function chineseProblems(env, sid, plan, today) {
+    const n = plan?.per_day || PREP_SUBJECTS.chinese.daily;
+    const fam = plan?.family || 'hanzi';
+    const { results: seenRows } = await env.DB
+      .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? UNION
+                SELECT sp.problem_id FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
+      .bind(sid, sid).all();
+    const seen = new Set(seenRows.map((r) => r.problem_id));
+    let pool;
+    if (fam === 'gushiwen') pool = (await gswPool(env)).filter((x) => gradeOk(x, plan?.grade || null)).map((x) => x.id);
+    else pool = (await env.DB.prepare(`SELECT p.id FROM problem p JOIN exam e ON e.id = p.exam_id WHERE e.published = 1 AND e.source = 'official'
+                                         AND p.id LIKE 'hanzi-%' AND p.kind = 'choice' ORDER BY p.id`).all()).results.map((r) => r.id);
+    const fresh = pool.filter((id) => !seen.has(id));
+    const src = fresh.length >= n ? fresh : pool;
+    const ms = (await mistakeBook(env, sid, 'chinese')).filter((m) => (m.status === 'pending' || m.status === 'due') && m.problem_id.startsWith(PREP_FAMILIES[fam].prefix))
+      .sort((a, b) => a.last_wrong_at - b.last_wrong_at).slice(0, Math.floor(n / 5)).map((m) => m.problem_id);
+    const picked = src.map((id) => [hash(sid + today + id), id]).sort((a, b) => a[0] - b[0]).map((x) => x[1]).filter((id) => !ms.includes(id)).slice(0, n - ms.length);
+    return [...picked, ...ms];
   }
 
   // 没计划：今日两题（所有人同一套）
@@ -129,13 +161,13 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     // 计划里已经排过的题（含还没做的）和做过的题都不再出
     const { results: seenRows } = await env.DB
       .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? UNION
-                SELECT sp.problem_id FROM session_problem sp JOIN prep_day d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
+                SELECT sp.problem_id FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
       .bind(sid, sid).all();
     const seen = new Set(seenRows.map((r) => r.problem_id));
     const { results: assigned } = await env.DB
-      .prepare(`SELECT pk.kp_id, COUNT(*) AS c FROM session_problem sp JOIN prep_day d ON d.session_id = sp.session_id
+      .prepare(`SELECT pk.kp_id, COUNT(*) AS c FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id
                   JOIN problem_kp pk ON pk.problem_id = sp.problem_id AND pk.weight >= 1
-                 WHERE d.student_id = ? AND d.kind = 'plan' AND d.day >= ? GROUP BY pk.kp_id`)
+                 WHERE d.student_id = ? AND d.family = 'amc8' AND d.kind = 'plan' AND d.day >= ? GROUP BY pk.kp_id`)
       .bind(sid, bjDay(plan.created_at)).all();
     const asg = Object.fromEntries(assigned.map((r) => [r.kp_id, r.c]));
     // 错题：待订正、该复习的，最早错的先来
@@ -178,21 +210,46 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     return { total: r?.total || 0, week: r?.week || 0 };
   }
 
-  async function status(env, sid) {
-    const t = now(), today = bjDay(t);
-    const plan = await getPlan(env, sid);
-    const day = await env.DB.prepare('SELECT d.session_id, d.kind, d.done_at, (SELECT COUNT(*) FROM session_problem sp WHERE sp.session_id = d.session_id) AS n FROM prep_day d WHERE d.student_id = ? AND d.day = ?')
-      .bind(sid, today).first();
-    const out = { today, ...(await streak(env, sid, today, plan?.per_week || 7)), plan: null, day: day ? { session_id: day.session_id, n: day.n, done: !!day.done_at } : null,
-      families: await familyList(env), points: await points(env, sid, today) };
-    if (plan) {
-      const { high } = await highItems(env, plan.family);
-      const hist = await itemHistory(env, sid, plan.created_at);
-      out.plan = { family: plan.family, name: PREP_FAMILIES[plan.family].name, exam_date: plan.exam_date, per_day: plan.per_day, per_week: plan.per_week || 7,
-        days_left: dayNum(plan.exam_date) - dayNum(today),
-        cover: { done: high.filter((x) => hist[x.id]?.since).length, total: high.length } };
+  // 每个考试：有几套真题、适合哪些年级、下一次考试（今天以后最近的一次）
+  async function families(env, today) {
+    const out = [];
+    for (const [id, f] of Object.entries(PREP_FAMILIES)) {
+      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM exam WHERE published = 1 AND source = 'official' AND id LIKE ?").bind(f.prefix + '%').first();
+      const nx = (f.next || []).find(([d]) => d > today);
+      out.push({ id, name: f.name, subject: f.subject, subject_name: PREP_SUBJECTS[f.subject].name, exams: r?.n || 0, grades: f.grades,
+        next: nx ? { date: nx[0], label: nx[1] } : null, per: PREP_SUBJECTS[f.subject].per });
     }
     return out;
+  }
+
+  // 首页、各科主页的打卡卡片：备考项（没定计划但最近两周在打卡的科目也算一项「每日练习」）+ 今天每项做没做
+  async function status(env, sid) {
+    const t = now(), today = bjDay(t);
+    const plans = await items(env, sid);
+    const { results: days } = await env.DB.prepare(`SELECT c.family, c.subject, c.day, c.session_id, c.done_at, (SELECT COUNT(*) FROM session_problem sp WHERE sp.session_id = c.session_id) AS n
+                                                     FROM checkin c WHERE c.student_id = ? AND c.day >= ? ORDER BY c.day DESC`).bind(sid, new Date((dayNum(today) - 14) * DAY).toISOString().slice(0, 10)).all();
+    const todayOf = (fam) => { const d = days.find((x) => x.family === fam && x.day === today); return d ? { session_id: d.session_id, n: d.n, done: !!d.done_at } : null; };
+    const out = [];
+    for (const p of plans) {
+      const f = PREP_FAMILIES[p.family]; if (!f) continue;
+      const it = { family: p.family, subject: p.subject, name: f.name, subject_name: PREP_SUBJECTS[p.subject].name, plan: true, exam_date: p.exam_date,
+        days_left: dayNum(p.exam_date) - dayNum(today), per_day: p.per_day, grade: p.grade, today: todayOf(p.family) };
+      if (p.family === 'amc8') {
+        const { high } = await highItems(env, 'amc8');
+        const hist = await itemHistory(env, sid, p.created_at);
+        it.cover = { done: high.filter((x) => hist[x.id]?.since).length, total: high.length };
+      }
+      out.push(it);
+    }
+    for (const d of days) { // 没计划、最近在做「每日练习」的
+      if (out.some((x) => x.family === d.family)) continue;
+      const f = PREP_FAMILIES[d.family]; if (!f) continue;
+      out.push({ family: d.family, subject: d.subject, name: f.name, subject_name: PREP_SUBJECTS[d.subject].name, plan: false, per_day: PREP_SUBJECTS[d.subject].daily, today: todayOf(d.family) });
+    }
+    const first = plans[0];
+    const level = first ? LEVELS[Math.max(0, PREP_SUBJECTS[first.subject].per.indexOf(first.per_day))] : 'easy';
+    return { today, ...(await streak(env, sid, today, await perWeekOf(env, sid))), grade: first?.grade ?? null, level, items: out,
+      families: await families(env, today), points: await points(env, sid, today) };
   }
 
   route('GET', '/api/students/:id/prep', async (req, env, p) => {
@@ -201,63 +258,71 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     return json(await status(env, st.id));
   });
 
+  // 定计划（新手引导、计划页一起存）：{ grade, per_week, level, items: [{ family, exam_date }] }；不在 items 里的备考项删掉
   route('PUT', '/api/students/:id/prep', async (req, env, p) => {
     const acc = await requireAccount(req, env);
     const st = await requireStudent(env, acc, p.id);
-    const { family, exam_date, per_day, per_week = 7 } = await body(req);
-    if (!famOf(family)) throw new HttpError(400, '暂时只支持 AMC 8');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(exam_date || '') || isNaN(Date.parse(exam_date))) throw new HttpError(400, '请选择考试日期');
+    const { grade, per_week = 7, level = 'easy', items: want = [] } = await body(req);
+    const g = Number(grade);
+    if (!(Number.isInteger(g) && g >= 1 && g <= 9)) throw new HttpError(400, '请选择年级');
+    if (![3, 5, 7].includes(Number(per_week))) throw new HttpError(400, '一周练 3 次、5 次或每天');
+    if (!LEVELS.includes(level)) throw new HttpError(400, '每次练多少没选');
+    if (!Array.isArray(want) || want.length > Object.keys(PREP_FAMILIES).length) throw new HttpError(400, '备考项不对');
     const today = bjDay(now());
-    if (exam_date <= today) throw new HttpError(400, '考试日期要在今天之后');
-    if (dayNum(exam_date) - dayNum(today) > 730) throw new HttpError(400, '考试日期太远了');
-    if (!PER_DAY.includes(Number(per_day))) throw new HttpError(400, '每次题数只能是 2、5 或 10');
-    if (!(Number.isInteger(Number(per_week)) && per_week >= 2 && per_week <= 7)) throw new HttpError(400, '一周练 2 到 7 次');
+    for (const it of want) {
+      if (!PREP_FAMILIES[it.family]) throw new HttpError(400, '暂时不支持这个考试');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(it.exam_date || '') || isNaN(Date.parse(it.exam_date))) throw new HttpError(400, `请选择${PREP_FAMILIES[it.family].name}的考试日期`);
+      if (it.exam_date <= today) throw new HttpError(400, '考试日期要在今天之后');
+      if (dayNum(it.exam_date) - dayNum(today) > 730) throw new HttpError(400, '考试日期太远了');
+    }
     const t = now();
-    const old = await getPlan(env, st.id);
-    await env.DB.prepare(`INSERT INTO prep_plan (student_id, family, exam_date, per_day, per_week, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (student_id) DO UPDATE SET family = excluded.family, exam_date = excluded.exam_date, per_day = excluded.per_day, per_week = excluded.per_week, updated_at = excluded.updated_at`)
-      .bind(st.id, family, exam_date, Number(per_day), Number(per_week), t, t).run();
+    const old = await items(env, st.id);
+    const keep = new Set(want.map((x) => x.family));
+    const stmts = old.filter((o) => !keep.has(o.family)).map((o) => env.DB.prepare('DELETE FROM prep_item WHERE student_id = ? AND family = ?').bind(st.id, o.family));
+    for (const it of want) {
+      const f = PREP_FAMILIES[it.family], per = PREP_SUBJECTS[f.subject].per[LEVELS.indexOf(level)];
+      const o = old.find((x) => x.family === it.family);
+      stmts.push(env.DB.prepare(`INSERT INTO prep_item (student_id, family, subject, grade, exam_date, per_day, per_week, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (student_id, family) DO UPDATE SET grade = excluded.grade, exam_date = excluded.exam_date, per_day = excluded.per_day, per_week = excluded.per_week, updated_at = excluded.updated_at`)
+        .bind(st.id, it.family, f.subject, f.byGrade ? gswGrade(g) : g, it.exam_date, per, Number(per_week), o?.created_at ?? t, t));
+    }
     // 今天还没开始做的打卡题按新计划重出
-    const d = await env.DB.prepare("SELECT d.session_id FROM prep_day d JOIN exam_session s ON s.id = d.session_id WHERE d.student_id = ? AND d.day = ? AND d.done_at IS NULL AND (s.draft IS NULL OR s.draft = '')")
-      .bind(st.id, today).first();
-    if (d) await env.DB.batch([ // 还没动过的会话一起删掉，免得出现在「继续答题」里
-      env.DB.prepare('DELETE FROM prep_day WHERE student_id = ? AND day = ?').bind(st.id, today),
+    const { results: fresh } = await env.DB.prepare("SELECT c.family, c.session_id FROM checkin c JOIN exam_session s ON s.id = c.session_id WHERE c.student_id = ? AND c.day = ? AND c.done_at IS NULL AND (s.draft IS NULL OR s.draft = '')")
+      .bind(st.id, today).all();
+    for (const d of fresh) stmts.push( // 还没动过的会话一起删掉，免得出现在「继续答题」里
+      env.DB.prepare('DELETE FROM checkin WHERE student_id = ? AND day = ? AND family = ?').bind(st.id, today, d.family),
       env.DB.prepare('DELETE FROM session_problem WHERE session_id = ?').bind(d.session_id),
-      env.DB.prepare('DELETE FROM exam_session WHERE id = ? AND submitted_at IS NULL').bind(d.session_id),
-    ]);
-    if (!old) await bump(env, 'prep_plan');
+      env.DB.prepare('DELETE FROM exam_session WHERE id = ? AND submitted_at IS NULL').bind(d.session_id));
+    if (stmts.length) await env.DB.batch(stmts);
+    if (!old.length && want.length) await bump(env, 'prep_plan');
     return json(await status(env, st.id));
   });
 
-  route('DELETE', '/api/students/:id/prep', async (req, env, p) => {
+  // 今天这一项的打卡题：第一次打开时出题、建练习会话；之后一直返回同一个。family 不给 = 按 subject 的默认考试
+  route('POST', '/api/students/:id/prep/today', async (req, env, p, url) => {
     const acc = await requireAccount(req, env);
     const st = await requireStudent(env, acc, p.id);
-    await env.DB.prepare('DELETE FROM prep_plan WHERE student_id = ?').bind(st.id).run();
-    return json(await status(env, st.id));
-  });
-
-  // 今天的打卡题：第一次打开时出题、建练习会话；之后一直返回同一个
-  route('POST', '/api/students/:id/prep/today', async (req, env, p) => {
-    const acc = await requireAccount(req, env);
-    const st = await requireStudent(env, acc, p.id);
+    const subj = PREP_SUBJECTS[url.searchParams.get('subject')] ? url.searchParams.get('subject') : 'math';
+    const family = PREP_FAMILIES[url.searchParams.get('family')] ? url.searchParams.get('family') : PREP_SUBJECTS[subj].fam;
+    const subject = PREP_FAMILIES[family].subject;
     const t = now(), today = bjDay(t);
-    const have = await env.DB.prepare('SELECT session_id FROM prep_day WHERE student_id = ? AND day = ?').bind(st.id, today).first();
-    if (have) return json({ session_id: have.session_id });
-    const plan = await getPlan(env, st.id);
-    let ids = plan ? await planProblems(env, st.id, plan, today) : [];
-    if (!ids.length) ids = await dailyTwo(env, today);
+    const have = await env.DB.prepare('SELECT session_id FROM checkin WHERE student_id = ? AND day = ? AND family = ?').bind(st.id, today, family).first();
+    if (have) return json({ session_id: have.session_id, subject });
+    const plan = await getPlan(env, st.id, family);
+    let ids;
+    if (subject === 'chinese') ids = await chineseProblems(env, st.id, plan || { family }, today);
+    else { ids = plan ? await planProblems(env, st.id, plan, today) : []; if (!ids.length) ids = await dailyTwo(env, today); }
     if (!ids.length) throw new HttpError(404, '题库还没有题');
     const id = uid();
-    const title = plan ? `今日 ${ids.length} 题` : '今日两题';
-    const stmts = [
-      env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, 'math')")
-        .bind(id, st.id, t, t + UNTIMED_DAYS * DAY, title),
+    const title = `${PREP_FAMILIES[family].name} · 今日 ${ids.length} 题`;
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?)")
+        .bind(id, st.id, t, t + UNTIMED_DAYS * DAY, title, subject),
       ...ids.map((pid, i) => env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)),
-      env.DB.prepare('INSERT INTO prep_day (student_id, day, session_id, kind) VALUES (?, ?, ?, ?)').bind(st.id, today, id, plan ? 'plan' : 'daily'),
-    ];
-    await env.DB.batch(stmts);
+      env.DB.prepare('INSERT INTO checkin (student_id, day, family, subject, session_id, kind) VALUES (?, ?, ?, ?, ?, ?)').bind(st.id, today, family, subject, id, plan ? 'plan' : 'daily'),
+    ]);
     await bump(env, 'daily_start');
-    return json({ session_id: id });
+    return json({ session_id: id, subject });
   });
 
   // ───────── 组队 ─────────
@@ -278,7 +343,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     for (const m of ms) {
       const pw = await perWeekOf(env, m.id);
       const sk = await streak(env, m.id, today, pw);
-      const q = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(ae.correct), 0) AS ok FROM prep_day d JOIN attempt_event ae ON ae.session_id = d.session_id
+      const q = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(ae.correct), 0) AS ok FROM checkin d JOIN attempt_event ae ON ae.session_id = d.session_id
                                       WHERE d.student_id = ? AND d.done_at IS NOT NULL AND d.day >= ?`).bind(m.id, mon).first();
       const pt = await points(env, m.id, today);
       rows.push({ nickname: m.nickname, me: m.id === me, owner: m.id === team.owner_student, week_count: sk.week_count, per_week: pw, week_points: pt.week,
@@ -356,22 +421,30 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   });
 
   return {
-    // 交卷时调用：这是打卡题就记打卡
+    // 交卷时调用：这是打卡题就记打卡（打卡积分每天只给一次，几项都打也是 20）
     async onSubmit(env, sessionId, t) {
-      const r = await env.DB.prepare('UPDATE prep_day SET done_at = ? WHERE session_id = ? AND done_at IS NULL').bind(t, sessionId).run();
+      const r = await env.DB.prepare('UPDATE checkin SET done_at = ? WHERE session_id = ? AND done_at IS NULL').bind(t, sessionId).run();
       if (r.meta?.changes) {
         await bump(env, 'daily_done');
-        const d = await env.DB.prepare('SELECT student_id, day FROM prep_day WHERE session_id = ?').bind(sessionId).first();
+        const d = await env.DB.prepare('SELECT student_id, day FROM checkin WHERE session_id = ?').bind(sessionId).first();
         if (d) await award(env, d.student_id, 'checkin', d.day, PTS.checkin, sessionId, t);
       }
     },
-    // 会话和复盘里带上打卡信息
+    // 会话和复盘里带上打卡信息；next = 今天还没做完的其他备考项
     async info(env, sessionId, studentId) {
-      const d = await env.DB.prepare('SELECT day, done_at FROM prep_day WHERE session_id = ?').bind(sessionId).first();
+      const d = await env.DB.prepare('SELECT day, family, subject, done_at FROM checkin WHERE session_id = ?').bind(sessionId).first();
       if (!d) return null;
       const got = await env.DB.prepare('SELECT COALESCE(SUM(pts), 0) AS n FROM points_log WHERE session_id = ?').bind(sessionId).first();
-      return { day: d.day, done: !!d.done_at, points_got: got?.n || 0,
-        ...(d.done_at ? { ...(await streak(env, studentId, bjDay(now()), await perWeekOf(env, studentId))), points: await points(env, studentId, bjDay(now())) } : {}) };
+      const out = { day: d.day, family: d.family, subject: d.subject, name: PREP_FAMILIES[d.family]?.name, done: !!d.done_at, points_got: got?.n || 0 };
+      if (d.done_at) {
+        const today = bjDay(now());
+        Object.assign(out, await streak(env, studentId, today, await perWeekOf(env, studentId)), { points: await points(env, studentId, today) });
+        const left = (await items(env, studentId)).filter((x) => x.family !== d.family);
+        const doneToday = new Set((await env.DB.prepare('SELECT family FROM checkin WHERE student_id = ? AND day = ? AND done_at IS NOT NULL').bind(studentId, today).all()).results.map((r) => r.family));
+        const nx = left.find((x) => !doneToday.has(x.family));
+        if (nx) out.next = { family: nx.family, subject: nx.subject, name: PREP_FAMILIES[nx.family].name, n: nx.per_day };
+      }
+      return out;
     },
   };
 }
