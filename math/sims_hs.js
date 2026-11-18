@@ -803,7 +803,7 @@ function pieces(box, p, api) {
   let cur = pcs.find((x) => !x.fixed) || null, drag = null, lastTip = '';
   const ok = once(() => api.solved(p.say_ok));
   box.innerHTML = `<svg viewBox="0 0 ${vw} ${vh}" class="lp-sim slsvg pzsvg" xmlns="http://www.w3.org/2000/svg"><g class="pz-g"></g></svg><div class="sl-info"></div>`
-    + bar(`${step ? btn('pz-rot', '↻ 转') : ''}${p.flip ? btn('pz-flip', '⇋ 翻面') : ''}${btn('pz-reset', '重来')}`);
+    + bar(`${step ? btn('pz-rot', '转一转') : ''}${p.flip ? btn('pz-flip', '翻个面') : ''}${btn('pz-reset', '重来')}`);
   const svg = box.querySelector('svg');
   // 底：格线、目标格、目标轮廓
   let base = '';
