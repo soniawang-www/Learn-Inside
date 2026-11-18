@@ -21,7 +21,21 @@ export const PREP_MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS team_member (team_id TEXT NOT NULL REFERENCES team(id), student_id TEXT NOT NULL REFERENCES student(id),
      joined_at INTEGER NOT NULL, PRIMARY KEY (team_id, student_id))`,
   'CREATE UNIQUE INDEX IF NOT EXISTS idx_team_member_student ON team_member(student_id)',
+  // 积分：每道题第一次答对加一次（没用提示 10、用了提示 5），每次打卡 20；同一件事只记一次（kind + ref 唯一）
+  `CREATE TABLE IF NOT EXISTS points_log (student_id TEXT NOT NULL REFERENCES student(id), kind TEXT NOT NULL, ref TEXT NOT NULL,
+     pts INTEGER NOT NULL, session_id TEXT, created_at INTEGER NOT NULL, PRIMARY KEY (student_id, kind, ref))`,
+  'CREATE INDEX IF NOT EXISTS idx_points_student ON points_log(student_id, created_at)',
+  // 练习里每题第一次提交的结果：以它为准（改答案再提交不加分）
+  `CREATE TABLE IF NOT EXISTS session_check (session_id TEXT NOT NULL, problem_id TEXT NOT NULL, correct INTEGER NOT NULL,
+     created_at INTEGER NOT NULL, PRIMARY KEY (session_id, problem_id))`,
 ];
+export const PTS = { solve: 10, solve_hint: 5, checkin: 20 };
+/** 记一笔积分；已经记过（同一道题 / 同一天打卡）返回 0 */
+export async function award(env, sid, kind, ref, pts, sessionId, t) {
+  const r = await env.DB.prepare('INSERT OR IGNORE INTO points_log (student_id, kind, ref, pts, session_id, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(sid, kind, ref, pts, sessionId ?? null, t).run();
+  return r.meta?.changes ? pts : 0;
+}
 const TEAM_MAX = 30;
 
 const PREP_FAMILIES = { amc8: { name: 'AMC 8', prefix: 'amc8-' } };
@@ -155,13 +169,22 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     return [...out.sort((a, b) => a.number - b.number).map((o) => o.id), ...review];
   }
 
+  // 积分：总数和本周（周一起）
+  async function points(env, sid, today) {
+    const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const monT = (dayNum(today) - dow) * DAY - 8 * 3600e3; // 北京时间本周一 0 点
+    const r = await env.DB.prepare('SELECT COALESCE(SUM(pts), 0) AS total, COALESCE(SUM(CASE WHEN created_at >= ? THEN pts END), 0) AS week FROM points_log WHERE student_id = ?')
+      .bind(monT, sid).first();
+    return { total: r?.total || 0, week: r?.week || 0 };
+  }
+
   async function status(env, sid) {
     const t = now(), today = bjDay(t);
     const plan = await getPlan(env, sid);
     const day = await env.DB.prepare('SELECT d.session_id, d.kind, d.done_at, (SELECT COUNT(*) FROM session_problem sp WHERE sp.session_id = d.session_id) AS n FROM prep_day d WHERE d.student_id = ? AND d.day = ?')
       .bind(sid, today).first();
     const out = { today, ...(await streak(env, sid, today, plan?.per_week || 7)), plan: null, day: day ? { session_id: day.session_id, n: day.n, done: !!day.done_at } : null,
-      families: await familyList(env) };
+      families: await familyList(env), points: await points(env, sid, today) };
     if (plan) {
       const { high } = await highItems(env, plan.family);
       const hist = await itemHistory(env, sid, plan.created_at);
@@ -257,11 +280,12 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
       const sk = await streak(env, m.id, today, pw);
       const q = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(ae.correct), 0) AS ok FROM prep_day d JOIN attempt_event ae ON ae.session_id = d.session_id
                                       WHERE d.student_id = ? AND d.done_at IS NOT NULL AND d.day >= ?`).bind(m.id, mon).first();
-      rows.push({ nickname: m.nickname, me: m.id === me, owner: m.id === team.owner_student, week_count: sk.week_count, per_week: pw,
+      const pt = await points(env, m.id, today);
+      rows.push({ nickname: m.nickname, me: m.id === me, owner: m.id === team.owner_student, week_count: sk.week_count, per_week: pw, week_points: pt.week,
         streak: sk.streak, unit: sk.unit, week_n: q?.n || 0, week_ok: q?.ok || 0, today: sk.week.find((d) => d.today)?.done || false });
     }
-    // 本周完成比例（次数 / 目标）→ 本周做题数 → 连续
-    rows.sort((a, b) => Math.min(1, b.week_count / b.per_week) - Math.min(1, a.week_count / a.per_week) || b.week_n - a.week_n || b.streak - a.streak);
+    // 本周积分 → 本周完成比例（次数 / 目标）→ 连续
+    rows.sort((a, b) => b.week_points - a.week_points || Math.min(1, b.week_count / b.per_week) - Math.min(1, a.week_count / a.per_week) || b.streak - a.streak);
     return { team: { id: team.id, name: team.name, code: team.code, owner: team.owner_student === me, size: ms.length, max: TEAM_MAX }, board: rows };
   }
 
@@ -335,13 +359,19 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     // 交卷时调用：这是打卡题就记打卡
     async onSubmit(env, sessionId, t) {
       const r = await env.DB.prepare('UPDATE prep_day SET done_at = ? WHERE session_id = ? AND done_at IS NULL').bind(t, sessionId).run();
-      if (r.meta?.changes) await bump(env, 'daily_done');
+      if (r.meta?.changes) {
+        await bump(env, 'daily_done');
+        const d = await env.DB.prepare('SELECT student_id, day FROM prep_day WHERE session_id = ?').bind(sessionId).first();
+        if (d) await award(env, d.student_id, 'checkin', d.day, PTS.checkin, sessionId, t);
+      }
     },
     // 会话和复盘里带上打卡信息
     async info(env, sessionId, studentId) {
       const d = await env.DB.prepare('SELECT day, done_at FROM prep_day WHERE session_id = ?').bind(sessionId).first();
       if (!d) return null;
-      return { day: d.day, done: !!d.done_at, ...(d.done_at ? await streak(env, studentId, bjDay(now()), await perWeekOf(env, studentId)) : {}) };
+      const got = await env.DB.prepare('SELECT COALESCE(SUM(pts), 0) AS n FROM points_log WHERE session_id = ?').bind(sessionId).first();
+      return { day: d.day, done: !!d.done_at, points_got: got?.n || 0,
+        ...(d.done_at ? { ...(await streak(env, studentId, bjDay(now()), await perWeekOf(env, studentId))), points: await points(env, studentId, bjDay(now())) } : {}) };
     },
   };
 }

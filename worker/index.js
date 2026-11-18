@@ -10,7 +10,7 @@ import { registerBilling, SAMPLES } from './billing.js';
 import { judge, normalizeInput } from './answers.js';
 import { registerEnglish, englishPrintItems } from './english.js';
 import { registerEvents, bump, evReport } from './events.js';
-import { registerPrep } from './prep.js';
+import { registerPrep, award, PTS } from './prep.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
@@ -356,7 +356,16 @@ route('POST', '/api/sessions/:id/check', async (req, env, p) => {
   // 数学练习：一并给互动解析的缩略图和锁（语文没有互动解析，查不到就是 null）
   const adv = await env.DB.prepare("SELECT tier, content FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
   const advanced = adv ? { locked: !(adv.tier === 'free' || (await billing.accessCtx(env, acc)).can(`adv:${pr.id}`)), ...advThumb(adv.content, pr.id) } : null;
-  return json({ correct: judge(key, answer), answer: pr.answer, basic: sol?.content ?? null, advanced });
+  // 积分（数学）：每题以第一次提交为准；第一次就答对、而且这道题以前没加过分才加
+  const correct = judge(key, answer);
+  let pts = 0;
+  const first = await env.DB.prepare('INSERT OR IGNORE INTO session_check (session_id, problem_id, correct, created_at) VALUES (?, ?, ?, ?)')
+    .bind(s.id, pr.id, correct ? 1 : 0, now()).run();
+  if (first.meta?.changes && correct && subjectOf(pr.id) === 'math') {
+    const h = await env.DB.prepare('SELECT 1 FROM session_hint WHERE session_id = ? AND problem_id = ? LIMIT 1').bind(s.id, pr.id).first();
+    pts = await award(env, s.student_id, 'solve', pr.id, h ? PTS.solve_hint : PTS.solve, s.id, now());
+  }
+  return json({ correct, answer: pr.answer, basic: sol?.content ?? null, advanced, points: pts });
 });
 
 // 飞花令（语文会员）：会员拿整个诗库；不是会员只给一个字（花）试用
@@ -579,6 +588,15 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
     ? env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ? WHERE id = ?').bind(t, score, s.id)
     : env.DB.prepare('UPDATE exam_session SET submitted_at = ?, score = ?, started_at = ? WHERE id = ?').bind(t, score, paperStart, s.id));
   await env.DB.batch(stmts);
+  // 积分（数学）：交卷时答对、以前没加过分的题；练习里提交过的题按第一次提交算（那时已经加过或不该加）
+  const { results: chk } = await env.DB.prepare('SELECT problem_id FROM session_check WHERE session_id = ?').bind(s.id).all();
+  const checked = new Set(chk.map((r) => r.problem_id));
+  for (const pr of problems) {
+    if (checked.has(pr.id) || subjectOf(pr.id) !== 'math' || pr.kind === 'self') continue;
+    const choice = normalizeInput(parseJ(pr.choices, {}), answers[pr.id]);
+    if (judge({ choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) }, choice))
+      await award(env, s.student_id, 'solve', pr.id, hintMap[pr.id] ? PTS.solve_hint : PTS.solve, s.id, t);
+  }
   await recomputeMastery(env.DB, s.student_id);
   await bump(env, 'submit'); if (firstSubmit) await bump(env, 'first_submit');
   if (s.exam_id === 'drill') await prep.onSubmit(env, s.id, t);

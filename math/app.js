@@ -673,6 +673,24 @@ function examGrid(f, allExams, fid, limit = 0) {
 // ───────── 打卡（参考多邻国）：火苗 + 连续天数 + 本周格子 ─────────
 const FLAME = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1c1.2 4.2-1.6 6.2-3.4 8.6C6.6 12.2 5 14.4 5 17.4 5 22 8.2 26 12 26s7-3.6 7-8.2c0-3.6-1.9-5.9-3.4-7.7-.4 1.7-1.2 2.9-2.4 3.5.5-4.2-.2-8.6-1.2-12.6z"/><path class="fl-in" d="M12 25c-2.2 0-3.8-1.8-3.8-4.2 0-2 1.2-3.3 2.3-4.6.3 1.1.9 1.9 1.7 2.2-.1-1.6.4-3.2 1.4-4.4 1.2 2 2.2 3.6 2.2 6.4 0 2.6-1.6 4.6-3.8 4.6z"/></svg>';
 const WEEK = '一二三四五六日';
+// 吉祥物「小铅笔」：happy 答对、think 答错再看看、cheer 欢呼
+function pencil(mood = 'happy') {
+  const body = `<rect x="70" y="${mood === 'cheer' ? 22 : 28}" width="60" height="22" rx="10" fill="#E07C9F"/><rect x="70" y="${mood === 'cheer' ? 40 : 46}" width="60" height="12" fill="#DCD7CA"/>
+    <rect x="70" y="${mood === 'cheer' ? 50 : 56}" width="60" height="96" fill="#FFE38A"/><path d="M70 ${mood === 'cheer' ? 146 : 152} L100 ${mood === 'cheer' ? 180 : 186} L130 ${mood === 'cheer' ? 146 : 152} Z" fill="#F3D9B1"/>
+    <path d="M92 ${mood === 'cheer' ? 171 : 177} L100 ${mood === 'cheer' ? 180 : 186} L108 ${mood === 'cheer' ? 171 : 177} Z" fill="#1E2B28"/>`;
+  const face = {
+    happy: '<circle cx="88" cy="96" r="5.5" fill="#1E2B28"/><circle cx="112" cy="96" r="5.5" fill="#1E2B28"/><circle cx="90" cy="94" r="2" fill="#fff"/><circle cx="114" cy="94" r="2" fill="#fff"/><path d="M90 112 Q100 122 110 112" stroke="#1E2B28" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="80" cy="108" rx="5" ry="3.5" fill="#F6B3C8"/><ellipse cx="120" cy="108" rx="5" ry="3.5" fill="#F6B3C8"/>',
+    think: '<path d="M82 96 h12" stroke="#1E2B28" stroke-width="4.5" stroke-linecap="round"/><circle cx="112" cy="96" r="5.5" fill="#1E2B28"/><path d="M92 116 h16" stroke="#1E2B28" stroke-width="4" stroke-linecap="round"/>',
+    cheer: '<path d="M82 90 Q88 82 94 90" stroke="#1E2B28" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M106 90 Q112 82 118 90" stroke="#1E2B28" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M88 102 Q100 122 112 102 Z" fill="#1E2B28"/>',
+  }[mood];
+  const arms = {
+    happy: '<path d="M70 110 Q52 100 54 84" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M130 110 Q148 116 152 102" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/>',
+    think: '<path d="M130 112 Q150 98 134 76" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M70 112 Q58 124 62 140" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><text x="146" y="60" font-size="30" font-weight="800" fill="#B04A6F">?</text>',
+    cheer: '<path d="M70 100 Q50 80 50 58" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M130 100 Q150 80 150 58" stroke="#1D5C4D" stroke-width="8" fill="none" stroke-linecap="round"/>',
+  }[mood];
+  return `<svg class="pencil ${mood}" viewBox="40 10 125 185" aria-hidden="true">${mood === 'think' ? `<g transform="rotate(-8 100 110)">${body}${face}</g>` : body + face}${arms}</svg>`;
+}
+const STAR = '<svg viewBox="0 0 24 24" class="star" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg>';
 const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i) => `<span class="${d.done ? 'done' : ''} ${d.today ? 'today' : ''}"><i>${WEEK[i]}</i><em>${d.done ? '✓' : ''}</em></span>`).join('')}</div>`;
 function streakCard(pr) {
   const pl = pr.plan, pd = pr.day, done = !!pd?.done, n = pd?.n || pl?.per_day || 2;
@@ -682,7 +700,8 @@ function streakCard(pr) {
     ? `本周 ${wc}/${pw} 次${done ? ' · 今天已打卡' : wc >= pw ? ' · 已达标' : ''}${pr.streak ? ` · 连续 ${pr.streak} 周达标` : ''}`
     : done ? '今天已打卡' : pr.streak ? `已连续 ${pr.streak} 天，今天还没打卡` : `今天 ${n} 题`;
   return `<section class="card streak-card ${done ? 'done' : ''}">
-    <div class="sc-top"><span class="sc-flame ${done ? 'on' : ''}">${FLAME}<b>${pr.streak}</b></span><div class="sc-txt"><b>${title}</b><span>${sub}</span></div></div>
+    <div class="sc-top"><span class="sc-flame ${done ? 'on' : ''}">${FLAME}<b>${pr.streak}</b></span><div class="sc-txt"><b>${title}</b><span>${sub}</span></div>
+      <span class="pts-chip" title="积分：本周 ${pr.points?.week || 0}">${STAR}${pr.points?.total || 0}</span></div>
     ${weekRow(pr.week)}
     <button class="btn ${done ? '' : 'primary'} block" data-prep>${done ? '看今天的解析' : `开始今天的 ${n} 题`}</button>
     <a class="prep-set" href="#/plan">${pl ? `备战计划 · 高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a>
@@ -694,7 +713,7 @@ function teamCard(t) {
   const b = t.board, i = b.findIndex((x) => x.me);
   const rows = b.slice(0, 3).concat(i >= 3 ? [b[i]] : []);
   return `<a class="card team-mini" href="#/team"><div class="tm-h"><b>${esc(t.team.name)}</b><span>本周第 ${i + 1} / ${b.length} ›</span></div>
-    ${rows.map((x) => `<div class="tm-row ${x.me ? 'me' : ''}"><i>${b.indexOf(x) + 1}</i><span>${esc(x.nickname)}${x.me ? '（我）' : ''}</span><em>${x.week_count}/${x.per_week} 次</em></div>`).join('')}</a>`;
+    ${rows.map((x) => `<div class="tm-row ${x.me ? 'me' : ''}"><i>${b.indexOf(x) + 1}</i><span>${esc(x.nickname)}${x.me ? '（我）' : ''}</span><em>${x.week_points} 分</em></div>`).join('')}</a>`;
 }
 // 打卡完成：暖色光芒转动、火苗长大跳动、火星往上飘、天数翻页 +1、今天的格子点亮带波纹、两侧礼花炮 + 中间彩纸、统计卡依次升起
 const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
@@ -716,7 +735,8 @@ function celebrate(r, sid) {
     ${weekRow(p.week)}
     <div class="cele-stats">
       <span style="--i:0"><svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="15.5"/><circle cx="18" cy="18" r="15.5" class="fg" style="--p:${pct}"/></svg><b>${r.session.score}/${r.total}</b><small>答对</small></span>
-      <span style="--i:1"><b class="big">${fmtTime(used)}</b><small>用时</small></span>
+      <span style="--i:1"><b class="big pts">+${p.points_got || 0}</b><small>积分</small></span>
+      <span style="--i:2"><b class="big">${fmtTime(used)}</b><small>用时</small></span>
     </div>
     ${regAsk ? `<a class="cele-reg" href="#/account" id="cele-reg"><b>注册保存打卡记录</b><span>换手机也不断签 · 送 10 次互动解析</span></a>` : ''}
     <div class="cele-acts"><a class="btn primary block" href="#/review/${enc(sid)}">看解析</a><a class="btn block" href="#/">回首页</a></div>
@@ -799,7 +819,7 @@ async function renderStart() {
   };
   function draw() {
     const steps = [
-      () => `<h1>你打算考什么？</h1><div class="ob-list">${fams.map((f) => opt(A.fam?.id === f.id, 'fam', f.id, esc(f.name), `${f.exams} 套真题`)).join('')}
+      () => `<div class="ob-pal">${pencil('happy')}</div><h1>你打算考什么？</h1><div class="ob-list">${fams.map((f) => opt(A.fam?.id === f.id, 'fam', f.id, esc(f.name), `${f.exams} 套真题`)).join('')}
         ${opt(A.fam === false, 'fam', '', '还没定', '每天先练两道真题')}</div>`,
       () => `<h1>什么时候考？</h1><div class="ob-list">${WHEN.map(([t, m]) => opt(A.when === m, 'when', m, t)).join('')}
         ${opt(A.when === 'pick', 'when', 'pick', '选日期')}
@@ -906,13 +926,13 @@ async function renderTeam(code) {
   const { team, board } = t;
   const link = `${location.origin}/math/#/team/${team.code}`;
   $app.innerHTML = `${topnav()}<main class="page narrow">
-    <header class="ph"><div><h1>${esc(team.name)}</h1><p class="muted">${team.size} 人 · 本周排行</p></div></header>
+    <header class="ph"><div><h1>${esc(team.name)}</h1><p class="muted">${team.size} 人 · 本周积分排行</p></div></header>
     <section class="card team-board">${board.map((x, i) => `<div class="tb-row ${x.me ? 'me' : ''}">
       <i class="tb-rank r${i + 1}">${i + 1}</i>
       <div class="tb-main"><b>${esc(x.nickname)}${x.me ? '（我）' : ''}</b>
         <div class="tb-bar"><i style="width:${Math.min(100, (x.week_count / x.per_week) * 100)}%"></i></div>
         <small>本周 ${x.week_count}/${x.per_week} 次 · 做了 ${x.week_n} 题${x.streak ? ` · 连续 ${x.streak} ${x.unit}` : ''}</small></div>
-      ${x.today ? '<span class="tb-today" title="今天已打卡">✓</span>' : ''}</div>`).join('')}</section>
+      <span class="tb-pts">${STAR}${x.week_points}</span></div>`).join('')}</section>
     <section class="card team-invite"><div><span class="muted small">邀请码</span><b>${esc(team.code)}</b></div><button class="btn primary" id="tcopy">复制邀请链接</button></section>
     <button class="btn block team-leave" id="tleave">退出队伍</button></main>`;
   $app.querySelector('#tcopy').onclick = async (e) => {
@@ -1246,7 +1266,8 @@ async function renderExam(sid) {
             </div>
             ${hints.length && !ck ? `<div class="hint-box">${hints.map((h, i) => `<div class="hint"><b>提示 ${i + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
             ${ck ? `<div class="ck-box ${ck.correct ? 'ok' : 'bad'}">
-              <div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `答错了，正确答案 <b>${esc(ck.answer)}</b>`}</div>
+              <div class="ck-top">${ck.self ? '' : pencil(ck.correct ? 'happy' : 'think')}<div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `再看看这一步，正确答案 <b>${esc(ck.answer)}</b>`}</div>
+                ${ck.points ? `<span class="ck-pts">+${ck.points}${STAR}</span>` : ''}</div>
               ${ck.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(ck.basic)}</div>` : ''}
               ${ck.advanced ? advCard(p.id, ck.advanced) : ''}</div>` : ''}
             ${ck && prepS && problems.every((x) => S.checked[x.id]) ? '<button class="btn primary block" id="prep-done">完成打卡</button>' : ''}

@@ -1591,3 +1591,19 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .cele-reg { width: 100%; display: grid; gap: 2px; padding: 12px 14px; border-radius: 16px; border: 2px dashed #F08A24; background: #FFF6EA; color: #7A3A06; text-decoration: none;
   opacity: 0; transform: translateY(18px); animation: rise .45s ease-out 1.5s forwards; }
 .cele-reg span { font-size: 13px; color: #A0560F; }
+
+/* 吉祥物和积分 */
+.pts-chip { margin-left: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; font-size: 14px; }
+.star { width: 15px; height: 15px; fill: #F5B82E; flex: none; }
+.ck-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.ck-top .pencil { width: 56px; height: 76px; flex: none; animation: pal-in .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+.ck-top .ck-head { margin: 0; flex: 1; }
+.ck-pts { display: inline-flex; align-items: center; gap: 3px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; animation: pts-pop .6s cubic-bezier(.3, 1.8, .5, 1) .15s both; }
+.ck-pts .star { width: 16px; height: 16px; }
+.tb-pts { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: #8A5A00; }
+.cele-stats b.pts { color: #C48A00; }
+.ob-pal { display: flex; justify-content: flex-start; margin: -6px 0 4px; }
+.ob-pal .pencil { width: 64px; height: 90px; animation: pal-in .6s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes pal-in { from { transform: translateY(14px) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pts-pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ck-top .pencil, .ck-pts, .ob-pal .pencil { animation: none; } }
