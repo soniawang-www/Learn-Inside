@@ -1585,3 +1585,9 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tf-row span { color: var(--muted); font-size: 14px; }
 .tf-row input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
 .tf-err { color: var(--bad); margin: 0; }
+
+.tf-login { text-align: center; font-size: 14px; color: var(--accent); text-decoration: none; }
+.team-form p { margin: 0; }
+.cele-reg { width: 100%; display: grid; gap: 2px; padding: 12px 14px; border-radius: 16px; border: 2px dashed #F08A24; background: #FFF6EA; color: #7A3A06; text-decoration: none;
+  opacity: 0; transform: translateY(18px); animation: rise .45s ease-out 1.5s forwards; }
+.cele-reg span { font-size: 13px; color: #A0560F; }

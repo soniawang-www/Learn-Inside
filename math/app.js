@@ -587,7 +587,7 @@ async function renderDashboard() {
     ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><i class="kg-sw lv-weak"></i><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span></a>`),
   ].filter(Boolean);
   const startFam = fams.find((x) => x.id === dashFam && x.exams) || fams.find((x) => x.exams);
-  if (!tasks.length && startFam) tasks.push(`<a class="task" href="#/contest/${enc(startFam.id)}"><i class="ico">›</i><span>做一套真题<small>${esc(startFam.name)}</small></span></a>`);
+  // 打卡卡片已经是「今天做什么」：这里只在有薄弱知识项要补时列出来
   // 没做完的模考：跟着账号走（换台设备也能看到）
   const op = (await api(`/math/api/students/${enc(st.id)}/open?subject=math`).catch(() => null))?.sessions?.[0];
   const [pr, tm] = await Promise.all([ // 每日打卡 / 备战计划；队伍排行
@@ -596,18 +596,10 @@ async function renderDashboard() {
   // 新来的人（游客，或注册了还没做过题）先走新手引导：考什么、什么时候考、每天几题
   if (pr && !pr.plan && !pr.total && !pr.day && !store.get('li.obSkip') && (guest || !(prof.sessions || []).length)) { location.replace('#/start'); return; }
   const live = op ? { sid: op.id, title: op.title } : null;
-  // 一步开始：没有做到一半的卷子时，直接给一套最新的、还没做过的真题（练习模式，不弹说明）
-  let quick = null;
-  if (!live && startFam) {
-    const ex = await apiList(`/math/api/exams?student=${st.id}&family=${enc(startFam.id)}`).catch(() => []);
-    const gr = contestGrade[startFam.id], pool = ex.filter((e) => !gr || !e.grade || e.grade === gr);
-    quick = pool.find((e) => e.last_score === null) || pool[0] || null;
-  }
   const pl = pr?.plan, pd = pr?.day;
   const prepCard = pr ? streakCard(pr) + teamCard(tm) : '';
   const strip = [
     live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
-    quick && `<a class="cont-go" href="javascript:" data-quick="${esc(quick.id)}"><b>开始做题</b><span>${esc(quick.title)} · ${quick.problem_count} 题 · 练习</span><i>›</i></a>`,
     pending + due ? `<a class="cont-go alt" href="#/mistakes"><b>${pending + due} 道错题</b><span>${pending ? `${pending} 道待订正` : ''}${pending && due ? '，' : ''}${due ? `${due} 道该复习` : ''}</span><i>›</i></a>` : '',
   ].filter(Boolean);
   const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
@@ -622,12 +614,11 @@ async function renderDashboard() {
         <small>${x.last ? `最近 ${x.last.score} 分` : ''}</small><i>›</i></a>`).join('')}</div>
     </section>
     <div class="dash-grid">
-      <section class="card todo">
-        <div class="card-h"><h2>今天做什么</h2></div>
-        ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>`
-          : '<p class="muted">暂无</p>'}
+      ${tasks.length || !guest ? `<section class="card todo">
+        <div class="card-h"><h2>${tasks.length ? '先补这几块' : '知识图谱'}</h2></div>
+        ${tasks.length ? `<div class="tasks">${tasks.join('')}</div>` : ''}
         ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">›</span></a>`}
-      </section>
+      </section>` : ''}
       <section class="card recent">
         <div class="card-h"><h2>最近成绩</h2>${sessions.length ? `<a href="#/contest/${enc(dashFam)}/records">全部 ›</a>` : ''}</div>
         ${sessions.length ? `<div class="scores">${sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
@@ -643,11 +634,7 @@ async function renderDashboard() {
     const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
     location.hash = pd?.done ? `#/review/${r.session_id}` : `#/exam/${r.session_id}`;
   });
-  $app.querySelector('[data-quick]')?.addEventListener('click', async (e) => {
-    ev('quick_start');
-    const r = await api('/math/api/sessions', { method: 'POST', body: { exam_id: e.currentTarget.dataset.quick, student_id: st.id, mode: 'practice' } });
-    location.hash = `#/exam/${r.session.id}`;
-  });
+
 }
 
 // ───────── 考试列表 ─────────
@@ -713,6 +700,7 @@ function teamCard(t) {
 const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
 function celebrate(r, sid) {
   const p = r.session.prep || {}, wk = (p.per_week || 7) < 7;
+  const regAsk = isGuest() && (p.total === 1 || p.streak === 3); // 游客：第一次打卡、连续第 3 次时请他注册（可以不理）
   const k = wk ? p.week_count || 1 : p.streak || 1; // 一周几次的：数字是本周第几次
   const used = Math.max(0, (r.session.submitted_at - r.session.started_at) / 1000);
   const pct = r.total ? Math.round((r.session.score / r.total) * 100) : 0;
@@ -730,10 +718,12 @@ function celebrate(r, sid) {
       <span style="--i:0"><svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="15.5"/><circle cx="18" cy="18" r="15.5" class="fg" style="--p:${pct}"/></svg><b>${r.session.score}/${r.total}</b><small>答对</small></span>
       <span style="--i:1"><b class="big">${fmtTime(used)}</b><small>用时</small></span>
     </div>
+    ${regAsk ? `<a class="cele-reg" href="#/account" id="cele-reg"><b>注册保存打卡记录</b><span>换手机也不断签 · 送 10 次互动解析</span></a>` : ''}
     <div class="cele-acts"><a class="btn primary block" href="#/review/${enc(sid)}">看解析</a><a class="btn block" href="#/">回首页</a></div>
     <canvas class="cele-fx" aria-hidden="true"></canvas>
   </main>`;
   const root = $app.querySelector('.cele');
+  root.querySelector('#cele-reg')?.addEventListener('click', () => { ev('reg_prompt'); store.set('li.back', `${location.pathname}#/`); });
   const td = root.querySelector('.sc-week .today');
   if (td) { td.classList.remove('done'); td.querySelector('em').textContent = ''; }
   setTimeout(() => {
@@ -852,6 +842,7 @@ async function renderTeam(code) {
   await ensureMe();
   const st = auth.student || lastMe?.students?.[0];
   const t = await api(`/math/api/students/${enc(st.id)}/team`);
+  const guest = isGuest();
   const myName = t.team ? '' : (t.nickname && t.nickname !== '同学' ? t.nickname : '');
   const err = (m) => { const e = $app.querySelector('.tf-err'); e.hidden = false; e.textContent = m; };
   const run = async (fn) => { try { await fn(); } catch (x) { err(x.message); } };
@@ -861,13 +852,35 @@ async function renderTeam(code) {
       ${info.error ? `<p>${esc(info.error)}</p><a class="btn block" href="#/team">返回</a>` : `
       <h1>加入「${esc(info.name)}」</h1><p class="muted">${info.size} 人在一起备赛</p>
       <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
-      <p class="tf-err" hidden></p><button class="btn primary block" id="tj">加入</button>`}</section></main>`;
+      ${guest ? `<label class="tf-row"><span>手机号</span><input id="tp" type="tel" inputmode="numeric" maxlength="11" autocomplete="tel"></label>
+      <label class="tf-row"><span>设个密码</span><input id="tw" type="password" minlength="6" autocomplete="new-password" placeholder="至少 6 位"></label>` : ''}
+      <p class="tf-err" hidden></p><button class="btn primary block" id="tj">${guest ? '注册并加入' : '加入'}</button>
+      ${guest ? '<a class="tf-login" href="#/join" id="tl">已有账号？登录后加入</a>' : ''}`}</section></main>`;
+    $app.querySelector('#tl')?.addEventListener('click', () => { store.set('li.back', location.pathname + location.hash); auth.clear(); lastMe = null; joinTab = 'login'; });
     $app.querySelector('#tj')?.addEventListener('click', () => run(async () => {
       const nn = $app.querySelector('#tn').value.trim();
       if (!nn) return err('写一个昵称');
+      if (guest) { // 游客：先注册（记录保留），再入队
+        const ph = $app.querySelector('#tp').value.replace(/\D/g, ''), pw = $app.querySelector('#tw').value;
+        if (!/^1\d{10}$/.test(ph)) return err('请输入正确的 11 位手机号');
+        if (pw.length < 6) return err('密码至少 6 位');
+        await api('/api/account/bind', { method: 'POST', body: { phone: ph, password: pw, nickname: nn } });
+        store.set('li.hadAccount', true); lastMe = null; await ensureMe();
+      }
       await api('/math/api/teams/join', { method: 'POST', body: { student_id: st.id, code, nickname: nn } });
+      auth.setStudent({ ...st, nickname: nn });
       location.hash = '#/';
     }));
+    return;
+  }
+  if (!t.team && guest) { // 游客：建队 / 用邀请码加入都要先注册
+    $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
+      <section class="card team-form"><h2>组队要先注册</h2><p class="muted">换手机也在队里，打卡记录都保留</p>
+        <a class="btn primary block" href="#/account" data-regp>免费注册</a></section>
+      <section class="card team-form"><h2>有邀请码？</h2>
+        <label class="tf-row"><span>邀请码</span><input id="tcode" maxlength="6" autocapitalize="characters" placeholder="6 位"></label>
+        <button class="btn block" id="tjc">下一步</button></section></main>`;
+    $app.querySelector('#tjc').onclick = () => { const c = $app.querySelector('#tcode').value.trim().toUpperCase(); if (c) location.hash = `#/team/${c}`; };
     return;
   }
   if (!t.team) {

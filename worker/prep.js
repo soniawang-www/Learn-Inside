@@ -276,6 +276,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const acc = await requireAccount(req, env);
     const { student_id, name, nickname } = await body(req);
     const st = await requireStudent(env, acc, student_id);
+    if (acc.guest) throw new HttpError(403, '组队要先注册（换手机也在队里）');
     if (await myTeam(env, st.id)) throw new HttpError(409, '已经在一个队里了，先退出再建新队');
     const nm = String(name || '').trim().slice(0, 16);
     if (!nm) throw new HttpError(400, '给队伍起个名字');
@@ -301,6 +302,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const acc = await requireAccount(req, env);
     const { student_id, code, nickname } = await body(req);
     const st = await requireStudent(env, acc, student_id);
+    if (acc.guest) throw new HttpError(403, '组队要先注册（换手机也在队里）');
     const t = await env.DB.prepare('SELECT id, code, name, owner_student FROM team WHERE code = ?').bind(String(code || '').trim().toUpperCase()).first();
     if (!t) throw new HttpError(404, '没有找到这个队，邀请码可能不对');
     const cur = await myTeam(env, st.id);
