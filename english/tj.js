@@ -108,8 +108,9 @@ export async function renderTJExam(sid) {
   const d = await X.api(`/api/sessions/${X.enc(sid)}`);
   if (d.session.submitted) { location.replace(`#/tj/review/${sid}`); return; }
   const part = partOf(d.exam.id);
-  const G = d.exam.sections?.[0]?.groups || [];
   const P = d.problems; const byNum = new Map(P.map((p) => [p.number, p]));
+  const G = (d.exam.sections?.[0]?.groups || []).filter((g) => byNum.has(g.from)); // 打卡只做其中一两篇
+  const prep = !!d.session.prep;
   const key = `tj.s.${sid}`;
   const D = draftSync({ api: X.api, store: X.store, key, sid, server: d.session.draft, init: { g: 0, answers: {}, pos: {} } });
   const { S, save } = D;
@@ -123,6 +124,7 @@ export async function renderTJExam(sid) {
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers: S.answers, times: {} } });
       D.stop(true); X.store.del(key);
+      if (prep) { location.replace(`/math/#/done/${X.enc(sid)}`); return; } // 打卡：去放完成动画
       if (auto) X.modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/tj/review/${sid}`);
     } catch (e) { submitting = false; X.modal(`<h2>交卷没成功</h2><p>${X.esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
@@ -152,13 +154,13 @@ export async function renderTJExam(sid) {
     } else mat = `<article class="tj-text">${g.title ? `<h3>${X.esc(g.title)}</h3>` : ''}${part === 'f' ? formText(g) : paras(g.text)}</article>`;
     const qsHtml = qs.map((p) => qBlock(p, part === 'l' || part === 'r' ? p.stem : '')).join('');
     X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="#/tj">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
-        <span class="tj-clock" id="clock">${mmss(left())}</span><span class="tj-done">${done}/${P.length}</span><button class="btn sm" id="fin">交卷</button></div>
+        ${prep ? '' : `<span class="tj-clock" id="clock">${mmss(left())}</span>`}<span class="tj-done">${done}/${P.length}</span><button class="btn sm" id="fin">${prep ? '完成打卡' : '交卷'}</button></div>
       <main class="page wide tj-main ${part === 'l' ? 'tj-l' : 'tj-2col'}">
         <div class="tj-mat">${mat}</div><div class="tj-qs">${qsHtml}</div>
       </main>
       <div class="tj-nav"><button class="btn" id="prev" ${S.g ? '' : 'disabled'}>上一${part === 'l' ? '段' : '篇'}</button>
         <span class="tj-gc">${S.g + 1} / ${G.length}</span><div class="tj-dots">${G.map((x, i) => { let all = true; for (let n = x.from; n <= x.to; n++) if (!S.answers[byNum.get(n).id]) all = false; return `<button class="${i === S.g ? 'cur' : ''} ${all ? 'ok' : ''}" data-g="${i}" aria-label="第 ${i + 1} 组">${i + 1}</button>`; }).join('')}</div>
-        <button class="btn primary" id="next">${last ? '交卷' : `下一${part === 'l' ? '段' : '篇'}`}</button></div>`;
+        <button class="btn primary" id="next">${last ? (prep ? '完成打卡' : '交卷') : `下一${part === 'l' ? '段' : '篇'}`}</button></div>`;
     document.body.className = 'tj-mode';
     window.scrollTo(0, 0);
     X.$app.querySelectorAll('.tj-opt').forEach((b) => (b.onclick = () => {
@@ -178,7 +180,7 @@ export async function renderTJExam(sid) {
     let tick = 0;
     audio = bindPlayers(X.$app, AUDIO, { pos: S.pos, onPos: (f, t) => { S.pos[f] = t; if (Date.now() - tick > 2000) { tick = Date.now(); save(); } }, onError: () => X.modal('<p>录音没能播放，请检查网络后再点一次。</p><div class="actions"><button class="btn" data-close>好</button></div>') });
   }
-  timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
+  if (!prep) timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
   draw();
 }
 
@@ -192,8 +194,8 @@ const formType = (t = '') => /名词短语/.test(t) ? '名词短语与词序'
 export async function renderTJReview(sid) {
   const r = await X.api(`/api/sessions/${X.enc(sid)}/review`);
   const part = partOf(r.exam.id);
-  const G = r.exam.sections?.[0]?.groups || [];
   const items = new Map(r.items.map((it) => [it.number, it]));
+  const G = (r.exam.sections?.[0]?.groups || []).filter((g) => items.has(g.from));
   const right = r.items.filter((it) => it.correct).length;
   const types = {};
   for (const it of r.items) { const t = part === 'f' ? formType(it.extra?.type) : it.extra?.type || '其他'; (types[t] ||= [0, 0])[1]++; if (it.correct) types[t][0]++; }

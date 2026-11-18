@@ -675,3 +675,13 @@ body.tj-mode { padding-bottom: 72px; }
 .tj-text .kt-inmail .kt-mail-h { margin: 0; border-radius: 0; }
 .kt-inmail .kt-mail-b { font-size: 15px; }
 .cont-go + .fam-cards { margin-top: 14px; }
+
+/* 比赛入口：手机上两列小卡片 */
+@media (max-width: 860px) {
+  .fam-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fam-card { padding: 12px 14px; border-radius: 14px; gap: 1px; }
+  .fam-card b { font-size: 17px; }
+  .fam-card span { font-size: 13px; line-height: 1.4; }
+  .fam-card i { display: none; }
+}
+.fam-card small:empty { display: none; }

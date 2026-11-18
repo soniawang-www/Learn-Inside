@@ -105,9 +105,10 @@ export async function renderKETExam(sid) {
   const d = await X.api(`/api/sessions/${X.enc(sid)}`);
   const F = famOf(d.exam.id);
   if (d.session.submitted) { location.replace(`#/${F.id}/review/${sid}`); return; }
-  const G = d.exam.sections?.[0]?.groups || [];
   const P = d.problems;
+  const G = (d.exam.sections?.[0]?.groups || []).filter((g) => P.some((p) => p.extra?.group === g.id)); // 打卡只做其中一两个 Part
   const inG = (g) => P.filter((p) => p.extra?.group === g.id);
+  const prep = !!d.session.prep;
   const key = `ket.s.${sid}`;
   const D = draftSync({ api: X.api, store: X.store, key, sid, server: d.session.draft, init: { g: 0, answers: {}, pos: {}, pick: {} } });
   const { S, save } = D;
@@ -125,6 +126,7 @@ export async function renderKETExam(sid) {
     try {
       await X.api(`/api/sessions/${X.enc(sid)}/submit`, { method: 'POST', body: { answers, times: {} } });
       D.stop(true); X.store.del(key);
+      if (prep) { location.replace(`/math/#/done/${X.enc(sid)}`); return; } // 打卡：去放完成动画
       if (auto) X.modal('<h2>时间到，已自动交卷</h2><div class="actions"><button class="btn primary" data-close>看成绩</button></div>');
       location.replace(`#/${F.id}/review/${sid}`);
     } catch (e) { submitting = false; X.modal(`<h2>交卷没成功</h2><p>${X.esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
@@ -195,14 +197,14 @@ export async function renderKETExam(sid) {
     const wide = ['notices', 'people', 'article', 'cloze', 'match8', 'gapped'].includes(g.kind);
     const writing = ['email', 'story', 'choose'].includes(g.kind);
     X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="#/${F.id}">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
-        <span class="tj-clock" id="clock">${mmss(left())}</span><span class="tj-done"></span><button class="btn sm" id="fin">交卷</button></div>
+        ${prep ? '' : `<span class="tj-clock" id="clock">${mmss(left())}</span>`}<span class="tj-done"></span><button class="btn sm" id="fin">${prep ? '完成打卡' : '交卷'}</button></div>
       <main class="page ${wide ? 'wide' : ''} tj-main kt-main">
         <div class="kt-head"><b>${X.esc(g.name)}</b><span>${range(g)}</span></div>${writing && g.kind !== 'choose' ? '' : `<p class="kt-rub">${X.esc(g.rubric || rub(F, g))}</p>`}
         ${body(g)}
       </main>
       <div class="tj-nav"><button class="btn" id="prev" ${S.g ? '' : 'disabled'}>上一部分</button>
         <span class="tj-gc">${S.g + 1} / ${G.length}</span><div class="tj-dots">${G.map((x, i) => `<button class="${i === S.g ? 'cur' : ''} ${inG(x).filter((p) => counted().includes(p)).every(has) ? 'ok' : ''}" data-g="${i}" aria-label="${X.esc(x.name)}">${x.id.slice(1)}</button>`).join('')}</div>
-        <button class="btn primary" id="next">${last ? '交卷' : '下一部分'}</button></div>`;
+        <button class="btn primary" id="next">${last ? (prep ? '完成打卡' : '交卷') : '下一部分'}</button></div>`;
     document.body.className = 'tj-mode';
     window.scrollTo(0, 0);
     const count = () => { const c = counted(); X.$app.querySelector('.tj-done').textContent = `${c.filter(has).length}/${c.length}`; };
@@ -229,7 +231,7 @@ export async function renderKETExam(sid) {
     let tick = 0;
     audio = bindPlayers(X.$app, audioOf(F), { pos: S.pos, onPos: (f, t) => { S.pos[f] = t; if (Date.now() - tick > 2000) { tick = Date.now(); save(); } }, onError: () => say('录音没能播放，请检查网络后再点一次。') });
   }
-  timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
+  if (!prep) timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
   draw();
 }
 
@@ -238,8 +240,8 @@ export async function renderKETExam(sid) {
 export async function renderKETReview(sid) {
   const r = await X.api(`/api/sessions/${X.enc(sid)}/review`);
   const F = famOf(r.exam.id); const part = partOf(r.exam.id);
-  const G = r.exam.sections?.[0]?.groups || [];
   const items = r.items;
+  const G = (r.exam.sections?.[0]?.groups || []).filter((g) => items.some((it) => it.extra?.group === g.id));
   const inG = (g) => items.filter((it) => it.extra?.group === g.id);
   let audio = null; X.setCleanup(() => audio?.());
   const auto = items.filter((it) => it.kind !== 'self');

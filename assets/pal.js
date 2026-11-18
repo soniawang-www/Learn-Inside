@@ -22,9 +22,11 @@ export const STAR = '<svg viewBox="0 0 24 24" class="star" aria-hidden="true"><p
 export const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i) => `<span class="${d.done ? 'done' : ''} ${d.today ? 'today' : ''}"><i>${WEEK[i]}</i><em>${d.done ? '✓' : ''}</em></span>`).join('')}</div>`;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SUBJ_PATH = { math: '/math/', chinese: '/chinese/' };
-export const examUrl = (subject, sid, done) => `${SUBJ_PATH[subject] || '/math/'}#/${done ? 'review' : 'exam'}/${encodeURIComponent(sid)}`;
+const SUBJ_PATH = { math: '/math/', chinese: '/chinese/', english: '/english/' };
+// 英语的答题页按考试分：KET #/ket/…，PET #/pet/…，小托福 #/tj/…
+export const examUrl = (subject, sid, done, family) => `${SUBJ_PATH[subject] || '/math/'}#/${subject === 'english' ? `${family === 'toefljr' ? 'tj' : family || 'ket'}/` : ''}${done ? 'review' : 'exam'}/${encodeURIComponent(sid)}`;
 export const START_URL = '/math/#/start';
+export const SUBJ_NAME = { math: '数学', chinese: '语文', english: '英语' };
 export const PLAN_URL = '/math/#/plan';
 export const TEAM_URL = '/math/#/team';
 
@@ -39,15 +41,17 @@ export function todayCard(pr, { team = null, only = null } = {}) {
       <a class="tc-start" href="${START_URL}">开始</a></section>`;
   }
   const its = only ? all.filter((x) => x.subject === only) : all;
+  const addOnly = only && !its.length ? `<a class="tc-add" href="${START_URL}/${only}">＋ 加入${SUBJ_NAME[only]}打卡</a>` : '';
   const doneAny = all.some((x) => x.today?.done);
   const pw = pr.per_week || 7, wk = pw < 7;
   const title = wk ? `本周 ${pr.week_count || 0}/${pw} 次` : doneAny ? `连续打卡 ${pr.streak} 天` : pr.streak ? `已连续 ${pr.streak} 天` : '今天还没打卡';
   const sub = doneAny ? (all.every((x) => x.today?.done) ? '今天全部完成' : '今天已打卡') : wk ? (pr.streak ? `连续 ${pr.streak} 周达标` : '') : pr.streak ? '今天还没打卡' : '';
   const row = (x) => {
-    const done = !!x.today?.done, n = x.today?.n || x.per_day;
+    const done = !!x.today?.done;
+    const size = x.today ? `${x.today.n} 题` : `${x.per_day} ${x.unit || '题'}`;
     const when = x.plan ? (x.days_left > 0 ? `还有 ${x.days_left} 天` : '考试加油') : '每日练习';
     return `<button class="tc-item ${done ? 'done' : ''}" data-tc-fam="${esc(x.family)}" data-tc-sub="${esc(x.subject)}" ${x.today ? `data-tc-sid="${esc(x.today.session_id)}"` : ''}>
-      <i class="tc-tag s-${esc(x.subject)}">${esc(x.subject_name)}</i><span><b>${esc(x.name)}</b><small>${when} · ${n} 题</small></span>
+      <i class="tc-tag s-${esc(x.subject)}">${esc(x.subject_name)}</i><span><b>${esc(x.name)}</b><small>${when} · ${size}</small></span>
       <em>${done ? '✓' : x.today ? '继续' : '开始'}</em></button>`;
   };
   let tm = '';
@@ -57,8 +61,8 @@ export function todayCard(pr, { team = null, only = null } = {}) {
     <div class="tc-top"><span class="sc-flame ${doneAny ? 'on' : ''}">${FLAME}<b>${wk ? pr.week_count || 0 : pr.streak}</b></span><div class="tc-txt"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</div>
       <span class="pts-chip">${STAR}${pr.points?.total || 0}</span></div>
     ${weekRow(pr.week)}
-    ${its.length ? `<div class="tc-items">${its.map(row).join('')}</div>` : ''}
-    <div class="tc-foot"><a href="${PLAN_URL}">＋ 备考项</a>${tm}</div>
+    ${its.length ? `<div class="tc-items">${its.map(row).join('')}</div>` : addOnly}
+    <div class="tc-foot"><a href="${START_URL}">＋ 备考项</a><span><a href="${PLAN_URL}">计划</a>${tm}</span></div>
   </section>`;
 }
 
@@ -66,13 +70,13 @@ export function todayCard(pr, { team = null, only = null } = {}) {
 export function bindToday(root, { sid, token }) {
   root.querySelectorAll('[data-tc-fam]').forEach((b) => (b.onclick = async () => {
     const sub = b.dataset.tcSub, done = b.classList.contains('done');
-    if (b.dataset.tcSid) { location.href = examUrl(sub, b.dataset.tcSid, done); return; }
+    if (b.dataset.tcSid) { location.href = examUrl(sub, b.dataset.tcSid, done, b.dataset.tcFam); return; }
     b.disabled = true;
     try {
       const r = await fetch(`/api/students/${encodeURIComponent(sid)}/prep/today?family=${encodeURIComponent(b.dataset.tcFam)}`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || '没开始成');
-      location.href = examUrl(j.subject || sub, j.session_id, false);
+      location.href = examUrl(j.subject || sub, j.session_id, false, b.dataset.tcFam);
     } catch (e) { b.disabled = false; alert(e.message); }
   }));
 }

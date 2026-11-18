@@ -243,6 +243,11 @@ async function drillProblemIds(env, kpId) {
 
 /** 会话里的题（整卷按题号；突击按加入顺序），cols 是要取的 p.* 列 */
 async function sessionProblems(env, s, cols) {
+  if (s.part) { // 英语打卡：一套卷子里的一两个 Part（part = 逗号分隔的大题 id）
+    const { results } = await env.DB.prepare(`SELECT ${cols}, e.title AS exam_title FROM problem p JOIN exam e ON e.id = p.exam_id
+        WHERE p.exam_id = ? AND instr(',' || ? || ',', ',' || json_extract(p.extra, '$.group') || ',') > 0 ORDER BY p.number`).bind(s.exam_id, s.part).all();
+    return results;
+  }
   const sql = s.exam_id === 'drill'
     ? `SELECT ${cols}, e.title AS exam_title FROM session_problem sp JOIN problem p ON p.id = sp.problem_id JOIN exam e ON e.id = p.exam_id
         WHERE sp.session_id = ? ORDER BY sp.ord`
@@ -265,7 +270,7 @@ async function loadSession(env, account, sessionId) {
 async function examInfo(env, s) {
   const e = await env.DB.prepare('SELECT id, title, duration_sec, sections, origin FROM exam WHERE id = ?').bind(s.exam_id).first();
   const exam = { id: e.id, title: e.title, duration_sec: e.duration_sec, sections: parseJ(e.sections, null), origin: e.origin ?? null, subject: s.subject || 'math' };
-  if (s.exam_id === 'drill') { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
+  if (s.exam_id === 'drill' || s.part) { exam.title = s.title; exam.duration_sec = Math.round((s.deadline_at - s.started_at) / 1000); }
   return exam;
 }
 async function sessionPayload(env, sessionId) {
@@ -278,7 +283,7 @@ async function sessionPayload(env, sessionId) {
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill,
-      draft: s.submitted_at ? null : parseJ(s.draft, null), prep: drill ? await prep.info(env, s.id, s.student_id) : null },
+      draft: s.submitted_at ? null : parseJ(s.draft, null), prep: drill || s.part ? await prep.info(env, s.id, s.student_id) : null, part: s.part || null },
     exam,
     problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), choices_zh: p.choices_zh ? JSON.parse(p.choices_zh) : null, hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
     hints_seen: seen,
@@ -594,16 +599,16 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   const ptsStmts = [];
   for (const pr of problems) {
     const sub = subjectOf(pr.id);
-    if (checked.has(pr.id) || !['math', 'chinese'].includes(sub) || pr.kind === 'self') continue;
+    if (checked.has(pr.id) || !['math', 'chinese', 'english'].includes(sub) || pr.kind === 'self') continue;
     const choice = normalizeInput(parseJ(pr.choices, {}), answers[pr.id]);
     if (!judge({ choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) }, choice)) continue;
-    const v = sub === 'chinese' ? PTS.solve_chinese : hintMap[pr.id] ? PTS.solve_hint : PTS.solve;
+    const v = sub !== 'math' ? PTS.solve_chinese : hintMap[pr.id] ? PTS.solve_hint : PTS.solve;
     ptsStmts.push(env.DB.prepare('INSERT OR IGNORE INTO points_log (student_id, kind, ref, pts, session_id, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(s.student_id, 'solve', pr.id, v, s.id, t));
   }
   if (ptsStmts.length) await env.DB.batch(ptsStmts);
   await recomputeMastery(env.DB, s.student_id);
   await bump(env, 'submit'); if (firstSubmit) await bump(env, 'first_submit');
-  if (s.exam_id === 'drill') await prep.onSubmit(env, s.id, t);
+  if (s.exam_id === 'drill' || s.part) await prep.onSubmit(env, s.id, t);
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
 });
 
@@ -708,7 +713,7 @@ async function reviewPayload(env, acc, sessionId) {
   const kpByProblem = await kpTags(env, acc, rows.map((r) => r.id));
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, submitted_at: s.submitted_at, score: s.score, student_id: s.student_id,
-      prep: drill ? await prep.info(env, s.id, s.student_id) : null },
+      prep: drill || s.part ? await prep.info(env, s.id, s.student_id) : null, part: s.part || null },
     exam,
     total: rows.length,
     items: rows.map((r, i) => ({

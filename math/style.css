@@ -1639,3 +1639,21 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .pf-item .ob-date-row { border: 0; padding: 0; background: none; }
 .pf-item .odr-h b { display: none; }
 .pf-per { margin: -6px 0 0; text-align: right; }
+
+/* 比赛入口：手机上两列小卡片，只写名字和套数 */
+@media (max-width: 860px) {
+  .fam-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fam-card { padding: 12px 14px; border-radius: 14px; gap: 1px; }
+  .fam-card b { font-size: 17px; }
+  .fam-card span { font-size: 13px; line-height: 1.4; }
+  .fam-card i { display: none; }
+}
+.fam-card small:empty { display: none; }
+.ob-subjs { display: grid; gap: 12px; }
+.ob-subj { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: center; text-align: left; padding: 16px; border: 2px solid var(--border); border-bottom-width: 4px; border-radius: 18px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.ob-subj i { grid-row: span 2; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-style: normal; font-size: 24px; font-weight: 800; color: #fff; background: #1D5C4D; }
+.ob-subj.s-chinese i { background: #B04A6F; }
+.ob-subj.s-english i { background: #2F6690; }
+.ob-subj b { font-size: 19px; }
+.ob-subj span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.ob-subj.on { border-color: var(--accent); background: var(--accent-soft); }

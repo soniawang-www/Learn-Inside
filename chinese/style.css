@@ -456,3 +456,13 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .ex-fb .ck-pts { float: right; display: inline-flex; align-items: center; gap: 3px; padding: 2px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; animation: pts-pop .6s cubic-bezier(.3, 1.8, .5, 1) both; }
 .ex-fb .ck-pts .star { width: 15px; height: 15px; }
 @keyframes pts-pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
+
+/* 比赛入口：手机上两列小卡片，只写名字和套数 */
+@media (max-width: 860px) {
+  .fam-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fam-card { padding: 12px 14px; border-radius: 14px; gap: 1px; }
+  .fam-card b { font-size: 17px; }
+  .fam-card span { font-size: 13px; line-height: 1.4; }
+  .fam-card i { display: none; }
+}
+.fam-card small:empty { display: none; }

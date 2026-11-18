@@ -35,6 +35,7 @@ export const PREP_MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS checkin (student_id TEXT NOT NULL REFERENCES student(id), day TEXT NOT NULL, family TEXT NOT NULL, subject TEXT NOT NULL,
      session_id TEXT NOT NULL, kind TEXT NOT NULL, done_at INTEGER, PRIMARY KEY (student_id, day, family))`,
   'CREATE INDEX IF NOT EXISTS idx_checkin_session ON checkin(session_id)',
+  'ALTER TABLE exam_session ADD COLUMN part TEXT', // 英语打卡：只做这套卷子里的这几个 Part
   // 只有数学时建的两张表：搬过来后清空（顺序执行，搬完才清）
   `INSERT OR IGNORE INTO prep_item (student_id, family, subject, exam_date, per_day, per_week, created_at, updated_at)
      SELECT student_id, family, 'math', exam_date, per_day, per_week, created_at, updated_at FROM prep_plan`,
@@ -52,16 +53,27 @@ export async function award(env, sid, kind, ref, pts, sessionId, t) {
 const TEAM_MAX = 30;
 
 // 能打卡的考试：grades = 适合哪些年级（1–9，7–9 是初中）；next = 下一次考试日期（官方公布了才写，没写的让家长自己选）
+// byGrade = 按年级分卷（出题时挑和孩子年级最接近的卷子）；mock = 原创仿真题（英语）
 const PREP_FAMILIES = {
   amc8: { name: 'AMC 8', prefix: 'amc8-', subject: 'math', grades: [3, 4, 5, 6, 7, 8], next: [['2027-01-21', '2027 年 1 月 21–27 日']] },
+  amc10: { name: 'AMC 10', prefix: 'amc10-', subject: 'math', grades: [7, 8, 9] },
+  amc12: { name: 'AMC 12', prefix: 'amc12-', subject: 'math', grades: [8, 9] },
+  kangaroo: { name: '袋鼠数学', prefix: 'kangaroo-', subject: 'math', grades: [1, 2, 3, 4, 5, 6, 7, 8, 9], byGrade: true },
+  hope: { name: '希望数学', prefix: 'hope-', subject: 'math', grades: [1, 2, 3, 4, 5, 6, 7, 8, 9], byGrade: true },
+  swb100: { name: '思维 100', prefix: 'swb100-', subject: 'math', grades: [1, 2, 3, 4, 5, 6, 7, 8, 9], byGrade: true },
   hanzi: { name: '汉字小达人', prefix: 'hanzi-', subject: 'chinese', grades: [1, 2, 3, 4, 5] },
   gushiwen: { name: '古诗文大会', prefix: 'gsw-', subject: 'chinese', grades: [3, 4, 5, 6, 7, 8, 9], byGrade: true },
+  ket: { name: 'KET', prefix: 'ket-', subject: 'english', grades: [3, 4, 5, 6, 7, 8, 9], mock: true },
+  pet: { name: 'PET', prefix: 'pet-', subject: 'english', grades: [4, 5, 6, 7, 8, 9], mock: true },
+  toefljr: { name: '小托福', prefix: 'toefljr-', subject: 'english', grades: [4, 5, 6, 7, 8, 9], mock: true },
 };
-// 每科：轻松 / 认真 / 冲刺 各几题；没计划时每天几题、默认练哪个考试
+// 每科：轻松 / 认真 / 冲刺 各几题（英语是几个 Part）；没计划时每天几题、默认练哪个考试
 export const PREP_SUBJECTS = {
-  math: { per: [2, 5, 10], daily: 2, name: '数学', fam: 'amc8', path: '/math/' },
-  chinese: { per: [10, 20, 30], daily: 10, name: '语文', fam: 'hanzi', path: '/chinese/' },
+  math: { per: [2, 5, 10], daily: 2, name: '数学', fam: 'amc8', unit: '题' },
+  chinese: { per: [10, 20, 30], daily: 10, name: '语文', fam: 'hanzi', unit: '题' },
+  english: { per: [1, 2, 3], daily: 1, name: '英语', fam: 'ket', unit: '个 Part' },
 };
+const SELF_KINDS = new Set(['email', 'story', 'choose']); // 英语写作：要自评，不进打卡
 const LEVELS = ['easy', 'normal', 'hard'];
 const DAY = 86400000;
 const UNTIMED_DAYS = 30;
@@ -69,6 +81,7 @@ const HIGH_RATE = 50; // 高频知识项：一半以上的届数都考过
 // 古诗文按学段出题：小学按年级，初中分预初·初一（6）、初二·初三（8）
 const gswGrade = (g) => (g >= 8 ? 8 : g >= 6 ? 6 : g);
 
+const parseJ = (s, d = null) => { try { return s == null ? d : JSON.parse(s); } catch { return d; } };
 const bjDay = (t) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间的日期
 const dayNum = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY);
 // 稳定的伪随机：同一个种子永远给同一个数
@@ -144,6 +157,54 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     return [...picked, ...ms];
   }
 
+  const seenSet = async (env, sid) => new Set((await env.DB
+    .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? UNION
+              SELECT sp.problem_id FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
+    .bind(sid, sid).all()).results.map((r) => r.problem_id));
+
+  // 其他数学比赛（AMC 10/12、袋鼠、希望、思维 100）：按年级挑卷子，出没做过的题，题号从前往后（先易后难）混着来
+  async function genericProblems(env, sid, plan, family, today) {
+    const f = PREP_FAMILIES[family];
+    const n = plan?.per_day || PREP_SUBJECTS[f.subject].daily;
+    const { results } = await env.DB.prepare(`SELECT p.id, p.number, e.grade FROM problem p JOIN exam e ON e.id = p.exam_id
+        WHERE e.published = 1 AND e.source = 'official' AND p.id LIKE ? AND COALESCE(p.kind, '') != 'self' ORDER BY p.id`).bind(f.prefix + '%').all();
+    let pool = results;
+    if (f.byGrade && plan?.grade) {
+      const gs = [...new Set(results.map((r) => r.grade).filter((x) => x != null))].sort((a, b) => a - b);
+      const g = gs.filter((x) => x <= plan.grade).pop() ?? gs[0];
+      if (g != null) pool = results.filter((r) => r.grade === g || r.grade == null);
+    }
+    const seen = await seenSet(env, sid);
+    const fresh = pool.filter((r) => !seen.has(r.id));
+    const src = fresh.length >= n ? fresh : pool;
+    return src.map((r) => [r.number + hash(sid + today + r.id) * 12, r.id]).sort((a, b) => a[0] - b[0]).slice(0, n).map((x) => x[1]);
+  }
+
+  // 英语：按套、按 Part 往下做（写作要自评，跳过）；一次 1–3 个 Part，都在同一份卷子里
+  async function englishPart(env, sid, plan, family) {
+    const f = PREP_FAMILIES[family];
+    const want = plan?.per_day || 1;
+    const { results: exams } = await env.DB.prepare('SELECT id, sections FROM exam WHERE published = 1 AND id LIKE ?').bind(f.prefix + '%').all();
+    const num = (id) => Number((id.match(/-(\d+)-/) || [])[1] || 0);
+    const paper = (id) => ({ rw: 0, r: 0, f: 1, l: 2 }[id.split('-').pop()] ?? 3);
+    exams.sort((a, b) => num(a.id) - num(b.id) || paper(a.id) - paper(b.id));
+    const { results: doneRows } = await env.DB.prepare(`SELECT DISTINCT p.exam_id || '|' || json_extract(p.extra, '$.group') AS k FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id
+        WHERE ae.student_id = ? AND p.id LIKE ?`).bind(sid, f.prefix + '%').all();
+    const { results: asg } = await env.DB.prepare(`SELECT s.exam_id, s.part FROM checkin c JOIN exam_session s ON s.id = c.session_id WHERE c.student_id = ? AND s.part IS NOT NULL`).bind(sid).all();
+    const done = new Set(doneRows.map((r) => r.k));
+    for (const a of asg) for (const g of String(a.part).split(',')) done.add(`${a.exam_id}|${g}`);
+    for (const pass of [0, 1]) { // 全做过了就从头再来
+      for (const e of exams) {
+        if (e.id.endsWith('-w')) continue;
+        const all = parseJ(e.sections)?.[0]?.groups || [];
+        const gs = all.filter((g) => !SELF_KINDS.has(g.kind) && (pass || !done.has(`${e.id}|${g.id}`))).slice(0, want);
+        // 名字：KET / PET 用 Part 几；小托福的组没有名字，按第几篇
+        if (gs.length) return { exam_id: e.id, part: gs.map((g) => g.id).join(','), label: gs.map((g) => (g.name ? g.name.replace(/^(Reading|Listening) /, '') : `第 ${all.indexOf(g) + 1} 篇`)).join('、') };
+      }
+    }
+    return null;
+  }
+
   // 没计划：今日两题（所有人同一套）
   async function dailyTwo(env, today) {
     const { results } = await env.DB
@@ -211,13 +272,17 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   }
 
   // 每个考试：有几套真题、适合哪些年级、下一次考试（今天以后最近的一次）
+  // 英语按「套」数（一套拆成两三份卷子）
   async function families(env, today) {
     const out = [];
     for (const [id, f] of Object.entries(PREP_FAMILIES)) {
-      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM exam WHERE published = 1 AND source = 'official' AND id LIKE ?").bind(f.prefix + '%').first();
+      const r = f.mock
+        ? await env.DB.prepare("SELECT COUNT(*) AS n FROM exam WHERE published = 1 AND id LIKE ? AND id LIKE '%-l'").bind(f.prefix + '%').first()
+        : await env.DB.prepare("SELECT COUNT(*) AS n FROM exam WHERE published = 1 AND source = 'official' AND id LIKE ?").bind(f.prefix + '%').first();
+      if (!r?.n) continue; // 还没录题的不列
       const nx = (f.next || []).find(([d]) => d > today);
-      out.push({ id, name: f.name, subject: f.subject, subject_name: PREP_SUBJECTS[f.subject].name, exams: r?.n || 0, grades: f.grades,
-        next: nx ? { date: nx[0], label: nx[1] } : null, per: PREP_SUBJECTS[f.subject].per });
+      out.push({ id, name: f.name, subject: f.subject, subject_name: PREP_SUBJECTS[f.subject].name, exams: r.n, sets: f.mock ? `${r.n} 套仿真题` : `${r.n} 套真题`, grades: f.grades,
+        next: nx ? { date: nx[0], label: nx[1] } : null, per: PREP_SUBJECTS[f.subject].per, unit: PREP_SUBJECTS[f.subject].unit });
     }
     return out;
   }
@@ -226,7 +291,9 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   async function status(env, sid) {
     const t = now(), today = bjDay(t);
     const plans = await items(env, sid);
-    const { results: days } = await env.DB.prepare(`SELECT c.family, c.subject, c.day, c.session_id, c.done_at, (SELECT COUNT(*) FROM session_problem sp WHERE sp.session_id = c.session_id) AS n
+    const { results: days } = await env.DB.prepare(`SELECT c.family, c.subject, c.day, c.session_id, c.done_at,
+        (SELECT COUNT(*) FROM session_problem sp WHERE sp.session_id = c.session_id) + (SELECT COUNT(*) FROM problem p JOIN exam_session s ON s.id = c.session_id
+           WHERE s.part IS NOT NULL AND p.exam_id = s.exam_id AND instr(',' || s.part || ',', ',' || json_extract(p.extra, '$.group') || ',') > 0) AS n
                                                      FROM checkin c WHERE c.student_id = ? AND c.day >= ? ORDER BY c.day DESC`).bind(sid, new Date((dayNum(today) - 14) * DAY).toISOString().slice(0, 10)).all();
     const todayOf = (fam) => { const d = days.find((x) => x.family === fam && x.day === today); return d ? { session_id: d.session_id, n: d.n, done: !!d.done_at } : null; };
     const out = [];
@@ -248,7 +315,9 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     }
     const first = plans[0];
     const level = first ? LEVELS[Math.max(0, PREP_SUBJECTS[first.subject].per.indexOf(first.per_day))] : 'easy';
+    for (const it of out) it.unit = PREP_SUBJECTS[it.subject].unit;
     return { today, ...(await streak(env, sid, today, await perWeekOf(env, sid))), grade: first?.grade ?? null, level, items: out,
+      subjects: Object.entries(PREP_SUBJECTS).map(([id, x]) => ({ id, name: x.name })),
       families: await families(env, today), points: await points(env, sid, today) };
   }
 
@@ -262,7 +331,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   route('PUT', '/api/students/:id/prep', async (req, env, p) => {
     const acc = await requireAccount(req, env);
     const st = await requireStudent(env, acc, p.id);
-    const { grade, per_week = 7, level = 'easy', items: want = [] } = await body(req);
+    const { grade, per_week = 7, level = 'easy', items: want = [], merge = false } = await body(req); // merge：只加 / 改这几项，别的不动（「＋ 备考项」）
     const g = Number(grade);
     if (!(Number.isInteger(g) && g >= 1 && g <= 9)) throw new HttpError(400, '请选择年级');
     if (![3, 5, 7].includes(Number(per_week))) throw new HttpError(400, '一周练 3 次、5 次或每天');
@@ -278,7 +347,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const t = now();
     const old = await items(env, st.id);
     const keep = new Set(want.map((x) => x.family));
-    const stmts = old.filter((o) => !keep.has(o.family)).map((o) => env.DB.prepare('DELETE FROM prep_item WHERE student_id = ? AND family = ?').bind(st.id, o.family));
+    const stmts = (merge ? [] : old).filter((o) => !keep.has(o.family)).map((o) => env.DB.prepare('DELETE FROM prep_item WHERE student_id = ? AND family = ?').bind(st.id, o.family));
     for (const it of want) {
       const f = PREP_FAMILIES[it.family], per = PREP_SUBJECTS[f.subject].per[LEVELS.indexOf(level)];
       const o = old.find((x) => x.family === it.family);
@@ -309,16 +378,26 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const have = await env.DB.prepare('SELECT session_id FROM checkin WHERE student_id = ? AND day = ? AND family = ?').bind(st.id, today, family).first();
     if (have) return json({ session_id: have.session_id, subject });
     const plan = await getPlan(env, st.id, family);
-    let ids;
-    if (subject === 'chinese') ids = await chineseProblems(env, st.id, plan || { family }, today);
-    else { ids = plan ? await planProblems(env, st.id, plan, today) : []; if (!ids.length) ids = await dailyTwo(env, today); }
-    if (!ids.length) throw new HttpError(404, '题库还没有题');
     const id = uid();
-    const title = `${PREP_FAMILIES[family].name} · 今日 ${ids.length} 题`;
+    const stmts = [];
+    if (subject === 'english') {
+      const pt = await englishPart(env, st.id, plan, family);
+      if (!pt) throw new HttpError(404, '题库还没有题');
+      const e = await env.DB.prepare('SELECT title FROM exam WHERE id = ?').bind(pt.exam_id).first();
+      stmts.push(env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject, part) VALUES (?, ?, ?, 'practice', ?, ?, ?, 'english', ?)")
+        .bind(id, st.id, pt.exam_id, t, t + UNTIMED_DAYS * DAY, `${PREP_FAMILIES[family].name} ${e.title.replace('仿真模拟 ', '')} · ${pt.label}`, pt.part));
+    } else {
+      let ids;
+      if (subject === 'chinese') ids = await chineseProblems(env, st.id, plan || { family }, today);
+      else if (family === 'amc8') { ids = plan ? await planProblems(env, st.id, plan, today) : []; if (!ids.length) ids = await dailyTwo(env, today); }
+      else ids = await genericProblems(env, st.id, plan, family, today);
+      if (!ids.length) throw new HttpError(404, '题库还没有题');
+      stmts.push(env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?)")
+          .bind(id, st.id, t, t + UNTIMED_DAYS * DAY, `${PREP_FAMILIES[family].name} · 今日 ${ids.length} 题`, subject),
+        ...ids.map((pid, i) => env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
+    }
     await env.DB.batch([
-      env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?)")
-        .bind(id, st.id, t, t + UNTIMED_DAYS * DAY, title, subject),
-      ...ids.map((pid, i) => env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)),
+      ...stmts,
       env.DB.prepare('INSERT INTO checkin (student_id, day, family, subject, session_id, kind) VALUES (?, ?, ?, ?, ?, ?)').bind(st.id, today, family, subject, id, plan ? 'plan' : 'daily'),
     ]);
     await bump(env, 'daily_start');

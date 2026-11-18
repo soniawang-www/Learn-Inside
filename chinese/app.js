@@ -152,7 +152,7 @@ async function renderHome() {
     api(`/api/students/${enc(st.id)}/team`).catch(() => null),
   ]);
   // 第一次来（没定备考项、没打过卡、没做过题）：先走全站的新手引导
-  if (pr && !pr.items?.length && !pr.total && !store.get('li.obSkip') && !(prof.sessions || []).length) { location.replace(START_URL); return; }
+  if (pr && !pr.items?.length && !pr.total && !store.get('li.obSkip') && !(prof.sessions || []).length) { location.replace(`${START_URL}/chinese`); return; }
   // 最上面的「继续」条只放没做完的模考；今天做什么：下一套没做过的卷子 + 错题
   const curOf = (e) => (e.open_mode === 'exam' ? e.open_session : null); // 没交卷的模考（跟着账号走）
   const unfinished = [...exams, ...gexams].filter(curOf);
@@ -180,7 +180,7 @@ async function renderHome() {
     ${sessions.length || (allMk && !isGuest()) ? `<div class="dash-grid">
       ${sessions.length ? `<section class="card">
         <div class="card-h"><h2>最近成绩</h2></div>
-        <div class="scores">${sessions.slice(0, 6).map((x) => `<a class="score-row" href="#/review/${x.id}">
+        <div class="scores">${sessions.slice(0, 3).map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${day(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${x.total ? ((x.score || 0) / x.total) * 100 : 0}%"></i></span><b>${x.score ?? '–'}<small>/${x.total}</small></b></a>`).join('')}</div>
       </section>` : ''}

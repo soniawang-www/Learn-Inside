@@ -45,3 +45,8 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tc-tag.s-chinese { background: #3E2630; color: #F29BBB; } :root:not([data-theme="light"]) .pts-chip { background: #3A2F14; color: #F5C85A; } }
 :root[data-theme="dark"] .tc-tag.s-chinese { background: #3E2630; color: #F29BBB; }
 :root[data-theme="dark"] .pts-chip { background: #3A2F14; color: #F5C85A; }
+.tc-add { display: block; text-align: center; padding: 12px; border-radius: 12px; border: 1.5px dashed var(--tc-line); color: var(--tc-acc) !important; font-weight: 700; }
+.tc-tag.s-english { background: #DDE9F3; color: #2F6690; }
+:root[data-theme="dark"] .tc-tag.s-english { background: #1F3346; color: #8CC0EA; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tc-tag.s-english { background: #1F3346; color: #8CC0EA; } }
+.tc-foot span { display: flex; gap: 16px; }

@@ -11,8 +11,9 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261117a';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261117a';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261118j';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261118j';
+import { todayCard, bindToday, START_URL } from '/assets/pal.js?v=20261118j';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -173,7 +174,11 @@ async function loadBank(id, fresh = false) {
 
 // ───────── 英语首页 ─────────
 async function renderHome() {
-  const d = await api(`/api/english/banks?student=${enc(auth.student.id)}`);
+  const [d, pr, tm, prof] = await Promise.all([api(`/api/english/banks?student=${enc(auth.student.id)}`),
+    api(`/api/students/${enc(auth.student.id)}/prep`).catch(() => null), api(`/api/students/${enc(auth.student.id)}/team`).catch(() => null),
+    api(`/api/students/${enc(auth.student.id)}/profile?subject=english`).catch(() => ({ sessions: [] }))]);
+  // 第一次来（没定备考项、没打过卡、没做过题）：先走新手引导，直接选英语比赛
+  if (pr && !pr.items?.length && !pr.total && !store.get('li.obSkip') && !(prof.sessions || []).length && !d.recent?.length) { location.replace(`${START_URL}/english`); return; }
   const n = d.banks.reduce((a, b) => a + (b.problem_count || 0), 0);
   const done = d.banks.reduce((a, b) => a + b.practiced, 0);
   // 没交卷的试卷（跟着账号走），最近开始的在前
@@ -181,14 +186,16 @@ async function renderHome() {
     .map((x) => ({ sid: x.id, t: x.title, f: x.exam_id.startsWith('ket-') ? 'ket' : x.exam_id.startsWith('pet-') ? 'pet' : 'tj' }));
   const cur = open;
   page(`<div class="hero"><h1>英语备考</h1></div>
+    ${pr ? todayCard(pr, { team: tm, only: 'english' }) : ''}
     ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
     <div class="fam-cards">
-      <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 20 套 · 阅读写作 听力</span><small></small><i>›</i></a>
-      <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 20 套 · 阅读 写作 听力</span><small></small><i>›</i></a>
-      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 20 套 · 听力 语言 阅读</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/esdp"><b>ESDP</b><span>${n ? `口语 · 写作 ${n} 题` : '录入中'}</span><small>${done ? `已练 ${done} 题` : ''}</small><i>›</i></a>
     </div>
     ${recentCard(d.recent)}`, 'home');
+  bindToday($app, { sid: auth.student.id, token: auth.token });
 }
 const recentCard = (recent) => (recent?.length ? `<section class="card"><div class="card-h"><h2>最近练习</h2></div>
   <div class="recent">${recent.map((r) => `<a class="rc-row" href="#/learn/${enc(r.problem_id)}">
