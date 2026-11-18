@@ -33,6 +33,8 @@ export const EV_NAMES = {
   daily_start: '开始当天的打卡题（人次）',
   daily_done: '完成打卡（人次）',
   prep_plan: '新建备战计划',
+  team_new: '新建队伍',
+  team_join: '加入队伍',
 };
 
 const day = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间

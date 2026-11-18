@@ -226,7 +226,7 @@ async function router() {
     const printTok = new URLSearchParams(location.search).get('print');
     if (printTok) return await renderPrintLink(printTok);
     if (!auth.token) { // 没登录：直接建一个游客用起来；登录过的设备、账号页、#/join 才给登录表单
-      const scan = page === 'fill' || page === 'sol'; // 扫卷子二维码进来的：不挡，直接以游客回填 / 看解析（回填页上有「登录」）
+      const scan = page === 'fill' || page === 'sol' || page === 'team'; // 邀请链接也不挡 // 扫卷子二维码进来的：不挡，直接以游客回填 / 看解析（回填页上有「登录」）
       if (!scan && (SECTION === 'account' || page === 'join' || store.get('li.hadAccount'))) return renderJoin();
       await autoGuest();
     }
@@ -244,6 +244,7 @@ async function router() {
     if (page === 'graph') return await renderGraphPage(id);
     if (page === 'plan') return await renderPlan();
     if (page === 'start') return await renderStart();
+    if (page === 'team') return await renderTeam(id);
     if (page === 'mistakes') return await renderMistakes();
     if (page === 'account' && id === 'paid') return await renderPaid(sub);
     if (page === 'account') return await renderAccount();
@@ -589,7 +590,9 @@ async function renderDashboard() {
   if (!tasks.length && startFam) tasks.push(`<a class="task" href="#/contest/${enc(startFam.id)}"><i class="ico">›</i><span>做一套真题<small>${esc(startFam.name)}</small></span></a>`);
   // 没做完的模考：跟着账号走（换台设备也能看到）
   const op = (await api(`/math/api/students/${enc(st.id)}/open?subject=math`).catch(() => null))?.sessions?.[0];
-  const pr = await api(`/math/api/students/${enc(st.id)}/prep`).catch(() => null); // 每日打卡 / 备战计划
+  const [pr, tm] = await Promise.all([ // 每日打卡 / 备战计划；队伍排行
+    api(`/math/api/students/${enc(st.id)}/prep`).catch(() => null),
+    api(`/math/api/students/${enc(st.id)}/team`).catch(() => null)]);
   // 新来的人（游客，或注册了还没做过题）先走新手引导：考什么、什么时候考、每天几题
   if (pr && !pr.plan && !pr.total && !pr.day && !store.get('li.obSkip') && (guest || !(prof.sessions || []).length)) { location.replace('#/start'); return; }
   const live = op ? { sid: op.id, title: op.title } : null;
@@ -601,7 +604,7 @@ async function renderDashboard() {
     quick = pool.find((e) => e.last_score === null) || pool[0] || null;
   }
   const pl = pr?.plan, pd = pr?.day;
-  const prepCard = pr ? streakCard(pr) : '';
+  const prepCard = pr ? streakCard(pr) + teamCard(tm) : '';
   const strip = [
     live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
     quick && `<a class="cont-go" href="javascript:" data-quick="${esc(quick.id)}"><b>开始做题</b><span>${esc(quick.title)} · ${quick.problem_count} 题 · 练习</span><i>›</i></a>`,
@@ -687,7 +690,10 @@ const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i) => `<s
 function streakCard(pr) {
   const pl = pr.plan, pd = pr.day, done = !!pd?.done, n = pd?.n || pl?.per_day || 2;
   const title = pl ? (pl.days_left > 0 ? `距 ${esc(pl.name)} 还有 ${pl.days_left} 天` : `${esc(pl.name)} 加油`) : '每日真题';
-  const sub = done ? '今天已打卡' : pr.streak ? `已连续 ${pr.streak} 天，今天还没打卡` : `今天 ${n} 题`;
+  const wk = (pr.per_week || 7) < 7, wc = pr.week_count || 0, pw = pr.per_week || 7;
+  const sub = wk
+    ? `本周 ${wc}/${pw} 次${done ? ' · 今天已打卡' : wc >= pw ? ' · 已达标' : ''}${pr.streak ? ` · 连续 ${pr.streak} 周达标` : ''}`
+    : done ? '今天已打卡' : pr.streak ? `已连续 ${pr.streak} 天，今天还没打卡` : `今天 ${n} 题`;
   return `<section class="card streak-card ${done ? 'done' : ''}">
     <div class="sc-top"><span class="sc-flame ${done ? 'on' : ''}">${FLAME}<b>${pr.streak}</b></span><div class="sc-txt"><b>${title}</b><span>${sub}</span></div></div>
     ${weekRow(pr.week)}
@@ -695,10 +701,19 @@ function streakCard(pr) {
     <a class="prep-set" href="#/plan">${pl ? `备战计划 · 高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a>
   </section>`;
 }
+// 首页的队伍小卡片：前三名 + 我；没队伍时只有一行入口
+function teamCard(t) {
+  if (!t?.team) return '<a class="team-entry" href="#/team">和同学组队，一起打卡 ›</a>';
+  const b = t.board, i = b.findIndex((x) => x.me);
+  const rows = b.slice(0, 3).concat(i >= 3 ? [b[i]] : []);
+  return `<a class="card team-mini" href="#/team"><div class="tm-h"><b>${esc(t.team.name)}</b><span>本周第 ${i + 1} / ${b.length} ›</span></div>
+    ${rows.map((x) => `<div class="tm-row ${x.me ? 'me' : ''}"><i>${b.indexOf(x) + 1}</i><span>${esc(x.nickname)}${x.me ? '（我）' : ''}</span><em>${x.week_count}/${x.per_week} 次</em></div>`).join('')}</a>`;
+}
 // 打卡完成：暖色光芒转动、火苗长大跳动、火星往上飘、天数翻页 +1、今天的格子点亮带波纹、两侧礼花炮 + 中间彩纸、统计卡依次升起
 const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
 function celebrate(r, sid) {
-  const p = r.session.prep || {}, k = p.streak || 1;
+  const p = r.session.prep || {}, wk = (p.per_week || 7) < 7;
+  const k = wk ? p.week_count || 1 : p.streak || 1; // 一周几次的：数字是本周第几次
   const used = Math.max(0, (r.session.submitted_at - r.session.started_at) / 1000);
   const pct = r.total ? Math.round((r.session.score / r.total) * 100) : 0;
   $app.innerHTML = `<main class="cele">
@@ -708,7 +723,8 @@ function celebrate(r, sid) {
       <div class="cele-flame">${FLAME}</div>
     </div>
     <div class="cele-n"><span class="cele-roll"><b class="old">${k - 1}</b><b class="new">${k}</b></span><span class="cele-plus">+1</span></div>
-    <div class="cele-t"><b>连续打卡 ${k} 天</b><span>${CELE_LINE(k)}</span></div>
+    <div class="cele-t">${wk ? `<b>本周 ${k}/${p.per_week} 次</b><span>${k >= p.per_week ? `本周目标达成！${p.streak > 1 ? `连续 ${p.streak} 周` : ''}` : `再练 ${p.per_week - k} 次达成本周目标`}</span>`
+      : `<b>连续打卡 ${k} 天</b><span>${CELE_LINE(k)}</span>`}</div>
     ${weekRow(p.week)}
     <div class="cele-stats">
       <span style="--i:0"><svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="15.5"/><circle cx="18" cy="18" r="15.5" class="fg" style="--p:${pct}"/></svg><b>${r.session.score}/${r.total}</b><small>答对</small></span>
@@ -772,13 +788,14 @@ async function renderStart() {
   const st = auth.student || lastMe?.students?.[0];
   const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
   const fams = pr.families || [];
-  const A = { fam: null, date: null, per: null, when: null };
+  const A = { fam: null, date: null, per: null, when: null, wk: null };
   let step = 0;
   const addM = (m) => { const d = new Date(Date.now() + 8 * 3600e3); d.setUTCMonth(d.getUTCMonth() + m); return d.toISOString().slice(0, 10); };
   const daysTo = (d) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)}T00:00:00Z`)) / 864e5);
   const minDate = new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
   const WHEN = [['1 个月后', 1], ['2 个月后', 2], ['3 个月后', 3], ['半年后', 6]];
   const PER = [[2, '轻松', '约 5 分钟'], [5, '认真', '约 15 分钟'], [10, '冲刺', '约 30 分钟']];
+  const WK = [[3, '每周 3 次'], [5, '每周 5 次'], [7, '每天']];
   const opt = (on, key, val, main, sub = '') => `<button class="ob-opt ${on ? 'on' : ''}" data-${key}="${esc(String(val))}"><b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
   const go = async () => {
     if (!A.fam) { // 还没定：直接做今日两题
@@ -786,7 +803,7 @@ async function renderStart() {
       const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
       location.hash = `#/exam/${r.session_id}`; return;
     }
-    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: A.fam.id, exam_date: A.date, per_day: A.per } });
+    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: A.fam.id, exam_date: A.date, per_day: A.per, per_week: A.wk } });
     const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
     location.hash = `#/exam/${r.session_id}`;
   };
@@ -797,34 +814,100 @@ async function renderStart() {
       () => `<h1>什么时候考？</h1><div class="ob-list">${WHEN.map(([t, m]) => opt(A.when === m, 'when', m, t)).join('')}
         ${opt(A.when === 'pick', 'when', 'pick', '选日期')}
         ${A.when === 'pick' ? `<input type="date" class="ob-date" id="obd" min="${minDate}" value="${esc(A.date || '')}">` : ''}</div>`,
-      () => `<h1>每天练多少？</h1><div class="ob-list">${PER.map(([n, t, m]) => opt(A.per === n, 'per', n, `${t} · ${n} 题`, m)).join('')}</div>`,
-      () => { const d = daysTo(A.date), hi = A.fam.high, can = Math.min(hi, d * A.per);
+      () => `<h1>一周练几次？</h1><div class="ob-list">${WK.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>`,
+      () => `<h1>每次练多少？</h1><div class="ob-list">${PER.map(([n, t, m]) => opt(A.per === n, 'per', n, `${t} · ${n} 题`, m)).join('')}</div>`,
+      () => { const d = daysTo(A.date), hi = A.fam.high, can = Math.min(hi, Math.floor((d * A.wk) / 7) * A.per);
         return `<div class="ob-sum"><span class="sc-flame on big">${FLAME}</span><h1>距 ${esc(A.fam.name)} 还有 ${d} 天</h1>
-        <p>每天 ${A.per} 题，考前能练到 <b>${can}</b> 个高频知识项${can >= hi ? '（全部）' : ''}</p></div>`; },
+        <p>${A.wk >= 7 ? '每天' : `每周 ${A.wk} 次，每次`} ${A.per} 题，考前能练到 <b>${can}</b> 个高频知识项${can >= hi ? '（全部）' : ''}</p></div>`; },
     ];
-    const ready = [() => A.fam !== null, () => !!A.date, () => !!A.per, () => true][step]();
+    const LAST = steps.length - 1;
+    const ready = [() => A.fam !== null, () => !!A.date, () => !!A.wk, () => !!A.per, () => true][step]();
     $app.innerHTML = `<main class="ob">
       <header class="ob-top">${step ? '<button class="ob-back" id="obb" aria-label="上一步">‹</button>' : '<span></span>'}
-        <div class="ob-bar"><i style="width:${((step + 1) / 4) * 100}%"></i></div>
+        <div class="ob-bar"><i style="width:${((step + 1) / steps.length) * 100}%"></i></div>
         ${step ? '<span></span>' : '<a class="ob-skip" href="#/" id="obs">跳过</a>'}</header>
       <div class="ob-body">${steps[step]()}</div>
-      <footer class="ob-foot"><button class="btn primary block" id="obn" ${ready ? '' : 'disabled'}>${step === 3 ? '开始第一天' : '继续'}</button></footer>
+      <footer class="ob-foot"><button class="btn primary block" id="obn" ${ready ? '' : 'disabled'}>${step === LAST ? '开始第一天' : '继续'}</button></footer>
     </main>`;
     $app.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => { A.fam = b.dataset.fam ? fams.find((f) => f.id === b.dataset.fam) : false; draw(); }));
     $app.querySelectorAll('[data-when]').forEach((b) => (b.onclick = () => { const v = b.dataset.when; A.when = v === 'pick' ? 'pick' : +v; A.date = v === 'pick' ? A.date : addM(+v); draw(); }));
     $app.querySelectorAll('[data-per]').forEach((b) => (b.onclick = () => { A.per = +b.dataset.per; draw(); }));
+    $app.querySelectorAll('[data-wk]').forEach((b) => (b.onclick = () => { A.wk = +b.dataset.wk; draw(); }));
     const di = $app.querySelector('#obd');
     if (di) di.onchange = () => { A.date = di.value && di.value >= minDate ? di.value : null; $app.querySelector('#obn').disabled = !A.date; };
     $app.querySelector('#obb')?.addEventListener('click', () => { step--; draw(); });
     $app.querySelector('#obs')?.addEventListener('click', () => store.set('li.obSkip', true));
     $app.querySelector('#obn').onclick = async (e) => {
       if (step === 0 && A.fam === false) { e.currentTarget.disabled = true; return go(); }
-      if (step < 3) { step++; draw(); return; }
+      if (step < LAST) { step++; draw(); return; }
       e.currentTarget.disabled = true;
       try { await go(); } catch (x) { e.currentTarget.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
     };
   }
   draw();
+}
+
+// ───────── 组队：一起备赛的同学看彼此本周进度；#/team/<邀请码> 是邀请链接 ─────────
+async function renderTeam(code) {
+  await ensureMe();
+  const st = auth.student || lastMe?.students?.[0];
+  const t = await api(`/math/api/students/${enc(st.id)}/team`);
+  const myName = t.team ? '' : (t.nickname && t.nickname !== '同学' ? t.nickname : '');
+  const err = (m) => { const e = $app.querySelector('.tf-err'); e.hidden = false; e.textContent = m; };
+  const run = async (fn) => { try { await fn(); } catch (x) { err(x.message); } };
+  if (code && !t.team) { // 打开邀请链接
+    const info = await api(`/math/api/teams/code/${enc(code)}`).catch((x) => ({ error: x.message }));
+    $app.innerHTML = `${topnav()}<main class="page narrow"><section class="card team-join">
+      ${info.error ? `<p>${esc(info.error)}</p><a class="btn block" href="#/team">返回</a>` : `
+      <h1>加入「${esc(info.name)}」</h1><p class="muted">${info.size} 人在一起备赛</p>
+      <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
+      <p class="tf-err" hidden></p><button class="btn primary block" id="tj">加入</button>`}</section></main>`;
+    $app.querySelector('#tj')?.addEventListener('click', () => run(async () => {
+      const nn = $app.querySelector('#tn').value.trim();
+      if (!nn) return err('写一个昵称');
+      await api('/math/api/teams/join', { method: 'POST', body: { student_id: st.id, code, nickname: nn } });
+      location.hash = '#/';
+    }));
+    return;
+  }
+  if (!t.team) {
+    $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
+      <section class="card team-form"><h2>建一个队</h2>
+        <label class="tf-row"><span>队名</span><input id="tname" maxlength="16" placeholder="比如：AMC 8 冲刺小组"></label>
+        <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
+        <button class="btn primary block" id="tc">建队</button></section>
+      <section class="card team-form"><h2>加入队伍</h2>
+        <label class="tf-row"><span>邀请码</span><input id="tcode" maxlength="6" autocapitalize="characters" placeholder="6 位"></label>
+        <button class="btn block" id="tjc">加入</button></section>
+      <p class="tf-err" hidden></p></main>`;
+    $app.querySelector('#tc').onclick = () => run(async () => {
+      const name = $app.querySelector('#tname').value.trim(), nn = $app.querySelector('#tn').value.trim();
+      if (!name) return err('给队伍起个名字');
+      if (!nn) return err('写一个昵称');
+      await api('/math/api/teams', { method: 'POST', body: { student_id: st.id, name, nickname: nn } });
+      router();
+    });
+    $app.querySelector('#tjc').onclick = () => { const c = $app.querySelector('#tcode').value.trim().toUpperCase(); if (c) location.hash = `#/team/${c}`; };
+    return;
+  }
+  const { team, board } = t;
+  const link = `${location.origin}/math/#/team/${team.code}`;
+  $app.innerHTML = `${topnav()}<main class="page narrow">
+    <header class="ph"><div><h1>${esc(team.name)}</h1><p class="muted">${team.size} 人 · 本周排行</p></div></header>
+    <section class="card team-board">${board.map((x, i) => `<div class="tb-row ${x.me ? 'me' : ''}">
+      <i class="tb-rank r${i + 1}">${i + 1}</i>
+      <div class="tb-main"><b>${esc(x.nickname)}${x.me ? '（我）' : ''}</b>
+        <div class="tb-bar"><i style="width:${Math.min(100, (x.week_count / x.per_week) * 100)}%"></i></div>
+        <small>本周 ${x.week_count}/${x.per_week} 次 · 做了 ${x.week_n} 题${x.streak ? ` · 连续 ${x.streak} ${x.unit}` : ''}</small></div>
+      ${x.today ? '<span class="tb-today" title="今天已打卡">✓</span>' : ''}</div>`).join('')}</section>
+    <section class="card team-invite"><div><span class="muted small">邀请码</span><b>${esc(team.code)}</b></div><button class="btn primary" id="tcopy">复制邀请链接</button></section>
+    <button class="btn block team-leave" id="tleave">退出队伍</button></main>`;
+  $app.querySelector('#tcopy').onclick = async (e) => {
+    try { await navigator.clipboard.writeText(`来和我一起备赛：${team.name}\n${link}`); e.target.textContent = '已复制'; }
+    catch { modal(`<h2>邀请链接</h2><p class="small" style="word-break:break-all">${esc(link)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+  };
+  $app.querySelector('#tleave').onclick = () => modal(`<h2>退出「${esc(team.name)}」？</h2><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="yes">退出</button></div>`,
+    (el, close) => { el.querySelector('#yes').onclick = async () => { close(); await api('/math/api/teams/leave', { method: 'POST', body: { student_id: st.id } }); router(); }; });
 }
 
 // ───────── 备战计划：考什么、哪天考、每天几题 ─────────
@@ -834,23 +917,25 @@ async function renderPlan() {
   const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
   const pl = pr.plan;
   const min = new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
-  let per = pl?.per_day || 5;
+  let per = pl?.per_day || 5, wkn = pl?.per_week || 7;
   $app.innerHTML = `${topnav()}<main class="page narrow">
     <header class="ph"><div><h1>备战计划</h1></div></header>
     <form class="card plan-form" id="pf">
       <label class="pf-row"><span>考试</span><b>AMC 8</b></label>
       <label class="pf-row"><span>考试日期</span><input type="date" id="pf-date" min="${min}" value="${esc(pl?.exam_date || '')}" required></label>
-      <div class="pf-row"><span>每天</span><span class="lang-seg" id="pf-n">${[2, 5, 10].map((n) => `<button type="button" data-n="${n}" aria-pressed="${n === per}">${n} 题</button>`).join('')}</span></div>
+      <div class="pf-row"><span>一周</span><span class="lang-seg" id="pf-w">${[[3, '3 次'], [5, '5 次'], [7, '每天']].map(([n, t]) => `<button type="button" data-w="${n}" aria-pressed="${n === wkn}">${t}</button>`).join('')}</span></div>
+      <div class="pf-row"><span>每次</span><span class="lang-seg" id="pf-n">${[2, 5, 10].map((n) => `<button type="button" data-n="${n}" aria-pressed="${n === per}">${n} 题</button>`).join('')}</span></div>
       <p class="pf-err" id="pf-err" hidden></p>
       <button class="btn primary block" type="submit">${pl ? '保存' : '开始备战'}</button>
       ${pl ? `<p class="pf-cover muted small">高频知识项已练 ${pl.cover.done} / ${pl.cover.total}</p><button class="btn block" type="button" id="pf-del">取消计划</button>` : ''}
     </form></main>`;
+  $app.querySelector('#pf-w').onclick = (e) => { const b = e.target.closest('[data-w]'); if (!b) return; wkn = +b.dataset.w; $app.querySelectorAll('#pf-w [data-w]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.w === wkn))); };
   $app.querySelector('#pf-n').onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; per = +b.dataset.n; $app.querySelectorAll('#pf-n [data-n]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.n === per))); };
   $app.querySelector('#pf').onsubmit = async (e) => {
     e.preventDefault();
     const err = $app.querySelector('#pf-err');
     try {
-      await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: 'amc8', exam_date: $app.querySelector('#pf-date').value, per_day: per } });
+      await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: 'amc8', exam_date: $app.querySelector('#pf-date').value, per_day: per, per_week: wkn } });
       location.hash = '#/';
     } catch (x) { err.hidden = false; err.textContent = x.message; }
   };
