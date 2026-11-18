@@ -695,41 +695,75 @@ function streakCard(pr) {
     <a class="prep-set" href="#/plan">${pl ? `备战计划 · 高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a>
   </section>`;
 }
-// 打卡完成：火苗跳一下、天数加一、本周格子点亮
+// 打卡完成：暖色光芒转动、火苗长大跳动、火星往上飘、天数翻页 +1、今天的格子点亮带波纹、两侧礼花炮 + 中间彩纸、统计卡依次升起
+const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
 function celebrate(r, sid) {
   const p = r.session.prep || {}, k = p.streak || 1;
   const used = Math.max(0, (r.session.submitted_at - r.session.started_at) / 1000);
+  const pct = r.total ? Math.round((r.session.score / r.total) * 100) : 0;
   $app.innerHTML = `<main class="cele">
-    <div class="cele-flame">${FLAME}</div>
-    <div class="cele-n"><b id="cn">${k - 1}</b><span>天连续打卡</span></div>
+    <div class="cele-rays" aria-hidden="true"></div>
+    <div class="cele-hero">
+      <div class="cele-embers" aria-hidden="true">${Array.from({ length: 12 }, (_, i) => `<i style="--d:${(i * 0.37) % 2.2}s;--x:${((i * 37) % 90) - 45}px;--s:${4 + (i % 4) * 2}px"></i>`).join('')}</div>
+      <div class="cele-flame">${FLAME}</div>
+    </div>
+    <div class="cele-n"><span class="cele-roll"><b class="old">${k - 1}</b><b class="new">${k}</b></span><span class="cele-plus">+1</span></div>
+    <div class="cele-t"><b>连续打卡 ${k} 天</b><span>${CELE_LINE(k)}</span></div>
     ${weekRow(p.week)}
-    <div class="cele-stats"><span><b>${r.session.score}/${r.total}</b>答对</span><span><b>${fmtTime(used)}</b>用时</span></div>
+    <div class="cele-stats">
+      <span style="--i:0"><svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="15.5"/><circle cx="18" cy="18" r="15.5" class="fg" style="--p:${pct}"/></svg><b>${r.session.score}/${r.total}</b><small>答对</small></span>
+      <span style="--i:1"><b class="big">${fmtTime(used)}</b><small>用时</small></span>
+    </div>
     <div class="cele-acts"><a class="btn primary block" href="#/review/${enc(sid)}">看解析</a><a class="btn block" href="#/">回首页</a></div>
+    <canvas class="cele-fx" aria-hidden="true"></canvas>
   </main>`;
-  // 今天的格子先空着，天数跳完再点亮
-  const td = $app.querySelector('.sc-week .today');
+  const root = $app.querySelector('.cele');
+  const td = root.querySelector('.sc-week .today');
   if (td) { td.classList.remove('done'); td.querySelector('em').textContent = ''; }
   setTimeout(() => {
-    const el = document.getElementById('cn');
-    if (!el) return;
-    el.textContent = k; el.parentElement.classList.add('bump');
+    root.classList.add('go'); // 天数翻页、+1 飘起
     if (td) { td.classList.add('done', 'pop'); td.querySelector('em').textContent = '✓'; }
-    confetti($app.querySelector('.cele'));
-    try { navigator.vibrate?.([30, 40, 60]); } catch {}
-  }, 750);
+    burst(root.querySelector('.cele-fx'));
+    try { navigator.vibrate?.([30, 40, 70]); } catch {}
+  }, 900);
 }
-// 彩纸：从火苗位置往上炸开再落下（纯 CSS，几十片）
-function confetti(root) {
-  if (!root || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const box = document.createElement('div'); box.className = 'confetti'; root.appendChild(box);
-  const cols = ['#F08A24', '#FFD25E', '#1D5C4D', '#B04A6F', '#6CC2A6', '#FFE38A'];
-  for (let i = 0; i < 46; i++) {
-    const c = document.createElement('i');
-    const a = (-90 + (Math.random() - 0.5) * 150) * Math.PI / 180, d = 120 + Math.random() * 170;
-    c.style.cssText = `--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d}px;--r:${Math.random() * 720 - 360}deg;background:${cols[i % cols.length]};animation-delay:${Math.random() * 0.12}s;${i % 3 ? '' : 'border-radius:50%;'}`;
-    box.appendChild(c);
-  }
-  setTimeout(() => box.remove(), 2200);
+// 礼花：左右两门炮斜着往上打，中间从火苗处再炸一圈；有重力、空气阻力、翻转和左右飘
+function burst(cv) {
+  if (!cv || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const dpr = Math.min(2, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const cols = ['#F08A24', '#FFD25E', '#FFB547', '#1D5C4D', '#6CC2A6', '#B04A6F', '#F29BBB', '#FFE38A'];
+  const P = [];
+  const add = (x, y, ang, spread, sp, n) => { for (let i = 0; i < n; i++) {
+    const a = ang + (Math.random() - 0.5) * spread, v = sp * (0.55 + Math.random() * 0.6);
+    P.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.4, w: 6 + Math.random() * 6, h: 9 + Math.random() * 9,
+      c: cols[(Math.random() * cols.length) | 0], k: Math.random() < 0.18 ? 2 : Math.random() < 0.3 ? 1 : 0, ph: Math.random() * 6.28, life: 0 });
+  } };
+  const D = Math.PI / 180;
+  add(-10, H * 0.72, -62 * D, 34 * D, 19, 70);
+  add(W + 10, H * 0.72, -118 * D, 34 * D, 19, 70);
+  setTimeout(() => add(W / 2, H * 0.2, -90 * D, 300 * D, 10, 60), 140);
+  const star = (s) => { g.beginPath(); for (let i = 0; i < 10; i++) { const rr = i % 2 ? s * 0.45 : s, a = (i * 36 - 90) * D; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill(); };
+  let t0 = performance.now();
+  (function frame(t) {
+    const dt = Math.min(2, (t - t0) / 16.7); t0 = t;
+    g.clearRect(0, 0, W, H);
+    let alive = 0;
+    for (const q of P) {
+      q.life += dt; q.vy += 0.32 * dt; q.vx *= 0.985 ** dt; q.vy *= 0.985 ** dt;
+      q.x += (q.vx + Math.sin(q.ph + q.life * 0.12) * 0.8) * dt; q.y += q.vy * dt; q.r += q.vr * dt;
+      if (q.y > H + 30) continue;
+      alive++;
+      const fade = Math.max(0, Math.min(1, (260 - q.life) / 60));
+      g.save(); g.globalAlpha = fade; g.translate(q.x, q.y); g.rotate(q.r); g.fillStyle = q.c;
+      if (q.k === 2) star(q.w * 0.8);
+      else if (q.k === 1) { g.beginPath(); g.arc(0, 0, q.w / 2.2, 0, 6.28); g.fill(); }
+      else { g.scale(1, Math.abs(Math.cos(q.life * 0.15 + q.ph)) + 0.15); g.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); }
+      g.restore();
+    }
+    if (alive) requestAnimationFrame(frame); else g.clearRect(0, 0, W, H);
+  })(t0);
 }
 
 // ───────── 新手引导：考什么 → 什么时候考 → 每天几题 → 开始第一天 ─────────
