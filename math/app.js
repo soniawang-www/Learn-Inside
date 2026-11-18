@@ -706,7 +706,30 @@ function celebrate(r, sid) {
     <div class="cele-stats"><span><b>${r.session.score}/${r.total}</b>答对</span><span><b>${fmtTime(used)}</b>用时</span></div>
     <div class="cele-acts"><a class="btn primary block" href="#/review/${enc(sid)}">看解析</a><a class="btn block" href="#/">回首页</a></div>
   </main>`;
-  setTimeout(() => { const el = document.getElementById('cn'); if (el) { el.textContent = k; el.parentElement.classList.add('bump'); } }, 650);
+  // 今天的格子先空着，天数跳完再点亮
+  const td = $app.querySelector('.sc-week .today');
+  if (td) { td.classList.remove('done'); td.querySelector('em').textContent = ''; }
+  setTimeout(() => {
+    const el = document.getElementById('cn');
+    if (!el) return;
+    el.textContent = k; el.parentElement.classList.add('bump');
+    if (td) { td.classList.add('done', 'pop'); td.querySelector('em').textContent = '✓'; }
+    confetti($app.querySelector('.cele'));
+    try { navigator.vibrate?.([30, 40, 60]); } catch {}
+  }, 750);
+}
+// 彩纸：从火苗位置往上炸开再落下（纯 CSS，几十片）
+function confetti(root) {
+  if (!root || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = document.createElement('div'); box.className = 'confetti'; root.appendChild(box);
+  const cols = ['#F08A24', '#FFD25E', '#1D5C4D', '#B04A6F', '#6CC2A6', '#FFE38A'];
+  for (let i = 0; i < 46; i++) {
+    const c = document.createElement('i');
+    const a = (-90 + (Math.random() - 0.5) * 150) * Math.PI / 180, d = 120 + Math.random() * 170;
+    c.style.cssText = `--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d}px;--r:${Math.random() * 720 - 360}deg;background:${cols[i % cols.length]};animation-delay:${Math.random() * 0.12}s;${i % 3 ? '' : 'border-radius:50%;'}`;
+    box.appendChild(c);
+  }
+  setTimeout(() => box.remove(), 2200);
 }
 
 // ───────── 新手引导：考什么 → 什么时候考 → 每天几题 → 开始第一天 ─────────
