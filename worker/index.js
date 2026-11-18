@@ -336,7 +336,7 @@ route('POST', '/api/sessions/:id/hint', async (req, env, p) => {
   return json({ level, content: h.content });
 });
 
-// 练习（错题重做）：确认一题后马上判对错、给正确答案和简单解析。模考会话不能用（防止考试中途看答案）。
+// 练习（整套练习、错题重做）：提交一题马上判对错、给正确答案、解题思路和互动解析。模考会话不能用（防止考试中途看答案）。
 route('POST', '/api/sessions/:id/check', async (req, env, p) => {
   const acc = await requireAccount(req, env);
   const s = await loadSession(env, acc, p.id);
@@ -347,7 +347,10 @@ route('POST', '/api/sessions/:id/check', async (req, env, p) => {
   const key = { choices: parseJ(pr.choices, {}), answer: pr.answer, accept: parseJ(pr.accept, []) };
   const sol = await env.DB.prepare("SELECT content FROM solution WHERE problem_id = ? AND kind = 'basic'").bind(pr.id).first();
   if (pr.kind === 'self') return json({ correct: false, self: true, answer: pr.answer, basic: sol?.content ?? null });
-  return json({ correct: judge(key, answer), answer: pr.answer, basic: sol?.content ?? null });
+  // 数学练习：一并给互动解析的缩略图和锁（语文没有互动解析，查不到就是 null）
+  const adv = await env.DB.prepare("SELECT tier, content FROM solution WHERE problem_id = ? AND kind = 'advanced'").bind(pr.id).first();
+  const advanced = adv ? { locked: !(adv.tier === 'free' || (await billing.accessCtx(env, acc)).can(`adv:${pr.id}`)), ...advThumb(adv.content, pr.id) } : null;
+  return json({ correct: judge(key, answer), answer: pr.answer, basic: sol?.content ?? null, advanced });
 });
 
 // 飞花令（语文会员）：会员拿整个诗库；不是会员只给一个字（花）试用

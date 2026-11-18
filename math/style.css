@@ -149,6 +149,20 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .ez-letter { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font: 12px var(--sans); color: var(--muted); flex: none; }
 .ez-opt.sel { background: var(--ez-blue-soft); border-color: var(--ez-blue); }
 .ez-opt.sel .ez-letter { background: var(--ez-blue); border-color: var(--ez-blue); color: #fff; }
+.ez-opt.locked { cursor: default; }
+.ez-opt.right { background: var(--ok-soft); border-color: var(--ok); }
+.ez-opt.right .ez-letter { background: var(--ok); border-color: var(--ok); color: #fff; }
+.ez-opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+.ez-opt.wrong .ez-letter { background: var(--bad); border-color: var(--bad); color: #fff; }
+.ez-cell.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+.ez-cell.bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.ez-btn.check { background: var(--ez-blue); border-color: var(--ez-blue); color: #fff; }
+.ez-btn.check:disabled { opacity: .45; }
+.ck-box { margin-top: 16px; border-radius: 6px; padding: 12px 14px; border: 1px solid var(--ok); background: var(--ok-soft); }
+.ck-box.bad { border-color: var(--bad); background: var(--bad-soft); }
+.ck-head { font-weight: 700; color: var(--ok); margin-bottom: 6px; }
+.ck-box.bad .ck-head { color: var(--bad); }
+.ck-box .adv-card { margin-top: 10px; }
 .ez-nav { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 .ez-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 4px; padding: 5px 18px; font-size: 13px; }
 .ez-btn.next { border-color: var(--ez-blue); color: var(--ez-blue); }

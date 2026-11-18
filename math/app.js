@@ -724,14 +724,14 @@ function showInstructions(exam, mode) {
       ${/^(hope|swb100)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
       <li>答对 1 题得 1 分，答错不扣分。</li>
       <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
-      ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
+      ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
       ${/^kangaroo-/.test(exam.id) ? `<li>本站按答对题数计分。正式比赛前三分之一每题 3 分、中间 4 分、最后 5 分，答错扣 1 分，不答不扣分。</li>
       <li>不能用计算器或任何电子设备。</li>` : /^amc1[02]-/.test(exam.id) ? `<li>本站按答对题数计分。正式比赛答对 6 分、不答 1.5 分、答错 0 分。</li>
       <li>只允许使用草稿纸、坐标纸、直尺、圆规、量角器和橡皮；不能用计算器或任何电子设备。</li>` : `<li>答对 1 题得 1 分，答错不扣分，所以每题都值得作答。</li>
       <li>只允许使用草稿纸、笔、直尺和橡皮；不能用计算器、量角器、圆规或任何电子设备。</li>`}
       <li>图形不一定按比例绘制。</li>
       <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
-      ${mode === 'practice' ? '<li>练习模式可以逐级查看提示（最多 3 级）。</li>' : ''}`}
+      ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}`}
     </ol></div>
     <div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="go">开始答题</button></div>`,
   (el, close) => {
@@ -885,8 +885,9 @@ async function renderExam(sid) {
   const li = /^(hope|swb100)-/.test(data.exam.id || '') || (data.session.drill && !hasEn(data.problems));
   document.body.classList.toggle('exam-li', !!li);
   const key = `amc8.s.${sid}`;
-  const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, flags: {}, times: {}, hints: {}, cur: 0, big: false } });
+  const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, flags: {}, times: {}, hints: {}, checked: {}, cur: 0, big: false } });
   const { S } = D;
+  S.checked ||= {}; // 练习：每题提交后的结果（对错、答案、解题思路、互动解析）
   const problems = data.problems;
   const clockOffset = data.session.server_now - Date.now();
   const practice = data.session.mode === 'practice';
@@ -916,6 +917,8 @@ async function renderExam(sid) {
     const p = problems[S.cur];
     const answered = problems.filter((x) => S.answers[x.id]).length;
     const hints = S.hints[p.id] || [];
+    const ck = practice ? S.checked[p.id] : null; // 练习：这题已经提交过
+    const optCls = (k) => !ck ? (S.answers[p.id] === k ? 'sel' : '') : k === ck.answer ? 'right' : S.answers[p.id] === k ? 'wrong' : '';
     $app.innerHTML = `<div class="ez ${S.big ? 'big' : ''}">
       <header class="ez-top">
         <button class="ez-cardbtn" id="cardbtn">${icon('menu', 15)}答题卡</button>
@@ -933,7 +936,7 @@ async function renderExam(sid) {
           <div class="ez-card-head"><b>答题卡</b><span class="muted">${icon('menu', 16)}</span></div>
           <div class="ez-progress"><div class="ez-prow"><span>进度</span><span>${answered}/${problems.length}</span></div>
             <div class="ez-pbar"><div style="width:${(answered / problems.length) * 100}%"></div></div></div>
-          <div class="ez-grid">${problems.map((x, i) => `<button class="ez-cell ${S.answers[x.id] ? 'done' : ''} ${S.flags[x.id] ? 'flag' : ''} ${i === S.cur ? 'cur' : ''}" data-go="${i}">${x.number}</button>`).join('')}</div>
+          <div class="ez-grid">${problems.map((x, i) => `<button class="ez-cell ${S.answers[x.id] ? 'done' : ''} ${practice && S.checked[x.id] ? (S.checked[x.id].correct ? 'ok' : 'bad') : ''} ${S.flags[x.id] ? 'flag' : ''} ${i === S.cur ? 'cur' : ''}" data-go="${i}">${x.number}</button>`).join('')}</div>
           <div class="ez-legend"><span><i class="lg done"></i>已答</span><span><i class="lg"></i>未答</span><span><i class="lg flag"></i>标记</span></div>
         </aside>
         <main class="ez-main">
@@ -942,14 +945,19 @@ async function renderExam(sid) {
               <button class="ez-pin ${S.flags[p.id] ? 'on' : ''}" id="flag" title="标记这道题，稍后回来检查">${icon('flag', 14)}${S.flags[p.id] ? '已标记' : '标记'}</button></div>
             <div class="ez-stem">${stemHtml(p)}</div>
             ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
-            ${isFillP(p) ? `<label class="ez-fill"><span>答</span><input id="fill" type="text" autocomplete="off" enterkeyhint="next" maxlength="40" value="${esc(S.answers[p.id] || '')}"></label>`
-              : `<ul class="ez-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="ez-opt ${S.answers[p.id] === k ? 'sel' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${choiceHtml(p, k)}</span></li>`).join('')}</ul>`}
+            ${isFillP(p) ? `<label class="ez-fill"><span>答</span><input id="fill" type="text" autocomplete="off" enterkeyhint="next" maxlength="40" value="${esc(S.answers[p.id] || '')}" ${ck ? 'disabled' : ''}></label>`
+              : `<ul class="ez-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<li class="ez-opt ${optCls(k)} ${ck ? 'locked' : ''}" data-choice="${k}" role="radio" aria-checked="${S.answers[p.id] === k}"><span class="ez-letter">${k}</span><span class="ez-otext">${choiceHtml(p, k)}</span></li>`).join('')}</ul>`}
             <div class="ez-nav">
               <button class="ez-btn" id="prev" ${S.cur === 0 ? 'disabled' : ''}>上一题</button>
+              ${practice && !ck ? `<button class="ez-btn check" id="check" ${S.answers[p.id] ? '' : 'disabled'}>提交</button>` : ''}
               <button class="ez-btn next" id="next" ${S.cur === problems.length - 1 ? 'disabled' : ''}>下一题</button>
-              ${practice && p.hint_count ? `<button class="ez-btn hint" id="hint" ${hints.length >= p.hint_count ? 'disabled' : ''}>${icon('bulb', 15)}提示 ${hints.length}/${p.hint_count}</button>` : ''}
+              ${practice && !ck && p.hint_count ? `<button class="ez-btn hint" id="hint" ${hints.length >= p.hint_count ? 'disabled' : ''}>${icon('bulb', 15)}提示 ${hints.length}/${p.hint_count}</button>` : ''}
             </div>
-            ${hints.length ? `<div class="hint-box">${hints.map((h, i) => `<div class="hint"><b>提示 ${i + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
+            ${hints.length && !ck ? `<div class="hint-box">${hints.map((h, i) => `<div class="hint"><b>提示 ${i + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
+            ${ck ? `<div class="ck-box ${ck.correct ? 'ok' : 'bad'}">
+              <div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `答错了，正确答案 <b>${esc(ck.answer)}</b>`}</div>
+              ${ck.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(ck.basic)}</div>` : ''}
+              ${ck.advanced ? advCard(p.id, ck.advanced) : ''}</div>` : ''}
           </div>
         </main>
       </div>
@@ -959,11 +967,21 @@ async function renderExam(sid) {
     tick();
 
     $app.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => go(+b.dataset.go)));
-    $app.querySelectorAll('[data-choice]').forEach((c) => (c.onclick = () => { S.answers[p.id] = c.dataset.choice; save(); draw(); }));
+    $app.querySelectorAll('[data-choice]').forEach((c) => (c.onclick = () => { if (ck) return; S.answers[p.id] = c.dataset.choice; save(); draw(); }));
+    const cb = $app.querySelector('#check');
+    if (cb) cb.onclick = async () => {
+      cb.disabled = true;
+      try {
+        const r = await api(`/math/api/sessions/${sid}/check`, { method: 'POST', body: { problem_id: p.id, answer: S.answers[p.id] } });
+        S.checked[p.id] = r; save(); draw();
+      } catch (e) { cb.disabled = false; modal(`<h2>没提交上</h2><p>${esc(e.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+    };
+    if (ck?.advanced) { $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv))); paintThumbs($app, { [p.id]: ck.advanced }); }
     const fill = $app.querySelector('#fill');
     if (fill) {
       // 只更新答题卡，不重画（重画会打断输入）
       const mark = () => { const v = fill.value.trim(); if (v) S.answers[p.id] = v; else delete S.answers[p.id]; save();
+        const c = $app.querySelector('#check'); if (c) c.disabled = !v;
         const n = problems.filter((x) => S.answers[x.id]).length;
         $app.querySelector(`[data-go="${S.cur}"]`)?.classList.toggle('done', !!v);
         $app.querySelector('.ez-prow span:last-child').textContent = `${n}/${problems.length}`;
@@ -1013,7 +1031,7 @@ async function renderExam(sid) {
     if ($modal.innerHTML || e.target.tagName === 'INPUT') return;
     const k = e.key.toUpperCase();
     const cp = problems[S.cur];
-    if (k.length === 1 && !isFillP(cp) && Object.prototype.hasOwnProperty.call(cp.choices, k)) { S.answers[cp.id] = k; save(); draw(); }
+    if (k.length === 1 && !isFillP(cp) && !(practice && S.checked[cp.id]) && Object.prototype.hasOwnProperty.call(cp.choices, k)) { S.answers[cp.id] = k; save(); draw(); }
     else if (e.key === 'ArrowRight') go(S.cur + 1);
     else if (e.key === 'ArrowLeft') go(S.cur - 1);
   };
