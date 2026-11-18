@@ -10,6 +10,7 @@ import { registerBilling, SAMPLES } from './billing.js';
 import { judge, normalizeInput } from './answers.js';
 import { registerEnglish, englishPrintItems } from './english.js';
 import { registerEvents, bump, evReport } from './events.js';
+import { registerPrep } from './prep.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
 const PREFIX = '/math', OLD_PREFIX = '/amc8';
@@ -95,6 +96,9 @@ const route = (method, pattern, handler) => {
 const billing = registerBilling({ route, json, HttpError, body, requireAccount, uid, now });
 registerEnglish({ route, json, HttpError, body, requireAccount, requireStudent, billing, uid, now });
 registerEvents(route, { json, body, HttpError });
+// 备战计划和每日打卡（kpStats、mistakeBook 是下面的函数声明，调用时已经定义）
+const prep = registerPrep({ route, json, HttpError, body, requireAccount, requireStudent, uid, now,
+  kpStats: (...a) => kpStats(...a), mistakeBook: (...a) => mistakeBook(...a), bump });
 // 后台：匿名事件计数（新用户在哪一步走掉）
 route('GET', '/api/admin/events', async (req, env, _p, url) => {
   const key = req.headers.get('x-admin-key');
@@ -274,7 +278,7 @@ async function sessionPayload(env, sessionId) {
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill,
-      draft: s.submitted_at ? null : parseJ(s.draft, null) },
+      draft: s.submitted_at ? null : parseJ(s.draft, null), prep: drill ? await prep.info(env, s.id, s.student_id) : null },
     exam,
     problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), choices_zh: p.choices_zh ? JSON.parse(p.choices_zh) : null, hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
     hints_seen: seen,
@@ -309,6 +313,7 @@ route('GET', '/api/students/:id/open', async (req, env, p, url) => {
       `SELECT s.id, s.exam_id, s.mode, s.deadline_at, COALESCE(s.subject, 'math') AS subject, COALESCE(s.title, e.title) AS title
          FROM exam_session s LEFT JOIN exam e ON e.id = s.exam_id
         WHERE s.student_id = ? AND s.submitted_at IS NULL AND s.deadline_at > ?${SUBJECTS.includes(sub) ? " AND COALESCE(s.subject, 'math') = ?" : ''}
+          AND s.id NOT IN (SELECT session_id FROM prep_day WHERE student_id = s.student_id) -- 打卡题在数学首页的打卡卡片里，不进「继续答题」
         ORDER BY s.started_at DESC LIMIT 5`
     )
     .bind(st.id, now(), ...(SUBJECTS.includes(sub) ? [sub] : []))
@@ -576,6 +581,7 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
   await env.DB.batch(stmts);
   await recomputeMastery(env.DB, s.student_id);
   await bump(env, 'submit'); if (firstSubmit) await bump(env, 'first_submit');
+  if (s.exam_id === 'drill') await prep.onSubmit(env, s.id, t);
   return json({ late, ...(await reviewPayload(env, acc, s.id)) });
 });
 
@@ -679,7 +685,8 @@ async function reviewPayload(env, acc, sessionId) {
     .all();
   const kpByProblem = await kpTags(env, acc, rows.map((r) => r.id));
   return {
-    session: { id: s.id, mode: s.mode, started_at: s.started_at, submitted_at: s.submitted_at, score: s.score, student_id: s.student_id },
+    session: { id: s.id, mode: s.mode, started_at: s.started_at, submitted_at: s.submitted_at, score: s.score, student_id: s.student_id,
+      prep: drill ? await prep.info(env, s.id, s.student_id) : null },
     exam,
     total: rows.length,
     items: rows.map((r, i) => ({

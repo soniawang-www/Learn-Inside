@@ -30,6 +30,9 @@ export const EV_NAMES = {
   submit: '交卷（次）',
   register: '注册（新号）',
   register_bind: '游客注册（记录保留）',
+  daily_start: '开始当天的打卡题（人次）',
+  daily_done: '完成打卡（人次）',
+  prep_plan: '新建备战计划',
 };
 
 const day = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间

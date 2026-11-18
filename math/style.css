@@ -1443,3 +1443,20 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .pzsvg .pz-jade { --pc:var(--lp-jade); } .pzsvg .pz-warn { --pc:var(--lp-warn); } .pzsvg .pz-ink { --pc:var(--lp-ink); }
 .pzsvg .pz-red { --pc:#d64545; } .pzsvg .pz-blue { --pc:#3b6fd4; } .pzsvg .pz-yellow { --pc:#e0ac1e; } .pzsvg .pz-green { --pc:#3a9a5b; } .pzsvg .pz-orange { --pc:#ee8a2e; } .pzsvg .pz-gray { --pc:#8a9299; }
 .pzsvg .pz-lb, .pzsvg .pz-pic { pointer-events:none; }
+
+/* 每日打卡 / 备战计划 */
+.prep-box { margin-bottom: 10px; }
+.cont-go.prep { padding: 16px 18px; }
+.cont-go.prep b { font-size: 17px; }
+.cont-go.prep.done { background: var(--ok-soft); color: var(--ok); border: 1.5px solid var(--ok); }
+.prep-set { display: inline-block; margin: 6px 4px 0; font-size: 13px; color: var(--accent); text-decoration: none; }
+.prep-ok { color: var(--ok); }
+.page.narrow { max-width: 520px; }
+.plan-form { display: grid; gap: 14px; }
+.pf-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.pf-row > span:first-child { color: var(--muted); white-space: nowrap; flex: none; }
+.pf-row input[type="date"] { min-width: 0; max-width: 62%; font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.pf-row .lang-seg button { font-size: 14px; padding: 5px 14px; }
+.pf-err { color: var(--bad); margin: 0; }
+.pf-cover { margin: 4px 0 0; text-align: center; }
+.ez #prep-done { margin-top: 14px; }

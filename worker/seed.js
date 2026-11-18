@@ -75,6 +75,7 @@ function upsertSql(table, obj) {
 import { BILLING_MIGRATIONS } from './billing.js';
 import { ENGLISH_MIGRATIONS } from './english.js';
 import { EV_MIGRATIONS } from './events.js';
+import { PREP_MIGRATIONS } from './prep.js';
 const MIGRATIONS = [
   'ALTER TABLE problem ADD COLUMN stem_zh TEXT', 'ALTER TABLE problem ADD COLUMN choices_zh TEXT',
   'ALTER TABLE knowledge_point ADD COLUMN signals TEXT', 'ALTER TABLE knowledge_point ADD COLUMN lesson TEXT',
@@ -109,6 +110,7 @@ const MIGRATIONS = [
   ...BILLING_MIGRATIONS,
   ...EV_MIGRATIONS,
   ...ENGLISH_MIGRATIONS,
+  ...PREP_MIGRATIONS,
   // 索引：按常用查询条件建，避免每次把整张表扫一遍（D1 按读到的行数计费 / 限额）
   'CREATE INDEX IF NOT EXISTS idx_ae_session ON attempt_event(session_id)',
   'CREATE INDEX IF NOT EXISTS idx_ae_student_problem ON attempt_event(student_id, problem_id, created_at)',

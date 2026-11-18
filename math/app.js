@@ -242,6 +242,7 @@ async function router() {
     if (page === 'problem') return await renderProblem(id);
     if (page === 'profile') { location.replace('#/graph'); return; } // 画像并进了知识图谱
     if (page === 'graph') return await renderGraphPage(id);
+    if (page === 'plan') return await renderPlan();
     if (page === 'mistakes') return await renderMistakes();
     if (page === 'account' && id === 'paid') return await renderPaid(sub);
     if (page === 'account') return await renderAccount();
@@ -587,6 +588,7 @@ async function renderDashboard() {
   if (!tasks.length && startFam) tasks.push(`<a class="task" href="#/contest/${enc(startFam.id)}"><i class="ico">›</i><span>做一套真题<small>${esc(startFam.name)}</small></span></a>`);
   // 没做完的模考：跟着账号走（换台设备也能看到）
   const op = (await api(`/math/api/students/${enc(st.id)}/open?subject=math`).catch(() => null))?.sessions?.[0];
+  const pr = await api(`/math/api/students/${enc(st.id)}/prep`).catch(() => null); // 每日打卡 / 备战计划
   const live = op ? { sid: op.id, title: op.title } : null;
   // 一步开始：没有做到一半的卷子时，直接给一套最新的、还没做过的真题（练习模式，不弹说明）
   let quick = null;
@@ -595,6 +597,11 @@ async function renderDashboard() {
     const gr = contestGrade[startFam.id], pool = ex.filter((e) => !gr || !e.grade || e.grade === gr);
     quick = pool.find((e) => e.last_score === null) || pool[0] || null;
   }
+  const pl = pr?.plan, pd = pr?.day;
+  const prepCard = pr ? `<div class="prep-box"><a class="cont-go prep ${pd?.done ? 'done' : ''}" href="javascript:" data-prep>
+      <b>${pl ? (pl.days_left > 0 ? `距 ${esc(pl.name)} 还有 ${pl.days_left} 天` : `${esc(pl.name)} 加油`) : '今日两题'}</b>
+      <span>${pd?.done ? `已打卡 · 连续 ${pr.streak} 天` : `${pl ? `今日 ${pd?.n || pl.per_day} 题` : '2 道真题'}${pr.streak ? ` · 已连续 ${pr.streak} 天` : ''}`}</span><i>${pd?.done ? '✓' : '›'}</i></a>
+      <a class="prep-set" href="#/plan">${pl ? `高频知识项 ${pl.cover.done}/${pl.cover.total}` : '定备战计划'} ›</a></div>` : '';
   const strip = [
     live && `<a class="cont-go" href="#/exam/${enc(live.sid)}"><b>继续答题</b><span>${esc(live.title)}</span><i>›</i></a>`,
     quick && `<a class="cont-go" href="javascript:" data-quick="${esc(quick.id)}"><b>开始做题</b><span>${esc(quick.title)} · ${quick.problem_count} 题 · 练习</span><i>›</i></a>`,
@@ -604,6 +611,7 @@ async function renderDashboard() {
   $app.innerHTML = `${topnav()}<main class="page dash">
     <header class="ph"><div><h1>数学竞赛真题</h1></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
+    ${prepCard}
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <section class="dash-exams" aria-label="考试">
       <div class="fam-cards">${fams.map((x) => `<a class="fam-card ${x.id === dashFam ? 'last' : ''}" href="#/contest/${enc(x.id)}">
@@ -628,6 +636,10 @@ async function renderDashboard() {
     ${me.has_phone || me.guest ? '' : `<a class="card bind-tip" href="${ACCOUNT_URL}"><span>还没绑定手机号</span><b>去绑定 ›</b></a>`}
   </main>`;
   document.getElementById('stu')?.addEventListener('change', (e) => { auth.setStudent(me.students.find((s) => s.id === e.target.value)); router(); });
+  $app.querySelector('[data-prep]')?.addEventListener('click', async () => {
+    const r = await api(`/math/api/students/${enc(st.id)}/prep/today`, { method: 'POST' });
+    location.hash = pd?.done ? `#/review/${r.session_id}` : `#/exam/${r.session_id}`;
+  });
   $app.querySelector('[data-quick]')?.addEventListener('click', async (e) => {
     ev('quick_start');
     const r = await api('/math/api/sessions', { method: 'POST', body: { exam_id: e.currentTarget.dataset.quick, student_id: st.id, mode: 'practice' } });
@@ -668,6 +680,39 @@ function examGrid(f, allExams, fid, limit = 0) {
     </div>${limit && exams.length > limit ? `<a class="more-link" href="#/contest/${enc(fid)}">全部 ${exams.length} 套 ›</a>` : ''}` : '<div class="card"><p class="muted">这种考试的真题还在录入，很快上线。</p></div>';
   return { html, exams };
 }
+// ───────── 备战计划：考什么、哪天考、每天几题 ─────────
+async function renderPlan() {
+  await ensureMe();
+  const st = auth.student || lastMe?.students?.[0];
+  const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
+  const pl = pr.plan;
+  const min = new Date(Date.now() + 8 * 3600e3 + 864e5).toISOString().slice(0, 10);
+  let per = pl?.per_day || 5;
+  $app.innerHTML = `${topnav()}<main class="page narrow">
+    <header class="ph"><div><h1>备战计划</h1></div></header>
+    <form class="card plan-form" id="pf">
+      <label class="pf-row"><span>考试</span><b>AMC 8</b></label>
+      <label class="pf-row"><span>考试日期</span><input type="date" id="pf-date" min="${min}" value="${esc(pl?.exam_date || '')}" required></label>
+      <div class="pf-row"><span>每天</span><span class="lang-seg" id="pf-n">${[2, 5, 10].map((n) => `<button type="button" data-n="${n}" aria-pressed="${n === per}">${n} 题</button>`).join('')}</span></div>
+      <p class="pf-err" id="pf-err" hidden></p>
+      <button class="btn primary block" type="submit">${pl ? '保存' : '开始备战'}</button>
+      ${pl ? `<p class="pf-cover muted small">高频知识项已练 ${pl.cover.done} / ${pl.cover.total}</p><button class="btn block" type="button" id="pf-del">取消计划</button>` : ''}
+    </form></main>`;
+  $app.querySelector('#pf-n').onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; per = +b.dataset.n; $app.querySelectorAll('#pf-n [data-n]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.n === per))); };
+  $app.querySelector('#pf').onsubmit = async (e) => {
+    e.preventDefault();
+    const err = $app.querySelector('#pf-err');
+    try {
+      await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { family: 'amc8', exam_date: $app.querySelector('#pf-date').value, per_day: per } });
+      location.hash = '#/';
+    } catch (x) { err.hidden = false; err.textContent = x.message; }
+  };
+  $app.querySelector('#pf-del')?.addEventListener('click', async () => {
+    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'DELETE' });
+    location.hash = '#/';
+  });
+}
+
 async function renderContest(fid, tab = 'exams') {
   dashFam = fid; store.set('math.fam', fid);
   const st = auth.student;
@@ -891,6 +936,7 @@ async function renderExam(sid) {
   const problems = data.problems;
   const clockOffset = data.session.server_now - Date.now();
   const practice = data.session.mode === 'practice';
+  const prepS = !!data.session.prep; // 每日打卡题：全部提交完就能打卡
   const en = hasEn(problems);
   let enteredAt = Date.now();
   let submitting = false;
@@ -929,7 +975,7 @@ async function renderExam(sid) {
         <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
         <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
         <span class="ez-timer" id="timer">${practice ? '已用' : '剩余时间'} <b>--:--</b></span>
-        <button class="ez-submit" id="submit">交卷</button>
+        <button class="ez-submit" id="submit">${prepS ? '完成打卡' : '交卷'}</button>
       </header>
       <div class="ez-body">
         <aside class="ez-card ${cardOpen ? 'open' : ''}">
@@ -958,6 +1004,7 @@ async function renderExam(sid) {
               <div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `答错了，正确答案 <b>${esc(ck.answer)}</b>`}</div>
               ${ck.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(ck.basic)}</div>` : ''}
               ${ck.advanced ? advCard(p.id, ck.advanced) : ''}</div>` : ''}
+            ${ck && prepS && problems.every((x) => S.checked[x.id]) ? '<button class="btn primary block" id="prep-done">完成打卡</button>' : ''}
           </div>
         </main>
       </div>
@@ -998,7 +1045,8 @@ async function renderExam(sid) {
     onLang($app, draw);
     $app.querySelector('#cardbtn').onclick = () => { cardOpen = !cardOpen; draw(); };
     $app.querySelector('#mask')?.addEventListener('click', () => { cardOpen = false; draw(); });
-    $app.querySelector('#submit').onclick = confirmSubmit;
+    $app.querySelector('#submit').onclick = prepS && problems.every((x) => S.checked[x.id]) ? () => submit(false) : confirmSubmit;
+    $app.querySelector('#prep-done')?.addEventListener('click', () => submit(false));
     const hb = $app.querySelector('#hint');
     if (hb) hb.onclick = async () => {
       const level = hints.length + 1;
@@ -1105,7 +1153,7 @@ async function renderReview(sid) {
     <div><b>${scanned ? '注册后，手机和电脑的记录合在一起' : '做题记录现在只存在这台设备上'}</b><span>${scanned ? '在电脑上用同一个手机号登录，扫码回填的成绩和错题都能看到' : '注册后换设备也能接着看，还送 10 次互动解析'}</span></div>
     <a class="btn primary" href="#/account" data-regp>免费注册</a><button class="x" aria-label="关闭">×</button></div>` : '';
   $app.innerHTML = `${topnav()}<main class="page">
-    <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}</p></div>
+    <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.prep?.done ? `<b class="prep-ok">今日已打卡 · 连续 ${r.session.prep.streak} 天</b>` : `${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}`}</p></div>
       ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
