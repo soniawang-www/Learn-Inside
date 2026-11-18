@@ -723,14 +723,14 @@ function showInstructions(exam, mode) {
     <ol>
       ${/^(hope|swb100)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
       <li>答对 1 题得 1 分，答错不扣分。</li>
-      <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
+      ${mode === 'practice' ? '' : `<li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>`}
       ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
       ${/^kangaroo-/.test(exam.id) ? `<li>本站按答对题数计分。正式比赛前三分之一每题 3 分、中间 4 分、最后 5 分，答错扣 1 分，不答不扣分。</li>
       <li>不能用计算器或任何电子设备。</li>` : /^amc1[02]-/.test(exam.id) ? `<li>本站按答对题数计分。正式比赛答对 6 分、不答 1.5 分、答错 0 分。</li>
       <li>只允许使用草稿纸、坐标纸、直尺、圆规、量角器和橡皮；不能用计算器或任何电子设备。</li>` : `<li>答对 1 题得 1 分，答错不扣分，所以每题都值得作答。</li>
       <li>只允许使用草稿纸、笔、直尺和橡皮；不能用计算器、量角器、圆规或任何电子设备。</li>`}
       <li>图形不一定按比例绘制。</li>
-      <li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>
+      ${mode === 'practice' ? '' : `<li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>`}
       ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}`}
     </ol></div>
     <div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="go">开始答题</button></div>`,
@@ -928,7 +928,7 @@ async function renderExam(sid) {
         ${en ? langSeg() : ''}
         <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
         <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
-        <span class="ez-timer" id="timer">剩余时间 <b>--:--</b></span>
+        <span class="ez-timer" id="timer">${practice ? '已用' : '剩余时间'} <b>--:--</b></span>
         <button class="ez-submit" id="submit">交卷</button>
       </header>
       <div class="ez-body">
@@ -1019,8 +1019,9 @@ async function renderExam(sid) {
   }
 
   function tick() {
-    const left = (data.session.deadline_at - (Date.now() + clockOffset)) / 1000;
     const el = document.getElementById('timer');
+    if (practice) { if (el) el.querySelector('b').textContent = fmtTime((Date.now() + clockOffset - data.session.started_at) / 1000); return; } // 练习不计时、不自动交卷，只显示已用时间
+    const left = (data.session.deadline_at - (Date.now() + clockOffset)) / 1000;
     if (el) { el.querySelector('b').textContent = fmtTime(left); el.classList.toggle('warn', left <= 300); }
     if (left <= 0 && !submitting) submit(true);
   }
@@ -1108,7 +1109,7 @@ async function renderReview(sid) {
       ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
-      <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)} <small>/ ${fmtTime(r.exam.duration_sec)}</small></dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
+      <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)}${r.session.mode === 'practice' ? '' : ` <small>/ ${fmtTime(r.exam.duration_sec)}</small>`}</dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
       <div class="rev-btns">${isGuest() ? `${nudge ? '' : '<a class="btn primary" href="#/account" data-regp>免费注册</a>'}<a class="btn" href="#/">再做一套</a>` : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>

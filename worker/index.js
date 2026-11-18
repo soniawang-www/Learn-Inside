@@ -208,7 +208,7 @@ route('POST', '/api/sessions', async (req, env) => {
     if (!ids.length) throw new HttpError(404, '没有可练的题');
     const stmts = [env.DB
       .prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, kp_id, subject) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?, ?)")
-      .bind(id, student_id, t, t + ids.length * (subjectOf(ids[0]) === 'chinese' ? 30 : 180) * 1000, title, kp_id ?? null, subjectOf(ids[0]))];
+      .bind(id, student_id, t, t + (subjectOf(ids[0]) === 'chinese' ? ids.length * 30 * 1000 : PAPER_DAYS * 86400e3), title, kp_id ?? null, subjectOf(ids[0]))];
     ids.forEach((pid, i) => stmts.push(env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)));
     await env.DB.batch(stmts);
     await counted();
@@ -218,10 +218,11 @@ route('POST', '/api/sessions', async (req, env) => {
   if (mode === 'paper' && subjectOf(exam_id ?? '') !== 'math') throw new HttpError(400, '只有数学试卷可以纸笔做、回填答案');
   const exam = await env.DB.prepare('SELECT * FROM exam WHERE id = ? AND published = 1').bind(exam_id).first();
   if (!exam) throw new HttpError(404, '试卷不存在');
-  // paper：在纸上做完，回来填答案判分；不限时（回填的期限放宽到 PAPER_DAYS 天）
+  // paper：在纸上做完，回来填答案判分；数学练习：每题提交看解析，不计时。这两种都不限时（期限放宽到 PAPER_DAYS 天）
+  const untimed = mode === 'paper' || (mode === 'practice' && subjectOf(exam_id) === 'math');
   await env.DB
     .prepare('INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, subject) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, student_id, exam_id, mode, t, t + (mode === 'paper' ? PAPER_DAYS * 86400 : exam.duration_sec) * 1000, subjectOf(exam_id))
+    .bind(id, student_id, exam_id, mode, t, t + (untimed ? PAPER_DAYS * 86400 : exam.duration_sec) * 1000, subjectOf(exam_id))
     .run();
   await counted();
   return json(await sessionPayload(env, id));
