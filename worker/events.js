@@ -19,6 +19,8 @@ export const CLIENT_EVENTS = {
   skip_fill: '跳过回填直接看解析',
   quick_start: '点首页「开始做题」',
   reg_prompt: '点注册提示',
+  ob_welcome: '看到新手欢迎页',
+  ob_start: '欢迎页点「开始」',
 };
 // 漏斗里依次显示的事件（服务器端的也在这里起名字）
 export const EV_NAMES = {

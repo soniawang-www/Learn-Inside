@@ -230,7 +230,7 @@ async function router() {
       const scan = page === 'fill' || page === 'sol' || page === 'team'; // 邀请链接也不挡 // 扫卷子二维码进来的：不挡，直接以游客回填 / 看解析（回填页上有「登录」）
       if (!scan && (SECTION === 'account' || page === 'join' || store.get('li.hadAccount'))) return renderJoin();
       // 新访客进引导：年级页先画出来，游客账号在后台建
-      if (page === 'start') return await renderStart(id, autoGuest());
+      if (page === 'start') return await renderStart(id, autoGuest);
       await autoGuest();
     }
     if (page === 'join') { location.replace('#/'); return; }
@@ -777,23 +777,24 @@ const bindDates = (root, dates, onChange) => root.querySelectorAll('[data-df]').
 
 // subject：从某一科进来（#/start/math …）就不用再选科目；已经有备考项的是「加一项」：不再问年级、怎么练、组队
 const SUBJ_CARDS = [['math', '数', '数学'], ['chinese', '语', '语文'], ['english', '英', '英语']];
-// pending：新访客的游客账号还在建，先画年级页，账号和比赛列表在后台准备
-async function renderStart(subject, pending) {
-  let st = null, pr = null, fams = [], have = [], adding = false;
-  const load = (async () => {
-    await pending;
+// newGuest：这台设备没登录过。先画欢迎页；点「开始」才建游客账号（点「我已有账号」就不建），账号和比赛列表在后台准备
+async function renderStart(subject, newGuest) {
+  let st = null, pr = null, fams = [], have = [], adding = false, loadP = null;
+  const load = () => (loadP ||= (async () => {
+    if (newGuest) await newGuest();
     st = auth.student || (await ensureMe())?.students?.[0]; // 刚建的游客已经有孩子信息，不用再查一次账号
     pr = await api(`/math/api/students/${enc(st.id)}/prep`);
     fams = pr.families || [];
     have = (pr.items || []).filter((x) => x.plan);
     adding = have.length > 0;
-  })();
-  if (!pending) await load;
-  else load.catch(() => {});
+  })());
+  if (!newGuest) await load();
   // 先选科目（可多选，从某一科进来的先勾上），再一科一科选比赛
   const A = { grade: pr?.grade || null, subjs: SUBJ_NAME[subject] ? [subject] : [], sel: [], dates: {}, wk: null, lv: null, team: null };
   const needGrade = !A.grade;
-  const flowOf = () => [needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`),
+  const isNew = !!newGuest; // 这台设备第一次来：先欢迎、小铅笔打招呼
+  if (isNew) ev('ob_welcome');
+  const flowOf = () => [isNew && 'hello', isNew && 'intro', needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`),
     'dates', !adding && 'how', !adding && 'team'].filter(Boolean);
   let step = 0;
   const inSubj = (sj) => fams.filter((f) => f.subject === sj && !have.some((h) => h.family === f.id))
@@ -808,27 +809,36 @@ async function renderStart(subject, pending) {
     const r = await api(`/math/api/students/${enc(st.id)}/prep/today?family=${enc(A.sel[0])}`, { method: 'POST' });
     location.href = examUrl(r.subject, r.session_id, false, A.sel[0]);
   };
+  // 小铅笔用气泡问问题（参考多邻国）
+  const ask = (q, sub = '') => `<div class="ob-ask">${pencil('happy')}<div class="ob-bubble"><b>${q}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
   const VIEW = {
-    grade: () => `<div class="ob-pal">${pencil('happy')}</div><h1>孩子几年级？</h1><div class="ob-grid">${GRADE9.map(([g, t]) => opt(A.grade === g, 'grade', g, t)).join('')}</div>`,
-    subjects: () => `${needGrade ? '' : `<div class="ob-pal">${pencil('happy')}</div>`}<h1>${adding ? '加哪些科目？' : '准备哪些科目？'}</h1><p class="ob-sub">可以多选</p><div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
+    hello: () => `<div class="ob-hello">${pencil('cheer')}<div class="ob-brand">learn-inside</div><p>每天几道真题，养成备考好习惯</p></div>`,
+    intro: () => `<div class="ob-intro"><div class="ob-bubble big"><b>你好！我是小铅笔</b><small>回答几个小问题，马上开始第一天</small></div>${pencil('happy')}</div>`,
+    grade: () => `${ask('孩子几年级？')}<div class="ob-grid">${GRADE9.map(([g, t]) => opt(A.grade === g, 'grade', g, t)).join('')}</div>`,
+    subjects: () => `${ask(adding ? '加哪些科目？' : '准备哪些科目？', '可以多选')}<div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
       const fs = inSubj(id);
       if (!fs.length) return '';
       return `<button class="ob-subj s-${id} ${A.subjs.includes(id) ? 'on' : ''}" data-subj="${id}"><i>${ic}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
-    fams: (sj) => `<h1>准备哪些${SUBJ_NAME[sj]}比赛？</h1><p class="ob-sub">可以多选</p><div class="ob-list">${inSubj(sj).map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), esc(f.sets))).join('')}</div>`,
-    dates: () => `<h1>什么时候考？</h1><div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
-    how: () => `<h1>怎么练？</h1><div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
+    fams: (sj) => `${ask(`准备哪些${SUBJ_NAME[sj]}比赛？`, '可以多选')}<div class="ob-list">${inSubj(sj).map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), esc(f.sets))).join('')}</div>`,
+    dates: () => `${ask('什么时候考？')}<div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
+    how: () => `${ask('怎么练？')}<div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
         <div class="ob-list ob-gap">${LEVEL.map(([k, t]) => opt(A.lv === k, 'lv', k, t, perLabel(fams, A.sel, k))).join('')}</div>`,
     team: () => `<div class="ob-sum"><span class="sc-flame on big">${FLAME}</span><h1>准备好了</h1>
         <div class="ob-items">${sel().map((f) => `<div><i class="tc-tag s-${f.subject}">${esc(f.subject_name)}</i><b>${esc(f.name)}</b><span>还有 ${daysTo(A.dates[f.id])} 天</span></div>`).join('')}</div></div>
         <h2 class="ob-q">和同学一起备考？</h2><div class="ob-list">${opt(A.team === true, 'team', 1, '组队', '建一个队，或用邀请码加入')}${opt(A.team === false, 'team', 0, '先自己练')}</div>`,
   };
-  const READY = { grade: () => !!A.grade, subjects: () => A.subjs.length > 0, fams: (sj) => A.sel.some((id) => fams.find((f) => f.id === id)?.subject === sj), dates: () => A.sel.every((id) => A.dates[id]), how: () => !!A.wk && !!A.lv, team: () => A.team !== null };
+  const READY = { hello: () => true, intro: () => true, grade: () => !!A.grade, subjects: () => A.subjs.length > 0, fams: (sj) => A.sel.some((id) => fams.find((f) => f.id === id)?.subject === sj), dates: () => A.sel.every((id) => A.dates[id]), how: () => !!A.wk && !!A.lv, team: () => A.team !== null };
   function draw() {
     const flow = flowOf(), [cur, arg] = flow[step].split(':'), LAST = flow.length - 1;
-    $app.innerHTML = `<main class="ob">
+    const p0 = isNew ? 1 : 0; // 欢迎页不算进度
+    const skip = cur === 'intro' || (!isNew && !step);
+    $app.innerHTML = cur === 'hello' ? `<main class="ob ob-welcome">
+      <div class="ob-body">${VIEW.hello()}</div>
+      <footer class="ob-foot"><button class="btn primary block" id="obn">开始</button><a class="btn block ob-login" href="/account/">我已有账号</a></footer>
+    </main>` : `<main class="ob">
       <header class="ob-top">${step ? '<button class="ob-back" id="obb" aria-label="上一步">‹</button>' : '<span></span>'}
-        <div class="ob-bar"><i style="width:${((step + 1) / flow.length) * 100}%"></i></div>
-        ${step ? '<span></span>' : `<a class="ob-skip" href="${adding ? 'javascript:history.back()' : '/'}" id="obs">${adding ? '取消' : '跳过'}</a>`}</header>
+        <div class="ob-bar"><i style="width:${((step + 1 - p0) / (flow.length - p0)) * 100}%"></i></div>
+        ${skip ? `<a class="ob-skip" href="${adding ? 'javascript:history.back()' : '/'}" id="obs">${adding ? '取消' : '跳过'}</a>` : '<span></span>'}</header>
       <div class="ob-body">${VIEW[cur](arg)}</div>
       <footer class="ob-foot"><button class="btn primary block" id="obn" ${READY[cur](arg) ? '' : 'disabled'}>${step === LAST ? (A.team ? '去组队' : adding ? '开始' : '开始第一天') : '继续'}</button></footer>
     </main>`;
@@ -851,14 +861,16 @@ async function renderStart(subject, pending) {
     $app.querySelectorAll('[data-team]').forEach((b) => (b.onclick = () => { A.team = b.dataset.team === '1'; redraw(); }));
     bindDates($app, A.dates, () => { $app.querySelector('#obn').disabled = !READY.dates(); });
     $app.querySelector('#obb')?.addEventListener('click', () => { step--; draw(); });
+    $app.querySelector('.ob-login')?.addEventListener('click', () => store.set('li.hadAccount', true)); // 登录页默认显示「登录」
     $app.querySelector('#obs')?.addEventListener('click', () => { if (!adding) store.set('li.obSkip', true); });
     $app.querySelector('#obn').onclick = async (e) => {
       const btn = e.currentTarget;
       if (cur === 'grade') { // 年级只问一次
         btn.disabled = true;
-        try { await load; } catch (x) { btn.disabled = false; modal(`<h2>网络不太好</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); return; }
+        try { await load(); } catch (x) { btn.disabled = false; modal(`<h2>网络不太好</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); return; }
         api(`/math/api/students/${enc(st.id)}/grade`, { method: 'PUT', body: { grade: A.grade } }).catch(() => {});
       }
+      if (cur === 'hello') { ev('ob_start'); load().catch(() => { loadP = null; }); } // 点了开始：后台建游客账号
       if (step < LAST) { step++; draw(); scrollTo(0, 0); return; }
       btn.disabled = true;
       try { await go(); } catch (x) { btn.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
