@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+<script>/* 第一次来（这台设备没登录过、没跳过引导）打开主页：直接进新手引导 */try{if(!localStorage.getItem("li.token")&&localStorage.getItem("li.obSkip")!=="true"&&!localStorage.getItem("li.hadAccount")&&(location.hash===""||location.hash==="#/")&&!location.search)location.replace("/math/#/start/math")}catch(e){}</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="/favicon.ico?v=2" sizes="any">
@@ -19,7 +20,7 @@
   <link rel="stylesheet" href="/assets/sidenav.css?v=20261106g">
   <script defer src="vendor/katex/katex.min.js"></script>
   <script defer src="vendor/katex/contrib/auto-render.min.js"></script>
-  <script type="module" src="app.js?v=20261119a"></script>
+  <script type="module" src="app.js?v=20261119b"></script>
 </head>
 <body class="net-wait">
   <div id="app"><main class="page"><div class="sk sk-first" role="status" aria-label="加载中"><div class="sk-b sk-h1"></div><div class="sk-row"><div class="sk-b sk-card"></div><div class="sk-b sk-card"></div><div class="sk-b sk-card"></div></div><div class="sk-grid"><div class="sk-b sk-big"></div><div class="sk-b sk-side"></div></div></div></main></div>

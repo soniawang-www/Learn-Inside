@@ -229,6 +229,8 @@ async function router() {
     if (!auth.token) { // 没登录：直接建一个游客用起来；登录过的设备、账号页、#/join 才给登录表单
       const scan = page === 'fill' || page === 'sol' || page === 'team'; // 邀请链接也不挡 // 扫卷子二维码进来的：不挡，直接以游客回填 / 看解析（回填页上有「登录」）
       if (!scan && (SECTION === 'account' || page === 'join' || store.get('li.hadAccount'))) return renderJoin();
+      // 新访客进引导：年级页先画出来，游客账号在后台建
+      if (page === 'start') return await renderStart(id, autoGuest());
       await autoGuest();
     }
     if (page === 'join') { location.replace('#/'); return; }
@@ -775,15 +777,21 @@ const bindDates = (root, dates, onChange) => root.querySelectorAll('[data-df]').
 
 // subject：从某一科进来（#/start/math …）就不用再选科目；已经有备考项的是「加一项」：不再问年级、怎么练、组队
 const SUBJ_CARDS = [['math', '数', '数学'], ['chinese', '语', '语文'], ['english', '英', '英语']];
-async function renderStart(subject) {
-  await ensureMe();
-  const st = auth.student || lastMe?.students?.[0];
-  const pr = await api(`/math/api/students/${enc(st.id)}/prep`);
-  const fams = pr.families || [];
-  const have = (pr.items || []).filter((x) => x.plan);
-  const adding = have.length > 0;
+// pending：新访客的游客账号还在建，先画年级页，账号和比赛列表在后台准备
+async function renderStart(subject, pending) {
+  let st = null, pr = null, fams = [], have = [], adding = false;
+  const load = (async () => {
+    await pending;
+    st = auth.student || (await ensureMe())?.students?.[0]; // 刚建的游客已经有孩子信息，不用再查一次账号
+    pr = await api(`/math/api/students/${enc(st.id)}/prep`);
+    fams = pr.families || [];
+    have = (pr.items || []).filter((x) => x.plan);
+    adding = have.length > 0;
+  })();
+  if (!pending) await load;
+  else load.catch(() => {});
   // 先选科目（可多选，从某一科进来的先勾上），再一科一科选比赛
-  const A = { grade: pr.grade || null, subjs: SUBJ_NAME[subject] ? [subject] : [], sel: [], dates: {}, wk: null, lv: null, team: null };
+  const A = { grade: pr?.grade || null, subjs: SUBJ_NAME[subject] ? [subject] : [], sel: [], dates: {}, wk: null, lv: null, team: null };
   const needGrade = !A.grade;
   const flowOf = () => [needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`),
     'dates', !adding && 'how', !adding && 'team'].filter(Boolean);
@@ -846,7 +854,11 @@ async function renderStart(subject) {
     $app.querySelector('#obs')?.addEventListener('click', () => { if (!adding) store.set('li.obSkip', true); });
     $app.querySelector('#obn').onclick = async (e) => {
       const btn = e.currentTarget;
-      if (cur === 'grade') api(`/math/api/students/${enc(st.id)}/grade`, { method: 'PUT', body: { grade: A.grade } }).catch(() => {}); // 年级只问一次
+      if (cur === 'grade') { // 年级只问一次
+        btn.disabled = true;
+        try { await load; } catch (x) { btn.disabled = false; modal(`<h2>网络不太好</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); return; }
+        api(`/math/api/students/${enc(st.id)}/grade`, { method: 'PUT', body: { grade: A.grade } }).catch(() => {});
+      }
       if (step < LAST) { step++; draw(); scrollTo(0, 0); return; }
       btn.disabled = true;
       try { await go(); } catch (x) { btn.disabled = false; modal(`<h2>没开始成</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
