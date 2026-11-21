@@ -1827,3 +1827,19 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .ob-welcome-foot { display: grid; gap: 10px; }
 .pay-pal { display: flex; justify-content: center; }
 .pay-pal .mascot { width: 110px; height: 134px; }
+/* 错题本：打印在标题旁；筛选在列表上面；四段切换；列表用分隔线，不再一格一个框 */
+.ms-head { align-items: center; }
+.ms-head .lp-entry { flex: none; }
+.ms-filt { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.ms-filt select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
+.ms-kp-link { margin: -4px 0 10px; }
+.ms-card .ms-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0 0 12px; }
+.ms-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 3px; margin: 0 0 6px; border-radius: 12px; background: var(--surface-2); }
+.ms-seg button { border: 0; background: transparent; color: var(--muted); border-radius: 9px; padding: 8px 2px; font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.ms-seg button.on { background: var(--surface); color: var(--accent); font-weight: 700; box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+.ms-list { display: grid; }
+.ms-list .prow { border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; padding: 12px 2px; }
+.ms-list .prow:first-child { border-top: 0; }
+.ms-list .prow:hover { border-color: var(--border); background: var(--surface-2); }
+.ms-list .pal-empty { padding: 14px 0 6px; }
+@media (min-width: 900px) { .ms-seg button { font-size: 15px; padding: 10px 4px; } .ms-filt select { font-size: 15px; padding: 11px 12px; } }

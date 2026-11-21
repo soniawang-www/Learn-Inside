@@ -2019,19 +2019,21 @@ async function renderMistakes() {
     const list = all.filter((m) => (!msFam || famOf(m.problem_id)?.id === msFam) && (!msKp || prim(m).some((k) => k.id === msKp)));
     const rs = (d.error_reasons || []).filter((r) => r.n);
     const rsum = rs.reduce((a, r) => a + r.n, 0);
+    // 考试、知识项各不止一个时才给筛选；放在列表上面（手机上放在下面就没人用了）
+    const famOpts = fams.filter((f) => all.some((m) => famOf(m.problem_id) === f)), kpOpts = Object.values(kps).sort((a, b) => b.n - a.n);
+    const filt = famOpts.length > 1 || kpOpts.length > 1 ? `<div class="ms-filt">
+        ${famOpts.length > 1 ? `<select id="f-fam" aria-label="考试"><option value="">全部考试</option>${famOpts.map((f) => `<option value="${f.id}" ${msFam === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>` : ''}
+        ${kpOpts.length > 1 ? `<select id="f-kp" aria-label="知识项"><option value="">全部知识项</option>${kpOpts.map((k) => `<option value="${k.id}" ${msKp === k.id ? 'selected' : ''}>${esc(k.name)}（${k.n}）</option>`).join('')}</select>` : ''}
+      </div>${msKp ? `<p class="ms-kp-link"><a class="small" href="#/graph/${enc(msKp)}">在图谱里看这个知识项 ›</a></p>` : ''}` : '';
     $app.innerHTML = `${topnav()}<main class="page">
-      <header class="ph"><div><h1>${esc(d.student.nickname)}的错题本</h1>
-        ${all.length ? `<p class="muted">共 ${all.length} 道 · 待订正 ${all.filter((m) => m.status === 'pending').length} · 该复习 ${all.filter((m) => m.status === 'due').length} · 已掌握 ${all.filter((m) => m.status === 'mastered').length}${isGuest() ? ' · <a href="#/account" data-regp>注册保存</a>' : ''}</p>` : ''}</div></header>
-      <div class="cols"><div class="col-main">${mistakeCard(list, RN)}</div><aside class="col-side">
-      ${all.length ? `<div class="card ms-filters"><h2>筛选</h2>
-        <label>考试 <select id="f-fam"><option value="">全部</option>${fams.filter((f) => all.some((m) => famOf(m.problem_id) === f)).map((f) => `<option value="${f.id}" ${msFam === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
-        <label>知识项 <select id="f-kp"><option value="">全部</option>${Object.values(kps).sort((a, b) => b.n - a.n).map((k) => `<option value="${k.id}" ${msKp === k.id ? 'selected' : ''}>${esc(k.name)}（${k.n}）</option>`).join('')}</select></label>
-        ${msKp ? `<a class="small" href="#/graph/${enc(msKp)}">在图谱里看这个知识项 ›</a>` : ''}
-      </div>` : ''}
+      <header class="ph ms-head"><div><h1>${esc(d.student.nickname)}的错题本</h1>${isGuest() && all.length ? '<p class="muted small"><a href="#/account" data-regp>注册保存错题</a></p>' : ''}</div>
+        ${all.length ? `<button class="btn lp-entry" id="ms-print">${PRINT_ICON}打印</button>` : ''}</header>
+      <div class="cols"><div class="col-main">${filt}${mistakeCard(list, RN)}</div><aside class="col-side">
       ${rsum ? `<div class="card"><h2>错因</h2>
         <div class="mods">${rs.sort((a, b) => b.n - a.n).map((r) => `<div class="mrow"><span>${r.error_reason ? RN[r.error_reason] : '没标'}</span><span class="mbar"><i style="width:${(r.n / rsum) * 100}%"></i></span><span class="num">${r.n} 题</span></div>`).join('')}</div></div>` : ''}
     </aside></div></main>`;
     bindMistakes(list);
+    $app.querySelector('#ms-print')?.addEventListener('click', () => openMistakesPrint(list));
     $app.querySelector('#f-fam')?.addEventListener('change', (e) => { msFam = e.target.value; msMore = false; draw(); });
     $app.querySelector('#f-kp')?.addEventListener('change', (e) => { msKp = e.target.value; msMore = false; draw(); });
   };
@@ -2043,18 +2045,17 @@ function mistakeCard(list, reasonName) {
     : `<div class="card pal-empty" id="mistakes">${mascot('happy')}<p class="muted">还没有错题</p></div>`;
   const n = (st) => list.filter((m) => m.status === st).length;
   const todo = list.filter(isTodo);
-  const tabs = [['todo', `要做的 ${todo.length}`], ['pending', `待订正 ${n('pending')}`], ['due', `该复习 ${n('due')}`], ['fixed', `已订正 ${n('fixed')}`], ['mastered', `已掌握 ${n('mastered')}`], ['all', `全部 ${list.length}`]];
+  if (!['todo', 'fixed', 'mastered', 'all'].includes(msFilter)) msFilter = 'todo'; // 待订正、该复习都算「要做的」
+  const tabs = [['todo', '要做的', todo.length], ['fixed', '已订正', n('fixed')], ['mastered', '已掌握', n('mastered')], ['all', '全部', list.length]];
   const shown = msFilter === 'all' ? list : msFilter === 'todo' ? todo : list.filter((m) => m.status === msFilter);
-  return `<div class="card" id="mistakes">
-    
-    <div class="ms-actions">
+  return `<div class="card ms-card" id="mistakes">
+    ${todo.length ? `<div class="ms-actions">
       ${n('pending') ? `<button class="btn primary" data-ms-go="pending">订正错题（${Math.min(n('pending'), BATCH)} 题）</button>` : ''}
       ${n('due') ? `<button class="btn primary" data-ms-go="due">复习到期的错题（${Math.min(n('due'), BATCH)} 题）</button>` : ''}
-      <button class="btn lp-entry" data-ms-print style="margin-left:auto">${PRINT_ICON}打印</button>
-    </div>
-    <div class="ms-tabs">${tabs.map(([k, label]) => `<button class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label}</button>`).join('')}</div>
-    <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || (msFilter === 'todo' ? `<div class="pal-empty">${friend(FRIENDS.math, 'cheer')}<p class="muted">错题都订正完了</p></div>` : '<p class="muted small">这一类没有题。</p>')}</div>
-    ${!msMore && shown.length > SHOW ? `<button class="btn" style="margin-top:8px" data-ms-more>再显示 ${shown.length - SHOW} 题</button>` : ''}
+    </div>` : ''}
+    <div class="ms-seg" role="tablist">${tabs.map(([k, label, c]) => `<button role="tab" aria-selected="${msFilter === k}" class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label} ${c}</button>`).join('')}</div>
+    <div class="ms-list">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || (msFilter === 'todo' ? `<div class="pal-empty">${friend(FRIENDS.math, 'cheer')}<p class="muted">错题都订正完了</p></div>` : '<p class="muted small">这一类没有题。</p>')}</div>
+    ${!msMore && shown.length > SHOW ? `<button class="btn block" style="margin-top:8px" data-ms-more>再显示 ${shown.length - SHOW} 题</button>` : ''}
   </div>`;
 }
 function bindMistakes(list) {

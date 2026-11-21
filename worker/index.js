@@ -1042,8 +1042,9 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
   // 游客：错题本照样有（只存在这个浏览器的账号里，注册后换手机也能看）；知识图谱要注册
   if (acc.guest) return json({ student: { id: st.id, nickname: st.nickname }, points: [], edges: [], sessions, error_reasons: [], mistakes: await mistakeBook(env, st.id, subjectParam(new URL(req.url))), locked: REG_ONLY, guest: true });
   const { results: reasons } = await env.DB
-    .prepare("SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 AND COALESCE(skipped, 0) = 0 GROUP BY error_reason")
-    .bind(st.id)
+    .prepare(`SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 AND COALESCE(skipped, 0) = 0
+               AND session_id IN (SELECT id FROM exam_session WHERE student_id = ? AND COALESCE(subject, 'math') = ?) GROUP BY error_reason`) // 只算这一科
+    .bind(st.id, st.id, subjectParam(new URL(req.url)))
     .all();
   const stats = await kpStats(env);
   const points = m
