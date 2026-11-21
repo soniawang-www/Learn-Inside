@@ -183,9 +183,14 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .resume[hidden]{display:none}
 .resume a{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 0;color:var(--ink);text-decoration:none;border-top:1px solid var(--line)}
 .resume a:first-child{border-top:0}
+.home-skel{margin-bottom:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(100deg,var(--card) 30%,var(--bg) 50%,var(--card) 70%) 0 0/300% 100%;animation:skel 1.2s linear infinite}
+@keyframes skel{to{background-position:-150% 0}}
+@media (prefers-reduced-motion:reduce){.home-skel{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
 <link rel="stylesheet" href="/assets/pal.css?v=20261122b">
+<link rel="modulepreload" href="/assets/pal.js?v=20261122b">
+<link rel="modulepreload" href="/assets/cast.js?v=20261122b">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
 <body class="net-wait">
@@ -229,6 +234,16 @@ body{font-size:1rem}
 
   <div id="today" aria-label="今日打卡"></div>
   <section class="resume" id="resume" hidden aria-label="没做完的"></section>
+  <script>/* 个人区域先占好位置：同一天先放上次的内容，隔天按上次的高度放占位；请求也在这里先发出去，不等模块加载 */
+  try{const tk=JSON.parse(localStorage.getItem("li.token")||"null"),s=JSON.parse(localStorage.getItem("li.student")||"null");
+  if(tk&&s&&s.id&&!/[?&]r=/.test(location.search)){
+    const id=encodeURIComponent(s.id),g=u=>fetch(u,{headers:{authorization:"Bearer "+tk}}).then(r=>r.ok?r.json():null).catch(()=>null);
+    window.__home={prep:g(`/api/students/${id}/prep`),team:g(`/api/students/${id}/team`),open:g(`/api/students/${id}/open`),pm:g(`/api/students/${id}/profile`),
+      pc:g(`/api/students/${id}/profile?subject=chinese`),pe:g(`/api/students/${id}/profile?subject=english`),mc:g(`/api/students/${id}/mistakes?subject=chinese`)};
+    const c=JSON.parse(localStorage.getItem("li.homeCache")||"null"),mine=c&&c.sid===s.id,d=new Date(Date.now()+8*3600e3).toISOString().slice(0,10),T=document.getElementById("today"),R=document.getElementById("resume");
+    if(mine&&c.day===d){T.innerHTML=c.today||"";if(c.resume){R.innerHTML=c.resume;R.hidden=false}}
+    else{T.innerHTML=`<div class="home-skel" style="height:${mine&&c.th||300}px"></div>`;if(mine&&c.rh){R.style.minHeight=c.rh+"px";R.hidden=false}}
+  }}catch(e){}</script>
 
   <h2 class="zone-h">真题专区</h2>
   <nav class="zones" aria-label="科目">
@@ -283,11 +298,19 @@ if(!tok||!st||!st.id){if(!skip)location.replace(START_URL);else document.getElem
 else{
 const get=async u=>{try{const r=await fetch(u,{headers:{authorization:"Bearer "+tok}});return r.ok?await r.json():null}catch(e){return null}};
 const id=encodeURIComponent(st.id);
-const [pr,tm,op,pm,pc,pe,mc]=await Promise.all([get(`/api/students/${id}/prep`),get(`/api/students/${id}/team`),get(`/api/students/${id}/open`),get(`/api/students/${id}/profile`),get(`/api/students/${id}/profile?subject=chinese`),get(`/api/students/${id}/profile?subject=english`),get(`/api/students/${id}/mistakes?subject=chinese`)]);
+const H=(!rk&&window.__home)||{prep:get(`/api/students/${id}/prep`),team:get(`/api/students/${id}/team`),open:get(`/api/students/${id}/open`),pm:get(`/api/students/${id}/profile`),
+  pc:get(`/api/students/${id}/profile?subject=chinese`),pe:get(`/api/students/${id}/profile?subject=english`),mc:get(`/api/students/${id}/mistakes?subject=chinese`)};
+const T=document.getElementById("today"),R=document.getElementById("resume");
+if(T.querySelector(".today-card"))bindToday(T,{sid:st.id,token:tok}); // 上次的卡片先能点
+const [pr,tm]=await Promise.all([H.prep,H.team]);
+const fresh=pr&&!(pr.items||[]).length&&!pr.total&&!skip; // 可能是新来的：等做题记录回来再决定要不要进新手引导
+const show=()=>{T.innerHTML=todayCard(pr,{team:tm});bindToday(T,{sid:st.id,token:tok})};
+if(!fresh)show();
+const [op,pm,pc,pe,mc]=await Promise.all([H.open,H.pm,H.pc,H.pe,H.mc]);
 const used=[pm,pc,pe].some(x=>x&&x.sessions&&x.sessions.length);
-if(pr&&!(pr.items||[]).length&&!pr.total&&!skip&&!used){location.replace(START_URL)}
+if(fresh&&!used){location.replace(START_URL)}
 else{
-const T=document.getElementById("today");T.innerHTML=todayCard(pr,{team:tm});bindToday(T,{sid:st.id,token:tok});
+if(fresh)show();
 const o=op&&op.sessions&&op.sessions[0];
 const fam=x=>{const e=String(x.exam_id||"");return e.startsWith("ket-")?"ket/":e.startsWith("pet-")?"pet/":"tj/"};
 const link=x=>x.subject==="english"?`english/#/${fam(x)}exam/${encodeURIComponent(x.id)}`:`${x.subject==="chinese"?"chinese/":"math/"}#/exam/${encodeURIComponent(x.id)}`;
@@ -295,7 +318,8 @@ const todo=a=>(a||[]).filter(m=>m.status==="pending"||m.status==="due").length;
 const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);
 const SN={math:"数学",chinese:"语文",english:"英语"};
 const rows=[o?`<a href="${link(o)}"><b>继续答题</b><span>${SN[o.subject]?SN[o.subject]+" · ":""}${esc(o.title||"上次的试卷")}</span><i>›</i></a>`:"",mm?`<a href="math/#/mistakes"><b>数学错题</b><span>${mm} 道待订正</span><i>›</i></a>`:"",mz?`<a href="chinese/#/mistakes"><b>语文错题</b><span>${mz} 道待订正</span><i>›</i></a>`:""].filter(Boolean);
-if(rows.length){const R=document.getElementById("resume");R.innerHTML=rows.join("");R.hidden=false}
+R.style.minHeight="";if(rows.length){R.innerHTML=rows.join("");R.hidden=false}else{R.innerHTML="";R.hidden=true}
+try{localStorage.setItem("li.homeCache",JSON.stringify({sid:st.id,day:new Date(Date.now()+8*3600e3).toISOString().slice(0,10),today:T.innerHTML,resume:R.hidden?"":R.innerHTML,th:T.offsetHeight,rh:R.hidden?0:R.offsetHeight}))}catch(e){}
 }}
 </script>
 </body>
