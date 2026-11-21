@@ -1,4 +1,4 @@
-import { WEEK, mascot, castRow, subjHead, scorePal, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122d';
+import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122e';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -256,7 +256,7 @@ async function router() {
     if (page === 'exams') { location.replace('#/'); return; } // 考试列表并进了数学首页
     return await renderDashboard();
   } catch (e) {
-    $app.innerHTML = `${topnav()}<main class="page"><div class="card"><p class="error-msg">${esc(e.message)}</p><a href="#/">返回首页</a></div></main>`;
+    $app.innerHTML = `${topnav()}<main class="page"><div class="card pal-empty">${mascot('think')}<p class="error-msg">${esc(e.message)}</p><a class="btn" href="#/">返回首页</a></div></main>`;
   } finally { clearTimeout(dim); $app.classList.remove('page-wait'); loaded(); }
 }
 // 匿名计数：每台设备每天每种事件只报一次，只记次数，不记是谁
@@ -393,7 +393,7 @@ async function renderAccount() {
     : ms.length ? ms.map((x) => `<span class="mtag">${esc(x.name)}会员</span> ${untilText(a.memberships[x.id])}`).join('<br>') : '还不是会员';
   const groups = a.scopes.map((sc) => ({ ...sc, plans: a.plans.filter((p) => p.scope === sc.id) })).filter((g) => g.plans.length);
   // 账号卡片：游客放在最上面（手机上一眼看到注册表单），注册用户放在右栏
-  const acctCard = `<div class="card"><h2>${a.guest ? '注册账号' : '登录方式'}</h2>
+  const acctCard = `<div class="card"><h2 ${a.guest ? 'class="auth-h"' : ''}>${a.guest ? `${mascot('happy', { head: true })}注册账号` : '登录方式'}</h2>
       ${a.phone ? `<p>手机号 <b>${esc(a.phone)}</b></p>
         <details><summary class="small">修改密码</summary><form id="pw" style="margin-top:10px">
           <label class="field"><span>原密码</span><input type="password" name="old_password" autocomplete="current-password"></label>
@@ -518,7 +518,7 @@ async function renderPaid(orderId) {
     await new Promise((r) => setTimeout(r, 2000));
   }
   if (!location.hash.includes(orderId)) return; // 已经离开这个页面
-  if (o.status === 'paid') return box(`<div class="gift-big">${icon('done', 44)}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><div class="actions"><a class="btn" href="#/account">账号</a><a class="btn primary" href="#/">开始练习</a></div>`);
+  if (o.status === 'paid') return box(`<div class="pay-pal">${mascot('cheer')}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><div class="actions"><a class="btn" href="#/account">账号</a><a class="btn primary" href="#/">开始练习</a></div>`);
   if (o.status === 'refunded' || o.status === 'refunding') return box(`<h2>这笔订单已退款</h2><div class="actions"><a class="btn primary" href="#/account">返回账号</a></div>`);
   if (o.status === 'closed') return box(`<h2>没有完成付款</h2><p>这笔订单（${esc(o.plan_name)} ¥${esc(o.amount)}）已关闭，没有扣款。</p><div class="actions"><a class="btn" href="#/">先不开了</a><a class="btn primary" href="#/account">重新开通</a></div>`);
   box(`<h2>还没收到付款</h2><p>${esc(o.plan_name)} · ¥${esc(o.amount)}</p><p class="small muted">如果已经付款，可能是支付宝还没通知到，点「我已付款，再查一次」；还没付可以继续支付或取消。</p>
@@ -1088,8 +1088,8 @@ async function renderContest(fid, tab = 'exams') {
   if (tab === 'exams') {
     // 最上面直接给「下一套」：没做过的里排第一的那套（有没交的就先继续）
     const op = exams.find((e) => e.open_session && e.open_mode !== 'paper'), nx = exams.find((e) => e.last_score === null && !e.open_session);
-    const bar = op ? `<div class="next-set"><span><small>没做完</small><b>${esc(op.title)}</b></span><a class="btn primary" href="#/exam/${enc(op.open_session)}">继续答题</a></div>`
-      : nx ? `<div class="next-set"><span><small>下一套</small><b>${esc(nx.title)}</b></span><span class="ns-btns"><button class="btn" data-start="${nx.id}" data-mode="practice">逐题练</button><button class="btn primary" data-start="${nx.id}" data-mode="exam">限时模考</button></span></div>` : '';
+    const bar = op ? `<div class="next-set"><span class="ns-pal">${subjHead('math')}</span><span><small>没做完</small><b>${esc(op.title)}</b></span><a class="btn primary" href="#/exam/${enc(op.open_session)}">继续答题</a></div>`
+      : nx ? `<div class="next-set"><span class="ns-pal">${subjHead('math')}</span><span><small>下一套</small><b>${esc(nx.title)}</b></span><span class="ns-btns"><button class="btn" data-start="${nx.id}" data-mode="practice">逐题练</button><button class="btn primary" data-start="${nx.id}" data-mode="exam">限时模考</button></span></div>` : '';
     body = bar + gridHtml;
   } else if (tab === 'stats') {
     const S = d.stats;
@@ -1109,7 +1109,7 @@ async function renderContest(fid, tab = 'exams') {
   } else {
     body = `<div class="card">${d.sessions.length ? `<div class="scores">${d.sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${modeName(x.mode)} · ${fmtDate(x.submitted_at)}</small></span>
-          <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>` : '<p class="muted">还没有做过这种考试的卷子。</p>'}</div>`;
+          <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>` : `<div class="pal-empty">${friend(FRIENDS.math, 'happy')}<p class="muted">还没有做过这种考试的卷子</p></div>`}</div>`;
   }
   const done = exams.filter((e) => e.last_score !== null);
   const best = done.length ? Math.max(...done.map((e) => e.last_score)) : null;
@@ -1144,7 +1144,7 @@ function showInstructions(exam, mode) {
       ${mode === 'practice' ? '' : `<li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>`}
       ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}`}
     </ol></div>
-    <div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="go">开始答题</button></div>`,
+    <div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="go">开始答题</button>${startPal('math')}</div>`,
   (el, close) => {
     el.querySelector('#go').onclick = async () => {
       const r = await api('/math/api/sessions', { method: 'POST', body: { exam_id: exam.id, student_id: auth.student.id, mode } });
@@ -2050,11 +2050,10 @@ function mistakeCard(list, reasonName) {
     <div class="ms-actions">
       ${n('pending') ? `<button class="btn primary" data-ms-go="pending">订正错题（${Math.min(n('pending'), BATCH)} 题）</button>` : ''}
       ${n('due') ? `<button class="btn primary" data-ms-go="due">复习到期的错题（${Math.min(n('due'), BATCH)} 题）</button>` : ''}
-      ${!todo.length ? '<span class="small muted">现在没有要做的错题</span>' : ''}
       <button class="btn lp-entry" data-ms-print style="margin-left:auto">${PRINT_ICON}打印</button>
     </div>
     <div class="ms-tabs">${tabs.map(([k, label]) => `<button class="${msFilter === k ? 'on' : ''}" data-ms-tab="${k}">${label}</button>`).join('')}</div>
-    <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || '<p class="muted small">这一类没有题。</p>'}</div>
+    <div class="plist">${(msMore ? shown : shown.slice(0, SHOW)).map((m) => msRow(m, reasonName)).join('') || (msFilter === 'todo' ? `<div class="pal-empty">${friend(FRIENDS.math, 'cheer')}<p class="muted">错题都订正完了</p></div>` : '<p class="muted small">这一类没有题。</p>')}</div>
     ${!msMore && shown.length > SHOW ? `<button class="btn" style="margin-top:8px" data-ms-more>再显示 ${shown.length - SHOW} 题</button>` : ''}
   </div>`;
 }

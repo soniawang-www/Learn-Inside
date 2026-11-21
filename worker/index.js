@@ -892,7 +892,7 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
     prerequisites: prereq, dependents: nexts, types: parseJ(kp.types, []),
     problems: problems.map((x) => ({ ...x, label: `${x.exam_title} 第 ${x.number} 题`, status: x.last_correct === null ? 'todo' : x.last_correct ? 'right' : 'wrong' })),
     mastery,
-    family: fam, families: FAMILIES.map((f) => ({ id: f.id, name: f.name })),
+    family: fam, families: FAMILIES.filter((f) => f.subject === 'math').map((f) => ({ id: f.id, name: f.name })),
     stats: st.exams ? st.kps[kp.id] || null : null, exam_years: st.years, type_stats: st.types,
     my_mistakes: studentId ? (await mistakeBook(env, studentId)).filter((m) => m.kps.some((k) => k.id === kp.id))
       .map((m) => ({ problem_id: m.problem_id, label: m.label, family: familyOf(m.problem_id)?.name || '其他', status: m.status, types: m.types })) : [],

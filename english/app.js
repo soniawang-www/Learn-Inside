@@ -11,9 +11,9 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122d';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122d';
-import { todayCard, bindToday, START_URL, STAR, mascot } from '/assets/pal.js?v=20261122d';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122e';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122e';
+import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122e';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -629,7 +629,7 @@ async function renderInterview() {
         <li>评委会连着问 ${qs.length} 个关于你自己的问题，题目出现就开始回答，没有准备时间。</li>
         <li>答完一题点「下一题」。${qs.length} 题加起来 ${ms(total)}，每题大约 ${Math.round(total / qs.length)} 秒。</li>
         <li>看着屏幕上方（像看着评委），微笑，大声说。</li></ol>
-        <div class="actions"><button class="btn primary big" id="go">开始</button></div></div>
+        <div class="actions"><button class="btn primary big" id="go">开始</button>${startPal('english')}</div></div>
     </div>`, 'home');
   cleanup = () => { clearInterval(timer); r?.kill(); if (audioUrl) URL.revokeObjectURL(audioUrl); };
   const $s = $app.querySelector('#stage');

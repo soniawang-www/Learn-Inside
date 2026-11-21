@@ -200,9 +200,9 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 @media (prefers-reduced-motion:reduce){.home-stale .today-card::after,.home-stale.resume::after{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261122d">
-<link rel="modulepreload" href="/assets/pal.js?v=20261122d">
-<link rel="modulepreload" href="/assets/cast.js?v=20261122d">
+<link rel="stylesheet" href="/assets/pal.css?v=20261122e">
+<link rel="modulepreload" href="/assets/pal.js?v=20261122e">
+<link rel="modulepreload" href="/assets/cast.js?v=20261122e">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
 <body class="net-wait">
@@ -296,7 +296,7 @@ $("sup").onclick=async()=>{
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL, subjHead } from "/assets/pal.js?v=20261122d";
+import { todayCard, bindToday, START_URL, subjHead } from "/assets/pal.js?v=20261122e";
 // 真题专区：数学圆圆、语文墨墨、英语乐乐
 for (const [sel, s] of [[".zone:not(.zh):not(.en) i", "math"], [".zone.zh i", "chinese"], [".zone.en i", "english"]]) { const i = document.querySelector(sel); if (i) { i.innerHTML = subjHead(s); i.classList.add("pal"); } }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

@@ -1825,3 +1825,5 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 @media (prefers-reduced-motion: reduce) { .dl-foot.ok, .dl-foot.bad { animation: none; } .dl-bar i { transition: none; } }
 .ob-browse { display: block; text-align: center; margin-top: 4px; padding: 6px; font-size: 15px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .ob-welcome-foot { display: grid; gap: 10px; }
+.pay-pal { display: flex; justify-content: center; }
+.pay-pal .mascot { width: 110px; height: 134px; }

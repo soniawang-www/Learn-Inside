@@ -8,7 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
-import { todayCard, bindToday, START_URL, STAR, mascot, scorePal } from '/assets/pal.js?v=20261122d';
+import { todayCard, bindToday, START_URL, STAR, mascot, friend, FRIENDS, subjHead, scorePal, startPal } from '/assets/pal.js?v=20261122e';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -204,7 +204,7 @@ function bindExamPrint(label) {
 }
 
 // 列表最上面：下一套没做过的卷子，一点就开始
-const nextSet = (list) => { const e = list.find((x) => !x.last_session); return e ? `<div class="next-set"><span><small>下一套</small><b>${esc(e.title)}</b></span><a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div>` : ''; };
+const nextSet = (list) => { const e = list.find((x) => !x.last_session); return e ? `<div class="next-set"><span class="ns-pal">${subjHead('chinese')}</span><span><small>下一套</small><b>${esc(e.title)}</b></span><a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div>` : ''; };
 async function renderHanzi() {
   const st = auth.student;
   const exams = await api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`);
@@ -335,8 +335,8 @@ async function renderBeishi() {
       <section class="card"><div class="card-h"><h2>今天</h2>
         <label class="small muted">每天新学 <select id="per">${[1, 2, 3, 5].map((n) => `<option ${n === per ? 'selected' : ''}>${n}</option>`).join('')}</select> 篇</label></div>
         ${due.length ? `<h3 class="bs-h">复习 ${due.length} 篇</h3>${due.map((p) => row(p, 'review')).join('')}` : ''}
-        ${fresh.length ? `<h3 class="bs-h">新学</h3>${fresh.map((p) => row(p)).join('')}` : newToday ? '<p class="muted">今天的新篇目背完了</p>' : ''}
-        ${!due.length && !fresh.length && !newToday ? '<p class="muted">全部篇目都学过了</p>' : ''}
+        ${fresh.length ? `<h3 class="bs-h">新学</h3>${fresh.map((p) => row(p)).join('')}` : ''}
+        ${!due.length && !fresh.length ? `<div class="pal-empty">${friend(FRIENDS.chinese, 'cheer')}<p class="muted">${newToday ? '今天的背完了' : '全部篇目都学过了'}</p></div>` : ''}
       </section>
       <section class="card"><div class="card-h"><h2>进度</h2></div>
         <div class="bs-stat"><div><b>${learned}</b><span>学过</span></div><div><b>${mastered}</b><span>已掌握</span></div><div><b>${items.length}</b><span>必背篇目</span></div></div>
@@ -464,7 +464,7 @@ async function renderIntro(examId) {
       <li>比赛排名同时看分数和用时，做完可以提前交卷。</li>
     </ol>`}
     <div class="actions">${saved ? `<a class="btn primary" href="#/exam/${saved}">继续上次的答题</a>` : ''}
-      <button class="btn ${saved ? '' : 'primary'}" id="go">${saved ? '重新开始' : '开始答题'}</button><a class="btn" href="#/">返回</a></div></div>`, 'home');
+      <button class="btn ${saved ? '' : 'primary'}" id="go">${saved ? '重新开始' : '开始答题'}</button><a class="btn" href="#/">返回</a>${startPal('chinese')}</div></div>`, 'home');
   $app.querySelector('#go').onclick = async (ev) => {
     ev.target.disabled = true;
     try {
@@ -845,7 +845,7 @@ async function renderMistakes() {
   const groups = {};
   for (const m of list) (groups[m.section_name || '其他'] ||= []).push(m);
   page(`<div class="hero hero-row"><h1>错题本</h1><button class="btn lp-entry" id="ms-print">${PRINT_ICON}打印</button></div><div class="card"><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
-      <div class="actions">${todo.length ? `<button class="btn primary" id="redo">重做 ${Math.min(todo.length, 30)} 道错题</button>` : '<span class="tag ok">全部订正过了</span>'}</div></div>
+      <div class="actions">${todo.length ? `<button class="btn primary" id="redo">重做 ${Math.min(todo.length, 30)} 道错题</button>` : `<span class="pal-row">${friend(FRIENDS.chinese, 'cheer')}<b>全部订正过了</b></span>`}</div></div>
     ${Object.entries(groups).map(([g, ms]) => `<div class="card"><h2>${esc(g)} <span class="small muted">${ms.length} 题</span></h2>
       ${ms.map((m) => `<details class="mk-item"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> <b>${esc(String(m.stem || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').slice(0, 28))}</b><span class="small muted"> · ${esc(m.label)} · 错 ${m.wrong_n} 次</span></summary>
         <div class="rv-q">${txt(m.stem)}</div>${m.figure ? `<div class="ex-fig small">${m.figure}</div>` : ''}
