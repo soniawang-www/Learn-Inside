@@ -21,6 +21,7 @@ export const CLIENT_EVENTS = {
   reg_prompt: '点注册提示',
   ob_welcome: '看到新手欢迎页',
   ob_start: '欢迎页点「开始」',
+  ob_browse: '欢迎页点「先看看真题」',
   remind_prompt: '完成页看到「明天几点提醒」',
   a2hs_prompt: '看到「放到手机桌面」',
   a2hs_done: '从桌面图标打开',
@@ -41,6 +42,7 @@ export const EV_NAMES = {
   team_new: '新建队伍',
   team_join: '加入队伍',
   remind_ics: '加每日提醒到日历（下载）',
+  extra_start: '打完卡再练一组',
   resume_link: '从提醒链接接上游客记录',
 };
 

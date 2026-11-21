@@ -42,6 +42,7 @@ export function todayCard(pr, { team = null, only = null } = {}) {
       <a class="tc-start" href="${START_URL}">开始</a></section>`;
   }
   const its = only ? all.filter((x) => x.subject === only) : all;
+  const more = its.find((x) => x.subject !== 'english'); // 都做完了：再练一组（英语按 Part，不加练）
   const addOnly = only && !its.length ? `<a class="tc-add" href="${START_URL}/${only}">＋ 加入${SUBJ_NAME[only]}打卡</a>` : '';
   const doneAny = all.some((x) => x.today?.done);
   const pw = pr.per_week || 7, wk = pw < 7;
@@ -63,12 +64,21 @@ export function todayCard(pr, { team = null, only = null } = {}) {
       <span class="pts-chip">${STAR}${pr.points?.total || 0}</span></div>
     ${weekRow(pr.week)}
     ${its.length ? `<div class="tc-items">${its.map(row).join('')}</div>` : addOnly}
+    ${its.length && its.every((x) => x.today?.done) && more ? `<button class="tc-more" data-tc-more="${esc(more.family)}">再练一组</button>` : ''}
     <div class="tc-foot"><a href="${START_URL}">＋ 备考项</a><span><a href="${PLAN_URL}">计划</a>${tm}</span></div>
   </section>`;
 }
 
 /** 点备考项：没出题先出题，再进答题页；做完的看解析 */
 export function bindToday(root, { sid, token }) {
+  root.querySelector('[data-tc-more]')?.addEventListener('click', async (e) => { // 今天的都做完了：再练一组（不算打卡）
+    const b = e.currentTarget; b.disabled = true;
+    try {
+      const r = await fetch(`/api/students/${encodeURIComponent(sid)}/prep/extra?family=${encodeURIComponent(b.dataset.tcMore)}`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || '没开始成');
+      location.href = `/math/#/exam/${encodeURIComponent(j.session_id)}`;
+    } catch (x) { b.disabled = false; alert(x.message); }
+  });
   root.querySelectorAll('[data-tc-fam]').forEach((b) => (b.onclick = async () => {
     const sub = b.dataset.tcSub, done = b.classList.contains('done');
     if (b.dataset.tcSid) { location.href = examUrl(sub, b.dataset.tcSid, done, b.dataset.tcFam); return; }

@@ -14,6 +14,7 @@ const P = {
   graph: '<circle cx="6" cy="7" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="12" cy="18" r="2"/><path d="M8 7h8M7 9l4 7M17 9l-4 7"/>',
   mistakes: '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M10 10l4 4M14 10l-4 4"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  team: '<circle cx="8.5" cy="9" r="2.8"/><circle cx="16" cy="9.5" r="2.3"/><path d="M3.5 19c.7-3 2.7-4.5 5-4.5s4.3 1.5 5 4.5M14 14.6c1.9-.3 4.6.6 5.5 4.4"/>',
   fold: '<path d="M14 6l-6 6 6 6"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
 };
@@ -30,6 +31,7 @@ export function sideNav({ section = 'math', sub = [], who = null } = {}) {
     item('/math/', '数学', 'math', section === 'math' && !sub.some((x) => x[3])), subs('math'),
     item('/chinese/', '语文', 'chinese', section === 'chinese' && !sub.some((x) => x[3])), subs('chinese'),
     item('/english/', '英语', 'english', section === 'english' && !sub.some((x) => x[3])), subs('english'),
+    item('/math/#/team', '组队', 'team', section === 'team'),
     item('/account/', '账号', 'account', section === 'account'),
   ].join('');
   const name = who?.name ? esc(who.name) : '登录 / 注册';

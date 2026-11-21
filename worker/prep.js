@@ -359,6 +359,29 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     return new Response(ics, { headers: { 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': 'inline; filename="learn-inside.ics"', 'cache-control': 'no-store' } });
   });
 
+  // 加练：今天打完卡还想做，再出一组没做过的题（不算打卡、不影响连续天数，答对照样加分）；英语按 Part 打卡，不加练
+  route('POST', '/api/students/:id/prep/extra', async (req, env, p, url) => {
+    const acc = await requireAccount(req, env);
+    const st = await requireStudent(env, acc, p.id);
+    const family = PREP_FAMILIES[url.searchParams.get('family')] ? url.searchParams.get('family') : 'amc8';
+    const f = PREP_FAMILIES[family];
+    if (f.subject === 'english') throw new HttpError(400, '英语每天做一个 Part，没有加练');
+    const t = now(), today = bjDay(t);
+    const n = f.subject === 'chinese' ? 10 : 5;
+    const g = await gradeOf(env, st.id, today);
+    const plan = { family, per_day: n, grade: family === 'gushiwen' ? (g ? gswGrade(Math.min(9, g)) : null) : g };
+    const ids = f.subject === 'chinese' ? await chineseProblems(env, st.id, plan, `${today}-x${t}`) : await genericProblems(env, st.id, plan, family, `${today}-x${t}`);
+    if (!ids.length) throw new HttpError(404, '题库还没有题');
+    const id = uid();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject, kp_id) VALUES (?, ?, 'drill', 'practice', ?, ?, ?, ?, ?)")
+        .bind(id, st.id, t, t + UNTIMED_DAYS * DAY, `${f.name} · 加练 ${ids.length} 题`, f.subject, `extra:${family}`),
+      ...ids.map((pid, i) => env.DB.prepare('INSERT INTO session_problem (session_id, problem_id, ord) VALUES (?, ?, ?)').bind(id, pid, i)),
+    ]);
+    await bump(env, 'extra_start');
+    return json({ session_id: id, subject: f.subject });
+  });
+
   // 新手引导第一步：年级先存下来（之后不再问）
   route('PUT', '/api/students/:id/grade', async (req, env, p) => {
     const acc = await requireAccount(req, env);

@@ -68,3 +68,5 @@
   .tc-item em { padding: 6px 14px; font-size: 14px; }
   .tc-foot { font-size: 13px; }
 }
+.tc-more { font: inherit; font-weight: 700; font-size: 15px; padding: 10px; border-radius: 12px; border: 1.5px dashed var(--tc-line); background: none; color: var(--tc-acc); cursor: pointer; }
+.tc-more:disabled { opacity: .6; }

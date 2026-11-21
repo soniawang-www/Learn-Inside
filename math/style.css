@@ -1804,3 +1804,5 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 @media (min-width: 1000px) { .dl { zoom: 1.15; } .dl-foot { zoom: 1.15; } }
 @media (min-width: 1400px) { .dl { zoom: 1.25; } .dl-foot { zoom: 1.25; } }
 @media (prefers-reduced-motion: reduce) { .dl-foot.ok, .dl-foot.bad { animation: none; } .dl-bar i { transition: none; } }
+.ob-browse { display: block; text-align: center; margin-top: 4px; padding: 6px; font-size: 15px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.ob-welcome-foot { display: grid; gap: 10px; }

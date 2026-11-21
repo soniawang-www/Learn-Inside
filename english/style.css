@@ -689,3 +689,5 @@ body.tj-mode { padding-bottom: 72px; }
 /* 电脑：人离屏幕远，整体放大 */
 @media (min-width: 1000px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.15; } }
 @media (min-width: 1400px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.25; } }
+
+.grp-h { font-size: 15px; color: var(--muted); font-weight: 600; margin: 18px 2px 8px; }

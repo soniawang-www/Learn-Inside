@@ -1,9 +1,9 @@
-import { FLAME, WEEK, pencil, STAR, weekRow, todayCard, bindToday, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261121a';
+import { FLAME, WEEK, pencil, STAR, weekRow, todayCard, bindToday, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261121b';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { SIMS } from './sims.js';
-import { sideNav } from '/assets/sidenav.js?v=20261107e';
+import { sideNav } from '/assets/sidenav.js?v=20261121a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
 import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261117a';
@@ -735,12 +735,13 @@ function celebrate(r, sid) {
     ${hookFor(p)}
     ${regAsk ? `<a class="cele-reg" href="#/account" id="cele-reg"><b>注册保存打卡记录</b><span>换手机也不断签 · 送 10 次互动解析</span></a>` : ''}
     <div class="cele-acts">${p.next ? `<button class="btn primary block" id="cele-next">接着做${esc(p.next.name)} · ${p.next.n} 题</button><a class="btn block" href="${examUrl(p.subject, sid, true, p.family)}">看解析</a>`
-      : `<a class="btn primary block" href="${examUrl(p.subject, sid, true, p.family)}">看解析</a>`}<a class="btn block" href="/">回首页</a></div>
+      : `<a class="btn primary block" href="${examUrl(p.subject, sid, true, p.family)}">看解析</a>${p.subject !== 'english' ? '<button class="btn block" id="cele-more">再练一组</button>' : ''}`}<a class="btn block" href="/">回首页</a></div>
     <canvas class="cele-fx" aria-hidden="true"></canvas>
   </main>`;
   const root = $app.querySelector('.cele');
   bindHooks(root);
   root.querySelector('#cele-reg')?.addEventListener('click', () => { ev('reg_prompt'); store.set('li.back', `${location.pathname}#/`); });
+  root.querySelector('#cele-more')?.addEventListener('click', () => startExtra(p.family));
   root.querySelector('#cele-next')?.addEventListener('click', async (e) => {
     e.currentTarget.disabled = true;
     const st = auth.student;
@@ -876,7 +877,8 @@ async function renderStart(subject, newGuest) {
     const skip = cur === 'intro' || (!isNew && !step);
     $app.innerHTML = cur === 'hello' ? `<main class="ob ob-welcome">
       <div class="ob-body">${VIEW.hello()}</div>
-      <footer class="ob-foot"><button class="btn primary block" id="obn">开始</button><a class="btn block ob-login" href="/account/">我已有账号</a></footer>
+      <footer class="ob-foot"><button class="btn primary block" id="obn">开始</button><a class="btn block ob-login" href="/account/">我已有账号</a>
+        <a class="ob-browse" href="/" id="ob-browse">先看看真题</a></footer>
     </main>` : `<main class="ob">
       <header class="ob-top">${step ? '<button class="ob-back" id="obb" aria-label="上一步">‹</button>' : '<span></span>'}
         <div class="ob-bar"><i style="width:${((step + 1 - p0) / (flow.length - p0)) * 100}%"></i></div>
@@ -904,6 +906,7 @@ async function renderStart(subject, newGuest) {
     bindDates($app, A.dates, () => { $app.querySelector('#obn').disabled = !READY.dates(); });
     $app.querySelector('#obb')?.addEventListener('click', () => { step--; draw(); });
     $app.querySelector('.ob-login')?.addEventListener('click', () => store.set('li.hadAccount', true)); // 登录页默认显示「登录」
+    $app.querySelector('#ob-browse')?.addEventListener('click', () => { store.set('li.obSkip', true); ev('ob_browse'); }); // 带着目的来的（找某套真题、某节课）：先逛
     $app.querySelector('#obs')?.addEventListener('click', () => { if (!adding) store.set('li.obSkip', true); });
     $app.querySelector('#obn').onclick = async (e) => {
       const btn = e.currentTarget;
@@ -1268,7 +1271,7 @@ function renderPaper(sid, data) {
 async function renderExam(sid) {
   const [data] = await Promise.all([api(`/math/api/sessions/${sid}`), ensureMe()]); // 账号信息：完成页要知道是不是游客（要不要请他注册）
   if (data.session.submitted) { location.replace(data.session.prep ? examUrl(data.session.prep.subject, sid, true, data.session.prep.family) : `#/review/${sid}`); return; }
-  if (data.session.prep && data.session.drill) return renderDaily(sid, data); // 每日打卡：一屏一题的简洁页
+  if (data.session.drill && (data.session.prep || data.session.extra)) return renderDaily(sid, data); // 每日打卡、加练：一屏一题的简洁页
   if (data.session.mode === 'paper') return renderPaper(sid, data);
   document.body.classList.add('exam-mode');
   // 希望数学：布局同 AMC 8，用 learn-inside 自己的风格
@@ -1557,6 +1560,7 @@ async function renderDaily(sid, data) {
       D.stop(true); store.del(key);
       cleanup?.(); cleanup = null; document.body.classList.remove('exam-mode', 'exam-li', 'daily-mode');
       if (r.session?.prep?.done) return celebrate(r, sid);
+      if (data.session.extra) return extraDone(r, sid, data.session.extra, Object.values(S.checked).reduce((a, c) => a + (c.points || 0), 0));
       location.replace(examUrl(r.session?.prep?.subject || 'math', sid, true, r.session?.prep?.family));
     } catch (x) {
       submitting = false;
@@ -1564,6 +1568,21 @@ async function renderDaily(sid, data) {
     }
   }
   draw();
+}
+
+// 加练：打完卡还想做，再出一组（不算打卡）
+async function startExtra(family) {
+  const st = auth.student;
+  const r = await api(`/math/api/students/${enc(st.id)}/prep/extra?family=${enc(family)}`, { method: 'POST' });
+  location.href = `/math/#/exam/${enc(r.session_id)}`;
+}
+function extraDone(r, sid, family, pts) {
+  const sub = family === 'hanzi' || family === 'gushiwen' ? 'chinese' : 'math';
+  $app.innerHTML = `<main class="ob"><div class="ob-body"><div class="ob-hello">${pencil('cheer')}<div class="ob-brand">加练完成</div>
+      <p>答对 ${r.session.score}/${r.total}${pts ? ` · +${pts} 积分` : ''}</p></div></div>
+    <footer class="ob-foot ob-welcome-foot"><button class="btn primary block" id="x-more">再练一组</button>
+      <a class="btn block" href="${examUrl(sub, sid, true, family)}">看解析</a><a class="btn block" href="/">回首页</a></footer></main>`;
+  $app.querySelector('#x-more').onclick = () => startExtra(family);
 }
 
 // ───────── 复盘 ─────────

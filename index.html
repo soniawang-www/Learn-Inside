@@ -184,7 +184,7 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .resume a:first-child{border-top:0}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261121a">
+<link rel="stylesheet" href="/assets/pal.css?v=20261121b">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
 <body class="net-wait">
@@ -233,7 +233,7 @@ body{font-size:1rem}
   <nav class="zones" aria-label="科目">
     <a class="zone" href="math/"><i>数</i><span><b>数学</b><small>AMC 8 · AMC 10 / 12 · 袋鼠数学 · 希望数学 · 思维 100</small></span><em>›</em></a>
     <a class="zone zh" href="chinese/"><i>语</i><span><b>语文</b><small>汉字小达人 · 古诗文大会 · 飞花令 · 每日背诗</small></span><em>›</em></a>
-    <a class="zone en" href="english/"><i>英</i><span><b>英语</b><small>KET · PET · 小托福 · ESDP 演讲</small></span><em>›</em></a>
+    <a class="zone en" href="english/"><i>英</i><span><b>英语</b><small>KET · PET · 小托福 · ESDP 演讲 · 语法课</small></span><em>›</em></a>
   </nav>
 
   <div class="foot">
@@ -266,7 +266,7 @@ $("sup").onclick=async()=>{
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL } from "/assets/pal.js?v=20261121a";
+import { todayCard, bindToday, START_URL } from "/assets/pal.js?v=20261121b";
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let tok=null,st=null,skip=false;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null");skip=localStorage.getItem("li.obSkip")==="true"}catch(e){}
 /* 从每日提醒（手机日历）点进来：带着游客的「接着用」钥匙，在这个浏览器接上原来的记录（这里已经登录了就不动） */
@@ -290,7 +290,8 @@ const fam=x=>{const e=String(x.exam_id||"");return e.startsWith("ket-")?"ket/":e
 const link=x=>x.subject==="english"?`english/#/${fam(x)}exam/${encodeURIComponent(x.id)}`:`${x.subject==="chinese"?"chinese/":"math/"}#/exam/${encodeURIComponent(x.id)}`;
 const todo=a=>(a||[]).filter(m=>m.status==="pending"||m.status==="due").length;
 const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);
-const rows=[o?`<a href="${link(o)}"><b>继续答题</b><span>${esc(o.title||"上次的试卷")}</span><i>›</i></a>`:"",mm?`<a href="math/#/mistakes"><b>数学错题</b><span>${mm} 道待订正</span><i>›</i></a>`:"",mz?`<a href="chinese/#/mistakes"><b>语文错题</b><span>${mz} 道待订正</span><i>›</i></a>`:""].filter(Boolean);
+const SN={math:"数学",chinese:"语文",english:"英语"};
+const rows=[o?`<a href="${link(o)}"><b>继续答题</b><span>${SN[o.subject]?SN[o.subject]+" · ":""}${esc(o.title||"上次的试卷")}</span><i>›</i></a>`:"",mm?`<a href="math/#/mistakes"><b>数学错题</b><span>${mm} 道待订正</span><i>›</i></a>`:"",mz?`<a href="chinese/#/mistakes"><b>语文错题</b><span>${mz} 道待订正</span><i>›</i></a>`:""].filter(Boolean);
 if(rows.length){const R=document.getElementById("resume");R.innerHTML=rows.join("");R.hidden=false}
 }}
 </script>

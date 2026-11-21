@@ -289,7 +289,8 @@ async function sessionPayload(env, sessionId) {
   const { results: seen } = await env.DB.prepare('SELECT problem_id, level FROM session_hint WHERE session_id = ?').bind(sessionId).all();
   return {
     session: { id: s.id, mode: s.mode, started_at: s.started_at, deadline_at: s.deadline_at, submitted: !!s.submitted_at, server_now: now(), drill,
-      draft: s.submitted_at ? null : parseJ(s.draft, null), prep: drill || s.part ? await prep.info(env, s.id, s.student_id) : null, part: s.part || null },
+      draft: s.submitted_at ? null : parseJ(s.draft, null), prep: drill || s.part ? await prep.info(env, s.id, s.student_id) : null, part: s.part || null,
+      extra: drill && String(s.kp_id || '').startsWith('extra:') ? s.kp_id.slice(6) : null },
     exam,
     problems: results.map((p) => ({ ...p, choices: JSON.parse(p.choices), choices_zh: p.choices_zh ? JSON.parse(p.choices_zh) : null, hint_count: s.mode === 'practice' ? p.hint_count : 0 })),
     hints_seen: seen,

@@ -6,14 +6,14 @@
 //       #/write/:题目 id（模拟写作）  #/draw/:题库?s=轮次（抽一题）  #/phrases（句型和名言）  #/join（登录 / 注册，在全站账号页）
 // 账号全站通用：和数学、语文共用 li.token / li.student。接口在 /api/english/（worker/english.js）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261107e';
+import { sideNav } from '/assets/sidenav.js?v=20261121a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
 import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261118j';
 import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261118j';
-import { todayCard, bindToday, START_URL } from '/assets/pal.js?v=20261121a';
+import { todayCard, bindToday, START_URL } from '/assets/pal.js?v=20261121b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -83,9 +83,20 @@ const TAG = { open: '开头', body: '展开', example: '举例', close: '结尾'
 const isReal = (x) => (x.tags || []).some((t) => t.id === 'real');
 const realTag = (x, full = true) => (x.tags || []).filter((t) => t.id === 'real').map((t) => `<span class="tag real">真题${full ? ` · ${esc(t.name)}` : ''}</span>`).join('');
 
+// 语法课：独立的互动课页面（讲解 + 练习 + 打印）
+const LESSONS = [
+  ['conditional-clauses.html', '条件从句', 'if · unless · even if · in case'],
+  ['past-simple.html', '一般过去时', '-ed · was / were · didn\'t'],
+  ['personal-pronouns.html', '人称代词', 'I · me · my · mine'],
+];
+const lessonCards = () => `<div class="fam-cards">${LESSONS.map(([f, n, d]) => `<a class="fam-card" href="${f}"><b>${n}</b><span>${d}</span><small></small><i>›</i></a>`).join('')}</div>`;
+function renderGrammar() {
+  page(`<a class="back" href="#/">${BACK_IC}英语首页</a><div class="hero"><h1>语法课</h1></div>${lessonCards()}`, 'grammar');
+}
+
 function topnav(active = '') {
   const who = me ? { name: me.guest ? '游客 · 注册' : auth.student?.nickname || '账号', note: me.guest ? '注册送 10 次' : '' } : null;
-  return sideNav({ section: 'english', sub: [['#/ket', 'KET', 'exam', active === 'ket'], ['#/pet', 'PET', 'exam', active === 'pet'], ['#/tj', '小托福', 'exam', active === 'tj'], ['#/phrases', '句型积累', 'exam', active === 'phrases']], who });
+  return sideNav({ section: 'english', sub: [['#/ket', 'KET', 'exam', active === 'ket'], ['#/pet', 'PET', 'exam', active === 'pet'], ['#/tj', '小托福', 'exam', active === 'tj'], ['#/phrases', '句型积累', 'exam', active === 'phrases'], ['#/grammar', '语法课', 'exam', active === 'grammar']], who });
 }
 let supportCache = null;
 async function showSupport() {
@@ -148,6 +159,7 @@ async function router() {
     if (parts[0] === 'write') return await renderWrite(parts[1]);
     if (parts[0] === 'draw') return await drawOne(parts[1], q.get('s'));
     if (parts[0] === 'phrases') return renderPhrases();
+    if (parts[0] === 'grammar') return renderGrammar();
     if (parts[0] === 'print') return location.replace('#/esdp'); // 旧的打印设置页：打印改在各页直接出预览
     location.hash = '#/';
   } catch (e) { errorPage(e.message); } finally { loaded(); }
@@ -188,12 +200,15 @@ async function renderHome() {
   page(`<div class="hero"><h1>英语备考</h1></div>
     ${pr ? todayCard(pr, { team: tm, only: 'english' }) : ''}
     ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
+    <h2 class="grp-h">考试</h2>
     <div class="fam-cards">
       <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/esdp"><b>ESDP</b><span>${n ? `口语 · 写作 ${n} 题` : '录入中'}</span><small>${done ? `已练 ${done} 题` : ''}</small><i>›</i></a>
     </div>
+    <h2 class="grp-h">语法课</h2>
+    ${lessonCards()}
     ${recentCard(d.recent)}`, 'home');
   bindToday($app, { sid: auth.student.id, token: auth.token });
 }
