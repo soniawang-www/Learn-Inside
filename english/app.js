@@ -11,9 +11,9 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122c';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122c';
-import { todayCard, bindToday, START_URL, STAR, mascot } from '/assets/pal.js?v=20261122c';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122d';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122d';
+import { todayCard, bindToday, START_URL, STAR, mascot } from '/assets/pal.js?v=20261122d';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 

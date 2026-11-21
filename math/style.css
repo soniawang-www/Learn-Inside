@@ -1418,7 +1418,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .rw-over .mascot { width: 64px; height: 59px; margin-bottom: -10px; }
 .auth-h { display: flex; align-items: center; gap: 8px; }
 .auth-h .mascot { width: 40px; height: 37px; flex: none; }
-
+.team-form .cast-row, .team-join .cast-row { margin: -4px 0 6px; }
 .rw-list, .rw-kp { display: grid; gap: 10px; }
 .rw-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
 .rw-row small { color: var(--muted); }
@@ -1667,9 +1667,12 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .fam-card small:empty { display: none; }
 .ob-subjs { display: grid; gap: 12px; }
 .ob-subj { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: center; text-align: left; padding: 16px; border: 2px solid var(--border); border-bottom-width: 4px; border-radius: 18px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
-.ob-subj i { grid-row: span 2; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-style: normal; font-size: 24px; font-weight: 800; color: #fff; background: #1D5C4D; }
-.ob-subj.s-chinese i { background: #B04A6F; }
-.ob-subj.s-english i { background: #2F6690; }
+.ob-subj i { grid-row: span 2; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; overflow: hidden; background: #FFF1C9; }
+.ob-subj i svg { width: 100%; height: 100%; margin-top: 6px; }
+.ob-subj.s-chinese i { background: #F6E7EC; }
+.ob-subj.s-english i { background: #E3EDF6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ob-subj i { background: #3A3320; } :root:not([data-theme="light"]) .ob-subj.s-chinese i { background: #3E2630; } :root:not([data-theme="light"]) .ob-subj.s-english i { background: #1E3040; } }
+:root[data-theme="dark"] .ob-subj i { background: #3A3320; } :root[data-theme="dark"] .ob-subj.s-chinese i { background: #3E2630; } :root[data-theme="dark"] .ob-subj.s-english i { background: #1E3040; }
 .ob-subj b { font-size: 19px; }
 .ob-subj span { color: var(--muted); font-size: 13px; line-height: 1.45; }
 .ob-subj.on { border-color: var(--accent); background: var(--accent-soft); }
