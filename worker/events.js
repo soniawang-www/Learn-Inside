@@ -21,6 +21,9 @@ export const CLIENT_EVENTS = {
   reg_prompt: '点注册提示',
   ob_welcome: '看到新手欢迎页',
   ob_start: '欢迎页点「开始」',
+  remind_prompt: '完成页看到「明天几点提醒」',
+  a2hs_prompt: '看到「放到手机桌面」',
+  a2hs_done: '从桌面图标打开',
 };
 // 漏斗里依次显示的事件（服务器端的也在这里起名字）
 export const EV_NAMES = {
@@ -37,6 +40,8 @@ export const EV_NAMES = {
   prep_plan: '新建备战计划',
   team_new: '新建队伍',
   team_join: '加入队伍',
+  remind_ics: '加每日提醒到日历（下载）',
+  resume_link: '从提醒链接接上游客记录',
 };
 
 const day = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间
@@ -63,4 +68,31 @@ export async function evReport(env, days = 14) {
   const since = new Date(Date.now() + 8 * 3600e3 - (days - 1) * 86400e3).toISOString().slice(0, 10);
   const { results } = await env.DB.prepare('SELECT day, name, n FROM ev_count WHERE day >= ? ORDER BY day DESC').bind(since).all();
   return { names: EV_NAMES, rows: results };
+}
+
+/**
+ * 后台：留存。按「第一次来」那天分组（孩子档案建立的日期，北京时间），看之后哪几天又来做过题（开始答题或打卡都算）
+ * d1 = 第二天又来；d2_7 = 第 2–7 天里来过；d7 = 第 7 天及以后还来过
+ */
+export async function retention(env, days = 14) {
+  const DAY = 86400e3;
+  const bj = (t) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10);
+  const dn = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY);
+  const since = Date.parse(`${bj(Date.now() - (days - 1) * DAY)}T00:00:00+08:00`);
+  const { results: studs } = await env.DB.prepare('SELECT s.id, s.created_at, a.guest FROM student s JOIN account a ON a.id = s.account_id WHERE s.created_at >= ?').bind(since).all();
+  const { results: acts } = await env.DB.prepare(`SELECT es.student_id AS sid, es.started_at AS t FROM exam_session es JOIN student s ON s.id = es.student_id WHERE s.created_at >= ?`).bind(since).all();
+  const act = {};
+  for (const a of acts) (act[a.sid] ||= new Set()).add(dn(bj(a.t)));
+  const today = dn(bj(Date.now()));
+  const rows = {};
+  for (const s of studs) {
+    const d0 = dn(bj(s.created_at)), A = act[s.id] || new Set();
+    const r = (rows[bj(s.created_at)] ||= { day: bj(s.created_at), new: 0, did: 0, d1: 0, d1_ok: 0, d2_7: 0, d2_7_ok: 0, d7: 0, d7_ok: 0, reg: 0 });
+    r.new++; if (!s.guest) r.reg++;
+    if (A.has(d0)) r.did++;
+    if (today > d0) { r.d1_ok++; if (A.has(d0 + 1)) r.d1++; }
+    if (today >= d0 + 2) { r.d2_7_ok++; if ([...A].some((d) => d >= d0 + 2 && d <= d0 + 7)) r.d2_7++; }
+    if (today >= d0 + 7) { r.d7_ok++; if ([...A].some((d) => d >= d0 + 7)) r.d7++; }
+  }
+  return { rows: Object.values(rows).sort((a, b) => (a.day < b.day ? 1 : -1)) };
 }

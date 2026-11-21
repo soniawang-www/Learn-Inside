@@ -8,7 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
-import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261118j';
+import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261121a';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -184,7 +184,7 @@ async function renderHome() {
           <span class="sr-t">${esc(x.title)}<small>${day(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${x.total ? ((x.score || 0) / x.total) * 100 : 0}%"></i></span><b>${x.score ?? '–'}<small>/${x.total}</small></b></a>`).join('')}</div>
       </section>` : ''}
-      ${allMk && !isGuest() ? `<a class="card mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">共 ${allMk} 题${todo ? ` · 待订正 ${todo}` : ''} ›</span></a>` : ''}
+      ${allMk && !isGuest() && !todo ? `<a class="card mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">共 ${allMk} 题 ›</span></a>` : ''}
     </div>` : ''}`, 'home');
   bindToday($app, { sid: st.id, token: auth.token });
 }
@@ -477,6 +477,7 @@ async function renderExam(sid) {
   clearInterval(timerId);
   const d = await api(`/api/sessions/${enc(sid)}`);
   if (d.session.submitted) { location.replace(`#/review/${sid}`); return; }
+  if (d.session.prep && d.session.drill) { location.replace(`/math/#/exam/${enc(sid)}`); return; } // 打卡题：统一在「一屏一题」的打卡页做
   if (isPaper(d.exam.id) && d.session.mode !== 'practice') return renderPaper(d, sid);
   const practice = d.session.mode === 'practice';
   const gswDrill = d.session.drill && String(d.problems[0]?.id).startsWith('gsw-');
@@ -843,7 +844,7 @@ async function renderMistakes() {
   page(`<div class="hero hero-row"><h1>错题本</h1><button class="btn lp-entry" id="ms-print">${PRINT_ICON}打印</button></div><div class="card"><p class="muted">共 ${list.length} 题，待订正 ${todo.length} 题</p>
       <div class="actions">${todo.length ? `<button class="btn primary" id="redo">重做 ${Math.min(todo.length, 30)} 道错题</button>` : '<span class="tag ok">全部订正过了</span>'}</div></div>
     ${Object.entries(groups).map(([g, ms]) => `<div class="card"><h2>${esc(g)} <span class="small muted">${ms.length} 题</span></h2>
-      ${ms.map((m) => `<details class="mk"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> ${esc(m.label)}<span class="small muted"> · 错 ${m.wrong_n} 次</span></summary>
+      ${ms.map((m) => `<details class="mk-item"><summary><span class="tag ${m.status === 'mastered' || m.status === 'fixed' ? 'ok' : 'bad'}">${STATUS[m.status]}</span> <b>${esc(String(m.stem || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').slice(0, 28))}</b><span class="small muted"> · ${esc(m.label)} · 错 ${m.wrong_n} 次</span></summary>
         <div class="rv-q">${txt(m.stem)}</div>${m.figure ? `<div class="ex-fig small">${m.figure}</div>` : ''}
         ${isFill(m) ? '' : `<ul class="rv-opts">${Object.entries(m.choices).map(([k, v]) => `<li class="${k === m.answer ? 'right' : k === m.last_choice ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
         <div class="rv-ans">上次${m.last_choice ? `答 <s>${esc(isFill(m) ? m.last_choice : m.choices[m.last_choice] ?? m.last_choice)}</s>，` : '没作答，'}正确答案 <b>${esc(isFill(m) ? m.answer : m.choices[m.answer] ?? [...String(m.answer)].map((k) => m.choices[k] ?? k).join('、'))}</b></div>

@@ -222,6 +222,24 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     return json({ token: acc.token, student, guest: true });
   });
 
+  // 游客的「接着用」钥匙：只放进家长自己手机日历里的提醒链接，在别的浏览器打开也能接上这个游客的记录（注册以后就作废，改用手机号登录）
+  route('POST', '/api/account/resume-key', async (req, env) => {
+    const acc = await requireAccount(req, env);
+    if (!acc.guest) return json({ key: null });
+    let key = acc.resume_key;
+    if (!key) { key = (uid() + uid()).replace(/-/g, '').slice(0, 32); await env.DB.prepare('UPDATE account SET resume_key = ? WHERE id = ?').bind(key, acc.id).run(); }
+    return json({ key });
+  });
+  route('POST', '/api/auth/resume', async (req, env) => {
+    const { key = '' } = await body(req).catch(() => ({}));
+    if (!/^[0-9a-f]{32}$/.test(key)) throw new HttpError(400, '链接不对');
+    const acc = await env.DB.prepare('SELECT id, token, guest FROM account WHERE resume_key = ?').bind(key).first();
+    if (!acc || !acc.guest) throw new HttpError(404, '这个提醒链接已经不能用了，请登录');
+    const student = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1').bind(acc.id).first();
+    await bump(env, 'resume_link');
+    return json({ token: acc.token, student, guest: true });
+  });
+
   // 游客或试用期的老账号（只存在浏览器里）绑定手机号 = 注册，记录都保留；游客这时送免费次数
   route('POST', '/api/account/bind', async (req, env) => {
     const acc = await requireAccount(req, env);
@@ -230,7 +248,7 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     const phone = normPhone(p);
     checkInput(phone, password);
     if (await env.DB.prepare('SELECT 1 FROM account WHERE phone = ?').bind(phone).first()) throw new HttpError(409, '这个手机号已经注册过，请直接登录');
-    await env.DB.prepare(`UPDATE account SET phone = ?, pw_hash = ?, guest = 0${acc.guest ? `, credits = credits + ${FREE_CREDITS}` : ''} WHERE id = ?`)
+    await env.DB.prepare(`UPDATE account SET phone = ?, pw_hash = ?, guest = 0, resume_key = NULL${acc.guest ? `, credits = credits + ${FREE_CREDITS}` : ''} WHERE id = ?`)
       .bind(phone, await hashPw(password), acc.id).run();
     const nn = String(nickname || '').trim().slice(0, 20);
     if (nn) await env.DB.prepare('UPDATE student SET nickname = ? WHERE id = (SELECT id FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1)').bind(nn, acc.id).run();

@@ -1718,3 +1718,89 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .ob-ask .ob-bubble::before { content: ''; position: absolute; left: -9px; top: 50%; width: 14px; height: 14px; background: var(--surface); border: solid var(--border); border-width: 0 0 2px 2px; transform: translateY(-50%) rotate(45deg); }
 @media (max-width: 600px) { .ob-ask { margin-bottom: 12px; } .ob-bubble b { font-size: 18px; } .ob-ask .pencil { width: 40px; height: 58px; } }
 @media (prefers-reduced-motion: reduce) { .ob-hello .pencil, .ob-intro .pencil { animation: none; } }
+
+/* 完成页：每日提醒 / 放到桌面（只出一个） */
+.cele-hook { width: 100%; box-sizing: border-box; display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1.5px solid var(--border); color: var(--text); text-align: left;
+  opacity: 0; transform: translateY(18px); animation: rise .45s ease-out 1.4s forwards; }
+.cele-hook > b { font-size: 16px; }
+.cele-hook small { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.rm-times { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rm-times button { font: inherit; font-weight: 700; font-size: 15px; padding: 9px 0; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.rm-times button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.cele-skip { justify-self: center; font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; padding: 2px 8px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .cele-hook { animation: none; opacity: 1; transform: none; } }
+.pf-remind { margin-top: 12px; }
+.pf-rm { display: flex; gap: 8px; align-items: center; }
+.pf-rm select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+
+/* ───────── 每日打卡答题页（一屏一题，底部大按钮） ───────── */
+.dl { max-width: 680px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+.dl-top { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg); }
+.dl-x { font-size: 22px; line-height: 1; color: var(--muted); text-decoration: none; text-align: center; }
+.dl-bar { height: 14px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.dl-bar i { display: block; height: 100%; border-radius: 999px; background: #58B368; box-shadow: inset 0 -4px 0 rgba(0,0,0,.08), inset 0 4px 0 rgba(255,255,255,.25); transition: width .4s ease; }
+.dl-n { color: var(--muted); font-weight: 700; font-size: 14px; }
+.dl-lang .lang-seg { font-size: 12px; }
+.dl-lang .lang-seg .ic { display: none; }
+.dl-main { flex: 1; padding: 4px 16px 230px; }
+.dl-src { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.dl-redo { display: inline-block; font-size: 13px; font-weight: 700; color: #B04A6F; background: #F6E7EC; padding: 3px 10px; border-radius: 999px; margin-bottom: 10px; }
+.dl-stem { font-size: 18px; line-height: 1.6; margin-bottom: 14px; }
+.dl-stem .zh { margin-top: 6px; color: var(--muted); font-size: 16px; }
+.dl .figure { margin: 6px 0 14px; text-align: center; }
+.dl .figure svg, .dl .figure img { max-width: 100%; height: auto; }
+.dl-opts { display: grid; gap: 10px; }
+.dl-opts.figs { grid-template-columns: repeat(2, 1fr); }
+.dl-opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; border: 2px solid var(--border); border-bottom-width: 4px; border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 17px; text-align: left; cursor: pointer; transition: transform .06s; }
+.dl-opt:active:not([disabled]) { transform: translateY(2px); border-bottom-width: 2px; }
+.dl-k { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--border); display: grid; place-items: center; font-size: 14px; font-weight: 800; color: var(--muted); }
+.dl-c { min-width: 0; }
+.dl-c .zh-inline { display: block; color: var(--muted); font-size: 14px; }
+.dl-opt.sel { border-color: #4A9FD8; background: #E8F3FB; }
+.dl-opt.sel .dl-k { border-color: #4A9FD8; color: #2C7DB5; }
+.dl-opt.right { border-color: #58B368; background: #E4F4E7; }
+.dl-opt.right .dl-k { border-color: #58B368; background: #58B368; color: #fff; }
+.dl-opt.wrong { border-color: #E0607E; background: #FBE6EB; }
+.dl-opt.wrong .dl-k { border-color: #E0607E; background: #E0607E; color: #fff; }
+.dl-opt[disabled] { cursor: default; }
+.dl-fill { width: 100%; box-sizing: border-box; font: inherit; font-size: 20px; padding: 14px 16px; border: 2px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); }
+.dl-fill:focus { outline: none; border-color: #4A9FD8; }
+.dl-hint { margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 14px; color: var(--accent); background: none; border: 1.5px dashed var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.dl-hint[disabled] { opacity: .5; }
+.dl .hint-box { margin-top: 10px; }
+.dl-foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 2px solid var(--border); max-height: 78dvh; overflow-y: auto; }
+.dl-foot > * { max-width: 648px; margin-left: auto; margin-right: auto; }
+.dl-foot.ok { background: #DDF2E1; border-top-color: #BFE5C6; animation: dl-up .25s ease-out; }
+.dl-foot.bad { background: #FBE2E8; border-top-color: #F3C3CF; animation: dl-up .25s ease-out; }
+@keyframes dl-up { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+.dl-res { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.dl-res .pencil { width: 40px; height: 56px; flex: none; }
+.dl-res b { display: block; font-size: 20px; }
+.dl-foot.ok .dl-res b { color: #2E7D3F; }
+.dl-foot.bad .dl-res b { color: #B4304F; }
+.dl-res small { color: #7A5560; font-size: 13px; }
+.dl-res .ck-pts { margin-left: auto; }
+.dl-why { display: block; font: inherit; font-size: 15px; font-weight: 700; background: none; border: 0; padding: 0 0 10px; cursor: pointer; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.dl-sol { max-height: 42dvh; overflow-y: auto; margin-bottom: 12px; padding: 12px; border-radius: 12px; background: var(--surface); color: var(--text); font-size: 15px; line-height: 1.6; }
+.dl-go { display: block; width: 100%; font: inherit; font-size: 18px; font-weight: 800; letter-spacing: .04em; padding: 14px; border: 0; border-radius: 14px; background: #58B368; color: #fff; box-shadow: 0 4px 0 #3F8F4E; cursor: pointer; }
+.dl-go:active:not([disabled]) { transform: translateY(3px); box-shadow: 0 1px 0 #3F8F4E; }
+.dl-go[disabled] { background: var(--border); color: var(--muted); box-shadow: none; cursor: default; }
+.dl-foot.bad .dl-go { background: #E0607E; box-shadow: 0 4px 0 #B4304F; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dl-foot.ok { background: #183A23; border-top-color: #24553A; }
+  :root:not([data-theme="light"]) .dl-foot.bad { background: #3D1C25; border-top-color: #5A2A37; }
+  :root:not([data-theme="light"]) .dl-foot.ok .dl-res b { color: #7FD392; }
+  :root:not([data-theme="light"]) .dl-foot.bad .dl-res b { color: #F297AD; }
+  :root:not([data-theme="light"]) .dl-res small { color: #D7AAB6; }
+  :root:not([data-theme="light"]) .dl-opt.sel { background: #17324A; }
+  :root:not([data-theme="light"]) .dl-opt.right { background: #183A23; }
+  :root:not([data-theme="light"]) .dl-opt.wrong { background: #3D1C25; }
+}
+:root[data-theme="dark"] .dl-foot.ok { background: #183A23; border-top-color: #24553A; }
+:root[data-theme="dark"] .dl-foot.bad { background: #3D1C25; border-top-color: #5A2A37; }
+:root[data-theme="dark"] .dl-opt.sel { background: #17324A; }
+:root[data-theme="dark"] .dl-opt.right { background: #183A23; }
+:root[data-theme="dark"] .dl-opt.wrong { background: #3D1C25; }
+@media (min-width: 1000px) { .dl { zoom: 1.15; } .dl-foot { zoom: 1.15; } }
+@media (min-width: 1400px) { .dl { zoom: 1.25; } .dl-foot { zoom: 1.25; } }
+@media (prefers-reduced-motion: reduce) { .dl-foot.ok, .dl-foot.bad { animation: none; } .dl-bar i { transition: none; } }

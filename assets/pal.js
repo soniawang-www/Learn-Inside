@@ -24,7 +24,8 @@ export const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i)
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SUBJ_PATH = { math: '/math/', chinese: '/chinese/', english: '/english/' };
 // 英语的答题页按考试分：KET #/ket/…，PET #/pet/…，小托福 #/tj/…
-export const examUrl = (subject, sid, done, family) => `${SUBJ_PATH[subject] || '/math/'}#/${subject === 'english' ? `${family === 'toefljr' ? 'tj' : family || 'ket'}/` : ''}${done ? 'review' : 'exam'}/${encodeURIComponent(sid)}`;
+// 语文打卡也在数学页那套「一屏一题」的打卡页里做；看解析回各科自己的复盘页
+export const examUrl = (subject, sid, done, family) => !done && subject === 'chinese' ? `/math/#/exam/${encodeURIComponent(sid)}` : `${SUBJ_PATH[subject] || '/math/'}#/${subject === 'english' ? `${family === 'toefljr' ? 'tj' : family || 'ket'}/` : ''}${done ? 'review' : 'exam'}/${encodeURIComponent(sid)}`;
 export const START_URL = '/math/#/start';
 export const SUBJ_NAME = { math: '数学', chinese: '语文', english: '英语' };
 export const PLAN_URL = '/math/#/plan';
@@ -49,7 +50,7 @@ export function todayCard(pr, { team = null, only = null } = {}) {
   const row = (x) => {
     const done = !!x.today?.done;
     const size = x.today ? `${x.today.n} 题` : `${x.per_day} ${x.unit || '题'}`;
-    const when = x.plan ? (x.days_left > 0 ? `还有 ${x.days_left} 天` : '考试加油') : '每日练习';
+    const when = x.plan && x.days_left != null ? (x.days_left > 0 ? `还有 ${x.days_left} 天` : '考试加油') : '每日练习';
     return `<button class="tc-item ${done ? 'done' : ''}" data-tc-fam="${esc(x.family)}" data-tc-sub="${esc(x.subject)}" ${x.today ? `data-tc-sid="${esc(x.today.session_id)}"` : ''}>
       <i class="tc-tag s-${esc(x.subject)}">${esc(x.subject_name)}</i><span><b>${esc(x.name)}</b><small>${when} · ${size}</small></span>
       <em>${done ? '✓' : x.today ? '继续' : '开始'}</em></button>`;

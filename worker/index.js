@@ -9,7 +9,7 @@ import { SCHEMA, KNOWLEDGE, EXAMS } from './content.generated.js';
 import { registerBilling, SAMPLES } from './billing.js';
 import { judge, normalizeInput } from './answers.js';
 import { registerEnglish, englishPrintItems } from './english.js';
-import { registerEvents, bump, evReport } from './events.js';
+import { registerEvents, bump, evReport, retention } from './events.js';
 import { registerPrep, award, PTS } from './prep.js';
 const SAMPLE_DRILLS = SAMPLES.drills;
 
@@ -104,6 +104,12 @@ route('GET', '/api/admin/events', async (req, env, _p, url) => {
   const key = req.headers.get('x-admin-key');
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
   return json(await evReport(env, Math.min(60, Math.max(1, Number(url.searchParams.get('days')) || 14))));
+});
+
+route('GET', '/api/admin/retention', async (req, env, _p, url) => {
+  const key = req.headers.get('x-admin-key');
+  if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
+  return json(await retention(env, Math.min(60, Math.max(1, Number(url.searchParams.get('days')) || 14))));
 });
 
 // 加入试用：邀请码 + 孩子昵称 → 返回 token

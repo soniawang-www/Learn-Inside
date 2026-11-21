@@ -39,6 +39,9 @@ export const PREP_MIGRATIONS = [
   // 年级只问一次：记下是哪个学年填的，每年 9 月自动升一级
   'ALTER TABLE student ADD COLUMN grade INTEGER',
   'ALTER TABLE student ADD COLUMN grade_year INTEGER',
+  // 游客的「接着用」钥匙（提醒链接里带着，换浏览器也能接上）
+  'ALTER TABLE account ADD COLUMN resume_key TEXT',
+  'CREATE UNIQUE INDEX IF NOT EXISTS idx_account_resume ON account(resume_key)',
   // 只有数学时建的两张表：搬过来后清空（顺序执行，搬完才清）
   `INSERT OR IGNORE INTO prep_item (student_id, family, subject, exam_date, per_day, per_week, created_at, updated_at)
      SELECT student_id, family, 'math', exam_date, per_day, per_week, created_at, updated_at FROM prep_plan`,
@@ -316,7 +319,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     for (const p of plans) {
       const f = PREP_FAMILIES[p.family]; if (!f) continue;
       const it = { family: p.family, subject: p.subject, name: f.name, subject_name: PREP_SUBJECTS[p.subject].name, plan: true, exam_date: p.exam_date,
-        days_left: dayNum(p.exam_date) - dayNum(today), per_day: p.per_day, grade: p.grade, today: todayOf(p.family) };
+        days_left: p.exam_date ? dayNum(p.exam_date) - dayNum(today) : null, per_day: p.per_day, grade: p.grade, today: todayOf(p.family) };
       if (p.family === 'amc8') {
         const { high } = await highItems(env, 'amc8');
         const hist = await itemHistory(env, sid, p.created_at);
@@ -337,6 +340,24 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
       subjects: Object.entries(PREP_SUBJECTS).map(([id, x]) => ({ id, name: x.name })),
       families: await families(env, today), points: await points(env, sid, today) };
   }
+
+  // 每日提醒：生成手机日历的每天重复事件（打开就能加到日历），链接回网站；r = 游客的「接着用」钥匙
+  route('GET', '/api/remind.ics', async (req, env, p, url) => {
+    const t = /^\d{4}$/.test(url.searchParams.get('t') || '') ? url.searchParams.get('t') : '1930';
+    const hh = Math.min(23, +t.slice(0, 2)), mm = Math.min(59, +t.slice(2));
+    const r = /^[0-9a-f]{32}$/.test(url.searchParams.get('r') || '') ? url.searchParams.get('r') : '';
+    const link = `${url.origin}/${r ? `?r=${r}` : ''}`;
+    const tomorrow = new Date(Date.now() + 8 * 3600e3 + DAY).toISOString().slice(0, 10).replace(/-/g, '');
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+    const pad = (n) => String(n).padStart(2, '0');
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//learn-inside//daily//ZH', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+      'BEGIN:VTIMEZONE', 'TZID:Asia/Shanghai', 'BEGIN:STANDARD', 'DTSTART:19700101T000000', 'TZOFFSETFROM:+0800', 'TZOFFSETTO:+0800', 'TZNAME:CST', 'END:STANDARD', 'END:VTIMEZONE',
+      'BEGIN:VEVENT', `UID:daily-${uid()}@learn-inside`, `DTSTAMP:${stamp}`, `DTSTART;TZID=Asia/Shanghai:${tomorrow}T${pad(hh)}${pad(mm)}00`, 'DURATION:PT10M', 'RRULE:FREQ=DAILY',
+      'SUMMARY:learn-inside 每日打卡', `DESCRIPTION:今天的题准备好了\\n${link}`, `URL:${link}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:该打卡了', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    await bump(env, 'remind_ics');
+    return new Response(ics, { headers: { 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': 'inline; filename="learn-inside.ics"', 'cache-control': 'no-store' } });
+  });
 
   // 新手引导第一步：年级先存下来（之后不再问）
   route('PUT', '/api/students/:id/grade', async (req, env, p) => {
@@ -367,9 +388,12 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const today = bjDay(now());
     for (const it of want) {
       if (!PREP_FAMILIES[it.family]) throw new HttpError(400, '暂时不支持这个考试');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(it.exam_date || '') || isNaN(Date.parse(it.exam_date))) throw new HttpError(400, `请选择${PREP_FAMILIES[it.family].name}的考试日期`);
-      if (it.exam_date <= today) throw new HttpError(400, '考试日期要在今天之后');
-      if (dayNum(it.exam_date) - dayNum(today) > 730) throw new HttpError(400, '考试日期太远了');
+      it.exam_date = it.exam_date || ''; // 考试日期可以先不定（打卡卡片上显示「每天 N 题」）
+      if (it.exam_date) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(it.exam_date) || isNaN(Date.parse(it.exam_date))) throw new HttpError(400, `${PREP_FAMILIES[it.family].name}的考试日期不对`);
+        if (it.exam_date <= today) throw new HttpError(400, '考试日期要在今天之后');
+        if (dayNum(it.exam_date) - dayNum(today) > 730) throw new HttpError(400, '考试日期太远了');
+      }
     }
     const t = now();
     await saveGrade(env, st.id, g, today);

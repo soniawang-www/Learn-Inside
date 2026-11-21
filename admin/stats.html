@@ -33,8 +33,21 @@ const $ = (id) => document.getElementById(id);
 const GROUPS = [
   ['进来', ['view_home', 'view_math', 'view_chinese', 'view_english', 'guest_new', 'quick_start']],
   ['做题', ['first_start', 'first_submit', 'start', 'submit', 'scan_fill']],
+  ['新手引导', ['ob_welcome', 'ob_start', 'prep_plan']],
+  ['打卡', ['daily_start', 'daily_done', 'remind_prompt', 'remind_ics', 'resume_link', 'a2hs_prompt', 'a2hs_done', 'team_new', 'team_join']],
   ['注册', ['view_join', 'reg_prompt', 'register_bind', 'register']],
 ];
+// 留存：按第一次来的日期分组
+async function loadRet(key) {
+  const r = await fetch('/api/admin/retention?days=' + $('days').value, { headers: { 'x-admin-key': key } });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || '加载失败');
+  const pct = (a, b) => (b ? `${a}/${b} <span class="rate">${Math.round((a / b) * 100)}%</span>` : '—');
+  const sum = (k) => j.rows.reduce((a, x) => a + x[k], 0);
+  const tr = (x) => `<tr><td>${x.day}</td><td><b>${x.new}</b></td><td>${pct(x.did, x.new)}</td><td>${pct(x.d1, x.d1_ok)}</td><td>${pct(x.d2_7, x.d2_7_ok)}</td><td>${pct(x.d7, x.d7_ok)}</td><td>${x.reg || ''}</td></tr>`;
+  return `<h2 style="margin-top:22px">留存（按第一次来的日期）</h2><table class="ev"><tr><th>第一次来</th><th>新人</th><th>当天做了题</th><th>第 2 天又来</th><th>第 2–7 天来过</th><th>7 天后还来</th><th>已注册</th></tr>
+    ${tr({ day: '合计', new: sum('new'), did: sum('did'), d1: sum('d1'), d1_ok: sum('d1_ok'), d2_7: sum('d2_7'), d2_7_ok: sum('d2_7_ok'), d7: sum('d7'), d7_ok: sum('d7_ok'), reg: sum('reg') })}
+    ${j.rows.map(tr).join('')}</table><p class="small muted" style="margin-top:8px">「又来」= 那天开始做过题或打过卡。分母是已经过了那么多天的新人。</p>`;
+}
 async function load() {
   const key = $('key').value.trim(); if (!key) return;
   $('out').innerHTML = '<p class="small muted">加载中…</p>';
@@ -51,7 +64,7 @@ async function load() {
       h += `<tr class="grp"><td colspan="${days.length + 2}">${g}</td></tr>`;
       for (const n of ns) h += `<tr><td>${j.names[n] || n}</td><td><b>${tot(n)}</b>${extra[n] ? rate(n, extra[n][0]) : ''}</td>${days.map((d) => `<td>${v[n]?.[d] || ''}</td>`).join('')}</tr>`;
     }
-    $('out').innerHTML = days.length ? h + '</table><p class="small muted" style="margin-top:8px">百分比：第一次交卷 ÷ 第一次开始做题；游客注册 ÷ 自动建游客。</p>' : '<p class="small muted">还没有数据。</p>';
+    $('out').innerHTML = (days.length ? h + '</table><p class="small muted" style="margin-top:8px">百分比：第一次交卷 ÷ 第一次开始做题；游客注册 ÷ 自动建游客。</p>' : '<p class="small muted">还没有数据。</p>') + await loadRet(key);
   } catch (e) { $('out').innerHTML = `<p class="error-msg">${e.message}</p>`; }
 }
 try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}

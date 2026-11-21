@@ -1,4 +1,4 @@
-import { FLAME, WEEK, pencil, STAR, weekRow, todayCard, bindToday, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261118j';
+import { FLAME, WEEK, pencil, STAR, weekRow, todayCard, bindToday, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261121a';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -623,7 +623,7 @@ async function renderDashboard() {
         ${guest ? '' : `<a class="mm-line" href="#/graph"><span>知识图谱</span><span class="mm-sum">${['strong', 'ok', 'weak'].map((k) => `<span><i class="kg-sw lv-${k}"></i>${LV[k]} <b>${count(k)}</b></span>`).join('')}</span><span class="muted small">›</span></a>`}
       </section>` : ''}
       ${sessions.length ? `<section class="card recent">
-        <div class="card-h"><h2>最近成绩</h2><a href="#/contest/${enc(dashFam)}/records">全部 ›</a></div>
+        <div class="card-h"><h2>最近成绩</h2><a href="#/contest/${enc(sessions.find((x) => x.exam_id && x.exam_id !== 'drill')?.exam_id.split('-')[0] || startFam?.id || 'amc8')}/records">全部 ›</a></div>
         <div class="scores">${sessions.map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${modeName(x.mode)} · ${fmtDate(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${(x.score / x.total) * 100}%"></i></span><b>${x.score}<small>/${x.total}</small></b></a>`).join('')}</div>
@@ -672,6 +672,45 @@ function examGrid(f, allExams, fid, limit = 0) {
 // ───────── 打卡（参考多邻国）：火苗 + 连续天数 + 本周格子 ─────────
 // 打卡完成：暖色光芒转动、火苗长大跳动、火星往上飘、天数翻页 +1、今天的格子点亮带波纹、两侧礼花炮 + 中间彩纸、统计卡依次升起
 const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
+// 回来的路：每日提醒（手机日历）和放到桌面。网页没有推送，这是让孩子第二天回来的主要办法
+const INAPP = /MicroMessenger|XiaoHongShu|xhsdiscover|Weibo|QQ\//i.test(navigator.userAgent); // 微信、小红书等 App 里打开的网页
+const IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let bip = null; addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); bip = e; }); // 安卓 Chrome：能直接弹「添加到桌面」
+const RM_TIMES = ['0730', '1700', '1930', '2030'];
+const hhmm = (t) => `${t.slice(0, 2)}:${t.slice(2)}`;
+async function addReminder(t) {
+  let key = null;
+  if (isGuest()) try { key = (await api('/math/api/account/resume-key', { method: 'POST' })).key; } catch {}
+  store.set('li.remind', t);
+  location.href = `/api/remind.ics?t=${t}${key ? `&r=${key}` : ''}`;
+}
+function remindBlock(t0) {
+  return `<div class="cele-hook" id="rm"><b>明天几点提醒？</b>
+    <div class="rm-times">${RM_TIMES.map((t) => `<button type="button" data-rt="${t}" aria-pressed="${t === t0}">${hhmm(t)}</button>`).join('')}</div>
+    <button class="btn primary block" id="rm-add">加到手机日历</button>${INAPP ? '<small>加不上的话：点右上角 ···，选「在浏览器打开」</small>' : ''}
+    <button class="cele-skip" id="rm-no">不用了</button></div>`;
+}
+function a2hsBlock() {
+  const how = bip ? '<button class="btn primary block" id="a2hs-go">放到桌面</button>'
+    : IOS ? '<small>点 Safari 底部的「分享」，选「添加到主屏幕」</small>' : '<small>点浏览器菜单，选「添加到主屏幕」</small>';
+  return `<div class="cele-hook" id="a2hs"><b>放到手机桌面，每天一点就进来</b>${how}<button class="cele-skip" id="a2hs-no">知道了</button></div>`;
+}
+function bindHooks(root) {
+  let t = RM_TIMES[2];
+  root.querySelectorAll('[data-rt]').forEach((b) => (b.onclick = () => { t = b.dataset.rt; root.querySelectorAll('[data-rt]').forEach((x) => x.setAttribute('aria-pressed', x === b)); }));
+  root.querySelector('#rm-add')?.addEventListener('click', async () => { await addReminder(t); root.querySelector('#rm').innerHTML = `<b>每天 ${hhmm(t)} 提醒 ✓</b><small>日历里没出现的话，再点一次「加到手机日历」</small>`; });
+  root.querySelector('#rm-no')?.addEventListener('click', () => { store.set('li.remind', 'no'); root.querySelector('#rm').remove(); });
+  root.querySelector('#a2hs-go')?.addEventListener('click', async () => { try { await bip.prompt(); } catch {} bip = null; store.set('li.a2hsOff', Date.now()); root.querySelector('#a2hs').remove(); });
+  root.querySelector('#a2hs-no')?.addEventListener('click', () => { store.set('li.a2hsOff', Date.now()); root.querySelector('#a2hs').remove(); });
+}
+// 完成页只出一个：还没设提醒先问提醒；第 2 次打卡起（不是从桌面打开、不在 App 里）请他放到桌面
+function hookFor(p) {
+  if (!store.get('li.remind')) { ev('remind_prompt'); return remindBlock(RM_TIMES[2]); }
+  if (!STANDALONE && !INAPP && (p.total || 0) >= 2 && !store.get('li.a2hsOff')) { ev('a2hs_prompt'); return a2hsBlock(); }
+  return '';
+}
+
 function celebrate(r, sid) {
   const p = r.session.prep || {}, wk = (p.per_week || 7) < 7;
   const regAsk = isGuest() && (p.total === 1 || p.streak === 3); // 游客：第一次打卡、连续第 3 次时请他注册（可以不理）
@@ -693,12 +732,14 @@ function celebrate(r, sid) {
       <span style="--i:1"><b class="big pts">+${p.points_got || 0}</b><small>积分</small></span>
       <span style="--i:2"><b class="big">${fmtTime(used)}</b><small>用时</small></span>
     </div>
+    ${hookFor(p)}
     ${regAsk ? `<a class="cele-reg" href="#/account" id="cele-reg"><b>注册保存打卡记录</b><span>换手机也不断签 · 送 10 次互动解析</span></a>` : ''}
     <div class="cele-acts">${p.next ? `<button class="btn primary block" id="cele-next">接着做${esc(p.next.name)} · ${p.next.n} 题</button><a class="btn block" href="${examUrl(p.subject, sid, true, p.family)}">看解析</a>`
       : `<a class="btn primary block" href="${examUrl(p.subject, sid, true, p.family)}">看解析</a>`}<a class="btn block" href="/">回首页</a></div>
     <canvas class="cele-fx" aria-hidden="true"></canvas>
   </main>`;
   const root = $app.querySelector('.cele');
+  bindHooks(root);
   root.querySelector('#cele-reg')?.addEventListener('click', () => { ev('reg_prompt'); store.set('li.back', `${location.pathname}#/`); });
   root.querySelector('#cele-next')?.addEventListener('click', async (e) => {
     e.currentTarget.disabled = true;
@@ -794,16 +835,17 @@ async function renderStart(subject, newGuest) {
   const needGrade = !A.grade;
   const isNew = !!newGuest; // 这台设备第一次来：先欢迎、小铅笔打招呼
   if (isNew) ev('ob_welcome');
-  const flowOf = () => [isNew && 'hello', isNew && 'intro', needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`),
-    'dates', !adding && 'how', !adding && 'team'].filter(Boolean);
+  // 选完比赛就开始第一天：考试日期（官方公布了的自动填）、一周几次、每次多少、组队都放到以后（打卡卡片上的「计划」「组队」）
+  const flowOf = () => [isNew && 'hello', isNew && 'intro', needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`)].filter(Boolean);
   let step = 0;
   const inSubj = (sj) => fams.filter((f) => f.subject === sj && !have.some((h) => h.family === f.id))
     .sort((x, y) => (y.grades.includes(A.grade) ? 1 : 0) - (x.grades.includes(A.grade) ? 1 : 0));
   const sel = () => A.sel.map((id) => fams.find((f) => f.id === id)).filter(Boolean);
   const opt = (on, key, val, main, sub = '', tag = '') => `<button class="ob-opt ${on ? 'on' : ''}" data-${key}="${esc(String(val))}">${tag}<b>${main}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
   const go = async () => {
-    const body = adding ? { grade: A.grade, per_week: pr.per_week || 7, level: pr.level || 'easy', merge: true } : { grade: A.grade, per_week: A.wk, level: A.lv };
-    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { ...body, items: A.sel.map((id) => ({ family: id, exam_date: A.dates[id] })) } });
+    const body = adding ? { grade: A.grade, per_week: pr.per_week || 7, level: pr.level || 'easy', merge: true } : { grade: A.grade, per_week: 7, level: 'easy' };
+    const dateOf = (id) => A.dates[id] || fams.find((f) => f.id === id)?.next?.date || '';
+    await api(`/math/api/students/${enc(st.id)}/prep`, { method: 'PUT', body: { ...body, items: A.sel.map((id) => ({ family: id, exam_date: dateOf(id) })) } });
     store.set('li.obSkip', true);
     if (A.team) { location.hash = '#/team'; return; }
     const r = await api(`/math/api/students/${enc(st.id)}/prep/today?family=${enc(A.sel[0])}`, { method: 'POST' });
@@ -843,7 +885,7 @@ async function renderStart(subject, newGuest) {
       <footer class="ob-foot"><button class="btn primary block" id="obn" ${READY[cur](arg) ? '' : 'disabled'}>${step === LAST ? (A.team ? '去组队' : adding ? '开始' : '开始第一天') : '继续'}</button></footer>
     </main>`;
     const redraw = () => { const y = scrollY; draw(); scrollTo(0, y); };
-    $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { A.grade = +b.dataset.grade; redraw(); }));
+    $app.querySelectorAll('[data-grade]').forEach((b) => (b.onclick = () => { A.grade = +b.dataset.grade; const s0 = step; redraw(); setTimeout(() => { if (step === s0) $app.querySelector('#obn')?.click(); }, 180); })); // 单选：点了就进下一步
     $app.querySelectorAll('[data-subj]').forEach((b) => (b.onclick = () => {
       const sj = b.dataset.subj;
       if (A.subjs.includes(sj)) { A.subjs = A.subjs.filter((x) => x !== sj); A.sel = A.sel.filter((id) => fams.find((f) => f.id === id)?.subject !== sj); }
@@ -987,8 +1029,12 @@ async function renderPlan() {
         ${A.sel.length ? `<p class="pf-per muted small">${perLabel(fams, A.sel, A.lv)}</p>` : ''}
         <p class="pf-err" id="pf-err" hidden></p>
         <button class="btn primary block" type="submit">保存</button>
-      </form></main>`;
+      </form>
+      <section class="card pf-remind"><div class="pf-row"><span>每日提醒</span><span class="pf-rm">
+        <select id="pf-rt">${RM_TIMES.map((t) => `<option value="${t}" ${t === (/^\d{4}$/.test(store.get('li.remind') || '') ? store.get('li.remind') : RM_TIMES[2]) ? 'selected' : ''}>${hhmm(t)}</option>`).join('')}</select>
+        <button class="btn" type="button" id="pf-rm">加到手机日历</button></span></div></section></main>`;
     $app.querySelector('#pf-g').onchange = (e) => { A.grade = +e.target.value || null; draw(); };
+    $app.querySelector('#pf-rm').onclick = () => addReminder($app.querySelector('#pf-rt').value);
     $app.querySelectorAll('[data-pf]').forEach((c) => (c.onchange = () => {
       const id = c.dataset.pf, f = fams.find((x) => x.id === id);
       A.sel = c.checked ? [...A.sel, id] : A.sel.filter((x) => x !== id);
@@ -1221,7 +1267,8 @@ function renderPaper(sid, data) {
 // 布局：顶栏（刷新 / 大字号 / 剩余时间 / 交卷）+ 左侧答题卡（进度、题号格、图例）+ 右侧一题一屏
 async function renderExam(sid) {
   const [data] = await Promise.all([api(`/math/api/sessions/${sid}`), ensureMe()]); // 账号信息：完成页要知道是不是游客（要不要请他注册）
-  if (data.session.submitted) { location.hash = `#/review/${sid}`; return; }
+  if (data.session.submitted) { location.replace(data.session.prep ? examUrl(data.session.prep.subject, sid, true, data.session.prep.family) : `#/review/${sid}`); return; }
+  if (data.session.prep && data.session.drill) return renderDaily(sid, data); // 每日打卡：一屏一题的简洁页
   if (data.session.mode === 'paper') return renderPaper(sid, data);
   document.body.classList.add('exam-mode');
   // 希望数学：布局同 AMC 8，用 learn-inside 自己的风格
@@ -1405,6 +1452,120 @@ async function renderExam(sid) {
   draw();
 }
 
+// ───────── 每日打卡答题页（参考多邻国）：顶部进度条，一屏一题，底部大按钮「检查」，答完从底部弹出对错和解析；
+// 不计时；本次答错的题最后再出一遍（不再加分）；数学、语文打卡都用这一页 ─────────
+async function renderDaily(sid, data) {
+  document.body.classList.add('exam-mode', 'daily-mode');
+  const key = `amc8.s.${sid}`;
+  const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, times: {}, hints: {}, checked: {}, cur: 0, redo: [], redone: {} } });
+  const { S } = D;
+  S.checked ||= {}; S.redo ||= []; S.redone ||= {}; S.hints ||= {};
+  const problems = data.problems, byId = Object.fromEntries(problems.map((p) => [p.id, p]));
+  const en = hasEn(problems);
+  let enteredAt = Date.now(), submitting = false, open = false, pick = null, redoPick = null;
+  // 第几步：先把每道题做一遍，再重做这次错的
+  const queue = () => [...problems.map((p) => ({ p, redo: false })), ...S.redo.map((id) => ({ p: byId[id], redo: true }))];
+  for (const h of data.hints_seen || []) { const l = S.hints[h.problem_id] ||= []; if (!l[h.level - 1]) try { l[h.level - 1] = (await api(`/math/api/sessions/${sid}/hint`, { method: 'POST', body: { problem_id: h.problem_id, level: h.level } })).content; } catch {} }
+  const flush = (p) => { S.times[p.id] = (S.times[p.id] || 0) + (Date.now() - enteredAt) / 1000; enteredAt = Date.now(); };
+  const allDone = () => queue().every((q) => (q.redo ? S.redone[q.p.id] : S.checked[q.p.id]));
+
+  function draw() {
+    const Q = queue(), i = Math.min(S.cur, Q.length - 1), { p, redo } = Q[i];
+    const ck = redo ? S.redone[p.id] : S.checked[p.id];
+    const ans = redo ? redoPick : S.answers[p.id];
+    const right = S.checked[p.id]?.answer;
+    const hints = S.hints[p.id] || [];
+    const fill = isFillP(p);
+    const optCls = (k) => !ck ? (ans === k ? 'sel' : '') : k === right ? 'right' : ans === k ? 'wrong' : '';
+    const done = Q.filter((q, j) => j < i || (j === i && ck)).length;
+    const last = i === Q.length - 1;
+    const c0 = S.checked[p.id];
+    $app.innerHTML = `<div class="dl">
+      <header class="dl-top"><a class="dl-x" href="/" aria-label="先不做了，回首页">✕</a>
+        <div class="dl-bar"><i style="width:${(done / Q.length) * 100}%"></i></div>
+        ${en ? `<span class="dl-lang">${langSeg()}</span>` : `<span class="dl-n">${i + 1}/${Q.length}</span>`}</header>
+      <main class="dl-main">
+        ${redo ? '<div class="dl-redo">再做一次刚才错的</div>' : `<div class="dl-src">${esc(p.label || '')}</div>`}
+        <div class="dl-stem">${stemHtml(p)}</div>
+        ${p.figure ? `<div class="figure">${p.figure}</div>` : ''}
+        ${fill ? `<input class="dl-fill" id="fill" type="text" inputmode="text" autocomplete="off" enterkeyhint="done" maxlength="40" placeholder="填答案" value="${esc(ans || '')}" ${ck ? 'disabled' : ''}>`
+          : `<div class="dl-opts ${figChoices(p) ? 'figs' : ''}">${Object.keys(p.choices).map((k) => `<button class="dl-opt ${optCls(k)}" data-choice="${k}" ${ck ? 'disabled' : ''}><span class="dl-k">${k}</span><span class="dl-c">${choiceHtml(p, k)}</span></button>`).join('')}</div>`}
+        ${!ck && !redo && p.hint_count ? `<button class="dl-hint" id="hint" ${hints.length >= p.hint_count ? 'disabled' : ''}>${icon('bulb', 16)}提示 ${hints.length}/${p.hint_count}</button>` : ''}
+        ${hints.length && !ck && !redo ? `<div class="hint-box">${hints.map((h, j) => `<div class="hint"><b>提示 ${j + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
+      </main>
+      <footer class="dl-foot ${ck ? (ck.correct ? 'ok' : 'bad') : ''} ${open ? 'open' : ''}">
+        ${ck ? `<div class="dl-res">${pencil(ck.correct ? 'happy' : 'think')}<div><b>${ck.correct ? (redo ? '改对了！' : '答对了！') : `正确答案 ${esc(right ?? '')}`}</b>${!ck.correct ? '<small>看看解析，最后会再出一次</small>' : ''}</div>
+            ${ck.points ? `<span class="ck-pts">+${ck.points}${STAR}</span>` : ''}</div>
+          ${c0?.basic || c0?.advanced ? `<button class="dl-why" id="why">${open ? '收起解析' : '看解析'}</button>` : ''}
+          ${open ? `<div class="dl-sol">${c0?.basic ? `<div class="solution">${rich(c0.basic)}</div>` : ''}${c0?.advanced ? advCard(p.id, c0.advanced) : ''}</div>` : ''}
+          <button class="dl-go" id="go">${last && allDone() ? '完成打卡' : '继续'}</button>`
+        : `<button class="dl-go" id="go" ${ans ? '' : 'disabled'}>检查</button>`}
+      </footer>
+    </div>`;
+    typeset($app);
+    if (open && c0?.advanced) { $app.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => openAdvanced(b.dataset.adv))); paintThumbs($app, { [p.id]: c0.advanced }); }
+    onLang($app, draw);
+    $app.querySelectorAll('[data-choice]').forEach((b) => (b.onclick = () => { if (redo) redoPick = b.dataset.choice; else { S.answers[p.id] = b.dataset.choice; save(); } draw(); }));
+    const f = $app.querySelector('#fill');
+    if (f) {
+      f.addEventListener('input', () => { const v = f.value.trim(); if (redo) redoPick = v || null; else { if (v) S.answers[p.id] = v; else delete S.answers[p.id]; save(); } $app.querySelector('#go').disabled = !v; });
+      f.addEventListener('keydown', (e) => { if (e.key === 'Enter' && f.value.trim()) { e.preventDefault(); $app.querySelector('#go').click(); } });
+    }
+    $app.querySelector('#why')?.addEventListener('click', () => { open = !open; draw(); });
+    $app.querySelector('#hint')?.addEventListener('click', async () => {
+      const level = hints.length + 1;
+      const r = await api(`/math/api/sessions/${sid}/hint`, { method: 'POST', body: { problem_id: p.id, level } });
+      (S.hints[p.id] ||= [])[level - 1] = r.content; save(); draw();
+    });
+    $app.querySelector('#go').onclick = async (e) => {
+      const btn = e.currentTarget;
+      if (!ck) { // 检查
+        if (redo) { // 重做：本地对答案，不再加分
+          const norm = (x) => String(x ?? '').replace(/\s+/g, '').toUpperCase();
+          S.redone[p.id] = { correct: norm(redoPick) === norm(right) }; save(); draw(); return;
+        }
+        btn.disabled = true;
+        try {
+          flush(p);
+          const r = await api(`/math/api/sessions/${sid}/check`, { method: 'POST', body: { problem_id: p.id, answer: S.answers[p.id] } });
+          S.checked[p.id] = r;
+          if (!r.correct && !r.self && !S.redo.includes(p.id)) S.redo.push(p.id);
+          open = false; save(); draw();
+          try { navigator.vibrate?.(r.correct ? 20 : [20, 60, 20]); } catch {}
+        } catch (x) { btn.disabled = false; modal(`<h2>没提交上</h2><p>${esc(x.message)}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); }
+        return;
+      }
+      if (last && allDone()) return submit();
+      S.cur = i + 1; open = false; redoPick = null; enteredAt = Date.now(); save(); draw(); scrollTo(0, 0);
+    };
+  }
+  const save = D.save;
+  const onKey = (e) => {
+    if ($modal.innerHTML || e.target.tagName === 'INPUT') return;
+    if (e.key === 'Enter') { const g = $app.querySelector('#go'); if (g && !g.disabled) g.click(); return; }
+    const k = e.key.toUpperCase(), b = $app.querySelector(`.dl-opt[data-choice="${k}"]:not([disabled])`);
+    if (b) b.click();
+  };
+  document.addEventListener('keydown', onKey);
+  cleanup = () => { document.removeEventListener('keydown', onKey); document.body.classList.remove('daily-mode'); D.stop(); };
+
+  async function submit() {
+    if (submitting) return;
+    submitting = true; save();
+    try {
+      const r = await api(`/math/api/sessions/${sid}/submit`, { method: 'POST', body: { answers: S.answers, times: S.times, flags: {} } });
+      D.stop(true); store.del(key);
+      cleanup?.(); cleanup = null; document.body.classList.remove('exam-mode', 'exam-li', 'daily-mode');
+      if (r.session?.prep?.done) return celebrate(r, sid);
+      location.replace(examUrl(r.session?.prep?.subject || 'math', sid, true, r.session?.prep?.family));
+    } catch (x) {
+      submitting = false;
+      modal(`<h2>没交上</h2><p>${esc(x.message)}</p><p class="small muted">答案已保存在本机，网络好了再点一次。</p><div class="actions"><button class="btn primary" data-close>好</button></div>`);
+    }
+  }
+  draw();
+}
+
 // ───────── 复盘 ─────────
 const REASONS = [['unknown', '不会'], ['careless', '粗心'], ['no_time', '没时间'], ['reading', '没读懂题']];
 
@@ -1453,13 +1614,13 @@ async function renderReview(sid) {
     <div><b>${scanned ? '注册后，手机和电脑的记录合在一起' : '做题记录现在只存在这台设备上'}</b><span>${scanned ? '在电脑上用同一个手机号登录，扫码回填的成绩和错题都能看到' : '注册后换设备也能接着看，还送 10 次互动解析'}</span></div>
     <a class="btn primary" href="#/account" data-regp>免费注册</a><button class="x" aria-label="关闭">×</button></div>` : '';
   $app.innerHTML = `${topnav()}<main class="page">
-    <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.prep?.done ? `<b class="prep-ok">今日已打卡 · 连续 ${r.session.prep.streak} 天</b>` : `${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}`}</p></div>
+    <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.prep?.done ? `<b class="prep-ok">打卡 · ${fmtDate(r.session.submitted_at)}</b>` : `${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}`}</p></div>
       ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)}${r.session.mode === 'practice' ? '' : ` <small>/ ${fmtTime(r.exam.duration_sec)}</small>`}</dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
-      <div class="rev-btns">${isGuest() ? `${nudge ? '' : '<a class="btn primary" href="#/account" data-regp>免费注册</a>'}<a class="btn" href="#/">再做一套</a>` : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
+      <div class="rev-btns">${r.session.prep ? '<a class="btn primary" href="/">回首页</a>' : isGuest() ? `${nudge ? '' : '<a class="btn primary" href="#/account" data-regp>免费注册</a>'}<a class="btn" href="#/">再做一套</a>` : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>
     <div class="col-main">${nudge}${r.items.map(itemView).join('')}</div></div>
   </main>`;
