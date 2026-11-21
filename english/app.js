@@ -13,7 +13,7 @@ import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
 import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261118j';
 import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261118j';
-import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261121e';
+import { todayCard, bindToday, START_URL, STAR, palHead } from '/assets/pal.js?v=20261122a';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -198,7 +198,7 @@ async function renderHome() {
   const open = ((await api(`/api/students/${enc(auth.student.id)}/open?subject=english`).catch(() => null))?.sessions || [])
     .map((x) => ({ sid: x.id, t: x.title, f: x.exam_id.startsWith('ket-') ? 'ket' : x.exam_id.startsWith('pet-') ? 'pet' : 'tj' }));
   const cur = open;
-  page(`<div class="hero"><h1>英语备考</h1></div>
+  page(`<div class="hero">${palHead('english', '英语备考', 'Ready? Let’s go!')}</div>
     ${pr ? todayCard(pr, { team: tm, only: 'english' }) : ''}
     ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
     <h2 class="grp-h">考试</h2>

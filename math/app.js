@@ -1,4 +1,4 @@
-import { FLAME, WEEK, pencil, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261121e';
+import { WEEK, mascot, palHead, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122a';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -622,7 +622,7 @@ async function renderDashboard() {
   ].filter(Boolean);
   const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
   $app.innerHTML = `${topnav()}<main class="page dash">
-    <header class="ph"><div><h1>数学竞赛真题</h1></div>
+    <header class="ph">${palHead('math', '数学竞赛真题', '今天也来找规律吧')}
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
     ${prepCard}
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
@@ -736,7 +736,7 @@ function celebrate(r, sid) {
     <div class="cele-rays" aria-hidden="true"></div>
     <div class="cele-hero">
       <div class="cele-embers" aria-hidden="true">${Array.from({ length: 12 }, (_, i) => `<i style="--d:${(i * 0.37) % 2.2}s;--x:${((i * 37) % 90) - 45}px;--s:${4 + (i % 4) * 2}px"></i>`).join('')}</div>
-      <div class="cele-flame">${FLAME}</div>
+      <div class="cele-flame">${mascot('cheer')}</div>
     </div>
     <div class="cele-n"><span class="cele-roll"><b class="old">${k - 1}</b><b class="new">${k}</b></span><span class="cele-plus">+1</span></div>
     <div class="cele-t">${wk ? `<b>本周 ${k}/${p.per_week} 次</b><span>${k >= p.per_week ? `本周目标达成！${p.streak > 1 ? `连续 ${p.streak} 周` : ''}` : `再练 ${p.per_week - k} 次达成本周目标`}</span>`
@@ -849,7 +849,7 @@ async function renderStart(subject, newGuest) {
   // 先选科目（可多选，从某一科进来的先勾上），再一科一科选比赛
   const A = { grade: pr?.grade || null, subjs: SUBJ_NAME[subject] ? [subject] : [], sel: [], dates: {}, wk: null, lv: null, team: null };
   const needGrade = !A.grade;
-  const isNew = !!newGuest; // 这台设备第一次来：先欢迎、小铅笔打招呼
+  const isNew = !!newGuest; // 这台设备第一次来：先欢迎、狸狸打招呼
   if (isNew) ev('ob_welcome');
   // 选完比赛就开始第一天：考试日期（官方公布了的自动填）、一周几次、每次多少、组队都放到以后（打卡卡片上的「计划」「组队」）
   const flowOf = () => [isNew && 'hello', isNew && 'intro', needGrade && 'grade', 'subjects', ...SUBJ_CARDS.map(([id]) => id).filter((id) => A.subjs.includes(id)).map((id) => `fams:${id}`)].filter(Boolean);
@@ -867,11 +867,11 @@ async function renderStart(subject, newGuest) {
     const r = await api(`/math/api/students/${enc(st.id)}/prep/today?family=${enc(A.sel[0])}`, { method: 'POST' });
     location.href = examUrl(r.subject, r.session_id, false, A.sel[0]);
   };
-  // 小铅笔用气泡问问题（参考多邻国）
-  const ask = (q, sub = '') => `<div class="ob-ask">${pencil('happy')}<div class="ob-bubble"><b>${q}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
+  // 狸狸用气泡问问题（参考多邻国）
+  const ask = (q, sub = '') => `<div class="ob-ask">${mascot('happy')}<div class="ob-bubble"><b>${q}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
   const VIEW = {
-    hello: () => `<div class="ob-hello">${pencil('cheer')}<div class="ob-brand">learn-inside</div><p>每天几道真题，养成备考好习惯</p></div>`,
-    intro: () => `<div class="ob-intro"><div class="ob-bubble big"><b>你好！我是小铅笔</b><small>回答几个小问题，马上开始第一天</small></div>${pencil('happy')}</div>`,
+    hello: () => `<div class="ob-hello">${mascot('cheer')}<div class="ob-brand">learn-inside</div><p>每天几道真题，养成备考好习惯</p></div>`,
+    intro: () => `<div class="ob-intro"><div class="ob-bubble big"><b>你好！我是狸狸</b><small>回答几个小问题，马上开始第一天</small></div>${mascot('happy')}</div>`,
     grade: () => `${ask('孩子几年级？')}<div class="ob-grid">${GRADE9.map(([g, t]) => opt(A.grade === g, 'grade', g, t)).join('')}</div>`,
     subjects: () => `${ask(adding ? '加哪些科目？' : '准备哪些科目？', '可以多选')}<div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
       const fs = inSubj(id);
@@ -881,7 +881,7 @@ async function renderStart(subject, newGuest) {
     dates: () => `${ask('什么时候考？')}<div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
     how: () => `${ask('怎么练？')}<div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
         <div class="ob-list ob-gap">${LEVEL.map(([k, t]) => opt(A.lv === k, 'lv', k, t, perLabel(fams, A.sel, k))).join('')}</div>`,
-    team: () => `<div class="ob-sum"><span class="sc-flame on big">${FLAME}</span><h1>准备好了</h1>
+    team: () => `<div class="ob-sum"><span class="ob-fox">${mascot('cheer')}</span><h1>准备好了</h1>
         <div class="ob-items">${sel().map((f) => `<div><i class="tc-tag s-${f.subject}">${esc(f.subject_name)}</i><b>${esc(f.name)}</b><span>还有 ${daysTo(A.dates[f.id])} 天</span></div>`).join('')}</div></div>
         <h2 class="ob-q">和同学一起备考？</h2><div class="ob-list">${opt(A.team === true, 'team', 1, '组队', '建一个队，或用邀请码加入')}${opt(A.team === false, 'team', 0, '先自己练')}</div>`,
   };
@@ -1368,7 +1368,7 @@ async function renderExam(sid) {
             </div>
             ${hints.length && !ck ? `<div class="hint-box">${hints.map((h, i) => `<div class="hint"><b>提示 ${i + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
             ${ck ? `<div class="ck-box ${ck.correct ? 'ok' : 'bad'}">
-              <div class="ck-top">${ck.self ? '' : pencil(ck.correct ? 'happy' : 'think')}<div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `再看看这一步，正确答案 <b>${esc(ck.answer)}</b>`}</div>
+              <div class="ck-top">${ck.self ? '' : mascot(ck.correct ? 'happy' : 'think')}<div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `再看看这一步，正确答案 <b>${esc(ck.answer)}</b>`}</div>
                 ${ck.points ? `<span class="ck-pts">+${ck.points}${STAR}</span>` : ''}</div>
               ${ck.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(ck.basic)}</div>` : ''}
               ${ck.advanced ? advCard(p.id, ck.advanced) : ''}</div>` : ''}
@@ -1522,7 +1522,7 @@ async function renderDaily(sid, data) {
         ${hints.length && !ck && !redo ? `<div class="hint-box">${hints.map((h, j) => `<div class="hint"><b>提示 ${j + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
       </main>
       <footer class="dl-foot ${ck ? (ck.correct ? 'ok' : 'bad') : ''} ${open ? 'open' : ''}">
-        ${ck ? `<div class="dl-res">${pencil(ck.correct ? 'happy' : 'think')}<div><b>${ck.correct ? (redo ? '改对了！' : '答对了！') : `正确答案 ${esc(right ?? '')}`}</b>${!ck.correct ? '<small>看看解析，最后会再出一次</small>' : ''}</div>
+        ${ck ? `<div class="dl-res">${mascot(ck.correct ? 'happy' : 'think')}<div><b>${ck.correct ? (redo ? '改对了！' : '答对了！') : `正确答案 ${esc(right ?? '')}`}</b>${!ck.correct ? '<small>看看解析，最后会再出一次</small>' : ''}</div>
             ${ck.points ? `<span class="ck-pts">+${ck.points}${STAR}</span>` : ''}</div>
           ${c0?.basic || c0?.advanced ? `<button class="dl-why" id="why">${open ? '收起解析' : '看解析'}</button>` : ''}
           ${open ? `<div class="dl-sol">${c0?.basic ? `<div class="solution">${rich(c0.basic)}</div>` : ''}${c0?.advanced ? advCard(p.id, c0.advanced) : ''}</div>` : ''}
@@ -1603,7 +1603,7 @@ async function startExtra(family) {
 }
 function extraDone(r, sid, family, pts) {
   const sub = family === 'hanzi' || family === 'gushiwen' ? 'chinese' : 'math';
-  $app.innerHTML = `<main class="ob"><div class="ob-body"><div class="ob-hello">${pencil('cheer')}<div class="ob-brand">加练完成</div>
+  $app.innerHTML = `<main class="ob"><div class="ob-body"><div class="ob-hello">${mascot('cheer')}<div class="ob-brand">加练完成</div>
       <p>答对 ${r.session.score}/${r.total}${pts ? ` · +${pts} 积分` : ''}</p></div></div>
     <footer class="ob-foot ob-welcome-foot"><button class="btn primary block" id="x-more">再练一组</button>
       <a class="btn block" href="${examUrl(sub, sid, true, family)}">看解析</a><a class="btn block" href="/">回首页</a></footer></main>`;

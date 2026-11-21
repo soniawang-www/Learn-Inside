@@ -1463,15 +1463,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 /* 每日打卡（参考多邻国）/ 备战计划 / 新手引导 */
 .streak-card { margin-bottom: 14px; display: grid; gap: 12px; }
 .sc-top { display: flex; align-items: center; gap: 14px; }
-.sc-flame { position: relative; flex: none; width: 54px; height: 62px; display: grid; place-items: center; }
-.sc-flame svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: var(--border); }
-.sc-flame svg .fl-in { fill: var(--surface); }
-.sc-flame.on svg { fill: #F08A24; }
-.sc-flame.on svg .fl-in { fill: #FFD25E; }
-.sc-flame:not(.on) .fl-hi { display: none; }
-.sc-flame b { position: relative; top: 9px; font-size: 18px; font-weight: 800; color: var(--text); }
-.sc-flame.on b { color: #7A3A06; }
-.sc-flame.big { width: 96px; height: 110px; }
+.ob-fox svg { display: block; width: 110px; height: 134px; }
 .sc-txt { display: grid; gap: 2px; min-width: 0; }
 .sc-txt b { font-size: 18px; }
 .sc-txt span { color: var(--muted); font-size: 14px; }
@@ -1616,17 +1608,17 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .pts-chip { margin-left: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; font-size: 14px; }
 .star { width: 15px; height: 15px; fill: #F5B82E; flex: none; }
 .ck-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.ck-top .pencil { width: 56px; height: 76px; flex: none; animation: pal-in .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+.ck-top .mascot { width: 58px; height: 71px; flex: none; animation: pal-in .5s cubic-bezier(.3, 1.6, .5, 1) both; }
 .ck-top .ck-head { margin: 0; flex: 1; }
 .ck-pts { display: inline-flex; align-items: center; gap: 3px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; animation: pts-pop .6s cubic-bezier(.3, 1.8, .5, 1) .15s both; }
 .ck-pts .star { width: 16px; height: 16px; }
 .tb-pts { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: #8A5A00; }
 .cele-stats b.pts { color: #C48A00; }
 .ob-pal { display: flex; justify-content: flex-start; margin: -6px 0 4px; }
-.ob-pal .pencil { width: 64px; height: 90px; animation: pal-in .6s cubic-bezier(.3, 1.6, .5, 1) both; }
+.ob-pal .mascot { width: 66px; height: 80px; animation: pal-in .6s cubic-bezier(.3, 1.6, .5, 1) both; }
 @keyframes pal-in { from { transform: translateY(14px) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pts-pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .ck-top .pencil, .ck-pts, .ob-pal .pencil { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ck-top .mascot, .ck-pts, .ob-pal .mascot { animation: none; } }
 
 /* 新手引导（全站）和备考计划 */
 .ob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -1697,11 +1689,11 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
   .ob-subj i { width: 46px; height: 46px; font-size: 20px; border-radius: 13px; }
   .ob-subj b { font-size: 17px; }
   .ob-date-row { padding: 12px 14px; gap: 6px; border-radius: 14px; }
-  .ob-pal .pencil { width: 50px; height: 70px; }
+  .ob-pal .mascot { width: 52px; height: 63px; }
   .ob-gap { margin-top: 12px; }
   .ob-q { margin: 18px 0 10px; }
   .ob-sum { gap: 4px; }
-  .ob-sum .sc-flame.big { width: 72px; height: 84px; }
+  .ob-fox svg { width: 84px; height: 102px; }
   .ob-items div { padding: 8px 12px; }
   .ob-foot { padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); }
   .plan-form { gap: 10px; }
@@ -1719,13 +1711,13 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 /* 新手引导：欢迎页、小铅笔打招呼、气泡问题（参考多邻国） */
 .ob-welcome .ob-body { display: flex; align-items: center; justify-content: center; }
 .ob-hello { display: grid; justify-items: center; gap: 10px; text-align: center; }
-.ob-hello .pencil { width: 120px; height: 170px; animation: pal-in .7s cubic-bezier(.3, 1.6, .5, 1) both; }
+.ob-hello .mascot { width: 140px; height: 171px; animation: pal-in .7s cubic-bezier(.3, 1.6, .5, 1) both; }
 .ob-brand { font-family: var(--display); font-size: 34px; font-weight: 700; color: var(--accent); letter-spacing: .01em; }
 .ob-hello p { margin: 0; font-size: 18px; color: var(--muted); }
 .ob-welcome .ob-foot { display: grid; gap: 10px; }
 .ob-foot .ob-login { display: flex; justify-content: center; align-items: center; text-align: center; text-decoration: none; }
 .ob-intro { display: grid; justify-items: center; gap: 14px; padding-top: 12vh; }
-.ob-intro .pencil { width: 110px; height: 156px; animation: pal-in .6s cubic-bezier(.3, 1.6, .5, 1) both; }
+.ob-intro .mascot { width: 124px; height: 151px; animation: pal-in .6s cubic-bezier(.3, 1.6, .5, 1) both; }
 .ob-bubble { position: relative; display: grid; gap: 2px; padding: 12px 16px; border: 2px solid var(--border); border-radius: 16px; background: var(--surface); }
 .ob-bubble b { font-size: 20px; line-height: 1.35; }
 .ob-bubble small { color: var(--muted); font-size: 14px; }
@@ -1733,11 +1725,11 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .ob-bubble.big b { font-size: 22px; }
 .ob-bubble.big::after { content: ''; position: absolute; left: 50%; bottom: -9px; width: 14px; height: 14px; background: var(--surface); border: solid var(--border); border-width: 0 2px 2px 0; transform: translateX(-50%) rotate(45deg); }
 .ob-ask { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.ob-ask .pencil { width: 46px; height: 66px; flex: none; }
+.ob-ask .mascot { width: 52px; height: 63px; flex: none; }
 .ob-ask .ob-bubble { flex: 1; }
 .ob-ask .ob-bubble::before { content: ''; position: absolute; left: -9px; top: 50%; width: 14px; height: 14px; background: var(--surface); border: solid var(--border); border-width: 0 0 2px 2px; transform: translateY(-50%) rotate(45deg); }
-@media (max-width: 600px) { .ob-ask { margin-bottom: 12px; } .ob-bubble b { font-size: 18px; } .ob-ask .pencil { width: 40px; height: 58px; } }
-@media (prefers-reduced-motion: reduce) { .ob-hello .pencil, .ob-intro .pencil { animation: none; } }
+@media (max-width: 600px) { .ob-ask { margin-bottom: 12px; } .ob-bubble b { font-size: 18px; } .ob-ask .mascot { width: 46px; height: 56px; } }
+@media (prefers-reduced-motion: reduce) { .ob-hello .mascot, .ob-intro .mascot { animation: none; } }
 
 /* 完成页：每日提醒 / 放到桌面（只出一个） */
 .cele-hook { width: 100%; box-sizing: border-box; display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1.5px solid var(--border); color: var(--text); text-align: left;
@@ -1794,7 +1786,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .dl-foot.bad { background: #FBE2E8; border-top-color: #F3C3CF; animation: dl-up .25s ease-out; }
 @keyframes dl-up { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
 .dl-res { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.dl-res .pencil { width: 40px; height: 56px; flex: none; }
+.dl-res .mascot { width: 46px; height: 56px; flex: none; }
 .dl-res b { display: block; font-size: 20px; }
 .dl-foot.ok .dl-res b { color: #2E7D3F; }
 .dl-foot.bad .dl-res b { color: #B4304F; }

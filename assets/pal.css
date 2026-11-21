@@ -1,17 +1,14 @@
 /* 打卡卡片、小铅笔、积分（首页、数学、语文共用；各页的颜色变量名不一样，这里取得到哪个用哪个） */
-.today-card, .pts-chip, .pencil { --tc-bg: var(--surface, var(--card, #fff)); --tc-bg2: var(--surface-2, var(--bg, #FBFAF6)); --tc-ink: var(--text, var(--ink, #18302A));
+.today-card, .pts-chip, .mascot { --tc-bg: var(--surface, var(--card, #fff)); --tc-bg2: var(--surface-2, var(--bg, #FBFAF6)); --tc-ink: var(--text, var(--ink, #18302A));
   --tc-mute: var(--muted, var(--soft, #5E726C)); --tc-line: var(--border, var(--line, #E4E0D6)); --tc-acc: var(--accent, var(--jade, #1D5C4D)); --tc-acc-soft: var(--accent-soft, var(--jade-soft, #E3ECE7)); }
 .today-card { display: grid; gap: 12px; padding: 16px; margin-bottom: 14px; background: var(--tc-bg); color: var(--tc-ink); border: 1px solid var(--tc-line); border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.04); font-family: inherit; text-align: left; }
 .today-card a { text-decoration: none; }
 .today-card .tc-top { display: flex; align-items: center; gap: 12px; }
-.today-card .sc-flame { position: relative; flex: none; width: 48px; height: 55px; display: grid; place-items: center; }
-.today-card .sc-flame svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: var(--tc-line); }
-.today-card .sc-flame svg .fl-in { fill: var(--tc-bg); }
-.today-card .sc-flame.on svg { fill: #F08A24; }
-.today-card .sc-flame.on svg .fl-in { fill: #FFD25E; }
-.sc-flame:not(.on) .fl-hi { display: none; }
-.today-card .sc-flame b { position: relative; top: 8px; font-size: 17px; font-weight: 800; color: var(--tc-ink); }
-.today-card .sc-flame.on b { color: #7A3A06; }
+.today-card .sc-fox { position: relative; flex: none; width: 54px; height: 50px; }
+.today-card .sc-fox svg { display: block; width: 100%; height: 100%; }
+.today-card .sc-fox b { position: absolute; right: -7px; bottom: -5px; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; border: 2px solid var(--tc-bg);
+  display: grid; place-items: center; background: #BDB6A7; color: #fff; font-size: 13px; font-weight: 800; line-height: 1; }
+.today-card .sc-fox.on b { background: #F08A24; }
 .today-card .tc-txt { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .today-card .tc-txt b { font-size: 18px; line-height: 1.3; }
 .today-card .tc-txt span { color: var(--tc-mute); font-size: 14px; }
@@ -38,7 +35,7 @@
 .tc-foot a { color: var(--tc-acc); }
 .today-card.empty { grid-template-columns: 1fr auto; align-items: center; }
 .tc-hello { display: flex; align-items: center; gap: 10px; }
-.tc-hello .pencil { width: 44px; height: 64px; flex: none; }
+.tc-hello .mascot { width: 50px; height: 61px; flex: none; }
 .tc-hello b { font-size: 17px; }
 .tc-start { padding: 10px 22px; border-radius: 999px; background: var(--tc-acc); color: #fff !important; font-weight: 800; }
 .pts-chip { margin-left: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; font-size: 14px; border: 0; font-family: inherit; cursor: pointer; }
@@ -70,8 +67,7 @@
 /* 手机：信息排紧一点 */
 @media (max-width: 600px) {
   .today-card { padding: 12px; gap: 10px; border-radius: 14px; margin-bottom: 12px; }
-  .today-card .sc-flame { width: 40px; height: 46px; }
-  .today-card .sc-flame b { font-size: 15px; top: 7px; }
+  .today-card .sc-fox { width: 46px; height: 42px; }
   .today-card .tc-top { gap: 10px; }
   .today-card .tc-txt b { font-size: 16px; }
   .today-card .tc-txt span { font-size: 13px; }
@@ -105,3 +101,9 @@
 .next-set .btn { padding: 7px 12px; font-size: 14px; white-space: nowrap; }
 @media (min-width: 900px) { .next-set { padding: 16px 20px; } .next-set b { font-size: 19px; } .next-set .btn { padding: 11px 20px; font-size: 16px; } }
 .medal { width: 22px; height: 26px; flex: none; }
+/* 各科首页标题旁的小伙伴 */
+.pal-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pal-head .friend { width: 56px; height: 68px; flex: none; margin: -8px 0 -6px -4px; }
+.pal-head h1 { margin: 0; }
+.pal-head p { margin: 2px 0 0; color: var(--muted, var(--soft, #5E726C)); font-size: 14px; }
+@media (min-width: 900px) { .pal-head { gap: 14px; } .pal-head .friend { width: 76px; height: 93px; } .pal-head p { font-size: 16px; } }
