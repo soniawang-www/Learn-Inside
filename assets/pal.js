@@ -1,14 +1,11 @@
 // 打卡和吉祥物的共用小部件（数学、语文、首页都用）
 export const WEEK = '一二三四五六日';
 // 吉祥物「狸狸」和学科小伙伴在 cast.js；这里转出去，各页面照旧从 pal.js 引
-import { mascot, friend, FRIENDS, castRow } from './cast.js?v=20261122b';
-export { mascot, friend, FRIENDS, castRow };
-// 科目小头像：数学圆圆、语文墨墨、英语乐乐
-export const subjHead = (subject) => friend(FRIENDS[subject], 'happy', { head: true });
+// 一屏只放一个形象：打卡卡片、引导、答题反馈用狸狸；成绩页用学科小伙伴（那一屏没有狸狸）
+import { mascot, friend, FRIENDS } from './cast.js?v=20261122c';
+export { mascot, friend, FRIENDS };
 // 成绩旁边的学科小伙伴：80% 以上欢呼，50% 以上开心，再低就想一想
 export const scorePal = (subject, got, full) => { const r = full ? got / full : 0; return `<span class="score-pal">${friend(FRIENDS[subject] || FRIENDS.math, r >= 0.8 ? 'cheer' : r >= 0.5 ? 'happy' : 'think')}</span>`; };
-// 各科首页标题：学科小伙伴打个招呼
-export const palHead = (subject, title, say = '') => `<div class="pal-head">${friend(FRIENDS[subject], 'happy')}<div><h1>${title}</h1>${say ? `<p>${say}</p>` : ''}</div></div>`;
 // 连续打卡里程碑：到了给一枚徽章（完成页），首页提示还差几天
 export const MILES = [3, 7, 14, 30, 60, 100, 180, 365];
 export const nextMile = (k) => MILES.find((m) => m > k);

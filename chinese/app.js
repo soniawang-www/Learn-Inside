@@ -8,7 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
-import { todayCard, bindToday, START_URL, STAR, palHead, mascot, scorePal } from '/assets/pal.js?v=20261122b';
+import { todayCard, bindToday, START_URL, STAR, mascot, scorePal } from '/assets/pal.js?v=20261122c';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -163,7 +163,7 @@ async function renderHome() {
   const sessions = (prof.sessions || []).filter((s) => s.mode === 'exam' || s.mode === 'practice');
   const lastScore = sessions[0] ? `最近 ${sessions[0].score ?? '–'} 分` : '';
   const allMk = (mk.mistakes || []).length;
-  page(`<div class="hero">${palHead('chinese', '语文竞赛真题', '背一首诗再出门')}</div>
+  page(`<div class="hero"><h1>语文竞赛真题</h1></div>
     ${pr ? todayCard(pr, { team: tm, only: 'chinese' }) : ''}
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <h2 class="grp-h">真题</h2>

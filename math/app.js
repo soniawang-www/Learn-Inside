@@ -1,4 +1,4 @@
-import { WEEK, mascot, palHead, castRow, subjHead, scorePal, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122b';
+import { WEEK, mascot, scorePal, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122c';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -622,7 +622,7 @@ async function renderDashboard() {
   ].filter(Boolean);
   const tried = g.nodes.filter((n) => lv(n) !== 'none').length;
   $app.innerHTML = `${topnav()}<main class="page dash">
-    <header class="ph">${palHead('math', '数学竞赛真题', '今天也来找规律吧')}
+    <header class="ph"><div><h1>数学竞赛真题</h1></div>
       ${me.students.length > 1 ? `<select id="stu">${me.students.map((s) => `<option value="${s.id}" ${s.id === st.id ? 'selected' : ''}>${esc(s.nickname)}</option>`).join('')}</select>` : ''}</header>
     ${prepCard}
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
@@ -876,7 +876,7 @@ async function renderStart(subject, newGuest) {
     subjects: () => `${ask(adding ? '加哪些科目？' : '准备哪些科目？', '可以多选')}<div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
       const fs = inSubj(id);
       if (!fs.length) return '';
-      return `<button class="ob-subj s-${id} ${A.subjs.includes(id) ? 'on' : ''}" data-subj="${id}"><i>${subjHead(id)}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
+      return `<button class="ob-subj s-${id} ${A.subjs.includes(id) ? 'on' : ''}" data-subj="${id}"><i>${ic}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
     fams: (sj) => `${ask(`准备哪些${SUBJ_NAME[sj]}比赛？`, '可以多选')}<div class="ob-list">${inSubj(sj).map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), esc(f.sets))).join('')}</div>`,
     dates: () => `${ask('什么时候考？')}<div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
     how: () => `${ask('怎么练？')}<div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
@@ -951,7 +951,7 @@ async function renderTeam(code) {
   if (code && !t.team) { // 打开邀请链接
     const info = await api(`/math/api/teams/code/${enc(code)}`).catch((x) => ({ error: x.message }));
     $app.innerHTML = `${topnav()}<main class="page narrow"><section class="card team-join">
-      ${info.error ? `<p>${esc(info.error)}</p><a class="btn block" href="#/team">返回</a>` : `${castRow()}
+      ${info.error ? `<p>${esc(info.error)}</p><a class="btn block" href="#/team">返回</a>` : `<div class="team-pal">${mascot('cheer')}</div>
       <h1>加入「${esc(info.name)}」</h1><p class="muted">${info.size} 人在一起备赛</p>
       <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
       ${guest ? `<label class="tf-row"><span>手机号</span><input id="tp" type="tel" inputmode="numeric" maxlength="11" autocomplete="tel"></label>
@@ -977,7 +977,7 @@ async function renderTeam(code) {
   }
   if (!t.team && guest) { // 游客：建队 / 用邀请码加入都要先注册
     $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
-      <section class="card team-form">${castRow()}<h2>组队要先注册</h2><p class="muted">换手机也在队里，打卡记录都保留</p>
+      <section class="card team-form"><div class="team-pal">${mascot('cheer')}</div><h2>组队要先注册</h2><p class="muted">换手机也在队里，打卡记录都保留</p>
         <a class="btn primary block" href="#/account" data-regp>免费注册</a></section>
       <section class="card team-form"><h2>有邀请码？</h2>
         <label class="tf-row"><span>邀请码</span><input id="tcode" maxlength="6" autocapitalize="characters" placeholder="6 位"></label>
@@ -987,7 +987,7 @@ async function renderTeam(code) {
   }
   if (!t.team) {
     $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
-      <section class="card team-form">${castRow()}<h2>建一个队</h2>
+      <section class="card team-form"><div class="team-pal">${mascot('cheer')}</div><h2>建一个队</h2>
         <label class="tf-row"><span>队名</span><input id="tname" maxlength="16" placeholder="比如：AMC 8 冲刺小组"></label>
         <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
         <button class="btn primary block" id="tc">建队</button></section>

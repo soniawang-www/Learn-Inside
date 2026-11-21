@@ -101,19 +101,13 @@
 .next-set .btn { padding: 7px 12px; font-size: 14px; white-space: nowrap; }
 @media (min-width: 900px) { .next-set { padding: 16px 20px; } .next-set b { font-size: 19px; } .next-set .btn { padding: 11px 20px; font-size: 16px; } }
 .medal { width: 22px; height: 26px; flex: none; }
-/* 各科首页标题旁的小伙伴 */
-.pal-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.pal-head .friend { width: 56px; height: 68px; flex: none; margin: -8px 0 -6px -4px; }
-.pal-head h1 { margin: 0; }
-.pal-head p { margin: 2px 0 0; color: var(--muted, var(--soft, #5E726C)); font-size: 14px; }
-@media (min-width: 900px) { .pal-head { gap: 14px; } .pal-head .friend { width: 76px; height: 93px; } .pal-head p { font-size: 16px; } }
 /* 小伙伴的各处小用法 */
-.cast-row { display: flex; justify-content: center; }
-.cast-row svg { width: 54px; height: 54px; margin: 0 -4px; }
 .score-pal { margin-left: auto; align-self: center; flex: none; }
 .score-big:has(.score-pal) { display: flex; align-items: baseline; gap: 4px; }
 .score-pal svg { display: block; width: 62px; height: 76px; }
 .pal-empty { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 6px 0; }
 .pal-empty .mascot { width: 96px; height: 117px; }
 .pal-empty p { margin: 0; }
-@media (min-width: 900px) { .cast-row svg { width: 66px; height: 66px; } .score-pal svg { width: 76px; height: 93px; } .pal-empty .mascot { width: 116px; height: 141px; } }
+@media (min-width: 900px) { .score-pal svg { width: 76px; height: 93px; } .pal-empty .mascot { width: 116px; height: 141px; } }
+.team-pal { display: flex; justify-content: center; margin: -6px 0 2px; }
+.team-pal .mascot { width: 84px; height: 102px; }
