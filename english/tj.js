@@ -2,6 +2,7 @@
 // 路由：#/tj（套题列表）  #/tj/exam/:会话 id（做题）  #/tj/review/:会话 id（复盘）
 // 题目材料在 exam.sections[0].groups：听力组有 audio、script，语言题和阅读组有 title、text（[[n]] 是空）
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
+import { scorePal } from '/assets/pal.js?v=20261122b';
 import { playerHTML, bindPlayers } from './player.js?v=20261114a';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup
@@ -214,7 +215,7 @@ export async function renderTJReview(sid) {
   };
   X.page(`<a class="back" href="#/tj">${X.BACK_IC}小托福</a>
     <div class="hero"><h1>${X.esc(r.exam.title)}</h1></div>
-    <div class="tj-sum card"><div class="tj-big"><b>${right}</b> / ${r.items.length}<small>答对</small></div>
+    <div class="tj-sum card"><div class="tj-big"><b>${right}</b> / ${r.items.length}<small>答对</small></div>${scorePal('english', right, r.items.length)}
       <div class="tj-types">${typeRows.map(([t, [a, b]]) => `<div class="tj-type"><span>${X.esc(t)}</span><i><u style="width:${(100 * a) / b}%"></u></i><em>${a}/${b}</em></div>`).join('')}</div></div>
     <div class="actions tj-acts"><button class="btn primary" id="again">再做一次</button><button class="btn" id="prt">${PRINT_ICON}打印</button></div>
     <div class="tj-sheet">${r.items.map((it) => `<a href="#q${it.number}" class="${it.correct ? 'ok' : it.choice ? 'bad' : 'skip'}">${it.number}</a>`).join('')}</div>

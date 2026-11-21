@@ -68,7 +68,7 @@ function face(mood, k) {
   return `${brows}${eye(82)}${eye(118)}<ellipse cx="68" cy="112" rx="8" ry="5" fill="${PINK}" opacity=".55"/><ellipse cx="132" cy="112" rx="8" ry="5" fill="${PINK}" opacity=".55"/>
     ${s('M97 108Q100 110 103 108', k.skin2, 3)}${mouth}`;
 }
-export function friend(k, mood = 'happy') {
+export function friend(k, mood = 'happy', { head: only = false } = {}) {
   const up = mood === 'cheer' ? -8 : 0;
   const armL = { happy: ['M68 158Q54 176 58 198', [58, 200]], think: ['M68 158Q54 176 58 198', [58, 200]], cheer: ['M68 158Q38 150 30 120', [28, 114]] }[mood];
   const armR = { happy: ['M132 158Q158 150 168 124', [170, 119]], think: ['M132 160Q146 152 122 130', [118, 127]], cheer: ['M132 158Q162 150 170 120', [172, 114]] }[mood];
@@ -83,6 +83,8 @@ export function friend(k, mood = 'happy') {
     : mood === 'cheer' ? `${star(30, 62, 10)}${star(172, 52, 8)}${star(184, 84, 5, PINK)}${star(16, 88, 5, PINK)}` : '';
   const sh = `<ellipse cx="100" cy="236" rx="${mood === 'cheer' ? 38 : 48}" ry="6" fill="${INK}" opacity=".1"/>`;
   const front = mood === 'think' ? arm(armR) : '';
+  // 只画头（小头像：首页科目、选科目、头像排）
+  if (only) return `<svg viewBox="28 14 144 144" class="friend friend-head" aria-hidden="true">${k.back || ''}<circle cx="50" cy="98" r="10" fill="${k.skin}"/><circle cx="150" cy="98" r="10" fill="${k.skin}"/><ellipse cx="100" cy="94" rx="51" ry="52" fill="${k.skin}"/>${k.hairFront}${face(mood, k)}${k.glasses || ''}</svg>`;
   return `<svg viewBox="0 0 200 244" class="friend" aria-hidden="true">${sh}<g transform="translate(0 ${up})">${k.back || ''}${legs}${arm(armL)}${mood === 'think' ? '' : arm(armR)}${torso}${k.propBack?.(mood) || ''}${head}${k.hairFront}${face(mood, k)}${k.glasses || ''}${front}${k.prop?.(mood) || ''}</g>${extra}</svg>`;
 }
 
@@ -112,3 +114,4 @@ export const LELE = { name: '乐乐', subject: '英语', skin: '#C98E66', skin2:
   prop: (m) => m === 'happy' ? `<g transform="translate(150 12)"><path d="M0 14Q0 0 14 0H32Q46 0 46 14V20Q46 34 32 34H16L6 44L8 33Q0 30 0 20Z" fill="#fff" stroke="${JADE}" stroke-width="3"/><text x="23" y="24" text-anchor="middle" font-size="15" font-weight="900" fill="${JADE}" font-family="Nunito, system-ui, sans-serif">Hi!</text></g>` : '',
 };
 export const FRIENDS = { math: YUANYUAN, chinese: MOMO, english: LELE };
+export const castRow = (mood = 'happy') => `<div class="cast-row">${mascot(mood, { head: true })}${[YUANYUAN, MOMO, LELE].map((k) => friend(k, mood === 'sleep' ? 'happy' : mood, { head: true })).join('')}</div>`;

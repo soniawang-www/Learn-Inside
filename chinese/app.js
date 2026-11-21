@@ -8,7 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
-import { todayCard, bindToday, START_URL, STAR, palHead } from '/assets/pal.js?v=20261122a';
+import { todayCard, bindToday, START_URL, STAR, palHead, mascot, scorePal } from '/assets/pal.js?v=20261122b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -93,7 +93,7 @@ document.addEventListener('click', (e) => { if (e.target.closest('[data-support]
 // 返回：统一成带左箭头的小按钮（.back）
 const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`; window.scrollTo(0, 0); };
-const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
+const errorPage = (msg) => page(`<div class="card pal-empty">${mascot('think')}<p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
 // 静默建游客：同时触发几次也只建一个
 let guestP = null;
@@ -814,7 +814,7 @@ async function renderReview(sid) {
     <div class="hero"><h1>${esc(r.exam.title)}</h1></div>
     ${gsw && r.exam.id === 'drill' ? `<div class="actions"><button class="btn primary" id="again">${r.exam.title === '速答训练' ? '再来 20 题' : '再练 15 题'}</button></div>` : ''}
     <div class="card score">
-      <div class="score-big"><b>${pts(score)}</b><span> / ${pts(fullMarks)} 分</span></div>
+      <div class="score-big"><b>${pts(score)}</b><span> / ${pts(fullMarks)} 分</span>${scorePal('chinese', score, fullMarks)}</div>
       <p class="muted">用时 ${dur(Math.min(used, r.exam.duration_sec + 30))}${r.session.mode === 'practice' ? '' : `（限时 ${Math.round(r.exam.duration_sec / 60)} 分钟）`}</p>
       ${gsw && timed.length ? `<p class="muted">平均每题 ${avg.toFixed(1)} 秒${slow ? ` · 超过 ${Math.round(per * 1.5)} 秒的题 ${slow} 道` : ''}${items.length - timed.length ? ` · 没做 ${items.length - timed.length} 题` : ''}</p>` : ''}
       ${gsw ? `<table class="tbl"><tr><th>考点</th><th>得分</th><th>正确率</th></tr>${Object.entries(topics).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n).map(([t, v]) => `<tr><td>${esc(t)}</td><td class="num">${v.ok} / ${v.n}</td><td><span class="bar"><i style="width:${Math.round((100 * v.ok) / v.n)}%"></i></span> ${Math.round((100 * v.ok) / v.n)}%</td></tr>`).join('')}</table>`
@@ -840,7 +840,7 @@ const STATUS = { pending: '待订正', due: '该复习了', fixed: '已订正', 
 async function renderMistakes() {
   const r = await api(`/api/students/${enc(auth.student.id)}/mistakes?subject=chinese`);
   const list = r.mistakes;
-  if (!list.length) return page('<div class="hero"><h1>错题本</h1></div><div class="card"><h2>还没有错题</h2><a class="btn primary" href="#/hanzi">去模考</a></div>', 'mistakes');
+  if (!list.length) return page(`<div class="hero"><h1>错题本</h1></div><div class="card pal-empty">${mascot('happy')}<p class="muted">还没有错题</p><a class="btn primary" href="#/hanzi">去模考</a></div>`, 'mistakes');
   const todo = list.filter((m) => m.status === 'pending' || m.status === 'due');
   const groups = {};
   for (const m of list) (groups[m.section_name || '其他'] ||= []).push(m);

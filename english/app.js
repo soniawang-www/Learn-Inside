@@ -11,9 +11,9 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261118j';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261118j';
-import { todayCard, bindToday, START_URL, STAR, palHead } from '/assets/pal.js?v=20261122a';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122a';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122a';
+import { todayCard, bindToday, START_URL, STAR, palHead, mascot } from '/assets/pal.js?v=20261122b';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -118,7 +118,7 @@ const page = (html, active) => {
   $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`;
   window.scrollTo(0, 0);
 };
-const errorPage = (msg) => page(`<div class="card"><p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
+const errorPage = (msg) => page(`<div class="card pal-empty">${mascot('think')}<p class="err">${esc(msg)}</p><a class="btn" href="#/">回首页</a></div>`);
 
 // 静默建游客：同时触发几次也只建一个
 let guestP = null;

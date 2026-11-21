@@ -172,6 +172,7 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .zone{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:var(--card);border:1.5px solid var(--line);color:var(--ink);text-decoration:none}
 .zone i{font-style:normal;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--jade);color:var(--card);font-weight:700;font-size:1.05rem}
 .zone.zh i{background:var(--plum)}.zone.en i{background:var(--sea,#2f6690)}
+.zone i.pal{background:#FFF1C9;overflow:hidden}.zone.zh i.pal{background:#F6E7EC}.zone.en i.pal{background:#E3EDF6}.zone i.pal svg{width:100%;height:100%;margin-top:5px}
 .zone span{display:grid;min-width:0}.zone b{font-size:1.08rem}.zone small{color:var(--soft);font-size:.85rem;line-height:1.45}
 .zone em{font-style:normal;color:var(--soft);font-size:1.3rem}
 @media (hover:hover){.zone:hover{border-color:var(--jade)}}
@@ -184,7 +185,7 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .resume a:first-child{border-top:0}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261122a">
+<link rel="stylesheet" href="/assets/pal.css?v=20261122b">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
 <body class="net-wait">
@@ -266,7 +267,9 @@ $("sup").onclick=async()=>{
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL } from "/assets/pal.js?v=20261122a";
+import { todayCard, bindToday, START_URL, subjHead } from "/assets/pal.js?v=20261122b";
+// 真题专区：数学圆圆、语文墨墨、英语乐乐
+for (const [sel, s] of [[".zone:not(.zh):not(.en) i", "math"], [".zone.zh i", "chinese"], [".zone.en i", "english"]]) { const i = document.querySelector(sel); if (i) { i.innerHTML = subjHead(s); i.classList.add("pal"); } }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let tok=null,st=null,skip=false;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null");skip=localStorage.getItem("li.obSkip")==="true"}catch(e){}
 /* 从每日提醒（手机日历）点进来：带着游客的「接着用」钥匙，在这个浏览器接上原来的记录（这里已经登录了就不动） */

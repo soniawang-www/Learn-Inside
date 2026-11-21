@@ -1,4 +1,4 @@
-import { WEEK, mascot, palHead, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122a';
+import { WEEK, mascot, palHead, castRow, subjHead, scorePal, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122b';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -297,7 +297,7 @@ function rwSample(title) {
   return `<div class="rw-list">${[['第 12 题', '比和比例', '待订正'], ['第 18 题', '行程问题', '该复习了'], ['第 7 题', '面积计算', '待订正'], ['第 21 题', '计数', '已订正']].map(([a, b, c]) => `<div class="rw-row"><span class="rw-m w">✗</span>${a}<small>${b}</small><em>${c}</em></div>`).join('')}</div>`;
 }
 const regPreview = (title, href = '#/account') => `<div class="card reg-wall"><div class="rw-blur" aria-hidden="true">${rwSample(title)}</div>
-  <div class="rw-over"><p>${esc(RW_LINE[title] || '')}</p><a class="btn primary" href="${href}" data-regp>免费注册</a></div></div>`;
+  <div class="rw-over">${mascot('happy', { head: true })}<p>${esc(RW_LINE[title] || '')}</p><a class="btn primary" href="${href}" data-regp>免费注册</a></div></div>`;
 function regWall(title) {
   $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1></div></header>${regPreview(title)}</main>`;
 }
@@ -329,7 +329,7 @@ function renderJoin() {
       </ul>
     </section>
     <section class="auth-card card">
-      <h2>${reg ? '注册账号' : '登录'}</h2>
+      <h2 class="auth-h">${mascot('happy', { head: true })}${reg ? '注册账号' : '登录'}</h2>
       <p class="small muted">${reg ? '已有账号？' : '还没有账号？'}<a href="javascript:" data-tab="${reg ? 'login' : 'register'}">${reg ? '直接登录' : '免费注册，送 10 次互动解析'}</a></p>
       ${reg ? GIFT() : ''}
       <form id="join" novalidate>
@@ -876,7 +876,7 @@ async function renderStart(subject, newGuest) {
     subjects: () => `${ask(adding ? '加哪些科目？' : '准备哪些科目？', '可以多选')}<div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
       const fs = inSubj(id);
       if (!fs.length) return '';
-      return `<button class="ob-subj s-${id} ${A.subjs.includes(id) ? 'on' : ''}" data-subj="${id}"><i>${ic}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
+      return `<button class="ob-subj s-${id} ${A.subjs.includes(id) ? 'on' : ''}" data-subj="${id}"><i>${subjHead(id)}</i><b>${name}</b><span>${fs.map((f) => esc(f.name)).join(' · ')}</span></button>`; }).join('')}</div>`,
     fams: (sj) => `${ask(`准备哪些${SUBJ_NAME[sj]}比赛？`, '可以多选')}<div class="ob-list">${inSubj(sj).map((f) => opt(A.sel.includes(f.id), 'fam', f.id, esc(f.name), esc(f.sets))).join('')}</div>`,
     dates: () => `${ask('什么时候考？')}<div class="ob-list">${sel().map((f) => dateRow(f, A.dates[f.id])).join('')}</div>`,
     how: () => `${ask('怎么练？')}<div class="ob-list">${WKS.map(([n, t]) => opt(A.wk === n, 'wk', n, t)).join('')}</div>
@@ -951,7 +951,7 @@ async function renderTeam(code) {
   if (code && !t.team) { // 打开邀请链接
     const info = await api(`/math/api/teams/code/${enc(code)}`).catch((x) => ({ error: x.message }));
     $app.innerHTML = `${topnav()}<main class="page narrow"><section class="card team-join">
-      ${info.error ? `<p>${esc(info.error)}</p><a class="btn block" href="#/team">返回</a>` : `
+      ${info.error ? `<p>${esc(info.error)}</p><a class="btn block" href="#/team">返回</a>` : `${castRow()}
       <h1>加入「${esc(info.name)}」</h1><p class="muted">${info.size} 人在一起备赛</p>
       <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
       ${guest ? `<label class="tf-row"><span>手机号</span><input id="tp" type="tel" inputmode="numeric" maxlength="11" autocomplete="tel"></label>
@@ -977,7 +977,7 @@ async function renderTeam(code) {
   }
   if (!t.team && guest) { // 游客：建队 / 用邀请码加入都要先注册
     $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
-      <section class="card team-form"><h2>组队要先注册</h2><p class="muted">换手机也在队里，打卡记录都保留</p>
+      <section class="card team-form">${castRow()}<h2>组队要先注册</h2><p class="muted">换手机也在队里，打卡记录都保留</p>
         <a class="btn primary block" href="#/account" data-regp>免费注册</a></section>
       <section class="card team-form"><h2>有邀请码？</h2>
         <label class="tf-row"><span>邀请码</span><input id="tcode" maxlength="6" autocapitalize="characters" placeholder="6 位"></label>
@@ -987,7 +987,7 @@ async function renderTeam(code) {
   }
   if (!t.team) {
     $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
-      <section class="card team-form"><h2>建一个队</h2>
+      <section class="card team-form">${castRow()}<h2>建一个队</h2>
         <label class="tf-row"><span>队名</span><input id="tname" maxlength="16" placeholder="比如：AMC 8 冲刺小组"></label>
         <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
         <button class="btn primary block" id="tc">建队</button></section>
@@ -1663,7 +1663,7 @@ async function renderReview(sid) {
     <header class="ph"><div><h1>${esc(r.exam.title)}</h1><p class="muted">${r.session.prep?.done ? `<b class="prep-ok">打卡 · ${fmtDate(r.session.submitted_at)}</b>` : `${modeName(r.session.mode)} · ${fmtDate(r.session.submitted_at)}`}</p></div>
       ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
-      <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
+      <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span>${scorePal('math', r.session.score, r.total)}</div>
       <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)}${r.session.mode === 'practice' ? '' : ` <small>/ ${fmtTime(r.exam.duration_sec)}</small>`}</dd></div>${skipped.length ? `<div><dt>错 / 未作</dt><dd>${wrong.length} / ${skipped.length}</dd></div>` : `<div><dt>错</dt><dd>${wrong.length}${blankN ? ` <small>含空 ${blankN}</small>` : ''}</dd></div>`}</dl>
       <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.skipped ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
       <div class="rev-btns">${r.session.prep ? '<a class="btn primary" href="/">回首页</a>' : isGuest() ? `${nudge ? '' : '<a class="btn primary" href="#/account" data-regp>免费注册</a>'}<a class="btn" href="#/">再做一套</a>` : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
@@ -2021,7 +2021,7 @@ async function renderMistakes() {
     const rsum = rs.reduce((a, r) => a + r.n, 0);
     $app.innerHTML = `${topnav()}<main class="page">
       <header class="ph"><div><h1>${esc(d.student.nickname)}的错题本</h1>
-        <p class="muted">共 ${all.length} 道 · 待订正 ${all.filter((m) => m.status === 'pending').length} · 该复习 ${all.filter((m) => m.status === 'due').length} · 已掌握 ${all.filter((m) => m.status === 'mastered').length}${isGuest() ? ' · <a href="#/account" data-regp>注册保存</a>' : ''}</p></div></header>
+        ${all.length ? `<p class="muted">共 ${all.length} 道 · 待订正 ${all.filter((m) => m.status === 'pending').length} · 该复习 ${all.filter((m) => m.status === 'due').length} · 已掌握 ${all.filter((m) => m.status === 'mastered').length}${isGuest() ? ' · <a href="#/account" data-regp>注册保存</a>' : ''}</p>` : ''}</div></header>
       <div class="cols"><div class="col-main">${mistakeCard(list, RN)}</div><aside class="col-side">
       ${all.length ? `<div class="card ms-filters"><h2>筛选</h2>
         <label>考试 <select id="f-fam"><option value="">全部</option>${fams.filter((f) => all.some((m) => famOf(m.problem_id) === f)).map((f) => `<option value="${f.id}" ${msFam === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
@@ -2039,7 +2039,8 @@ async function renderMistakes() {
 }
 const SHOW = 15;
 function mistakeCard(list, reasonName) {
-  if (!list.length) return `<div class="card" id="mistakes"><p class="muted small">${msFam || msKp ? '这个筛选下没有错题。' : '还没有错题。'}</p></div>`;
+  if (!list.length) return msFam || msKp ? '<div class="card" id="mistakes"><p class="muted small">这个筛选下没有错题。</p></div>'
+    : `<div class="card pal-empty" id="mistakes">${mascot('happy')}<p class="muted">还没有错题</p></div>`;
   const n = (st) => list.filter((m) => m.status === st).length;
   const todo = list.filter(isTodo);
   const tabs = [['todo', `要做的 ${todo.length}`], ['pending', `待订正 ${n('pending')}`], ['due', `该复习 ${n('due')}`], ['fixed', `已订正 ${n('fixed')}`], ['mastered', `已掌握 ${n('mastered')}`], ['all', `全部 ${list.length}`]];
