@@ -12,13 +12,17 @@ const cleanHan = (s) => String(s ?? '').normalize('NFKC').replace(PUNCT, '');
 export const isFill = (choices) => !choices || !Object.keys(choices).length;
 
 /** 全角转半角、去空白、统一减号和除号 */
-function clean(s) {
-  return String(s ?? '').normalize('NFKC')
+function clean(s, thousands = true) {
+  const t = String(s ?? '').normalize('NFKC')
     .replace(/[\s　]+/g, '')
-    .replace(/[−–—－]/g, '-').replace(/[÷／]/g, '/')
-    .replace(/[，,](?=\d{3}(\D|$))/g, '') // 千分位逗号
-    .toLowerCase();
+    .replace(/[−–—－]/g, '-').replace(/[÷／]/g, '/');
+  return (thousands ? t.replace(/[，,](?=\d{3}(\D|$))/g, '') : t).toLowerCase(); // 千分位逗号
 }
+// 标准答案里有逗号 / 顿号就是「按顺序填几个数」：逗号不能当千分位去掉（否则 2,127 和 2127 判成一样）
+const isList = (k) => /[,，、]/.test(String(k));
+const listForm = (s) => clean(s, false).replace(/[，、;；]/g, ',');
+// 末尾的汉字（单位或名称）
+const tail = (s) => (/[一-鿿]+$/.exec(s) || [''])[0];
 
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 /** 把数值写法解析成最简分数 [分子, 分母]（BigInt），解析不了返回 null */
@@ -72,6 +76,13 @@ export function judge({ choices, answer, accept }, input) {
   const keys = [answer, ...(accept || [])].filter((x) => x !== null && x !== undefined && x !== '');
   const cv = clean(v), rv = toRational(v);
   for (const k of keys) {
+    if (isList(k)) {
+      if (listForm(k) === listForm(v) || (HAN.test(k) && cleanHan(k) && cleanHan(k) === cleanHan(v))) return true;
+      continue;
+    }
+    // 都带末尾汉字又对不上（「3颗黑子」对「3颗白子」）：不能去掉汉字只比数
+    const tk = tail(clean(k)), tv = tail(cv);
+    if (tk && tv && !tk.startsWith(tv) && !tv.startsWith(tk)) continue;
     if (clean(k) === cv) return true;
     if (HAN.test(k) && cleanHan(k) && cleanHan(k) === cleanHan(v)) return true;
     const rk = toRational(k);
