@@ -9,6 +9,7 @@
 .today-card .sc-flame svg .fl-in { fill: var(--tc-bg); }
 .today-card .sc-flame.on svg { fill: #F08A24; }
 .today-card .sc-flame.on svg .fl-in { fill: #FFD25E; }
+.sc-flame:not(.on) .fl-hi { display: none; }
 .today-card .sc-flame b { position: relative; top: 8px; font-size: 17px; font-weight: 800; color: var(--tc-ink); }
 .today-card .sc-flame.on b { color: #7A3A06; }
 .today-card .tc-txt { display: grid; gap: 2px; min-width: 0; flex: 1; }

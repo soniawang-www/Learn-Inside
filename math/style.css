@@ -1468,6 +1468,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .sc-flame svg .fl-in { fill: var(--surface); }
 .sc-flame.on svg { fill: #F08A24; }
 .sc-flame.on svg .fl-in { fill: #FFD25E; }
+.sc-flame:not(.on) .fl-hi { display: none; }
 .sc-flame b { position: relative; top: 9px; font-size: 18px; font-weight: 800; color: var(--text); }
 .sc-flame.on b { color: #7A3A06; }
 .sc-flame.big { width: 96px; height: 110px; }
