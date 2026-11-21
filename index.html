@@ -183,9 +183,19 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .resume[hidden]{display:none}
 .resume a{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:12px 0;color:var(--ink);text-decoration:none;border-top:1px solid var(--line)}
 .resume a:first-child{border-top:0}
-.home-skel{margin-bottom:14px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(100deg,var(--card) 30%,var(--bg) 50%,var(--card) 70%) 0 0/300% 100%;animation:skel 1.2s linear infinite}
-@keyframes skel{to{background-position:-150% 0}}
-@media (prefers-reduced-motion:reduce){.home-skel{animation:none}}
+/* 加载中：按卡片原样排好，文字换成灰条，一道光扫过（不是一块空白） */
+.home-stale{position:relative;pointer-events:none}
+.home-stale :is(b,small,span,em,i,a,.tc-tag,.pts-chip){color:transparent!important}
+.home-stale :is(.tc-txt b,.tc-txt span,.tc-item b,.tc-item small,.tc-foot a,.resume b,.resume span){background:var(--line);border-radius:6px;justify-self:start;width:fit-content}
+.home-stale :is(.tc-item em,.tc-tag,.pts-chip,.sc-fox b){background:var(--line)!important;border-color:transparent!important}
+.home-stale .sc-week em{background:var(--card)!important;border-color:var(--line)!important}
+.home-stale .sc-week i{background:var(--line);border-radius:4px}
+.home-stale svg{opacity:.35;filter:grayscale(1)}
+.home-stale .sc-fox:not(:has(svg)){background:var(--line);border-radius:50%}
+.home-stale .today-card,.home-stale.resume{overflow:hidden}
+.home-stale .today-card::after,.home-stale.resume::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%) 0 0/300% 100%;animation:skel 1.3s linear infinite}
+@keyframes skel{from{background-position:100% 0}to{background-position:-50% 0}}
+@media (prefers-reduced-motion:reduce){.home-stale .today-card::after,.home-stale.resume::after{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
 <link rel="stylesheet" href="/assets/pal.css?v=20261122b">
@@ -242,7 +252,9 @@ body{font-size:1rem}
       pc:g(`/api/students/${id}/profile?subject=chinese`),pe:g(`/api/students/${id}/profile?subject=english`),mc:g(`/api/students/${id}/mistakes?subject=chinese`)};
     const c=JSON.parse(localStorage.getItem("li.homeCache")||"null"),mine=c&&c.sid===s.id,d=new Date(Date.now()+8*3600e3).toISOString().slice(0,10),T=document.getElementById("today"),R=document.getElementById("resume");
     if(mine&&c.day===d){T.innerHTML=c.today||"";if(c.resume){R.innerHTML=c.resume;R.hidden=false}}
-    else{T.innerHTML=`<div class="home-skel" style="height:${mine&&c.th||300}px"></div>`;if(mine&&c.rh){R.style.minHeight=c.rh+"px";R.hidden=false}}
+    else{const wk="一二三四五六日".split("").map(d=>`<span><i>${d}</i><em></em></span>`).join(""),it=`<button class="tc-item"><i class="tc-tag">数学</i><span><b>AMC 8 备考</b><small>每日练习 · 5 题</small></span><em>开始</em></button>`;
+      T.innerHTML=mine&&c.today?c.today:`<section class="today-card"><div class="tc-top"><span class="sc-fox"><b>0</b></span><div class="tc-txt"><b>今天还没打卡</b><span>再 3 天拿 3 天徽章</span></div><span class="pts-chip">000</span></div><div class="sc-week">${wk}</div><div class="tc-items">${it}${it}</div><div class="tc-foot"><a>＋ 备考项</a><span><a>计划</a> <a>组队</a></span></div></section>`;
+      T.classList.add("home-stale");if(mine&&c.resume){R.innerHTML=c.resume;R.hidden=false;R.classList.add("home-stale")}}
   }}catch(e){}</script>
 
   <h2 class="zone-h">真题专区</h2>
@@ -301,10 +313,10 @@ const id=encodeURIComponent(st.id);
 const H=(!rk&&window.__home)||{prep:get(`/api/students/${id}/prep`),team:get(`/api/students/${id}/team`),open:get(`/api/students/${id}/open`),pm:get(`/api/students/${id}/profile`),
   pc:get(`/api/students/${id}/profile?subject=chinese`),pe:get(`/api/students/${id}/profile?subject=english`),mc:get(`/api/students/${id}/mistakes?subject=chinese`)};
 const T=document.getElementById("today"),R=document.getElementById("resume");
-if(T.querySelector(".today-card"))bindToday(T,{sid:st.id,token:tok}); // 上次的卡片先能点
+if(T.querySelector(".today-card")&&!T.classList.contains("home-stale"))bindToday(T,{sid:st.id,token:tok}); // 同一天上次的卡片先能点
 const [pr,tm]=await Promise.all([H.prep,H.team]);
 const fresh=pr&&!(pr.items||[]).length&&!pr.total&&!skip; // 可能是新来的：等做题记录回来再决定要不要进新手引导
-const show=()=>{T.innerHTML=todayCard(pr,{team:tm});bindToday(T,{sid:st.id,token:tok})};
+const show=()=>{T.classList.remove("home-stale");T.innerHTML=todayCard(pr,{team:tm});bindToday(T,{sid:st.id,token:tok})};
 if(!fresh)show();
 const [op,pm,pc,pe,mc]=await Promise.all([H.open,H.pm,H.pc,H.pe,H.mc]);
 const used=[pm,pc,pe].some(x=>x&&x.sessions&&x.sessions.length);
@@ -318,7 +330,7 @@ const todo=a=>(a||[]).filter(m=>m.status==="pending"||m.status==="due").length;
 const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);
 const SN={math:"数学",chinese:"语文",english:"英语"};
 const rows=[o?`<a href="${link(o)}"><b>继续答题</b><span>${SN[o.subject]?SN[o.subject]+" · ":""}${esc(o.title||"上次的试卷")}</span><i>›</i></a>`:"",mm?`<a href="math/#/mistakes"><b>数学错题</b><span>${mm} 道待订正</span><i>›</i></a>`:"",mz?`<a href="chinese/#/mistakes"><b>语文错题</b><span>${mz} 道待订正</span><i>›</i></a>`:""].filter(Boolean);
-R.style.minHeight="";if(rows.length){R.innerHTML=rows.join("");R.hidden=false}else{R.innerHTML="";R.hidden=true}
+R.classList.remove("home-stale");if(rows.length){R.innerHTML=rows.join("");R.hidden=false}else{R.innerHTML="";R.hidden=true}
 try{localStorage.setItem("li.homeCache",JSON.stringify({sid:st.id,day:new Date(Date.now()+8*3600e3).toISOString().slice(0,10),today:T.innerHTML,resume:R.hidden?"":R.innerHTML,th:T.offsetHeight,rh:R.hidden?0:R.offsetHeight}))}catch(e){}
 }}
 </script>
