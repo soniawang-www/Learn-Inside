@@ -248,7 +248,7 @@ const $=id=>document.getElementById(id);
 const store={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("theme").onclick=()=>{const dark=matchMedia("(prefers-color-scheme: dark)").matches,cur=document.documentElement.dataset.theme||(dark?"dark":"light"),nx=cur==="dark"?"light":"dark";document.documentElement.dataset.theme=nx;store.set("li-theme",nx)};
-{const d=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);if(store.get("li.ev.view_home")!==JSON.stringify(d)){store.set("li.ev.view_home",JSON.stringify(d));fetch("/api/ev",{method:"POST",headers:{"content-type":"application/json"},body:'{"e":"view_home"}',keepalive:true}).catch(()=>{})}}
+if(localStorage.getItem("li.noev")!=="true"){const d=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);if(store.get("li.ev.view_home")!==JSON.stringify(d)){store.set("li.ev.view_home",JSON.stringify(d));fetch("/api/ev",{method:"POST",headers:{"content-type":"application/json"},body:'{"e":"view_home"}',keepalive:true}).catch(()=>{})}}
 {const t=store.get("li-theme","");if(t)document.documentElement.dataset.theme=t}
 document.body.classList.remove("net-wait");
 /* 账号：已登录显示孩子昵称 */
@@ -271,7 +271,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 let tok=null,st=null,skip=false;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null");skip=localStorage.getItem("li.obSkip")==="true"}catch(e){}
 /* 从每日提醒（手机日历）点进来：带着游客的「接着用」钥匙，在这个浏览器接上原来的记录（这里已经登录了就不动） */
 const qs=new URLSearchParams(location.search),rk=qs.get("r");
-if(qs.get("src")==="home"&&!sessionStorage.getItem("li.homeEv")){sessionStorage.setItem("li.homeEv","1");fetch("/api/ev",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({e:"a2hs_done"})}).catch(()=>{})}
+if(qs.get("src")==="home"&&localStorage.getItem("li.noev")!=="true"&&!sessionStorage.getItem("li.homeEv")){sessionStorage.setItem("li.homeEv","1");fetch("/api/ev",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({e:"a2hs_done"})}).catch(()=>{})}
 if(rk||qs.get("src"))history.replaceState(null,"",location.pathname+location.hash);
 if(rk&&!tok){try{const r=await fetch("/api/auth/resume",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key:rk})});const j=await r.json();
   if(r.ok){localStorage.setItem("li.token",JSON.stringify(j.token));localStorage.setItem("li.student",JSON.stringify(j.student));localStorage.setItem("li.obSkip","true");tok=j.token;st=j.student;skip=true}

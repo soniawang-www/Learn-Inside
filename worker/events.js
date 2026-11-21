@@ -81,7 +81,7 @@ export async function retention(env, days = 14) {
   const bj = (t) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10);
   const dn = (d) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY);
   const since = Date.parse(`${bj(Date.now() - (days - 1) * DAY)}T00:00:00+08:00`);
-  const { results: studs } = await env.DB.prepare('SELECT s.id, s.created_at, a.guest FROM student s JOIN account a ON a.id = s.account_id WHERE s.created_at >= ?').bind(since).all();
+  const { results: studs } = await env.DB.prepare("SELECT s.id, s.created_at, a.guest FROM student s JOIN account a ON a.id = s.account_id WHERE s.created_at >= ? AND COALESCE(a.note, '') != 'test'").bind(since).all(); // 测试账号不算
   const { results: acts } = await env.DB.prepare(`SELECT es.student_id AS sid, es.started_at AS t FROM exam_session es JOIN student s ON s.id = es.student_id WHERE s.created_at >= ?`).bind(since).all();
   const act = {};
   for (const a of acts) (act[a.sid] ||= new Set()).add(dn(bj(a.t)));

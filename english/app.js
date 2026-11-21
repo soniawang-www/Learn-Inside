@@ -166,6 +166,7 @@ async function router() {
 }
 // 匿名计数：每台设备每天每种事件只报一次，只记次数，不记是谁
 function ev(e) {
+  try { if (localStorage.getItem('li.noev') === 'true') return; } catch {} // 自己的设备（后台统计页里设的）不计数
   const d = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), k = 'li.ev.' + e;
   if (store.get(k) === d) return; store.set(k, d);
   fetch('/api/ev', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ e }), keepalive: true }).catch(() => {});

@@ -25,6 +25,7 @@
       <label class="field" style="flex:1;min-width:220px;margin:0"><span>管理员密钥（ADMIN_KEY）</span><input type="password" id="key" autocomplete="off"></label>
       <label class="field" style="margin:0"><span>天数</span><select id="days"><option>7</option><option selected>14</option><option>30</option><option>60</option></select></label>
     </div>
+    <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="small" id="me-st"></span><button class="btn" id="me-btn" type="button"></button></div>
     <div class="card"><p class="small muted">页面访问按「每台设备每天一次」计；做题、交卷、注册按次数计。不记录是谁。</p><div class="tw" id="out"></div></div>
     <p class="small muted"><a href="./">← 管理后台</a></p>
   </div>
@@ -67,6 +68,21 @@ async function load() {
     $('out').innerHTML = (days.length ? h + '</table><p class="small muted" style="margin-top:8px">百分比：第一次交卷 ÷ 第一次开始做题；游客注册 ÷ 自动建游客。</p>' : '<p class="small muted">还没有数据。</p>') + await loadRet(key);
   } catch (e) { $('out').innerHTML = `<p class="error-msg">${e.message}</p>`; }
 }
+// 自己的手机 / 电脑：不计入统计（访问次数不计；这台设备上登录的账号标成测试账号，留存表里不算）
+function meDraw() {
+  const on = localStorage.getItem('li.noev') === 'true';
+  $('me-st').textContent = on ? '这台设备不计入统计' : '这台设备会计入统计';
+  $('me-btn').textContent = on ? '改回计入' : '这是我自己的设备，不计入';
+}
+$('me-btn').onclick = async () => {
+  const on = localStorage.getItem('li.noev') !== 'true';
+  if (on) localStorage.setItem('li.noev', 'true'); else localStorage.removeItem('li.noev');
+  let tok = null; try { tok = JSON.parse(localStorage.getItem('li.token') || 'null'); } catch {}
+  const key = $('key').value.trim();
+  if (tok && key) try { await fetch('/api/admin/mark-test', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ token: tok, on }) }); } catch {}
+  meDraw(); load();
+};
+meDraw();
 try { $('key').value = sessionStorage.getItem('amc8.adminKey') || ''; } catch {}
 $('key').onchange = () => { try { sessionStorage.setItem('amc8.adminKey', $('key').value.trim()); } catch {} load(); };
 $('days').onchange = load;

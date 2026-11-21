@@ -106,6 +106,14 @@ route('GET', '/api/admin/events', async (req, env, _p, url) => {
   return json(await evReport(env, Math.min(60, Math.max(1, Number(url.searchParams.get('days')) || 14))));
 });
 
+// 后台：把这台设备上登录的账号标成「测试账号」，留存统计里不算
+route('POST', '/api/admin/mark-test', async (req, env) => {
+  const key = req.headers.get('x-admin-key');
+  if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
+  const { token = '', on = true } = await body(req).catch(() => ({}));
+  const r = await env.DB.prepare('UPDATE account SET note = ? WHERE token = ?').bind(on ? 'test' : null, String(token)).run();
+  return json({ ok: !!r.meta?.changes });
+});
 route('GET', '/api/admin/retention', async (req, env, _p, url) => {
   const key = req.headers.get('x-admin-key');
   if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) throw new HttpError(403, '管理员密钥不正确');
