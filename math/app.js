@@ -1220,7 +1220,7 @@ function renderPaper(sid, data) {
 // ───────── 考试界面（按 AMC 8 中国区线上考试操作手册“第八步”截图还原） ─────────
 // 布局：顶栏（刷新 / 大字号 / 剩余时间 / 交卷）+ 左侧答题卡（进度、题号格、图例）+ 右侧一题一屏
 async function renderExam(sid) {
-  const data = await api(`/math/api/sessions/${sid}`);
+  const [data] = await Promise.all([api(`/math/api/sessions/${sid}`), ensureMe()]); // 账号信息：完成页要知道是不是游客（要不要请他注册）
   if (data.session.submitted) { location.hash = `#/review/${sid}`; return; }
   if (data.session.mode === 'paper') return renderPaper(sid, data);
   document.body.classList.add('exam-mode');
