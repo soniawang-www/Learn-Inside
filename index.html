@@ -184,7 +184,7 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .resume a:first-child{border-top:0}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261121b">
+<link rel="stylesheet" href="/assets/pal.css?v=20261121c">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
 <body class="net-wait">
@@ -266,7 +266,7 @@ $("sup").onclick=async()=>{
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL } from "/assets/pal.js?v=20261121b";
+import { todayCard, bindToday, START_URL } from "/assets/pal.js?v=20261121c";
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let tok=null,st=null,skip=false;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null");skip=localStorage.getItem("li.obSkip")==="true"}catch(e){}
 /* 从每日提醒（手机日历）点进来：带着游客的「接着用」钥匙，在这个浏览器接上原来的记录（这里已经登录了就不动） */

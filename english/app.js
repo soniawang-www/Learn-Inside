@@ -13,7 +13,7 @@ import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
 import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261118j';
 import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261118j';
-import { todayCard, bindToday, START_URL } from '/assets/pal.js?v=20261121b';
+import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261121c';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -776,9 +776,21 @@ async function askUnlock(item, d, then) {
       } catch (x) { close(); modal(`<p>${esc(x.message)}</p><div class="actions"><button class="btn" data-close>好</button></div>`); }
     };
   });
-  modal(`<h2>免费次数用完了</h2>${shareCard()}
+  // 积分够就可以直接拿积分换 1 次解锁（和数学的互动解析次数是同一份）
+  const pt = auth.student ? await api(`/api/students/${enc(auth.student.id)}/points`).catch(() => null) : null;
+  const exch = pt && pt.total >= pt.per_credit ? `<div class="ex-pts">${STAR}<span>积分 <b>${pt.total}</b></span><button class="btn primary" id="exch">用 ${pt.per_credit} 积分解锁</button></div>` : '';
+  modal(`<h2>免费次数用完了</h2>${exch}${shareCard()}
     <p class="small muted share-or">或者开通会员，所有话题不限次数。</p>
-    <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="/account/">开通会员</a></div>`);
+    <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="/account/">开通会员</a></div>`, (m, close) => m.querySelector('#exch')?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      await api(`/api/students/${enc(auth.student.id)}/points/redeem`, { method: 'POST', body: { n: 1 } });
+      const r = await api('/api/unlock', { method: 'POST', body: { item } });
+      close();
+      if (r.status === 402) return askUnlock(item, { ...d, credits: 0 }, then);
+      bankCache.clear(); then();
+    } catch (x) { e.target.disabled = false; alert(x.message); }
+  }));
 }
 
 // ───────── 句型和名言 ─────────

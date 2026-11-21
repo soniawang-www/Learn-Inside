@@ -43,6 +43,7 @@ export const EV_NAMES = {
   team_join: '加入队伍',
   remind_ics: '加每日提醒到日历（下载）',
   extra_start: '打完卡再练一组',
+  points_redeem: '积分换互动解析',
   resume_link: '从提醒链接接上游客记录',
 };
 

@@ -40,7 +40,23 @@
 .tc-hello .pencil { width: 44px; height: 64px; flex: none; }
 .tc-hello b { font-size: 17px; }
 .tc-start { padding: 10px 22px; border-radius: 999px; background: var(--tc-acc); color: #fff !important; font-weight: 800; }
-.pts-chip { margin-left: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; font-size: 14px; }
+.pts-chip { margin-left: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #FFF4D6; color: #8A5A00; font-weight: 800; font-size: 14px; border: 0; font-family: inherit; cursor: pointer; }
+.pts-chip svg, .pts-dlg .pd-top svg { width: 16px; height: 16px; }
+.pts-dlg { border: 0; border-radius: 18px; padding: 16px; width: min(360px, calc(100vw - 32px)); background: var(--surface, var(--card, #fff)); color: var(--text, var(--ink, #18302A)); font-family: inherit; box-shadow: 0 10px 40px rgba(0,0,0,.18); }
+.pts-dlg::backdrop { background: rgba(0,0,0,.35); }
+.pts-dlg .pd-top { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.pts-dlg .pd-top svg { width: 26px; height: 26px; }
+.pts-dlg .pd-top b { font-size: 26px; font-weight: 800; }
+.pts-dlg .pd-top span { color: var(--muted, var(--soft, #5E726C)); }
+.pts-dlg .pd-x { margin-left: auto; border: 0; background: none; font-size: 26px; line-height: 1; color: var(--muted, #5E726C); cursor: pointer; padding: 0 4px; }
+.pts-dlg .pd-ex { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--surface-2, var(--bg, #FBFAF6)); }
+.pts-dlg .pd-ex span { display: grid; gap: 2px; flex: 1; }
+.pts-dlg .pd-ex small, .pts-dlg .pd-how { color: var(--muted, var(--soft, #5E726C)); font-size: 13px; }
+.pts-dlg .pd-go { border: 0; border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 800; background: var(--accent, var(--jade, #1D5C4D)); color: #fff; cursor: pointer; white-space: nowrap; }
+.pts-dlg .pd-go:disabled { background: var(--border, #E4E0D6); color: var(--muted, #5E726C); cursor: default; }
+.pts-dlg .pd-msg { margin: 10px 0 0; font-weight: 700; color: var(--accent, var(--jade, #1D5C4D)); }
+.pts-dlg .pd-how { margin: 10px 0 0; }
+@media (min-width: 900px) { .pts-dlg { width: 420px; padding: 22px; font-size: 17px; } .pts-dlg .pd-go { padding: 10px 18px; } }
 .star { width: 15px; height: 15px; fill: #F5B82E; flex: none; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tc-tag.s-chinese { background: #3E2630; color: #F29BBB; } :root:not([data-theme="light"]) .pts-chip { background: #3A2F14; color: #F5C85A; } }
 :root[data-theme="dark"] .tc-tag.s-chinese { background: #3E2630; color: #F29BBB; }
@@ -70,3 +86,21 @@
 }
 .tc-more { font: inherit; font-weight: 700; font-size: 15px; padding: 10px; border-radius: 12px; border: 1.5px dashed var(--tc-line); background: none; color: var(--tc-acc); cursor: pointer; }
 .tc-more:disabled { opacity: .6; }
+/* 积分换互动解析 */
+.ex-pts { display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin: 0 0 12px; border-radius: 12px; background: #FFF8E6; }
+.ex-pts .star { width: 20px; height: 20px; }
+.ex-pts span { flex: 1; text-align: left; }
+.ex-pts-few { display: flex; align-items: center; gap: 4px; }
+.cred-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cred-row .pts-chip { margin-left: 8px; align-self: center; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ex-pts { background: #3A2F14; } }
+:root[data-theme="dark"] .ex-pts { background: #3A2F14; }
+/* 比赛页最上面：下一套 */
+.next-set { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--surface, var(--card, #fff)); border: 1.5px solid var(--accent, var(--jade, #1D5C4D)); border-radius: 14px; }
+.next-set > span:first-child { display: grid; flex: 1; min-width: 0; }
+.next-set small { color: var(--muted, var(--soft, #5E726C)); font-size: 12px; }
+.next-set b { font-size: 16px; }
+.next-set .ns-btns { display: flex; gap: 8px; }
+.next-set .btn { padding: 7px 12px; font-size: 14px; white-space: nowrap; }
+@media (min-width: 900px) { .next-set { padding: 16px 20px; } .next-set b { font-size: 19px; } .next-set .btn { padding: 11px 20px; font-size: 16px; } }
+.medal { width: 22px; height: 26px; flex: none; }

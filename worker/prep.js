@@ -49,6 +49,7 @@ export const PREP_MIGRATIONS = [
   `INSERT OR IGNORE INTO checkin (student_id, day, family, subject, session_id, kind, done_at) SELECT student_id, day, 'amc8', 'math', session_id, kind, done_at FROM prep_day`,
   'DELETE FROM prep_day',
 ];
+export const POINTS_PER_CREDIT = 100; // 多少积分换 1 次互动解析
 export const PTS = { solve: 10, solve_hint: 5, checkin: 20, solve_chinese: 3 };
 /** 记一笔积分；已经记过（同一道题 / 同一天打卡）返回 0 */
 export async function award(env, sid, kind, ref, pts, sessionId, t) {
@@ -285,7 +286,8 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   async function points(env, sid, today) {
     const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
     const monT = (dayNum(today) - dow) * DAY - 8 * 3600e3; // 北京时间本周一 0 点
-    const r = await env.DB.prepare('SELECT COALESCE(SUM(pts), 0) AS total, COALESCE(SUM(CASE WHEN created_at >= ? THEN pts END), 0) AS week FROM points_log WHERE student_id = ?')
+    // total = 现在还剩多少（换掉的扣掉了）；week = 本周挣了多少（换掉的不算，队伍排行用这个）
+    const r = await env.DB.prepare('SELECT COALESCE(SUM(pts), 0) AS total, COALESCE(SUM(CASE WHEN created_at >= ? AND pts > 0 THEN pts END), 0) AS week FROM points_log WHERE student_id = ?')
       .bind(monT, sid).first();
     return { total: r?.total || 0, week: r?.week || 0 };
   }
@@ -380,6 +382,26 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     ]);
     await bump(env, 'extra_start');
     return json({ session_id: id, subject: f.subject });
+  });
+
+  // 积分：余额，和换互动解析
+  route('GET', '/api/students/:id/points', async (req, env, p) => {
+    const acc = await requireAccount(req, env);
+    const st = await requireStudent(env, acc, p.id);
+    return json({ ...(await points(env, st.id, bjDay(now()))), per_credit: POINTS_PER_CREDIT, credits: acc.credits ?? 0 });
+  });
+  route('POST', '/api/students/:id/points/redeem', async (req, env, p) => {
+    const acc = await requireAccount(req, env);
+    const st = await requireStudent(env, acc, p.id);
+    const n = Math.max(1, Math.min(20, Number((await body(req).catch(() => ({}))).n) || 1));
+    const cost = n * POINTS_PER_CREDIT, t = now();
+    // 余额够才扣（一条语句里判断，连点两下也不会扣成负数）
+    const r = await env.DB.prepare(`INSERT INTO points_log (student_id, kind, ref, pts, session_id, created_at)
+        SELECT ?, 'redeem', ?, ?, NULL, ? WHERE (SELECT COALESCE(SUM(pts), 0) FROM points_log WHERE student_id = ?) >= ?`).bind(st.id, uid(), -cost, t, st.id, cost).run();
+    if (!r.meta?.changes) throw new HttpError(400, `积分不够，${POINTS_PER_CREDIT} 积分换 1 次`);
+    await env.DB.prepare('UPDATE account SET credits = COALESCE(credits, 0) + ? WHERE id = ?').bind(n, acc.id).run();
+    await bump(env, 'points_redeem');
+    return json({ ...(await points(env, st.id, bjDay(t))), per_credit: POINTS_PER_CREDIT, credits: (acc.credits ?? 0) + n, got: n });
   });
 
   // 新手引导第一步：年级先存下来（之后不再问）

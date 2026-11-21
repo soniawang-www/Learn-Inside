@@ -102,7 +102,10 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .ez-tool { background: none; border: 0; color: var(--text); padding: 4px 6px; border-radius: 4px; white-space: nowrap; }
 .ez-tool:hover, .ez-tool.on { color: var(--ez-blue); }
 .ez-tool small { font-size: 9px; margin-right: 3px; }
+.ez-tools { display: contents; }
+.ez-more { display: none; font-size: 20px; line-height: 1; padding: 2px 8px; }
 .ez-timer { white-space: nowrap; color: var(--text); }
+.ez-tl { font-style: normal; }
 .ez-timer b { font-size: 16px; font-variant-numeric: tabular-nums; margin-left: 4px; }
 .ez-timer.warn b { color: var(--bad); }
 .ez-submit { background: var(--ez-blue); color: #fff; border: 0; border-radius: 4px; padding: 6px 18px; }
@@ -179,6 +182,16 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
   .ez-top { flex-wrap: wrap; gap: 6px 10px; padding: 8px 10px; }
   .ez-cardbtn { display: inline-block; }
   .ez-user, .ez-tool small { display: none; }
+  .ez-more { display: inline-block; order: 10; padding: 2px 4px; }
+  .ez-top { flex-wrap: nowrap; }
+  .ez-tl { display: none; }
+  .ez-timer b { margin-left: 0; }
+  .ez-cardbtn { white-space: nowrap; flex: none; }
+  .ez-submit { flex: none; padding-left: 14px; padding-right: 14px; }
+  .ez-tools .lang-seg, .ez-tools .seg { align-self: flex-start; margin: 4px 6px 6px; }
+  .ez-tools { display: none; position: absolute; right: 10px; top: 100%; z-index: 35; flex-direction: column; align-items: stretch; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+  .ez-tools.open { display: flex; }
+  .ez-tools .ez-tool { font-size: 15px; padding: 10px 14px; text-align: left; }
   .ez-title { flex: 1; }
   .ez-sp { display: none; }
   .ez-body { padding: 8px; }
@@ -986,7 +999,7 @@ body:not(.exam-mode) { background: var(--paper); }
 .et-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 /* 打印试卷：题数那一行右边的小圆钮，只放打印机图标（三个按钮挤一行时，窄卡片上「打印」两个字放不下） */
 .et-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 30px; }
-.et-pp { flex: none; width: 30px; height: 30px; margin: -2px -4px -2px 0; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.et-pp { flex: none; height: 28px; margin: -2px -4px -2px 0; padding: 0 10px 0 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); display: inline-flex; align-items: center; gap: 3px; font: inherit; font-size: 13px; cursor: pointer; }
 .et-pp svg { width: 16px; height: 16px; }
 .et-pp:hover, .et-pp:focus-visible { color: var(--accent); border-color: var(--accent); }
 .et-pp:disabled { opacity: .5; }
@@ -1033,6 +1046,9 @@ body:not(.exam-mode) { background: var(--paper); }
   .mm-mod { padding: 0; }
   .exam-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .exam-tile { padding: 12px; }
+  .et-meta .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+  .et-pp { height: 26px; padding: 0 7px 0 6px; gap: 2px; font-size: 12px; }
+  .et-pp svg { width: 14px; height: 14px; }
   .et-year { font-size: 24px; }
   .et-year.cn { font-size: 20px; }
   .cols.rev .rev-side .qgrid { grid-template-columns: repeat(5, 1fr); }
@@ -1524,6 +1540,9 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .cele.go .cele-t { animation: rise .5s ease-out .25s forwards; }
 .cele-t b { font-size: 22px; color: var(--text); }
 .cele-t span { color: #C46A12; font-weight: 700; }
+.cele-t .cele-badge { justify-self: center; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 3px 14px 3px 6px; border-radius: 999px; background: #FFF4D6; color: #8A4B00; }
+.cele-t .cele-badge .medal { width: 26px; height: 31px; }
+.cele-t .cele-nm { color: var(--muted); font-weight: 400; font-size: 14px; }
 .cele .sc-week { width: 100%; padding: 12px 8px; border-radius: 16px; background: var(--surface); box-shadow: 0 2px 0 var(--border); }
 .cele .sc-week .pop em { animation: day-pop .6s cubic-bezier(.3, 1.8, .5, 1); position: relative; }
 .cele .sc-week .pop em::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid #F08A24; animation: ripple .9s ease-out forwards; }

@@ -205,7 +205,7 @@ route('POST', '/api/sessions', async (req, env) => {
   const id = uid();
   const t = now();
   if (kp_id || problem_ids) {
-    requireRegistered(acc); // 知识项突击、错题订正 / 复习、单题练习只对注册用户
+    if (kp_id) requireRegistered(acc); // 知识项突击只对注册用户；错题订正 / 复习、单题练习游客也能做
     let ids, title;
     if (kp_id) {
       const kp = await env.DB.prepare('SELECT id, name FROM knowledge_point WHERE id = ?').bind(kp_id).first();
@@ -784,7 +784,7 @@ route('GET', '/api/sessions/:id/review', async (req, env, p) => {
 // 复盘时标错因 → 重算画像
 route('PATCH', '/api/attempts/:id', async (req, env, p) => {
   const acc = await requireAccount(req, env);
-  requireRegistered(acc);
+  /* 游客也能用（错题本对游客开放） */
   const { error_reason } = await body(req);
   const allowed = [null, 'unknown', 'careless', 'no_time', 'reading'];
   if (!allowed.includes(error_reason)) throw new HttpError(400, '错因不合法');
@@ -1037,7 +1037,8 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
     )
     .bind(st.id, subjectParam(new URL(req.url)))
     .all();
-  if (acc.guest) return json({ student: { id: st.id, nickname: st.nickname }, points: [], edges: [], sessions, error_reasons: [], mistakes: [], locked: REG_ONLY });
+  // 游客：错题本照样有（只存在这个浏览器的账号里，注册后换手机也能看）；知识图谱要注册
+  if (acc.guest) return json({ student: { id: st.id, nickname: st.nickname }, points: [], edges: [], sessions, error_reasons: [], mistakes: await mistakeBook(env, st.id, subjectParam(new URL(req.url))), locked: REG_ONLY, guest: true });
   const { results: reasons } = await env.DB
     .prepare("SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 GROUP BY error_reason")
     .bind(st.id)
@@ -1113,7 +1114,7 @@ async function printItems(env, studentId, wanted) {
 }
 route('POST', '/api/students/:id/mistakes/print', async (req, env, p) => {
   const acc = await requireAccount(req, env);
-  requireRegistered(acc);
+  /* 游客也能用（错题本对游客开放） */
   const st = await requireStudent(env, acc, p.id);
   const ids = printIds((await body(req)).problem_ids);
   return json({ student: { id: st.id, nickname: st.nickname }, items: await printItems(env, st.id, ids) });
@@ -1122,7 +1123,7 @@ route('POST', '/api/students/:id/mistakes/print', async (req, env, p) => {
 // 外面的浏览器没有登录状态，所以凭链接里的随机凭证取题；只含这一次要打印的错题，24 小时后失效。
 route('POST', '/api/students/:id/mistakes/print-link', async (req, env, p) => {
   const acc = await requireAccount(req, env);
-  requireRegistered(acc);
+  /* 游客也能用（错题本对游客开放） */
   const st = await requireStudent(env, acc, p.id);
   const b = await body(req);
   const ids = printIds(b.problem_ids);
@@ -1223,7 +1224,7 @@ const REVIEW_DAYS = 7;
 route('GET', '/api/students/:id/mistakes', async (req, env, p, url) => {
   const acc = await requireAccount(req, env);
   const st = await requireStudent(env, acc, p.id);
-  requireRegistered(acc);
+  /* 游客也能看错题本 */
   const subject = subjectParam(url);
   const book = await mistakeBook(env, st.id, subject);
   const det = {};

@@ -18,6 +18,10 @@ export function pencil(mood = 'happy') {
   }[mood];
   return `<svg class="pencil ${mood}" viewBox="40 10 125 185" aria-hidden="true">${mood === 'think' ? `<g transform="rotate(-8 100 110)">${body}${face}</g>` : body + face}${arms}</svg>`;
 }
+// 连续打卡里程碑：到了给一枚徽章（完成页），首页提示还差几天
+export const MILES = [3, 7, 14, 30, 60, 100, 180, 365];
+export const nextMile = (k) => MILES.find((m) => m > k);
+export const MEDAL = (n) => `<svg viewBox="0 0 40 48" class="medal" aria-hidden="true"><path d="M12 2h7l-4 14h-7zM21 2h7l4 14h-7z" fill="#B04A6F"/><circle cx="20" cy="29" r="15" fill="#FFD25E" stroke="#F08A24" stroke-width="3"/><text x="20" y="34.5" text-anchor="middle" font-size="${n >= 100 ? 11 : 14}" font-weight="800" fill="#8A4B00" font-family="inherit">${n}</text></svg>`;
 export const STAR = '<svg viewBox="0 0 24 24" class="star" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg>';
 export const weekRow = (week) => `<div class="sc-week">${(week || []).map((d, i) => `<span class="${d.done ? 'done' : ''} ${d.today ? 'today' : ''}"><i>${WEEK[i]}</i><em>${d.done ? '✓' : ''}</em></span>`).join('')}</div>`;
 
@@ -47,7 +51,9 @@ export function todayCard(pr, { team = null, only = null } = {}) {
   const doneAny = all.some((x) => x.today?.done);
   const pw = pr.per_week || 7, wk = pw < 7;
   const title = wk ? `本周 ${pr.week_count || 0}/${pw} 次` : doneAny ? `连续打卡 ${pr.streak} 天` : pr.streak ? `已连续 ${pr.streak} 天` : '今天还没打卡';
-  const sub = doneAny ? (all.every((x) => x.today?.done) ? '今天全部完成' : '今天已打卡') : wk ? (pr.streak ? `连续 ${pr.streak} 周达标` : '') : pr.streak ? '今天还没打卡' : '';
+  const nm = !wk && pr.streak ? nextMile(pr.streak) : 0; // 下一个徽章还差几天（今天没打卡的，今天也算一天）
+  const sub = [doneAny ? (all.every((x) => x.today?.done) ? '今天全部完成' : '今天已打卡') : wk ? (pr.streak ? `连续 ${pr.streak} 周达标` : '') : pr.streak ? '今天还没打卡' : '',
+    nm ? `再 ${nm - pr.streak} 天拿 ${nm} 天徽章` : ''].filter(Boolean).join(' · ');
   const row = (x) => {
     const done = !!x.today?.done;
     const size = x.today ? `${x.today.n} 题` : `${x.per_day} ${x.unit || '题'}`;
@@ -61,7 +67,7 @@ export function todayCard(pr, { team = null, only = null } = {}) {
   else tm = `<a href="${TEAM_URL}">组队</a>`;
   return `<section class="today-card ${doneAny ? 'done' : ''}">
     <div class="tc-top"><span class="sc-flame ${doneAny ? 'on' : ''}">${FLAME}<b>${wk ? pr.week_count || 0 : pr.streak}</b></span><div class="tc-txt"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</div>
-      <span class="pts-chip">${STAR}${pr.points?.total || 0}</span></div>
+      <button class="pts-chip" data-pts aria-label="积分">${STAR}${pr.points?.total || 0}</button></div>
     ${weekRow(pr.week)}
     ${its.length ? `<div class="tc-items">${its.map(row).join('')}</div>` : addOnly}
     ${its.length && its.every((x) => x.today?.done) && more ? `<button class="tc-more" data-tc-more="${esc(more.family)}">再练一组</button>` : ''}
@@ -69,8 +75,37 @@ export function todayCard(pr, { team = null, only = null } = {}) {
   </section>`;
 }
 
+/** 积分：余额 + 换互动解析次数。onDone(结果) 在换成功后调用 */
+export async function pointsSheet({ sid, token, onDone } = {}) {
+  const call = async (path, opt = {}) => {
+    const r = await fetch(`/api/students/${encodeURIComponent(sid)}/points${path}`, { ...opt, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' } });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || '没换成'); return j;
+  };
+  let d; try { d = await call(''); } catch (e) { alert(e.message); return; }
+  const dlg = document.createElement('dialog'); dlg.className = 'pts-dlg';
+  const draw = (msg = '') => {
+    const can = d.total >= d.per_credit;
+    dlg.innerHTML = `<div class="pd-top">${STAR}<b>${d.total}</b><span>积分</span><button class="pd-x" aria-label="关闭">×</button></div>
+      <div class="pd-ex"><span><b>${d.per_credit} 积分换 1 次互动解析</b><small>现有 ${d.credits} 次</small></span>
+        <button class="pd-go" ${can ? '' : 'disabled'}>${can ? '换 1 次' : `还差 ${d.per_credit - d.total}`}</button></div>
+      ${msg ? `<p class="pd-msg">${msg}</p>` : ''}
+      <p class="pd-how">做对一题 +10 · 打卡 +20</p>`;
+    dlg.querySelector('.pd-x').onclick = () => dlg.close();
+    dlg.querySelector('.pd-go').onclick = async (e) => {
+      e.target.disabled = true;
+      try { d = { ...d, ...(await call('/redeem', { method: 'POST', body: JSON.stringify({ n: 1 }) })) }; draw('换好了'); onDone?.(d); document.querySelectorAll('[data-pts]').forEach((x) => (x.lastChild.textContent = d.total)); }
+      catch (x) { draw(x.message); }
+    };
+  };
+  draw();
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  document.body.append(dlg); dlg.showModal();
+}
+
 /** 点备考项：没出题先出题，再进答题页；做完的看解析 */
 export function bindToday(root, { sid, token }) {
+  root.querySelector('[data-pts]')?.addEventListener('click', () => pointsSheet({ sid, token }));
   root.querySelector('[data-tc-more]')?.addEventListener('click', async (e) => { // 今天的都做完了：再练一组（不算打卡）
     const b = e.currentTarget; b.disabled = true;
     try {

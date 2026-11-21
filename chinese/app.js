@@ -8,7 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261117a';
-import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261121b';
+import { todayCard, bindToday, START_URL, STAR } from '/assets/pal.js?v=20261121c';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -148,7 +148,7 @@ async function renderHome() {
     api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`),
     api(`/api/exams?student=${enc(st.id)}&family=${GSW}`).catch(() => []),
     api(`/api/students/${enc(st.id)}/profile?subject=chinese`).catch(() => ({ sessions: [] })),
-    isGuest() ? { mistakes: [] } : api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
+    api(`/api/students/${enc(st.id)}/mistakes?subject=chinese`).catch(() => ({ mistakes: [] })),
     api(`/api/students/${enc(st.id)}/prep`).catch(() => null),
     api(`/api/students/${enc(st.id)}/team`).catch(() => null),
   ]);
@@ -178,14 +178,14 @@ async function renderHome() {
       <a class="fam-card" href="#/beishi"><b>每日背诗</b><span>古诗文大会必背篇目</span><small></small><i>›</i></a>
       <a class="fam-card" href="/chinese/feihua.html"><b>飞花令</b><span>82 个常用字 · 5872 句诗词</span><small class="vip">语文会员</small><i>›</i></a>
     </div>
-    ${sessions.length || (allMk && !isGuest()) ? `<div class="dash-grid">
+    ${sessions.length || allMk ? `<div class="dash-grid">
       ${sessions.length ? `<section class="card">
         <div class="card-h"><h2>最近成绩</h2></div>
         <div class="scores">${sessions.slice(0, 3).map((x) => `<a class="score-row" href="#/review/${x.id}">
           <span class="sr-t">${esc(x.title)}<small>${day(x.submitted_at)}</small></span>
           <span class="sr-bar"><i style="width:${x.total ? ((x.score || 0) / x.total) * 100 : 0}%"></i></span><b>${x.score ?? '–'}<small>/${x.total}</small></b></a>`).join('')}</div>
       </section>` : ''}
-      ${allMk && !isGuest() && !todo ? `<a class="card mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">共 ${allMk} 题 ›</span></a>` : ''}
+      ${allMk && !todo ? `<a class="card mm-line" href="#/mistakes"><span>错题本</span><span class="muted small">共 ${allMk} 题 ›</span></a>` : ''}
     </div>` : ''}`, 'home');
   bindToday($app, { sid: st.id, token: auth.token });
 }
@@ -203,6 +203,8 @@ function bindExamPrint(label) {
   }));
 }
 
+// 列表最上面：下一套没做过的卷子，一点就开始
+const nextSet = (list) => { const e = list.find((x) => !x.last_session); return e ? `<div class="next-set"><span><small>下一套</small><b>${esc(e.title)}</b></span><a class="btn primary" href="#/intro/${enc(e.id)}">开始模考</a></div>` : ''; };
 async function renderHanzi() {
   const st = auth.student;
   const exams = await api(`/api/exams?student=${enc(st.id)}&family=${FAMILY}`);
@@ -214,6 +216,7 @@ async function renderHanzi() {
   const cards = real.length ? real.map(row).join('') : '<p class="muted">录入中</p>';
   page(`<a class="back" href="#/">${BACK_IC}语文首页</a>
     <div class="hero"><h1>汉字小达人</h1></div>
+    ${nextSet([...real, ...mock])}
     <div class="card"><h2>真题</h2>${cards}</div>
     ${mock.length ? `<div class="card"><h2>模拟题</h2>${mock.map(row).join('')}</div>` : ''}
     <p class="small muted center">题目来源：《中文自修》「美丽汉字小达人」历届活动</p>`, 'home');
@@ -236,6 +239,7 @@ async function renderGsw() {
     page(`<a class="back" href="#/">${BACK_IC}语文首页</a>
       <div class="hero"><h1>古诗文大会</h1></div>
       ${grades.length > 1 ? `<div class="seg" role="tablist">${grades.map((x) => `<button role="tab" class="${x === g ? 'on' : ''}" data-g="${x}">${GRADES[x]}</button>`).join('')}</div>` : ''}
+      ${nextSet(groups.flatMap(([, xs]) => xs))}
       <div class="card gp"><h2>练习<span class="small muted"> · 题库 ${tp.total || 0} 道</span></h2>
         <div class="gp-speed"><div><b>速答训练</b><span class="small muted">随机 20 题，每题 6 秒，练线上初选、复选的反应</span></div><button class="btn primary" id="speed">开始</button></div>
         <div class="gp-topics">${(tp.topics || []).map((t) => `<button class="gp-t" data-t="${t.id}"><b>${esc(t.name)}</b><small>${t.n} 道</small></button>`).join('')}</div></div>
@@ -755,7 +759,7 @@ async function renderPaperReview(r, sid) {
     <div class="card score">
       <div class="score-big"><b id="tot">${pts(score())}</b><span> / ${pts(total)} 分</span></div>
       <table class="tbl"><tr><th>大题</th><th>得分</th><th>得分率</th></tr>${bySec.map((x) => `<tr><td>${CN[x.no - 1] || x.no}、${esc(x.name)}</td><td class="num" data-sec="${x.no}">${pts(x.got)} / ${pts(x.full)}</td><td><span class="bar"><i style="width:${Math.round((100 * x.got) / x.full)}%"></i></span> ${Math.round((100 * x.got) / x.full)}%</td></tr>`).join('')}</table>
-      <div class="actions">${isGuest() ? '<a class="btn" href="/account/" data-regp>注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
+      <div class="actions"><a class="btn" href="#/mistakes">去错题本</a><a class="btn" href="#/">回首页</a></div></div>
     ${selfCard}
     <div class="card"><div class="rv-head"><h2>逐题对照</h2></div><div id="rv">${list}</div></div>`, 'home');
   $app.querySelectorAll('.sf').forEach((el) => {
@@ -815,7 +819,7 @@ async function renderReview(sid) {
       ${gsw && timed.length ? `<p class="muted">平均每题 ${avg.toFixed(1)} 秒${slow ? ` · 超过 ${Math.round(per * 1.5)} 秒的题 ${slow} 道` : ''}${items.length - timed.length ? ` · 没做 ${items.length - timed.length} 题` : ''}</p>` : ''}
       ${gsw ? `<table class="tbl"><tr><th>考点</th><th>得分</th><th>正确率</th></tr>${Object.entries(topics).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n).map(([t, v]) => `<tr><td>${esc(t)}</td><td class="num">${v.ok} / ${v.n}</td><td><span class="bar"><i style="width:${Math.round((100 * v.ok) / v.n)}%"></i></span> ${Math.round((100 * v.ok) / v.n)}%</td></tr>`).join('')}</table>`
       : bySec.length ? `<table class="tbl"><tr><th>大题</th><th>得分</th><th>正确率</th></tr>${bySec.map((s) => `<tr><td>${'一二三四五六七八九十'[s.no - 1] || s.no}、${esc(s.name)}</td><td class="num">${s.ok} / ${s.n}</td><td><span class="bar"><i style="width:${Math.round((100 * s.ok) / s.n)}%"></i></span> ${Math.round((100 * s.ok) / s.n)}%</td></tr>`).join('')}</table>` : ''}
-      <div class="actions">${isGuest() ? '<a class="btn" href="/account/" data-regp>注册后收进错题本</a>' : '<a class="btn" href="#/mistakes">去错题本</a>'}<a class="btn" href="#/">回首页</a></div></div>
+      <div class="actions"><a class="btn" href="#/mistakes">去错题本</a><a class="btn" href="#/">回首页</a></div></div>
     <div class="card"><div class="rv-head"><h2>逐题解析</h2>${wrong.length ? `<label class="small"><input type="checkbox" id="only" checked> 只看错题（${wrong.length}）</label>` : ''}</div>
       <div id="rv">${items.map(itemHtml).join('')}</div></div>`, 'home');
   $app.querySelector('#again')?.addEventListener('click', async (e) => {
@@ -834,8 +838,6 @@ async function renderReview(sid) {
 // ───────── 错题本 ─────────
 const STATUS = { pending: '待订正', due: '该复习了', fixed: '已订正', mastered: '已掌握' };
 async function renderMistakes() {
-  if (isGuest()) return page(`<div class="hero"><h1>错题本</h1></div><div class="card reg-wall"><div class="rw-blur" aria-hidden="true"><div class="rw-list">${[['第 12 题', '字音', '待订正'], ['第 37 题', '字形', '该复习了'], ['第 58 题', '成语', '待订正'], ['第 91 题', '古诗文', '已订正']].map(([a, b, c]) => `<div class="rw-row"><span class="rw-m w">✗</span>${a}<small>${b}</small><em>${c}</em></div>`).join('')}</div></div>
-    <div class="rw-over"><p>做错的题自动收进来，订正后隔几天再复习</p><a class="btn primary" href="/account/" data-regp>免费注册</a></div></div>`, 'mistakes');
   const r = await api(`/api/students/${enc(auth.student.id)}/mistakes?subject=chinese`);
   const list = r.mistakes;
   if (!list.length) return page('<div class="hero"><h1>错题本</h1></div><div class="card"><h2>还没有错题</h2><a class="btn primary" href="#/hanzi">去模考</a></div>', 'mistakes');

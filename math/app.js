@@ -1,4 +1,4 @@
-import { FLAME, WEEK, pencil, STAR, weekRow, todayCard, bindToday, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261121b';
+import { FLAME, WEEK, pencil, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261121c';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -113,8 +113,8 @@ const figChoices = (p) => { const v = Object.values(p.choices || {}); return v.l
 // 返回：统一成带左箭头的小按钮（.back）
 const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const isFillP = (p) => !Object.keys(p.choices || {}).length;
-const MODE_NAME = { exam: '模考', practice: '练习', paper: '纸笔' };
-const modeName = (m) => MODE_NAME[m] || '练习';
+const MODE_NAME = { exam: '限时模考', practice: '逐题练', paper: '纸笔' };
+const modeName = (m) => MODE_NAME[m] || '逐题练';
 /** 有没有英文原题（希望数学是纯中文卷：不显示语言切换、题号写「第 N 题」） */
 const hasEn = (list) => list.some((p) => p.stem_zh);
 const qLabel = (n, en) => (en ? `Problem ${n}` : `第 ${n} 题`);
@@ -284,7 +284,7 @@ document.addEventListener('click', (e) => {
 // 注册礼：在登录页、游客提示、账号页、复盘页统一用这一块
 const GIFT = () => `<div class="gift"><span class="gift-n"><span>10<small>次</small></span></span><span><b>注册就送 10 次互动解析</b></span></div>`;
 
-// 游客只能考试、看对错和答案；错题本、知识图谱、知识项要注册
+// 游客能考试、看答案、用错题本；知识图谱、知识项要注册
 const isGuest = () => !!lastMe?.guest;
 async function ensureMe() { if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {} return lastMe; }
 // 游客占位：模糊的示例 + 一句话 + 注册按钮（语文错题本也用同一份样式）
@@ -415,7 +415,7 @@ async function renderAccount() {
     <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客' : esc(a.phone || '还没绑定手机号')}</p></div></header>
     <div class="cols"><div class="col-main">${a.guest ? acctCard : ''}<div class="card"><h2>${ms.length ? '我的会员' : '购买会员'}</h2>
       <p>${memberLine}</p>
-      ${a.free_mode || a.guest ? '' : `<p>剩余免费次数 <b>${a.credits}</b> 次</p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
+      ${a.free_mode || a.guest ? '' : `<p class="cred-row">剩余免费次数 <b>${a.credits}</b> 次<button class="pts-chip" data-pts>${STAR}积分换次数</button></p>${a.credits <= 0 && !ms.length ? shareCard() : ''}`}
       ${a.pending_order ? `<div class="pay-pending"><div><b>有一笔订单还没付完</b><span>${esc(a.pending_order.name)} · ¥${esc(a.pending_order.amount)} · ${Math.max(1, 30 - Math.floor((Date.now() - a.pending_order.created_at) / 60000))} 分钟内有效</span></div>
         <div class="pay-pending-btns"><button class="btn primary" data-repay="${esc(a.pending_order.id)}">继续支付</button><a class="btn" href="#/account/paid/${enc(a.pending_order.id)}">我已付款</a><button class="btn" data-cancel-order="${esc(a.pending_order.id)}">取消订单</button></div></div>` : ''}
       ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}
@@ -449,6 +449,7 @@ async function renderAccount() {
     }
   });
   form('redeem', '/api/redeem', 'rerr', (r) => { modal(`<h2>兑换成功</h2><p>${r.kind === 'days' ? `${esc(r.tier_name || '')}会员增加 ${r.amount} 天。` : `免费次数增加 ${r.amount} 次。`}</p><div class="actions"><button class="btn primary" data-close>好</button></div>`); renderAccount(); });
+  $app.querySelector('[data-pts]')?.addEventListener('click', () => pointsSheet({ sid: auth.student?.id, token: auth.token, onDone: () => router() }));
   $app.querySelectorAll('[data-goreg]').forEach((b) => (b.onclick = () => { const f = document.getElementById('bind'); f?.scrollIntoView({ behavior: 'smooth', block: 'center' }); f?.querySelector('input')?.focus(); }));
   $app.querySelectorAll('[data-plan]').forEach((b) => (b.onclick = async () => {
     if (IN_WX) return modal(`<h2>请在浏览器里开通</h2><p>微信里不能打开支付宝付款。点右上角「···」，选「在浏览器打开」，登录后再点「开通」。</p>
@@ -549,12 +550,25 @@ async function askUnlock(item, what, credits, then) {
       then();
     };
   });
+  // 次数用完：积分够就可以直接拿积分换 1 次解锁
+  const pt = auth.student ? await api(`/math/api/students/${enc(auth.student.id)}/points`).catch(() => null) : null;
+  const exch = pt && pt.total >= pt.per_credit ? `<div class="ex-pts">${STAR}<span>积分 <b>${pt.total}</b></span><button class="btn primary" id="exch">用 ${pt.per_credit} 积分解锁</button></div>`
+    : pt?.total ? `<p class="small muted ex-pts-few">${STAR}积分 ${pt.total}，满 ${pt.per_credit} 可换 1 次</p>` : '';
+  const bindEx = (m, close) => m.querySelector('#exch')?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try { await api(`/math/api/students/${enc(auth.student.id)}/points/redeem`, { method: 'POST', body: { n: 1 } }); }
+    catch (x) { e.target.disabled = false; return alert(x.message); }
+    const u = await api('/api/unlock', { method: 'POST', body: { item } });
+    close();
+    if (u.status === 402) return askUnlock(item, what, 0, then);
+    then();
+  });
   if (lastMe?.guest) return modal(`<div class="locked-panel"><div class="icon">${icon('gift', 36)}</div><p><b>注册就送 10 次互动解析</b></p>
     <p class="small">互动解析是会员内容。注册账号就送 10 次，这道题马上能看；现在的做题记录也会保留。（2026 年真题的互动解析不用注册也能看。）</p>
-    <div class="actions" style="justify-content:center"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>去注册</a></div></div>`);
-  modal(`<h2>免费次数用完了</h2>${shareCard()}
+    ${exch}<div class="actions" style="justify-content:center"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>去注册</a></div></div>`, bindEx);
+  modal(`<h2>免费次数用完了</h2>${exch}${shareCard()}
     <p class="small muted share-or">或者开通会员，所有互动解析和知识项突击不限次数。</p>
-    <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>开通会员</a></div>`);
+    <div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-close>开通会员</a></div>`, bindEx);
 }
 
 // ───────── 首页：掌握地图 + 今天做什么 + 最近成绩 ─────────
@@ -660,10 +674,10 @@ function examGrid(f, allExams, fid, limit = 0) {
         <div class="et-top"><span class="et-year${f.grades ? ' cn' : ''}">${esc(lb.t)}</span>
           ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
         <div class="et-meta"><span class="small muted">${lb.sub ? `${esc(lb.sub)} · ` : ''}${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</span>
-          <button class="et-pp" data-paper="${e.id}" aria-label="打印试卷" title="打印试卷">${PRINT_ICON}</button></div>
+          <button class="et-pp" data-paper="${e.id}" title="打印试卷">${PRINT_ICON}<span>打印</span></button></div>
         <div class="et-btns">
-          <button class="btn" data-start="${e.id}" data-mode="practice">练习</button>
-          <button class="btn primary" data-start="${e.id}" data-mode="exam">模考</button>
+          <button class="btn" data-start="${e.id}" data-mode="practice">逐题练</button>
+          <button class="btn primary" data-start="${e.id}" data-mode="exam">限时模考</button>
           ${e.open_session && e.open_mode !== 'paper' ? `<a class="btn et-fill" href="#/exam/${enc(e.open_session)}">继续答题</a>` : ''}
           ${store.get(paperKey(e.id)) || store.get(printedKey(e.id)) || e.open_mode === 'paper' ? `<button class="btn et-fill" data-fill="${e.id}">${store.get(paperKey(e.id)) || e.open_mode === 'paper' ? '继续回填' : '回填答案'}</button>` : ''}
         </div></div>`; }).join('')}
@@ -726,7 +740,7 @@ function celebrate(r, sid) {
     </div>
     <div class="cele-n"><span class="cele-roll"><b class="old">${k - 1}</b><b class="new">${k}</b></span><span class="cele-plus">+1</span></div>
     <div class="cele-t">${wk ? `<b>本周 ${k}/${p.per_week} 次</b><span>${k >= p.per_week ? `本周目标达成！${p.streak > 1 ? `连续 ${p.streak} 周` : ''}` : `再练 ${p.per_week - k} 次达成本周目标`}</span>`
-      : `<b>连续打卡 ${k} 天</b><span>${CELE_LINE(k)}</span>`}</div>
+      : `<b>连续打卡 ${k} 天</b><span>${CELE_LINE(k)}</span>${MILES.includes(k) ? `<span class="cele-badge">${MEDAL(k)}拿到 ${k} 天徽章</span>` : nextMile(k) ? `<span class="cele-nm">再 ${nextMile(k) - k} 天拿 ${nextMile(k)} 天徽章</span>` : ''}`}</div>
     ${weekRow(p.week)}
     <div class="cele-stats">
       <span style="--i:0"><svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="15.5"/><circle cx="18" cy="18" r="15.5" class="fg" style="--p:${pct}"/></svg><b>${r.session.score}/${r.total}</b><small>答对</small></span>
@@ -1072,7 +1086,11 @@ async function renderContest(fid, tab = 'exams') {
   const allExams = await apiList(`/math/api/exams?student=${st.id}&family=${enc(fid)}`);
   const { html: gridHtml, exams } = examGrid(f, allExams, fid);
   if (tab === 'exams') {
-    body = gridHtml;
+    // 最上面直接给「下一套」：没做过的里排第一的那套（有没交的就先继续）
+    const op = exams.find((e) => e.open_session && e.open_mode !== 'paper'), nx = exams.find((e) => e.last_score === null && !e.open_session);
+    const bar = op ? `<div class="next-set"><span><small>没做完</small><b>${esc(op.title)}</b></span><a class="btn primary" href="#/exam/${enc(op.open_session)}">继续答题</a></div>`
+      : nx ? `<div class="next-set"><span><small>下一套</small><b>${esc(nx.title)}</b></span><span class="ns-btns"><button class="btn" data-start="${nx.id}" data-mode="practice">逐题练</button><button class="btn primary" data-start="${nx.id}" data-mode="exam">限时模考</button></span></div>` : '';
+    body = bar + gridHtml;
   } else if (tab === 'stats') {
     const S = d.stats;
     if (!S.exams) body = '<div class="card"><p class="muted">这种考试的真题还没有录入，暂时没有考情。</p></div>';
@@ -1112,7 +1130,7 @@ async function renderContest(fid, tab = 'exams') {
 
 function showInstructions(exam, mode) {
   const mins = Math.round(exam.duration_sec / 60);
-  modal(`<div class="instructions"><h2>${esc(exam.title)} · ${mode === 'exam' ? '模考' : '练习'}</h2>
+  modal(`<div class="instructions"><h2>${esc(exam.title)} · ${mode === 'exam' ? '限时模考' : '逐题练'}</h2>
     <ol>
       ${/^(hope|swb100)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
       <li>答对 1 题得 1 分，答错不扣分。</li>
@@ -1318,12 +1336,12 @@ async function renderExam(sid) {
       <header class="ez-top">
         <button class="ez-cardbtn" id="cardbtn">${icon('menu', 15)}答题卡</button>
         <span class="ez-user">${icon('account', 15)}${esc(auth.student?.nickname || '')}</span>
-        <span class="ez-title">${esc(data.exam.title)}${practice ? '<span class="ez-mode">练习</span>' : ''}</span>
+        <span class="ez-title">${esc(data.exam.title)}${practice ? '<span class="ez-mode">逐题练</span>' : ''}</span>
         <span class="ez-sp"></span>
-        ${en ? langSeg() : ''}
-        <button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
-        <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button>
-        <span class="ez-timer" id="timer">${practice ? '已用' : '剩余时间'} <b>--:--</b></span>
+        <span class="ez-tools" id="tools">${en ? langSeg() : ''}<button class="ez-tool" id="refresh" title="图片没显示完整时点一下">⟳ 刷新</button>
+        <button class="ez-tool ${S.big ? 'on' : ''}" id="font">A<small>A</small> 大字号</button></span>
+        <button class="ez-tool ez-more" id="more" aria-label="更多" aria-expanded="false">⋯</button>
+        <span class="ez-timer" id="timer"><i class="ez-tl">${practice ? '已用' : '剩余时间'}</i> <b>--:--</b></span>
         <button class="ez-submit" id="submit">${prepS ? '完成打卡' : '交卷'}</button>
       </header>
       <div class="ez-body">
@@ -1392,6 +1410,12 @@ async function renderExam(sid) {
     $app.querySelector('#flag').onclick = () => { S.flags[p.id] ? delete S.flags[p.id] : (S.flags[p.id] = true); save(); draw(); };
     $app.querySelector('#refresh').onclick = () => { flushTime(); save(); location.reload(); };
     $app.querySelector('#font').onclick = () => { S.big = !S.big; save(); draw(); };
+    $app.querySelector('#more').onclick = (e) => { // 手机：刷新、大字号收进「⋯」
+      e.stopPropagation();
+      const t = $app.querySelector('#tools'), open = t.classList.toggle('open');
+      e.currentTarget.setAttribute('aria-expanded', open);
+      if (open) document.addEventListener('click', () => t.classList.remove('open'), { once: true });
+    };
     onLang($app, draw);
     $app.querySelector('#cardbtn').onclick = () => { cardOpen = !cardOpen; draw(); };
     $app.querySelector('#mask')?.addEventListener('click', () => { cardOpen = false; draw(); });
@@ -1803,7 +1827,7 @@ function statCard(st, years, famName = 'AMC 8') {
 }
 
 // ───────── 个人知识图谱 ─────────
-let graphView = 'map';
+let graphView = null; // 没选过：手机默认列表（图在小屏上看不清），电脑默认图；从知识项点「上下游」进来看图
 const LVN = { strong: '掌握较好', ok: '基本掌握', weak: '薄弱', insufficient: '数据不足', none: '还没做过' };
 const LVO = { weak: 0, insufficient: 1, ok: 2, strong: 3, none: 4 };
 function graphList(d, MODN) {
@@ -1814,7 +1838,7 @@ function graphList(d, MODN) {
   const nodes = [...d.nodes].sort((a, b) => LVO[lv(a)] - LVO[lv(b)] || (a.mastery?.score ?? 999) - (b.mastery?.score ?? 999) || (b.wrong?.todo || 0) - (a.wrong?.todo || 0));
   document.getElementById('kg').innerHTML = `<div class="card"><div class="plist">${nodes.map((n) => {
     const wp = (pre[n.id] || []).map((id) => by[id]).filter((x) => x && lv(x) === 'weak');
-    return `<a class="prow kl-row" href="#/graph/${enc(n.id)}" data-gomap>
+    return `<a class="prow kl-row" href="${innerWidth >= 700 ? `#/graph/${enc(n.id)}" data-gomap` : `#/kp/${enc(n.id)}"`}>
       <span class="kg-sw lv-${lv(n)}"></span>
       <span class="ms-main"><span>${esc(n.name)} <span class="small muted">${esc(MODN[n.module] || '')}</span></span>
         <span class="small muted">${LVN[lv(n)]}${n.mastery && lv(n) !== 'insufficient' ? ` · ${n.mastery.score} 分` : ''}${n.mastery ? ` · 证据 ${n.mastery.evidence}` : ''}${wp.length ? ` · <span class="kl-warn">前置 ${wp.map((x) => esc(x.name)).join('、')} 也薄弱</span>` : ''}</span></span>
@@ -1838,13 +1862,14 @@ async function renderGraphPage(focusId) {
   if ((await ensureMe())?.guest) return regWall('知识图谱');
   const d = await api(`/math/api/students/${auth.student.id}/graph`);
   const MODN = Object.fromEntries(d.modules.map((m) => [m.id, m.name]));
+  const view = graphView || (focusId || innerWidth >= 700 ? 'map' : 'list');
   $app.innerHTML = `${topnav()}<div class="page wide">
     <header class="ph"><div><h1>${esc(d.student.nickname)}的知识图谱</h1></div></header>
     ${masteryMap(d)}
-    <div class="ctabs"><a class="${graphView === 'map' ? 'on' : ''}" data-view="map">图</a><a class="${graphView === 'list' ? 'on' : ''}" data-view="list">列表（薄弱在前）</a></div>
+    <div class="ctabs"><a class="${view === 'map' ? 'on' : ''}" data-view="map">图</a><a class="${view === 'list' ? 'on' : ''}" data-view="list">列表（薄弱在前）</a></div>
     <div id="kg"></div></div>`;
   $app.querySelectorAll('[data-view]').forEach((a) => (a.onclick = () => { graphView = a.dataset.view; renderGraphPage(focusId); }));
-  if (graphView === 'list') return graphList(d, MODN);
+  if (view === 'list') return graphList(d, MODN);
   const chip = (n, LEVEL, lv) => `<button class="kg-chip lv-${lv(n)}" data-focus="${n.id}">${esc(n.name)}<small>${LEVEL[lv(n)]}</small></button>`;
   const g = mountGraph(document.getElementById('kg'), d, {
     focus: focusId ? decodeURIComponent(focusId) : null,
@@ -1941,7 +1966,6 @@ async function renderProblem(id) {
   if (p.advanced) paintThumbs($app, { [p.problem_id]: p.advanced });
   onLang($app, router);
   $app.querySelector('#try').onclick = async () => {
-    if (isGuest()) return modal(`<h2>注册后可以单题练习</h2><p>做错的题会收进错题本，按知识项订正。</p><div class="actions"><button class="btn" data-close>先不了</button><a class="btn primary" href="#/account" data-regp>免费注册</a></div>`);
     const r = await api('/math/api/sessions', { method: 'POST', body: { problem_ids: [p.problem_id], student_id: auth.student.id } });
     location.hash = `#/exam/${r.session.id}`;
   };
@@ -1979,7 +2003,7 @@ async function startMistakes(items, purpose, btn) {
 
 let msFilter = 'todo', msMore = false, msFam = '', msKp = '', msCtx = null;
 async function renderMistakes() {
-  if ((await ensureMe())?.guest) return regWall('错题本');
+  await ensureMe();
   const d = await api(`/math/api/students/${auth.student.id}/profile`);
   const RN = Object.fromEntries(REASONS);
   const all = d.mistakes;
@@ -1995,7 +2019,7 @@ async function renderMistakes() {
     const rsum = rs.reduce((a, r) => a + r.n, 0);
     $app.innerHTML = `${topnav()}<main class="page">
       <header class="ph"><div><h1>${esc(d.student.nickname)}的错题本</h1>
-        <p class="muted">共 ${all.length} 道 · 待订正 ${all.filter((m) => m.status === 'pending').length} · 该复习 ${all.filter((m) => m.status === 'due').length} · 已掌握 ${all.filter((m) => m.status === 'mastered').length}</p></div></header>
+        <p class="muted">共 ${all.length} 道 · 待订正 ${all.filter((m) => m.status === 'pending').length} · 该复习 ${all.filter((m) => m.status === 'due').length} · 已掌握 ${all.filter((m) => m.status === 'mastered').length}${isGuest() ? ' · <a href="#/account" data-regp>注册保存</a>' : ''}</p></div></header>
       <div class="cols"><div class="col-main">${mistakeCard(list, RN)}</div><aside class="col-side">
       ${all.length ? `<div class="card ms-filters"><h2>筛选</h2>
         <label>考试 <select id="f-fam"><option value="">全部</option>${fams.filter((f) => all.some((m) => famOf(m.problem_id) === f)).map((f) => `<option value="${f.id}" ${msFam === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
