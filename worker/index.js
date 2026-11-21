@@ -593,15 +593,16 @@ route('POST', '/api/sessions/:id/submit', async (req, env, p) => {
     const choice = self ? (String(answers[pr.id] ?? '').trim().slice(0, 3000) || null) : normalizeInput(key.choices, answers[pr.id]);
     // 超时（late）仍记录作答，前端提示“超时交卷”；如需严格按官方规则，可在 late 时把 choice 置空
     const correct = !self && judge(key, choice) ? 1 : 0;
+    const skipped = s.mode === 'practice' && !self && choice == null ? 1 : 0; // 逐题练 / 打卡空着：未作，不算错
     const got = correct * (pr.points ?? 1);
     score += got;
     stmts.push(
       env.DB
         .prepare(
-          `INSERT INTO attempt_event (session_id, student_id, problem_id, choice, correct, time_sec, hints_used, flagged, error_reason, created_at, got)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+          `INSERT INTO attempt_event (session_id, student_id, problem_id, choice, correct, time_sec, hints_used, flagged, error_reason, created_at, got, skipped)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`
         )
-        .bind(s.id, s.student_id, pr.id, choice, correct, Math.round(Number(times[pr.id]) || 0), hintMap[pr.id] || 0, flags[pr.id] ? 1 : 0, t, pr.points == null ? null : got)
+        .bind(s.id, s.student_id, pr.id, choice, correct, Math.round(Number(times[pr.id]) || 0), hintMap[pr.id] || 0, flags[pr.id] ? 1 : 0, t, pr.points == null ? null : got, skipped)
     );
   }
   stmts.push(paperStart == null
@@ -713,7 +714,7 @@ async function reviewPayload(env, acc, sessionId) {
   const { results: rows } = await env.DB
     .prepare(
       `SELECT p.id, p.number, p.stem, p.stem_zh, p.figure, p.choices, p.choices_zh, p.answer, p.types, p.section, p.input_hint, p.kind, p.points, p.extra,
-              ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason, ae.got,
+              ae.id AS attempt_id, ae.choice, ae.correct, ae.time_sec, ae.hints_used, ae.flagged, ae.error_reason, ae.got, ae.skipped,
               sb.content AS basic,
               sa.tier AS adv_tier, sa.content AS adv_content, e.title AS exam_title
          FROM attempt_event ae
@@ -734,7 +735,7 @@ async function reviewPayload(env, acc, sessionId) {
     items: rows.map((r, i) => ({
       problem_id: r.id, number: drill ? i + 1 : r.number, label: labelOf(r), stem: r.stem, stem_zh: r.stem_zh, figure: r.figure, choices: JSON.parse(r.choices),
       choices_zh: r.choices_zh ? JSON.parse(r.choices_zh) : null,
-      answer: r.answer, choice: r.choice, correct: !!r.correct, time_sec: r.time_sec, hints_used: r.hints_used,
+      answer: r.answer, choice: r.choice, correct: !!r.correct, skipped: !!r.skipped, time_sec: r.time_sec, hints_used: r.hints_used,
       flagged: !!r.flagged, error_reason: r.error_reason, attempt_id: r.attempt_id,
       basic: r.basic, section: r.section, input_hint: r.input_hint,
       advanced: r.adv_tier ? { locked: !(r.adv_tier === 'free' || ctx.can(`adv:${r.id}`)), ...advThumb(r.adv_content, r.id) } : null,
@@ -822,7 +823,7 @@ route('GET', '/api/problems/:id', async (req, env, p, url) => {
     .bind(p.id).first();
   if (!pr) throw new HttpError(404, '题目不存在');
   const last = studentId ? await env.DB
-    .prepare('SELECT choice, correct, created_at, session_id FROM attempt_event WHERE problem_id = ? AND student_id = ? ORDER BY created_at DESC, id DESC LIMIT 1')
+    .prepare('SELECT choice, correct, created_at, session_id FROM attempt_event WHERE problem_id = ? AND student_id = ? AND COALESCE(skipped, 0) = 0 ORDER BY created_at DESC, id DESC LIMIT 1')
     .bind(pr.id, studentId).first() : null;
   const ctx = await billing.accessCtx(env, acc);
   const out = {
@@ -866,7 +867,7 @@ route('GET', '/api/kp/:id', async (req, env, p, url) => {
   const { results: problems } = await env.DB
     .prepare(
       `SELECT p.id, p.number, e.title AS exam_title, pk.weight,
-              (SELECT ae.correct FROM attempt_event ae WHERE ae.problem_id = p.id AND ae.student_id = ? ORDER BY ae.created_at DESC, ae.id DESC LIMIT 1) AS last_correct
+              (SELECT ae.correct FROM attempt_event ae WHERE ae.problem_id = p.id AND ae.student_id = ? AND COALESCE(ae.skipped, 0) = 0 ORDER BY ae.created_at DESC, ae.id DESC LIMIT 1) AS last_correct
          FROM problem_kp pk JOIN problem p ON p.id = pk.problem_id JOIN exam e ON e.id = p.exam_id
         WHERE pk.kp_id = ? AND e.published = 1 ORDER BY e.year DESC, p.number`
     )
@@ -1040,7 +1041,7 @@ route('GET', '/api/students/:id/profile', async (req, env, p) => {
   // 游客：错题本照样有（只存在这个浏览器的账号里，注册后换手机也能看）；知识图谱要注册
   if (acc.guest) return json({ student: { id: st.id, nickname: st.nickname }, points: [], edges: [], sessions, error_reasons: [], mistakes: await mistakeBook(env, st.id, subjectParam(new URL(req.url))), locked: REG_ONLY, guest: true });
   const { results: reasons } = await env.DB
-    .prepare("SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 GROUP BY error_reason")
+    .prepare("SELECT error_reason, COUNT(*) AS n FROM attempt_event WHERE student_id = ? AND correct = 0 AND COALESCE(skipped, 0) = 0 GROUP BY error_reason")
     .bind(st.id)
     .all();
   const stats = await kpStats(env);
@@ -1243,7 +1244,8 @@ async function mistakeBook(env, studentId, subject = 'math') {
     .prepare(
       `SELECT ae.problem_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, p.types, e.title AS exam_title, e.year
          FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id JOIN exam e ON e.id = p.exam_id
-        WHERE ae.student_id = ? AND ae.problem_id IN (SELECT problem_id FROM attempt_event WHERE student_id = ? AND correct = 0)
+        WHERE ae.student_id = ? AND COALESCE(ae.skipped, 0) = 0
+          AND ae.problem_id IN (SELECT problem_id FROM attempt_event WHERE student_id = ? AND correct = 0 AND COALESCE(skipped, 0) = 0)
         ORDER BY ae.created_at, ae.id`
     )
     .bind(studentId, studentId)

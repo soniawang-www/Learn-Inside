@@ -127,12 +127,18 @@ const MIGRATIONS = [
   'CREATE TABLE IF NOT EXISTS stat_cache (key TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL)',
   // 没交卷时的答题进度（JSON），跟着账号走：换台设备也能接着做
   'ALTER TABLE exam_session ADD COLUMN draft TEXT',
+  // 逐题练 / 打卡里空着没做的题记成「未作」（skipped = 1）：不算错、不进错题本、不影响掌握度；限时模考、纸笔卷空着照样算错
+  'ALTER TABLE attempt_event ADD COLUMN skipped INTEGER',
+  'CREATE INDEX IF NOT EXISTS idx_ae_unclassified ON attempt_event(id) WHERE skipped IS NULL', // 只用来让下面的补数据每次几乎不读行
 ];
 // 每次都执行的数据修正（幂等）
 const FIXUPS = [
   "UPDATE exam SET published = 0 WHERE id = 'sample-2026'", // 示例卷下线
   'UPDATE exam SET problem_count = (SELECT COUNT(*) FROM problem p WHERE p.exam_id = exam.id) WHERE problem_count IS NULL', // 旧库补题数（之后只扫 exam 表）
   "INSERT OR IGNORE INTO exam (id, title, year, source, duration_sec, published) VALUES ('drill', '知识点突击', NULL, 'system', 0, 0)", // 突击会话挂在这个隐藏试卷下
+  // 旧数据补 skipped：逐题练里空着的（简答题除外）记成未作
+  `UPDATE attempt_event SET skipped = CASE WHEN choice IS NULL AND session_id IN (SELECT id FROM exam_session WHERE mode = 'practice')
+     AND problem_id NOT IN (SELECT id FROM problem WHERE kind = 'self') THEN 1 ELSE 0 END WHERE skipped IS NULL`,
 ];
 
 /** 给旧表补列（已存在则跳过）；表还不存在时什么也不做，留给 seed 建表 */

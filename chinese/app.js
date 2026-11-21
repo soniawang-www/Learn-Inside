@@ -788,7 +788,7 @@ async function renderReview(sid) {
   const used = (r.session.submitted_at - r.session.started_at) / 1000;
   const secs = r.exam.sections || [];
   const bySec = secs.map((s) => { const xs = items.filter((x) => x.section === s.no); return { ...s, n: xs.length, ok: xs.filter((x) => x.correct).length }; }).filter((s) => s.n);
-  const wrong = items.filter((x) => !x.correct);
+  const wrong = items.filter((x) => !x.correct && !x.skipped);
   let only = wrong.length > 0;
   const gsw = isGsw(r.exam.id) || String(items[0]?.problem_id).startsWith('gsw-');
   // 古诗文：按考点统计正确率；每题用时（线上赛平均每题不到 10 秒，慢题单独数出来）
@@ -803,11 +803,11 @@ async function renderReview(sid) {
     const letters = (v) => [...String(v)].map((k) => x.choices[k] ?? k).join('、');
     const mine = x.choice == null ? '未作答' : fill ? x.choice : x.choice in x.choices ? x.choices[x.choice] : letters(x.choice);
     const right = fill ? x.answer : x.answer in x.choices ? x.choices[x.answer] : letters(x.answer);
-    return `<div class="rv-item ${x.correct ? 'ok' : 'bad'}" data-ok="${x.correct ? 1 : 0}">
+    return `<div class="rv-item ${x.correct ? 'ok' : x.skipped ? 'skip' : 'bad'}" data-ok="${x.correct || x.skipped ? 1 : 0}">
       <div class="rv-q"><span class="rv-n">${x.number}</span>${txt(x.stem)}${gsw && x.choice != null && x.time_sec != null ? `<span class="rv-t ${x.time_sec > per * 1.5 ? 'slow' : ''}">${x.time_sec} 秒</span>` : ''}</div>
       ${x.figure ? `<div class="ex-fig small">${x.figure}</div>` : ''}
       ${fill ? '' : `<ul class="rv-opts">${Object.entries(x.choices).map(([k, v]) => `<li class="${String(x.answer).includes(k) ? 'right' : String(x.choice ?? '').includes(k) ? 'wrong' : ''}">${esc(v)}</li>`).join('')}</ul>`}
-      <div class="rv-ans">${x.correct ? `<span class="tag ok">✓ 对</span> ${fill ? esc(mine) : ''}` : `<span class="tag bad">✗ ${x.choice == null ? '未作答' : '错'}</span>${x.choice != null ? ` 你的答案：<s>${esc(mine)}</s>　` : ' '}正确答案：<b>${esc(right)}</b>`}</div>
+      <div class="rv-ans">${x.correct ? `<span class="tag ok">✓ 对</span> ${fill ? esc(mine) : ''}` : x.skipped ? `<span class="tag">未作</span> 正确答案：<b>${esc(right)}</b>` : `<span class="tag bad">✗ ${x.choice == null ? '未作答' : '错'}</span>${x.choice != null ? ` 你的答案：<s>${esc(mine)}</s>　` : ' '}正确答案：<b>${esc(right)}</b>`}</div>
       ${x.basic ? `<div class="rv-sol">${txt(x.basic)}</div>` : ''}</div>`;
   };
   page(`<a class="back" href="${gsw ? '#/gsw' : '#/hanzi'}">${BACK_IC}${gsw ? '古诗文大会' : '汉字小达人'}</a>

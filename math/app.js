@@ -1648,7 +1648,9 @@ async function renderReview(sid) {
   if (!lastMe) try { lastMe = await api('/math/api/me'); } catch {}
   const used = (r.session.submitted_at - r.session.started_at) / 1000;
   const paper = r.session.mode === 'paper';
-  const wrong = r.items.filter((i) => !i.correct);
+  // 限时模考 / 纸笔卷：空着算错；逐题练 / 打卡：空着记「未作」，不算错
+  const wrong = r.items.filter((i) => !i.correct && !i.skipped), skipped = r.items.filter((i) => i.skipped);
+  const blankN = wrong.filter((i) => i.choice === null).length;
   const en = hasEn(r.items);
   // 游客：顶部一条注册提示（可以关，关了一周内不再出现）；记下交过的卷子数，到第 3 套提醒一次
   const subs = store.get('li.subs', []) || [];
@@ -1662,8 +1664,8 @@ async function renderReview(sid) {
       ${en ? `<div class="row">${langSeg()}</div>` : ''}</header>
     <div class="cols rev"><aside class="col-side rev-side"><div class="card">
       <div class="rev-score"><b>${r.session.score}</b><span>/ ${r.total}</span></div>
-      <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)}${r.session.mode === 'practice' ? '' : ` <small>/ ${fmtTime(r.exam.duration_sec)}</small>`}</dd></div><div><dt>错 / 空</dt><dd>${wrong.filter((i) => i.choice !== null).length} / ${wrong.filter((i) => i.choice === null).length}</dd></div></dl>
-      <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.choice === null ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
+      <dl class="rev-meta"><div><dt>用时</dt><dd>${paper && !used ? '—' : fmtTime(used)}${r.session.mode === 'practice' ? '' : ` <small>/ ${fmtTime(r.exam.duration_sec)}</small>`}</dd></div>${skipped.length ? `<div><dt>错 / 未作</dt><dd>${wrong.length} / ${skipped.length}</dd></div>` : `<div><dt>错</dt><dd>${wrong.length}${blankN ? ` <small>含空 ${blankN}</small>` : ''}</dd></div>`}</dl>
+      <div class="qgrid">${r.items.map((it) => `<a href="javascript:" data-jump="${it.number}" class="${it.correct ? 'right' : it.skipped ? 'blank' : 'wrong'}">${it.number}</a>`).join('')}</div>
       <div class="rev-btns">${r.session.prep ? '<a class="btn primary" href="/">回首页</a>' : isGuest() ? `${nudge ? '' : '<a class="btn primary" href="#/account" data-regp>免费注册</a>'}<a class="btn" href="#/">再做一套</a>` : '<a class="btn primary" href="#/mistakes">去错题本订正</a><a class="btn" href="#/graph">看知识图谱</a>'}</div>
     </div></aside>
     <div class="col-main">${nudge}${r.items.map(itemView).join('')}</div></div>
@@ -1678,16 +1680,16 @@ async function renderReview(sid) {
   typeset($app);
 
   function itemView(it) {
-    const cls = it.choice === null ? 'blank' : it.correct ? 'right' : 'wrong';
-    return `<details class="ritem ${cls}" id="q${it.number}" ${it.correct ? '' : 'open'}>
-      <summary><span class="mark">${it.correct ? '✓' : it.choice === null ? '–' : '✗'}</span>
+    const cls = it.skipped ? 'blank' : it.correct ? 'right' : 'wrong';
+    return `<details class="ritem ${cls}" id="q${it.number}" ${it.correct || it.skipped ? '' : 'open'}>
+      <summary><span class="mark">${it.correct ? '✓' : it.skipped ? '–' : '✗'}</span>
         <b>${qLabel(it.number, en)}</b>${r.session.mode !== 'exam' && r.exam.id === 'drill' ? `<span class="muted small">${esc(it.label)}</span>` : ''}
-        <span class="muted small">${it.choice === null ? '未作答' : `你的答案 ${esc(it.choice)}`}${it.correct ? '' : ` · 正确答案 ${esc(it.answer)}`}</span>
+        <span class="muted small">${it.skipped ? '未作' : it.choice === null ? '未作答' : `你的答案 ${esc(it.choice)}`}${it.correct || it.skipped ? '' : ` · 正确答案 ${esc(it.answer)}`}</span>
         <span class="meta">${paper ? '' : fmtTime(it.time_sec)}${it.hints_used ? ` · 提示 ${it.hints_used} 级` : ''}${it.flagged ? ' · 已标记' : ''}</span></summary>
       <div class="body">
         <div class="stem">${stemHtml(it)}${it.figure ? `<div class="figure">${it.figure}</div>` : ''}</div>
         ${isFillP(it) ? fillResult(it.choice, it.answer, it.correct) : `<ul class="choices ${figChoices(it) ? 'figs' : ''}">${Object.keys(it.choices).map((k) => `<li class="choice ${k === it.answer ? 'correct' : k === it.choice ? 'picked-wrong' : ''}"><span class="letter">${k}</span><span>${choiceHtml(it, k)}</span></li>`).join('')}</ul>`}
-        ${it.correct || isGuest() ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
+        ${it.correct || it.skipped ? '' : `<div class="section-label">错因</div><div class="reason-chips row" data-attempt="${it.attempt_id}">
           ${REASONS.map(([k, label]) => `<button data-reason="${k}" class="${it.error_reason === k ? 'on' : ''}">${label}</button>`).join('')}</div>`}
         ${it.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(it.basic)}</div>` : ''}
         ${it.advanced ? advCard(it.problem_id, it.advanced) : ''}

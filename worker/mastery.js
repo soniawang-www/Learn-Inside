@@ -39,7 +39,7 @@ export async function recomputeMastery(db, studentId) {
       `SELECT ae.problem_id, ae.choice, ae.correct, ae.hints_used, ae.error_reason,
               p.number, p.difficulty, COALESCE(e.problem_count, (SELECT COUNT(*) FROM problem p2 WHERE p2.exam_id = p.exam_id)) AS total
          FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id JOIN exam e ON e.id = p.exam_id
-        WHERE ae.student_id = ?
+        WHERE ae.student_id = ? AND COALESCE(ae.skipped, 0) = 0
         ORDER BY ae.created_at, ae.id`
     )
     .bind(studentId)

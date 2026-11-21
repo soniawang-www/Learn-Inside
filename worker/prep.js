@@ -134,7 +134,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   async function itemHistory(env, sid, since) {
     const { results } = await env.DB
       .prepare(`SELECT pk.kp_id, ae.correct, ae.created_at FROM attempt_event ae JOIN problem_kp pk ON pk.problem_id = ae.problem_id AND pk.weight >= 1
-                 WHERE ae.student_id = ? AND ae.problem_id LIKE 'amc8-%'`)
+                 WHERE ae.student_id = ? AND ae.problem_id LIKE 'amc8-%' AND COALESCE(ae.skipped, 0) = 0`)
       .bind(sid).all();
     const h = {};
     for (const r of results) {
@@ -157,7 +157,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const n = plan?.per_day || PREP_SUBJECTS.chinese.daily;
     const fam = plan?.family || 'hanzi';
     const { results: seenRows } = await env.DB
-      .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? UNION
+      .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? AND COALESCE(skipped, 0) = 0 UNION
                 SELECT sp.problem_id FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
       .bind(sid, sid).all();
     const seen = new Set(seenRows.map((r) => r.problem_id));
@@ -178,7 +178,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
   }
 
   const seenSet = async (env, sid) => new Set((await env.DB
-    .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? UNION
+    .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? AND COALESCE(skipped, 0) = 0 UNION
               SELECT sp.problem_id FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
     .bind(sid, sid).all()).results.map((r) => r.problem_id));
 
@@ -241,7 +241,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
     const hist = await itemHistory(env, sid, plan.created_at);
     // 计划里已经排过的题（含还没做的）和做过的题都不再出
     const { results: seenRows } = await env.DB
-      .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? UNION
+      .prepare(`SELECT problem_id FROM attempt_event WHERE student_id = ? AND COALESCE(skipped, 0) = 0 UNION
                 SELECT sp.problem_id FROM session_problem sp JOIN checkin d ON d.session_id = sp.session_id WHERE d.student_id = ?`)
       .bind(sid, sid).all();
     const seen = new Set(seenRows.map((r) => r.problem_id));
@@ -523,7 +523,7 @@ export function registerPrep({ route, json, HttpError, body, requireAccount, req
       const pw = await perWeekOf(env, m.id);
       const sk = await streak(env, m.id, today, pw);
       const q = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(ae.correct), 0) AS ok FROM checkin d JOIN attempt_event ae ON ae.session_id = d.session_id
-                                      WHERE d.student_id = ? AND d.done_at IS NOT NULL AND d.day >= ?`).bind(m.id, mon).first();
+                                      WHERE d.student_id = ? AND d.done_at IS NOT NULL AND d.day >= ? AND COALESCE(ae.skipped, 0) = 0`).bind(m.id, mon).first();
       const pt = await points(env, m.id, today);
       rows.push({ nickname: m.nickname, me: m.id === me, owner: m.id === team.owner_student, week_count: sk.week_count, per_week: pw, week_points: pt.week,
         streak: sk.streak, unit: sk.unit, week_n: q?.n || 0, week_ok: q?.ok || 0, today: sk.week.find((d) => d.today)?.done || false });
