@@ -24,6 +24,7 @@ const FAMILIES = [
     gradeLabels: { 1: 'Level A · 1–2 年级', 3: 'Level B · 3–4 年级', 5: 'Level C · 5–6 年级', 7: 'Level D · 7–8 年级', 9: 'Level E · 9–10 年级', 11: 'Level F · 11–12 年级' }, subject: 'math' },
   { id: 'swb100', name: '思维 100', prefix: 'swb100-', desc: '思维 100 STEM 应用能力活动（数学）：按年级分卷，填空题为主，60 分钟', grades: true, subject: 'math' },
   { id: 'zoumei', name: '走美杯', prefix: 'zoumei-', desc: '走美杯（走进美妙的数学花园）：按年级分卷，选择题和填空题，60 分钟', grades: true, subject: 'math' },
+  { id: 'ymo', name: 'YMO', prefix: 'ymo-', desc: 'YMO 青少年数学思维研学交流活动：按年级分卷，初赛、复赛、总决赛，60 分钟', grades: true, subject: 'math' },
   { id: 'hope', name: '希望数学', prefix: 'hope-', desc: '希望数学（HMTC）：按年级分卷，填空题为主', grades: true, subject: 'math' },
   // 语文（learn-inside.com/chinese）
   { id: 'hanzi', name: '汉字小达人', prefix: 'hanzi-', desc: '上海市小学生「美丽汉字小达人」：150 题，40 分钟', subject: 'chinese' },

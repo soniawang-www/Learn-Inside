@@ -55,13 +55,14 @@ export const FEATURES = [
 
   // ───────── B 考试与做题 ─────────
   { id: 'B1', area: '考试', name: '考试与试卷列表', cases: [
-    { id: 'B1-1', name: '考试种类（AMC 8、AMC 10、AMC 12、袋鼠数学、思维 100、走美杯、希望数学）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,amc10,amc12,kangaroo,swb100,zoumei,hope') },
+    { id: 'B1-1', name: '考试种类（AMC 8、AMC 10、AMC 12、袋鼠数学、思维 100、走美杯、YMO、希望数学）', run: async (c) => (await c.get(`/math/api/families?student=${c.sid}`)).data.map?.((f) => f.id).join(','), expect: same('amc8,amc10,amc12,kangaroo,swb100,zoumei,ymo,hope') },
     { id: 'B1-2', name: 'AMC 8 试卷数', run: async (c) => (await c.get(`/math/api/exams?student=${c.sid}&family=amc8`)).data.length, expect: same(26) },
     { id: 'B1-3', name: 'AMC 8 考情（大类占比、知识项）', run: async (c) => { const d = (await c.get(`/math/api/families/amc8?student=${c.sid}`)).data; return d.stats.exams === 26 && d.stats.units.length === 38; }, expect: same(true) },
     { id: 'B1-3b', name: 'AMC 10 考情（34 套）', run: async (c) => { const d = (await c.get(`/math/api/families/amc10?student=${c.sid}`)).data; return d.stats.exams === 34 && d.family.name === 'AMC 10'; }, expect: same(true) },
     { id: 'B1-3c', name: 'AMC 12 考情（34 套）', run: async (c) => { const d = (await c.get(`/math/api/families/amc12?student=${c.sid}`)).data; return d.stats.exams === 34 && d.family.name === 'AMC 12'; }, expect: same(true) },
     { id: 'B1-3d', name: '袋鼠数学考情（18 套，按等级分卷）', run: async (c) => { const d = (await c.get(`/math/api/families/kangaroo?student=${c.sid}`)).data; return d.stats.exams === 18 && d.family.name === '袋鼠数学' && d.family.grades && d.family.grade_labels[11] === 'Level F · 11–12 年级'; }, expect: same(true) },
     { id: 'B1-3e', name: '走美杯考情（52 套，按年级分卷）', run: async (c) => { const d = (await c.get(`/math/api/families/zoumei?student=${c.sid}`)).data; return d.stats.exams === 52 && d.family.name === '走美杯' && d.family.grades; }, expect: same(true) },
+    { id: 'B1-3f', name: 'YMO 考情（72 套，按年级分卷）', run: async (c) => { const d = (await c.get(`/math/api/families/ymo?student=${c.sid}`)).data; return d.stats.exams === 72 && d.family.name === 'YMO' && d.family.grades; }, expect: same(true) },
     { id: 'B1-4', name: '思维 100 有真题', run: async (c) => (await c.get(`/math/api/families/swb100?student=${c.sid}`)).data.stats.exams > 0, expect: same(true) },
   ] },
   { id: 'B2', area: '考试', name: '模考', cases: [

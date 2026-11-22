@@ -308,7 +308,7 @@ function renderJoin() {
     <section class="auth-intro">
       <h1>竞赛真题边练边学</h1>
       <ul>
-        <li><b>数学真题</b>AMC 8 · AMC 10 · AMC 12 · 袋鼠数学 · 走美杯 · 希望数学 · 思维 100</li>
+        <li><b>数学真题</b>AMC 8 · AMC 10 · AMC 12 · 袋鼠数学 · 走美杯 · YMO · 希望数学 · 思维 100</li>
         <li><b>语文真题</b>汉字小达人 · 古诗文大会 · 飞花令</li>
         <li><b>英语备考</b>KET · PET · 小托福</li>
         <li><b>知识图谱 · 错题本</b>数学、语文同一个账号</li>
@@ -641,7 +641,7 @@ async function renderDashboard() {
 
 // ───────── 考试列表 ─────────
 // ───────── 一种考试：试卷 / 考情 / 成绩记录 ─────────
-const GRADE = { 1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级', 5: '五年级', 6: '六年级', 7: '初一', 8: '初二' };
+const GRADE = { 1: '一年级', 2: '二年级', 3: '三年级', 4: '四年级', 5: '五年级', 6: '六年级', 7: '初一', 8: '初二', 9: '初三' };
 const contestGrade = store.get('math.grade', {}) || {}; // 分年级的考试：每种考试记住选的年级（存在浏览器里，下次打开还在）
 const saveGrade = () => store.set('math.grade', contestGrade);
 // 一种考试的试卷格子（分年级的先选年级）：考试页和数学首页共用。limit 只在首页用，多的给「全部」链接
@@ -1125,7 +1125,7 @@ function showInstructions(exam, mode) {
   const mins = Math.round(exam.duration_sec / 60);
   modal(`<div class="instructions"><h2>${esc(exam.title)} · ${mode === 'exam' ? '限时模考' : '逐题练'}</h2>
     <ol>
-      ${/^(hope|swb100|zoumei)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
+      ${/^(hope|swb100|zoumei|ymo)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
       <li>答对 1 题得 1 分，答错不扣分。</li>
       ${mode === 'practice' ? '' : `<li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>`}
       ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
@@ -1287,7 +1287,7 @@ async function renderExam(sid) {
   if (data.session.mode === 'paper') return renderPaper(sid, data);
   document.body.classList.add('exam-mode');
   // 希望数学：布局同 AMC 8，用 learn-inside 自己的风格
-  const li = /^(hope|swb100)-/.test(data.exam.id || '') || (data.session.drill && !hasEn(data.problems));
+  const li = /^(hope|swb100|zoumei|ymo)-/.test(data.exam.id || '') || (data.session.drill && !hasEn(data.problems));
   document.body.classList.toggle('exam-li', !!li);
   const key = `amc8.s.${sid}`;
   const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, flags: {}, times: {}, hints: {}, checked: {}, cur: 0, big: false } });
