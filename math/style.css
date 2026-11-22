@@ -671,10 +671,15 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .ms-mastered .ms-dot { background:var(--ok); } .ms-mastered .ms-st { color:var(--ok); border-color:var(--ok); }
 .prow.ms-row { display:grid; grid-template-columns:10px 1fr auto auto; gap:4px 10px; }
 .ms-row .go { margin-left:0; }
+/* 手机：状态标签放在题目名同一行右边，下面一整行是知识点和时间（不再单独占一行） */
 @media (max-width: 560px) {
-  .prow.ms-row { grid-template-columns:10px 1fr auto; }
-  .ms-row .ms-tags { grid-row:2; grid-column:2; justify-content:flex-start; margin-left:0; }
-  .ms-row .go { grid-row:1 / span 2; grid-column:3; align-self:center; }
+  .prow.ms-row { grid-template-columns:10px minmax(0, 1fr) auto auto; gap:3px 8px; }
+  .ms-row .ms-main { display:contents; }
+  .ms-row .ms-dot { grid-row:1; grid-column:1; }
+  .ms-row .ms-main > span:first-child { grid-row:1; grid-column:2; min-width:0; }
+  .ms-row .ms-main > span.small { grid-row:2; grid-column:2 / 4; }
+  .ms-row .ms-tags { grid-row:1; grid-column:3; flex-wrap:nowrap; margin-left:0; }
+  .ms-row .go { grid-row:1 / span 2; grid-column:4; align-self:center; }
 }
 .kp-ms { margin-left:6px; border:1px solid var(--border); background:var(--surface); color:var(--muted); border-radius:999px; padding:1px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
 .kp-ms.hot { border-color:var(--bad); color:var(--bad); }
@@ -824,7 +829,7 @@ label.field span { display: block; font-size: 13px; color: var(--muted); margin-
 .kp-plist.clip > :nth-child(n+13) { display: none; }
 
 /* ───────── 账号与会员 ───────── */
-.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; }
+.plans { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 10px; margin: 12px 0; } /* 月卡、季卡、年卡排一行，不留单独一张 */
 .plan { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: grid; gap: 6px; }
 .plan .pname { font-weight: 600; }
 .plan .price { font-size: 22px; font-weight: 700; color: var(--accent); }
@@ -891,6 +896,8 @@ details summary { cursor: pointer; color: var(--accent); }
 body:not(.exam-mode) { background: var(--paper); }
 #app:has(> .side) > .page { max-width: none; width: 100%; margin: 0; padding: 28px clamp(20px, 3vw, 48px) 64px; }
 #app:has(> .side) > .page > * { max-width: 1440px; }
+#app:has(> .side) > .page.narrow > * { max-width: 680px; }
+#app:has(> .side) > .page.narrow > .team-two { max-width: 1000px; }
 
 /* 页面标题行 */
 .ph { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px 32px; flex-wrap: wrap; margin: 6px 0 20px; }
@@ -932,6 +939,11 @@ body:not(.exam-mode) { background: var(--paper); }
 .fam-card small { font-size: 13px; color: var(--accent); min-height: 1.2em; }
 .fam-card i { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 22px; color: var(--accent); }
 .fam-card.last { border-color: var(--accent); }
+/* 还没录题的比赛：一排小标签，不占大卡片 */
+.fam-soon { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; }
+.fam-soon span { font-size: 13px; color: var(--muted); margin-right: 2px; }
+.fam-soon a { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13.5px; text-decoration: none; }
+@media (hover: hover) { .fam-soon a:hover { border-color: var(--accent); color: var(--accent); } }
 @media (hover: hover) { .fam-card:hover { border-color: var(--accent); } }
 @media (max-width: 860px) { .fam-cards { grid-template-columns: minmax(0, 1fr); gap: 10px; } .fam-card { padding: 14px 40px 12px 16px; } }
 /* 数学首页最上面的「考试」：竞赛标签 + 试卷格子 */
@@ -974,9 +986,10 @@ body:not(.exam-mode) { background: var(--paper); }
 .task .kg-sw { flex: none; width: 26px; height: 18px; margin: 0 4px; }
 .task .ico { color: var(--accent); display: grid; place-items: center; min-width: 1.6em; font-style: normal; }
 .scores { display: grid; }
-.score-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, 30%) 4em; gap: 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); text-decoration: none; color: var(--text); }
+.score-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(44px, 22%) 4em; gap: 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); text-decoration: none; color: var(--text); }
 .score-row:first-child { border-top: 0; }
-.sr-t small { display: block; color: var(--muted); font-size: 12px; }
+.sr-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-t small { display: block; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .sr-bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
 .sr-bar i { display: block; height: 100%; background: var(--accent); }
 .score-row b { text-align: right; font-size: 18px; font-variant-numeric: tabular-nums; }
@@ -1598,6 +1611,9 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .team-invite b { font-size: 22px; letter-spacing: 3px; font-family: var(--mono, monospace); }
 .team-leave { margin-top: 12px; color: var(--muted); border-color: var(--border); }
 .team-form, .team-join { display: grid; gap: 12px; margin-bottom: 12px; }
+.team-two { display: grid; gap: 12px; align-items: start; }
+.team-two > .team-form { margin: 0; }
+@media (min-width: 900px) { .team-two { grid-template-columns: 1.2fr 1fr; gap: 16px; } }
 .team-form h2, .team-join h1 { margin: 0; font-size: 18px; }
 .team-join h1 { font-size: 22px; }
 .team-join p { margin: 0; }

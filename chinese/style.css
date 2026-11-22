@@ -326,7 +326,13 @@ body.exam-mode.paper { background: var(--bg); color: var(--text); font-family: v
 .bs-stat div { display: flex; flex-direction: column; }
 .bs-stat b { font-size: 24px; font-variant-numeric: tabular-nums; }
 .bs-stat span { font-size: 13px; color: var(--muted); }
-.bs-sec summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+.bs-secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bs-secs > .bs-sec { margin: 0; padding: 12px 14px; }
+.bs-secs > .bs-sec[open] { grid-column: 1 / -1; padding: 16px; }
+.bs-sec summary { display: flex; align-items: baseline; gap: 8px; cursor: pointer; list-style: none; }
+.bs-secs > .bs-sec:not([open]) summary { flex-direction: column; gap: 2px; }
+.bs-secs > .bs-sec:not([open]) summary h2 { font-size: 16px; }
+@media (min-width: 700px) { .bs-secs { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; } }
 .bs-sec summary::-webkit-details-marker { display: none; }
 .bs-sec summary h2 { margin: 0; }
 .bs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }

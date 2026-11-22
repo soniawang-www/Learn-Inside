@@ -1,4 +1,4 @@
-import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122u';
+import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122v';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -407,7 +407,7 @@ async function renderAccount() {
         <div class="pay-pending-btns"><button class="btn primary" data-repay="${esc(a.pending_order.id)}">继续支付</button><a class="btn" href="#/account/paid/${enc(a.pending_order.id)}">我已付款</a><button class="btn" data-cancel-order="${esc(a.pending_order.id)}">取消订单</button></div></div>` : ''}
       ${a.promo && groups.length ? `<div class="promo-bar"><b>${esc(a.promo.title)}</b><span>活动价到 ${promoEnd(a.promo.until)}</span></div>` : ''}
       ${groups.map((g) => `<div class="section-label">${esc(g.name)}会员${g.id === 'all' ? '<span class="small muted">（所有科目）</span>' : ''}</div>
-        <div class="plans">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.orig_price ? `<s class="orig">¥${p.orig_price}</s>` : ''}${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
+        <div class="plans" style="--n:${g.plans.length}">${g.plans.map((p) => `<div class="plan"><div class="pname">${p.period}</div><div class="price ${p.price ? '' : 'tbd'}">${p.orig_price ? `<s class="orig">¥${p.orig_price}</s>` : ''}${p.price ? `¥${p.price}` : '价格待定'}</div><div class="small muted">${p.days} 天</div>
         ${!a.pay_ready || !p.price ? '' : a.guest ? '<a class="btn" href="javascript:" data-goreg><span class="lg">注册后开通</span><span class="sm">去注册</span></a>' : p.online ? `<button class="btn primary" data-plan="${p.id}">开通</button>` : '<button class="btn" data-support="购买激活码" title="暂不支持在线支付"><span class="lg">暂不支持 · 找客服</span><span class="sm">找客服</span></button>'}</div>`).join('')}</div>`).join('')}
       
       ${a.pay_ready ? '' : `<div class="buy-tip"><span>在线支付即将开通。现在可以找客服买激活码，在「激活码」里输入就能开通。</span><button class="btn primary" data-support="购买激活码">联系客服</button></div>`}
@@ -614,9 +614,10 @@ async function renderDashboard() {
     ${prepCard}
     ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <section class="dash-exams" aria-label="考试">
-      <div class="fam-cards">${fams.map((x) => `<a class="fam-card ${x.id === dashFam ? 'last' : ''}" href="#/contest/${enc(x.id)}">
-        <b>${esc(x.name)}</b><span>${x.exams ? `${x.exams} 套真题` : '录入中'}</span>
+      <div class="fam-cards">${fams.filter((x) => x.exams).map((x) => `<a class="fam-card ${x.id === dashFam ? 'last' : ''}" href="#/contest/${enc(x.id)}">
+        <b>${esc(x.name)}</b><span>${x.exams} 套真题</span>
         <small>${x.last ? `最近 ${x.last.score} 分` : ''}</small><i>›</i></a>`).join('')}</div>
+      ${fams.some((x) => !x.exams) ? `<div class="fam-soon"><span>录入中</span>${fams.filter((x) => !x.exams).map((x) => `<a href="#/contest/${enc(x.id)}">${esc(x.name)}</a>`).join('')}</div>` : ''}
     </section>
     <div class="dash-grid">
       ${tasks.length || !guest ? `<section class="card todo">
@@ -979,13 +980,13 @@ async function renderTeam(code) {
   }
   if (!t.team) {
     $app.innerHTML = `${topnav()}<main class="page narrow"><header class="ph"><div><h1>组队</h1></div></header>
-      <section class="card team-form">${castRow()}<h2>建一个队</h2>
+      <div class="team-two"><section class="card team-form">${castRow()}<h2>建一个队</h2>
         <label class="tf-row"><span>队名</span><input id="tname" maxlength="16" placeholder="比如：AMC 8 冲刺小组"></label>
         <label class="tf-row"><span>你的昵称</span><input id="tn" maxlength="12" value="${esc(myName)}" placeholder="队友看到的名字"></label>
         <button class="btn primary block" id="tc">建队</button></section>
       <section class="card team-form"><h2>加入队伍</h2>
         <label class="tf-row"><span>邀请码</span><input id="tcode" maxlength="6" autocapitalize="characters" placeholder="6 位"></label>
-        <button class="btn block" id="tjc">加入</button></section>
+        <button class="btn block" id="tjc">加入</button></section></div>
       <p class="tf-err" hidden></p></main>`;
     $app.querySelector('#tc').onclick = () => run(async () => {
       const name = $app.querySelector('#tname').value.trim(), nn = $app.querySelector('#tn').value.trim();

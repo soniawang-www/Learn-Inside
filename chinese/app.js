@@ -8,7 +8,7 @@ import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261122u';
 import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261122u';
-import { todayCard, bindToday, START_URL, STAR, mascot, friend, FRIENDS, subjHead, scorePal, startPal } from '/assets/pal.js?v=20261122u';
+import { todayCard, bindToday, START_URL, STAR, mascot, friend, FRIENDS, subjHead, scorePal, startPal } from '/assets/pal.js?v=20261122v';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -332,8 +332,8 @@ async function renderBeishi() {
         <div class="bar"><i style="width:${Math.round((100 * learned) / Math.max(1, items.length))}%"></i></div>
       </section>
     </div>
-    ${secs.map((sc) => `<details class="card bs-sec"><summary><h2>${esc(sc)}</h2><span class="muted small">${items.filter((p) => p.section === sc && P.has(p.idx)).length} / ${items.filter((p) => p.section === sc).length}</span></summary>
-      <div class="bs-grid">${items.filter((p) => p.section === sc).map((p) => `<a class="bs-chip ${status(p)}" href="#/poem/${p.idx}">${esc(p.title)}<small>${esc(p.author)}</small></a>`).join('')}</div></details>`).join('')}`, 'beishi');
+    <div class="bs-secs">${secs.map((sc) => `<details class="card bs-sec"><summary><h2>${esc(sc)}</h2><span class="muted small">${items.filter((p) => p.section === sc && P.has(p.idx)).length} / ${items.filter((p) => p.section === sc).length}</span></summary>
+      <div class="bs-grid">${items.filter((p) => p.section === sc).map((p) => `<a class="bs-chip ${status(p)}" href="#/poem/${p.idx}">${esc(p.title)}<small>${esc(p.author)}</small></a>`).join('')}</div></details>`).join('')}</div>`, 'beishi');
   $app.querySelector('#per').onchange = (e) => { store.set('bs.new', +e.target.value); renderBeishi(); };
   $app.querySelector('#bs-print').onclick = () => {
     const ids = (xs) => xs.map((p) => String(p.idx));
