@@ -5,3 +5,7 @@ export const XHS = {
   id: '95981992924', // 小红书号：搜这个最准
   link: 'http://xhslink.com/m/JnMcdzoa5w',
 };
+// 小红书、公众号都让大家搜这个词
+export const FIND = 'learn-inside';
+// 平台 logo：用平台官方提供的图片，放进 /assets/brand/ 后在这里填路径；空着时只显示文字标签
+export const LOGO = { wechat: '', xhs: '', mp: '' };

@@ -6,7 +6,7 @@
 // 各科只管出内容：openPrint({ build(opts) → { blocks }, css, controls, ... })
 
 import qrcode from './qrcode.js?v=20261111';
-import { XHS } from '../brand.js?v=20261122a';
+import { FIND } from '../brand.js?v=20261122b';
 
 const PW = 794, PH = 1123;            // A4（96 dpi）
 const PAD_T = 52, PAD_X = 64, PAD_B = 112;
@@ -206,7 +206,7 @@ function buildPages(groups, head) {
     const pg = document.createElement('div');
     pg.className = 'lp-page';
     const left = head.qr ? `<div class="lp-qr">${head.qr}<div><b>${esc(head.qrText || '扫码回到网站')}</b><span>${esc(head.foot)}</span></div></div>` : `<span>${esc(head.foot)}</span>`;
-    pg.innerHTML = `${i === 0 ? head.first : head.run}<div class="lp-sheet"></div><div class="lp-foot">${left}<span class="lp-xhs">小红书：${esc(XHS.name)}</span><span>第 ${i + 1} 页 / 共 ${n} 页</span></div>`;
+    pg.innerHTML = `${i === 0 ? head.first : head.run}<div class="lp-sheet"></div><div class="lp-foot">${left}<span class="lp-xhs">小红书搜索 ${esc(FIND)}</span><span>第 ${i + 1} 页 / 共 ${n} 页</span></div>`;
     const sheet = pg.querySelector('.lp-sheet');
     g.forEach((node) => sheet.appendChild(node));
     return pg;
