@@ -6,7 +6,7 @@
 // 各科只管出内容：openPrint({ build(opts) → { blocks }, css, controls, ... })
 
 import qrcode from './qrcode.js?v=20261111';
-import { FIND } from '../brand.js?v=20261122d';
+import { FIND } from '../brand.js?v=20261122e';
 
 const PW = 794, PH = 1123;            // A4（96 dpi）
 const PAD_T = 52, PAD_X = 64, PAD_B = 112;

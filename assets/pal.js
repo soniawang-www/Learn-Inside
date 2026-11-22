@@ -3,7 +3,7 @@ export const WEEK = '一二三四五六日';
 // 吉祥物「狸狸」和学科小伙伴在 cast.js；这里转出去，各页面照旧从 pal.js 引
 // 形象怎么放看布局：打卡卡片紧挨着的地方不再放第二个大形象；列表里的小头像、成绩页的小伙伴可以有
 import { mascot, friend, FRIENDS, castRow } from './cast.js?v=20261122e';
-import { XHS, FIND, LOGO } from './brand.js?v=20261122d';
+import { XHS, FIND, LOGO } from './brand.js?v=20261122e';
 import qrcode from './print/qrcode.js?v=20261111';
 export { XHS, FIND };
 export { mascot, friend, FRIENDS, castRow };
