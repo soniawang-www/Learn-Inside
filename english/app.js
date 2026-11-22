@@ -6,7 +6,7 @@
 //       #/write/:题目 id（模拟写作）  #/draw/:题库?s=轮次（抽一题）  #/phrases（句型和名言）  #/join（登录 / 注册，在全站账号页）
 // 账号全站通用：和数学、语文共用 li.token / li.student。接口在 /api/english/（worker/english.js）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261122h';
+import { sideNav } from '/assets/sidenav.js?v=20261122k';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122h';

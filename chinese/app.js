@@ -3,7 +3,7 @@
 //       #/mistakes（错题本）  #/join（登录 / 注册）  #/beishi（每日背诗）  #/poem/:idx（背一篇：四步）
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261122h';
+import { sideNav } from '/assets/sidenav.js?v=20261122k';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PRINT_ICON } from '/assets/print/kit.js?v=20261122h';

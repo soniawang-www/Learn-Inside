@@ -3,7 +3,7 @@ import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, I
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { SIMS } from './sims.js';
-import { sideNav } from '/assets/sidenav.js?v=20261122h';
+import { sideNav } from '/assets/sidenav.js?v=20261122k';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
 import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261122h';
