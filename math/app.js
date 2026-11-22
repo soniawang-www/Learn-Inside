@@ -407,9 +407,9 @@ async function renderAccount() {
           <div class="input-group"><input type="password" name="password" placeholder="至少 6 位" autocomplete="new-password"><button type="button" class="eye" aria-label="显示密码">显示</button></div></label>
           <label class="field"><span>再输一遍密码</span><input type="password" name="password2" placeholder="和上面一样" autocomplete="new-password"></label>
           ${a.guest ? `<label class="field"><span>孩子的昵称（可不填）</span><input type="text" name="nickname" maxlength="20" value="${esc(auth.student?.nickname === '同学' ? '' : auth.student?.nickname || '')}" placeholder="例如：小桐"></label>` : ''}
-          <button class="btn primary">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
+          <button class="btn primary block">${a.guest ? '注册' : '绑定'}</button><div class="error-msg" id="berr"></div></form>
 `}
-      <p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>
+      ${a.guest ? '<p class="small muted acct-login">已有账号？<a href="javascript:" id="logout">去登录</a></p>' : '<p style="margin-top:14px"><button class="btn" id="logout">退出登录</button></p>'}
     </div>`;
   $app.innerHTML = `${topnav()}<main class="page">
     <header class="ph"><div><h1>账号</h1><p class="muted">${a.guest ? '游客' : esc(a.phone || '还没绑定手机号')}</p></div></header>
@@ -480,8 +480,8 @@ async function renderAccount() {
   });
   form('pw', '/api/account/password', 'perr', () => modal('<h2>密码已修改</h2><div class="actions"><button class="btn primary" data-close>好</button></div>'));
   document.getElementById('logout').onclick = () => {
-    if (!a.phone) return modal(`<h2>${a.guest ? '先注册？' : '先绑定手机号？'}</h2><p>${a.guest ? '游客的做题记录只存在这台设备上，退出后就找不回来了。' : '这个账号还没绑定手机号，退出后就找不回来了。'}</p><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="lo">仍然退出</button></div>`,
-      (m) => (m.querySelector('#lo').onclick = () => { auth.clear(); location.hash = '#/'; router(); }));
+    if (!a.phone) return modal(`<h2>${a.guest ? '先注册？' : '先绑定手机号？'}</h2><p>${a.guest ? '现在的做题记录只存在这台设备上，换成别的账号后就找不回来了。注册就能保留。' : '这个账号还没绑定手机号，退出后就找不回来了。'}</p><div class="actions"><button class="btn" data-close>取消</button><button class="btn primary" id="lo">${a.guest ? '仍然去登录' : '仍然退出'}</button></div>`,
+      (m) => (m.querySelector('#lo').onclick = () => { auth.clear(); location.hash = a.guest ? '#/join' : '#/'; router(); }));
     auth.clear(); location.hash = '#/'; router();
   };
 }
@@ -601,9 +601,9 @@ async function renderDashboard() {
   }
   const ms = prof.mistakes || [];
   const pending = ms.filter((m) => m.status === 'pending').length, due = ms.filter((m) => m.status === 'due').length;
-  const sessions = (prof.sessions || []).slice(0, 3);
+  const sessions = (prof.sessions || []).filter((x) => !(x.exam_id === 'drill' && x.total <= 1)).slice(0, 3); // 单题练习（订正一道题）不算成绩
   const tasks = [ // 错题在页面最上面的「继续」条里，这里只列要补的知识项
-    ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><i class="kg-sw lv-weak"></i><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span></a>`),
+    ...sugg.map((x) => `<a class="task weak" href="#/kp/${enc(x.n.id)}"><span>先补「${esc(x.n.name)}」<small>${esc(x.why)}</small></span><i class="go">›</i></a>`),
   ].filter(Boolean);
   const startFam = fams.find((x) => x.id === dashFam && x.exams) || fams.find((x) => x.exams);
   // 打卡卡片已经是「今天做什么」：这里只在有薄弱知识项要补时列出来
@@ -673,7 +673,7 @@ function examGrid(f, allExams, fid, limit = 0) {
       ${shown.map((e) => { const lb = label(e); return `<div class="exam-tile ${e.last_score !== null ? 'done' : ''}">
         <div class="et-top"><span class="et-year${f.grades ? ' cn' : ''}">${esc(lb.t)}</span>
           ${e.last_score !== null ? `<a class="et-score" href="#/review/${e.last_session}">${e.last_score}<small>/${e.problem_count}</small></a>` : '<span class="et-new">未做</span>'}</div>
-        <div class="et-meta"><span class="small muted">${lb.sub ? `${esc(lb.sub)} · ` : ''}${e.problem_count} 题 · ${Math.round(e.duration_sec / 60)} 分钟</span>
+        <div class="et-meta"><span class="small muted">${lb.sub ? `${esc(lb.sub)} · ` : ''}${e.problem_count} 题<i class="et-dur"> · ${Math.round(e.duration_sec / 60)} 分钟</i></span>
           <button class="et-pp" data-paper="${e.id}" title="打印试卷">${PRINT_ICON}<span>打印</span></button></div>
         <div class="et-btns">
           <button class="btn" data-start="${e.id}" data-mode="practice">逐题练</button>
