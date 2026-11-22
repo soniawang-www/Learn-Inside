@@ -3,7 +3,7 @@ export const WEEK = '一二三四五六日';
 // 吉祥物「狸狸」和学科小伙伴在 cast.js；这里转出去，各页面照旧从 pal.js 引
 // 形象怎么放看布局：打卡卡片紧挨着的地方不再放第二个大形象；列表里的小头像、成绩页的小伙伴可以有
 import { mascot, friend, FRIENDS, castRow } from './cast.js?v=20261122e';
-import { XHS, FIND, LOGO } from './brand.js?v=20261122b';
+import { XHS, FIND, LOGO } from './brand.js?v=20261122d';
 import qrcode from './print/qrcode.js?v=20261111';
 export { XHS, FIND };
 export { mascot, friend, FRIENDS, castRow };
@@ -63,7 +63,7 @@ export function todayCard(pr, { team = null, only = null } = {}) {
   return `<section class="today-card ${doneAny ? 'done' : ''}">
     <div class="tc-top"><span class="sc-fox ${doneAny ? 'on' : ''}">${mascot(doneAny ? 'happy' : 'sleep', { head: true })}<b>${wk ? pr.week_count || 0 : pr.streak}</b></span><div class="tc-txt"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</div>
       <button class="pts-chip" data-pts aria-label="积分">${STAR}${pr.points?.total || 0}</button></div>
-    ${weekRow(pr.week)}
+    <div class="tc-row">${weekRow(pr.week)}<nav class="tc-side" aria-label="接着做"></nav></div>
     ${its.length ? `<div class="tc-items">${its.map(row).join('')}</div>` : addOnly}
     ${its.length && its.every((x) => x.today?.done) && more ? `<button class="tc-more" data-tc-more="${esc(more.family)}">再练一组</button>` : ''}
     <div class="tc-foot"><a href="${START_URL}">＋ 备考项</a><span><a href="${PLAN_URL}">计划</a>${tm}</span></div>
@@ -127,7 +127,7 @@ function toast(html) {
   const t = document.createElement('div'); t.className = 'li-toast'; t.innerHTML = html; (document.querySelector('dialog[open]') || document.body).append(t); // 弹窗开着时放进弹窗里，不然被盖住
   setTimeout(() => t.classList.add('out'), 2600); setTimeout(() => t.remove(), 3000);
 }
-const qrOf = (url) => { try { const q = qrcode(0, 'M'); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 3, margin: 2, scalable: true }); } catch { return ''; } };
+const qrOf = (url, ecc = 'M') => { try { const q = qrcode(0, ecc); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 3, margin: 2, scalable: true }); } catch { return ''; } };
 let contactCache = null;
 /** 联系我们。只要客服时（比如「把转发截图发给客服」）传 only: 'support' */
 export async function openContact({ title = '联系我们', only = '' } = {}) {
@@ -137,7 +137,7 @@ export async function openContact({ title = '联系我们', only = '' } = {}) {
   // 平台名：有官方 logo 就放 logo，没有就放一个平台色小圆点
   const pn = (name, logo) => `<span class="ct-pn">${logo ? `<img src="${escH(logo)}" alt="">` : '<i></i>'}${name}</span>`;
   const plats = [
-    `<div class="ct-plat ct-xhs">${pn('小红书', LOGO.xhs)}<div class="ct-qr">${qrOf(XHS.link)}</div><a class="ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书</a></div>`,
+    `<div class="ct-plat ct-xhs">${pn('小红书', LOGO.xhs)}<div class="ct-qr">${qrOf(XHS.link, LOGO.xhs ? 'H' : 'M')}${LOGO.xhs ? `<img class="ct-qic" src="${escH(LOGO.xhs)}" alt="">` : ''}</div><a class="ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书</a></div>`,
     s.mp ? `<div class="ct-plat ct-mp">${pn('公众号', LOGO.mp || LOGO.wechat)}${s.mp.qr ? `<div class="ct-qr"><img src="${escH(s.mp.qr)}" alt="公众号二维码"></div>` : ''}</div>` : '',
   ].join('');
   // 上半：客服；下半：像搜索框一样写着 learn-inside（点一下复制），下面是能搜到的平台

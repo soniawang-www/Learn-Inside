@@ -65,6 +65,19 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tc-tag.s-english { background: #1F3346; color: #8CC0EA; } }
 .tc-foot span { display: flex; gap: 16px; }
 @media (min-width: 700px) { .today-card .sc-week { grid-template-columns: repeat(7, 40px); gap: 10px; justify-content: start; padding-left: 66px; } }
+/* 日历右边的「继续答题 / 错题」入口：首页电脑上才有内容（手机上它们在卡片下面单独一块） */
+.tc-side { display: none; }
+@media (min-width: 1000px) {
+  .tc-row:has(.tc-side:not(:empty)) { display: flex; align-items: center; gap: 24px; }
+  .tc-row .sc-week { flex: none; }
+  .tc-side:not(:empty) { display: grid; flex: 1; min-width: 0; padding-left: 22px; border-left: 1px solid var(--tc-line); }
+  .tc-side a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; color: var(--tc-ink); border-top: 1px solid var(--tc-line); }
+  .tc-side a:first-child { border-top: 0; }
+  .tc-side b { font-size: 14px; }
+  .tc-side span { color: var(--tc-mute); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tc-side i { font-style: normal; color: var(--tc-mute); }
+  .tc-side a:hover b { color: var(--tc-acc); }
+}
 /* 手机：信息排紧一点 */
 @media (max-width: 600px) {
   .today-card { padding: 12px; gap: 10px; border-radius: 14px; margin-bottom: 12px; }
@@ -139,6 +152,7 @@
 .li-toast { position: fixed; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 1100; padding: 10px 18px; border-radius: 14px; background: rgba(20, 32, 29, .92); color: #fff; font-size: 14px; line-height: 1.5; text-align: center; transition: opacity .3s; max-width: calc(100vw - 40px); }
 .li-toast.out { opacity: 0; }
 .ct-dlg .li-toast { bottom: auto; top: max(24px, env(safe-area-inset-top)); }
+.xhs-ic { flex: none; width: 40px; height: 40px; border-radius: 22%; }
 .xhs-tag { flex: none; padding: 3px 8px; border-radius: 6px; background: #FF2E4D; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: .5px; }
 /* 联系我们：手机上从底部滑出，电脑居中。上半客服；下半像搜索框写着 learn-inside，下面列出能搜到的平台和小二维码 */
 .ct-dlg { border: 0; padding: 0; width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; border-radius: 24px; background: var(--bg, #F6F4EE); color: var(--text, var(--ink, #18302A)); font-family: inherit; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
@@ -161,18 +175,19 @@
 .ct-search span { flex: none; display: grid; place-items: center; width: 62px; height: 42px; border-radius: 999px; background: #1D5C4D; }
 .ct-search svg { width: 21px; height: 21px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
 .ct-search:active { transform: scale(.985); }
-.ct-plats { display: flex; justify-content: center; gap: 32px; padding: 14px 0 0; }
-.ct-plat { display: flex; flex-direction: column; align-items: center; gap: 7px; }
-.ct-plat .ct-qr { width: 72px; height: 72px; padding: 4px; border-radius: 10px; }
+.ct-plats { display: flex; justify-content: center; gap: 40px; padding: 16px 0 2px; }
+.ct-plat { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ct-plat .ct-qr { width: 76px; height: 76px; padding: 3px; border-radius: 12px; }
 .ct-pn { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; white-space: nowrap; }
-.ct-pn img { width: 24px; height: 24px; border-radius: 6px; object-fit: contain; }
+.ct-pn img { width: 22px; height: 22px; object-fit: contain; }
 .ct-pn i { width: 8px; height: 8px; border-radius: 50%; background: #07C160; }
 .ct-xhs .ct-pn i { background: #FF2E4D; }
-.ct-qr { width: 92px; height: 92px; flex: none; padding: 5px; box-sizing: border-box; border-radius: 12px; background: #fff; border: 1px solid var(--border, var(--line, #E8E3D8)); display: grid; place-items: center; }
+.ct-qr { position: relative; width: 92px; height: 92px; flex: none; padding: 4px; box-sizing: border-box; border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(24,48,42,.06), 0 4px 14px rgba(24,48,42,.09); display: grid; place-items: center; }
+.ct-qr .ct-qic { position: absolute; left: 50%; top: 50%; width: 24%; height: 24%; transform: translate(-50%, -50%); border-radius: 22%; box-shadow: 0 0 0 2px #fff; }
 .ct-qr img, .ct-qr > svg { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ct-open { padding: 4px 12px; border-radius: 999px; border: 1.5px solid #FF2E4D66; color: #FF2E4D !important; font-size: 13px; font-weight: 700; text-decoration: none; }
 .ct-sup { display: flex; align-items: center; gap: 14px; margin: 18px 18px 14px; padding: 12px; border-radius: 16px; background: var(--surface, var(--card, #fff)); border: 1px solid var(--border, var(--line, #E8E3D8)); }
-.ct-sup .ct-qr { width: 78px; height: 78px; }
+.ct-sup .ct-qr { width: 78px; height: 78px; padding: 0; box-shadow: none; overflow: hidden; }
 .ct-st { display: grid; gap: 4px; justify-items: start; min-width: 0; }
 .ct-st small { color: var(--muted, var(--soft, #5E726C)); font-size: 13px; line-height: 1.45; }
 .ct-act { margin-top: 4px; padding: 7px 16px; border-radius: 999px; background: #1D5C4D; color: #fff !important; font-size: 13.5px; font-weight: 700; text-decoration: none; }

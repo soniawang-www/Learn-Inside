@@ -7,5 +7,5 @@ export const XHS = {
 };
 // 小红书、公众号都让大家搜这个词
 export const FIND = 'learn-inside';
-// 平台 logo：用平台官方提供的图片，放进 /assets/brand/ 后在这里填路径；空着时只显示文字标签
-export const LOGO = { wechat: '', xhs: '', mp: '' };
+// 平台图标（单色字形，染成平台色），在 /assets/brand/ 里；公众号空着就用微信的；都空着时显示一个平台色小圆点
+export const LOGO = { wechat: '/assets/brand/wechat.png', xhs: '/assets/brand/xhs.png', mp: '' };

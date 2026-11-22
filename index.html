@@ -183,6 +183,7 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .xhs-card>span:nth-child(2){display:grid;flex:1;min-width:0}.xhs-card b{font-size:1rem}.xhs-card small{color:var(--soft);font-size:.8rem}
 .xhs-card em{font-style:normal;color:var(--jade);font-size:.85rem;font-weight:700;white-space:nowrap}
 #today .today-card{margin:0}
+@media (min-width:1000px){.wrap:has(#today .tc-side:not(:empty)) #resume{display:none}}
 @media (min-width:1000px){#today{zoom:1.2}}
 .resume{display:grid;gap:0;padding:4px 16px;border-radius:16px;background:var(--card);border:1.5px solid var(--line)}
 .resume[hidden]{display:none}
@@ -203,8 +204,8 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 @media (prefers-reduced-motion:reduce){.home-stale .today-card::after,.home-stale.resume::after{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261122s">
-<link rel="modulepreload" href="/assets/pal.js?v=20261122s">
+<link rel="stylesheet" href="/assets/pal.css?v=20261122u">
+<link rel="modulepreload" href="/assets/pal.js?v=20261122u">
 <link rel="modulepreload" href="/assets/cast.js?v=20261122e">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
@@ -269,7 +270,7 @@ body{font-size:1rem}
     <a class="zone en" href="english/"><i>英</i><span><b>英语</b><small>KET · PET · 小托福 · ESDP 演讲 · 语法课</small></span><em>›</em></a>
   </nav>
 
-  <button class="xhs-card" type="button" data-xhs><span class="xhs-tag">小红书</span><span><b id="xhs-name">一天一个知识点 | learn-inside</b><small id="xhs-id">小红书搜索 learn-inside</small></span><em>关注 ›</em></button>
+  <button class="xhs-card" type="button" data-xhs><img class="xhs-ic" src="/assets/brand/xhs.png" alt="小红书"><span><b id="xhs-name">一天一个知识点 | learn-inside</b><small id="xhs-id">小红书搜索 learn-inside</small></span><em>关注 ›</em></button>
 
   <div class="foot">
     <span>learn-inside · 知里才知理</span>
@@ -292,7 +293,7 @@ document.body.classList.remove("net-wait");
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL, subjHead, XHS, FIND } from "/assets/pal.js?v=20261122s";
+import { todayCard, bindToday, START_URL, subjHead, XHS, FIND } from "/assets/pal.js?v=20261122u";
 { const n = document.getElementById("xhs-name"), d = document.getElementById("xhs-id"); if (n) n.innerHTML = XHS.name.split(" | ").map((x) => `<span style="white-space:nowrap">${x.replace(/[&<>"]/g, "")}</span>`).join(" | "); if (d) d.textContent = "小红书搜索 " + FIND; }
 // 真题专区：数学圆圆、语文墨墨、英语乐乐
 for (const [sel, s] of [[".zone:not(.zh):not(.en) i", "math"], [".zone.zh i", "chinese"], [".zone.en i", "english"]]) { const i = document.querySelector(sel); if (i) { i.innerHTML = subjHead(s); i.classList.add("pal"); } }
@@ -330,6 +331,7 @@ const mm=todo(pm&&pm.mistakes),mz=todo(mc&&mc.mistakes);
 const SN={math:"数学",chinese:"语文",english:"英语"};
 const rows=[o?`<a href="${link(o)}"><b>继续答题</b><span>${SN[o.subject]?SN[o.subject]+" · ":""}${esc(o.title||"上次的试卷")}</span><i>›</i></a>`:"",mm?`<a href="math/#/mistakes"><b>数学错题</b><span>${mm} 道待订正</span><i>›</i></a>`:"",mz?`<a href="chinese/#/mistakes"><b>语文错题</b><span>${mz} 道待订正</span><i>›</i></a>`:""].filter(Boolean);
 R.classList.remove("home-stale");if(rows.length){R.innerHTML=rows.join("");R.hidden=false}else{R.innerHTML="";R.hidden=true}
+{const sd=T.querySelector(".tc-side");if(sd)sd.innerHTML=rows.join("")} // 电脑上这几条排在打卡日历右边
 try{localStorage.setItem("li.homeCache",JSON.stringify({sid:st.id,day:new Date(Date.now()+8*3600e3).toISOString().slice(0,10),today:T.innerHTML,resume:R.hidden?"":R.innerHTML,th:T.offsetHeight,rh:R.hidden?0:R.offsetHeight}))}catch(e){}
 }}
 </script>
