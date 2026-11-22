@@ -61,3 +61,4 @@ html.side-mini .sn-fold svg { transform: rotate(180deg); }
 /* 答题时不显示导航 */
 body.exam-mode .side, body.exam-mode .sn-bar, body.exam-mode .sn-mask { display: none !important; }
 body.exam-mode #app:has(> .side) { display: block; }
+.sn-help + .sn-help { margin-top: -12px; } /* 和上面的导航一样紧 */

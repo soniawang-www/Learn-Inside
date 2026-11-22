@@ -112,6 +112,26 @@ addEventListener('appinstalled', () => pev('a2hs_new', { once: true }));
 if (INAPP) pev('inapp_seen');
 const inappOff = () => Date.now() - Number(LS.get('li.inappOff') || 0) < 7 * 86400e3; // 点了 ✕ 一周内不再提
 
+// 小红书：账号靠名字搜，点一下把名字复制好
+export const XHS_NAME = 'learn-inside';
+async function copyText(s) {
+  try { await navigator.clipboard.writeText(s); return true; } catch {}
+  try { const ta = document.createElement('textarea'); ta.value = s; ta.style.cssText = 'position:fixed;opacity:0'; document.body.append(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch { return false; }
+}
+function toast(html) {
+  document.querySelector('.li-toast')?.remove();
+  const t = document.createElement('div'); t.className = 'li-toast'; t.innerHTML = html; document.body.append(t);
+  setTimeout(() => t.classList.add('out'), 2600); setTimeout(() => t.remove(), 3000);
+}
+if (!window.__liXhs) {
+  window.__liXhs = true;
+  document.addEventListener('click', async (e) => {
+    if (!e.target.closest('[data-xhs]')) return;
+    e.preventDefault(); pev('xhs_copy');
+    toast((await copyText(XHS_NAME)) ? `已复制「${XHS_NAME}」<br>打开小红书搜索就能找到` : `打开小红书，搜「${XHS_NAME}」`);
+  });
+}
+
 /** 教他点右上角换到浏览器：游客先拿一把一次性钥匙放进地址，浏览器打开后接上原来的记录 */
 export async function openInBrowserGuide({ token } = {}) {
   pev('inapp_tap');

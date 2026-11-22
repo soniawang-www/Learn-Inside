@@ -205,7 +205,7 @@ function buildPages(groups, head) {
     const pg = document.createElement('div');
     pg.className = 'lp-page';
     const left = head.qr ? `<div class="lp-qr">${head.qr}<div><b>${esc(head.qrText || '扫码回到网站')}</b><span>${esc(head.foot)}</span></div></div>` : `<span>${esc(head.foot)}</span>`;
-    pg.innerHTML = `${i === 0 ? head.first : head.run}<div class="lp-sheet"></div><div class="lp-foot">${left}<span>第 ${i + 1} 页 / 共 ${n} 页</span></div>`;
+    pg.innerHTML = `${i === 0 ? head.first : head.run}<div class="lp-sheet"></div><div class="lp-foot">${left}<span class="lp-xhs">小红书搜「learn-inside」· 每天一个知识点</span><span>第 ${i + 1} 页 / 共 ${n} 页</span></div>`;
     const sheet = pg.querySelector('.lp-sheet');
     g.forEach((node) => sheet.appendChild(node));
     return pg;

@@ -1,12 +1,12 @@
-import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122g';
+import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122h';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { SIMS } from './sims.js';
-import { sideNav } from '/assets/sidenav.js?v=20261121a';
+import { sideNav } from '/assets/sidenav.js?v=20261122h';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
-import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261117a';
+import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261122h';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261116s';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;

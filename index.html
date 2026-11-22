@@ -179,6 +179,9 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 .zone em{font-style:normal;color:var(--soft);font-size:1.3rem}
 @media (hover:hover){.zone:hover{border-color:var(--jade)}}
 .foot-r{display:flex;gap:14px}
+.xhs-card{display:flex;align-items:center;gap:12px;width:100%%;margin:4px 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--card);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.xhs-card>span:nth-child(2){display:grid;flex:1;min-width:0}.xhs-card b{font-size:1rem}.xhs-card small{color:var(--soft);font-size:.8rem}
+.xhs-card em{font-style:normal;color:var(--jade);font-size:.85rem;font-weight:700;white-space:nowrap}
 #today .today-card{margin:0}
 @media (min-width:1000px){#today{zoom:1.2}}
 .resume{display:grid;gap:0;padding:4px 16px;border-radius:16px;background:var(--card);border:1.5px solid var(--line)}
@@ -200,8 +203,8 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 @media (prefers-reduced-motion:reduce){.home-stale .today-card::after,.home-stale.resume::after{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261122g">
-<link rel="modulepreload" href="/assets/pal.js?v=20261122g">
+<link rel="stylesheet" href="/assets/pal.css?v=20261122h">
+<link rel="modulepreload" href="/assets/pal.js?v=20261122h">
 <link rel="modulepreload" href="/assets/cast.js?v=20261122e">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
@@ -266,6 +269,8 @@ body{font-size:1rem}
     <a class="zone en" href="english/"><i>英</i><span><b>英语</b><small>KET · PET · 小托福 · ESDP 演讲 · 语法课</small></span><em>›</em></a>
   </nav>
 
+  <button class="xhs-card" type="button" data-xhs><span class="xhs-tag">小红书</span><span><b>搜「learn-inside」</b><small>每天一个知识点</small></span><em>复制名字</em></button>
+
   <div class="foot">
     <span>learn-inside · 知里才知理</span>
     <span class="foot-r"><button class="theme" id="sup">联系客服</button><button class="theme" id="theme">切换深色 / 浅色</button></span>
@@ -296,7 +301,7 @@ $("sup").onclick=async()=>{
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL, subjHead } from "/assets/pal.js?v=20261122g";
+import { todayCard, bindToday, START_URL, subjHead } from "/assets/pal.js?v=20261122h";
 // 真题专区：数学圆圆、语文墨墨、英语乐乐
 for (const [sel, s] of [[".zone:not(.zh):not(.en) i", "math"], [".zone.zh i", "chinese"], [".zone.en i", "english"]]) { const i = document.querySelector(sel); if (i) { i.innerHTML = subjHead(s); i.classList.add("pal"); } }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

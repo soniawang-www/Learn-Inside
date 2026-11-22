@@ -28,6 +28,7 @@ export const CLIENT_EVENTS = {
   a2hs_new: '新放到桌面（这台设备第一次从图标打开）',
   inapp_seen: '在微信 / 小红书里打开',
   inapp_tap: '点了「去浏览器打开」',
+  xhs_copy: '复制小红书账号名',
 };
 // 漏斗里依次显示的事件（服务器端的也在这里起名字）
 export const EV_NAMES = {

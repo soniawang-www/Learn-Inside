@@ -6,14 +6,14 @@
 //       #/write/:题目 id（模拟写作）  #/draw/:题库?s=轮次（抽一题）  #/phrases（句型和名言）  #/join（登录 / 注册，在全站账号页）
 // 账号全站通用：和数学、语文共用 li.token / li.student。接口在 /api/english/（worker/english.js）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261121a';
+import { sideNav } from '/assets/sidenav.js?v=20261122h';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
-import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261117a';
-import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261117a';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122e';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122e';
-import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122g';
+import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122h';
+import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261122h';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122h';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122h';
+import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122h';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 

@@ -9,6 +9,7 @@ const P = {
   chinese: '<path d="M5 6h14M12 3v18M7 10l-2 5M17 10l2 5M8 18h8"/>',
   english: '<path d="M3.5 18 8 6l4.5 12M5.2 14h5.6"/><circle cx="17.5" cy="15.5" r="2.6"/><path d="M20.1 12.5V18"/>',
   account: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.2-3.6 4-5 7-5s5.8 1.4 7 5"/>',
+  note: '<rect x="5" y="4" width="14" height="16" rx="3"/><path d="M12 16.5s-3.5-2.1-3.5-4.4a1.8 1.8 0 0 1 3.5-.7 1.8 1.8 0 0 1 3.5.7c0 2.3-3.5 4.4-3.5 4.4z"/>',
   chat: '<path d="M5 6.5h14v9H10l-4 3.5v-3.5H5z"/><path d="M9 11h6"/>',
   exam: '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/>',
   graph: '<circle cx="6" cy="7" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="12" cy="18" r="2"/><path d="M8 7h8M7 9l4 7M17 9l-4 7"/>',
@@ -40,6 +41,7 @@ export function sideNav({ section = 'math', sub = [], who = null } = {}) {
       <button class="sn-fold" type="button" data-sidefold aria-label="收起导航" title="收起 / 展开">${ic('fold')}</button>
       <button class="sn-close" type="button" data-sideclose aria-label="关闭导航">${ic('close')}</button></div>
     <nav class="sn-nav">${nav}</nav>
+    <a class="sn-help sn-xhs" href="javascript:" data-xhs title="小红书搜「learn-inside」">${ic('note')}<span>小红书 @learn-inside</span></a>
     <a class="sn-help" href="javascript:" data-support title="联系客服">${ic('chat')}<span>联系客服</span></a>
     <a class="sn-who" href="/account/" title="${name}"><i class="sn-av">${esc((who?.name || '我').slice(0, 1))}</i><span><b>${name}</b>${who?.note ? `<small>${esc(who.note)}</small>` : ''}</span></a>
   </aside>
