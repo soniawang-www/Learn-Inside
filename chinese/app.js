@@ -3,12 +3,12 @@
 //       #/mistakes（错题本）  #/join（登录 / 注册）  #/beishi（每日背诗）  #/poem/:idx（背一篇：四步）
 // 账号全站通用：和数学板块共用 li.token / li.student。接口在 /api/（全站）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261122k';
+import { sideNav } from '/assets/sidenav.js?v=20261122l';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
-import { PRINT_ICON } from '/assets/print/kit.js?v=20261122h';
-import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261122h';
-import { todayCard, bindToday, START_URL, STAR, mascot, friend, FRIENDS, subjHead, scorePal, startPal } from '/assets/pal.js?v=20261122h';
+import { PRINT_ICON } from '/assets/print/kit.js?v=20261122l';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261122l';
+import { todayCard, bindToday, START_URL, STAR, mascot, friend, FRIENDS, subjHead, scorePal, startPal } from '/assets/pal.js?v=20261122l';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 const FAMILY = 'hanzi';
@@ -78,18 +78,7 @@ function topnav(active = '') {
   const who = me ? { name: me.guest ? '游客 · 注册' : auth.student?.nickname || '账号', note: me.guest ? '注册送 10 次互动解析' : '' } : null;
   return sideNav({ section: 'chinese', sub: [['#/beishi', '每日背诗', 'beishi', active === 'beishi'], ['#/cards', '诗人卡和常识卡', 'cards', active === 'cards'], ['#/mistakes', '错题本', 'mistakes', active === 'mistakes']], who });
 }
-// 联系客服（和数学、首页同一个设置）
-let supportCache = null;
-async function showSupport() {
-  try { supportCache ||= await (await fetch('/api/support')).json(); } catch { supportCache = {}; }
-  const s = supportCache, inWx = /MicroMessenger/i.test(navigator.userAgent);
-  const link = /^https:\/\//.test(s.url || '') ? s.url : '';
-  modal(`<h2>联系客服</h2>${link && inWx ? `<p><a class="btn primary block" href="${esc(link)}">打开微信客服</a></p>` : ''}
-    ${s.qr && !(link && inWx) ? `<p class="center"><img src="${esc(s.qr)}" alt="微信客服二维码" style="width:220px;max-width:100%;border-radius:12px;background:#fff;padding:8px"></p><p class="center small muted">微信扫一扫，直接和客服聊</p>` : ''}
-    ${s.text ? `<p class="muted">${esc(s.text)}</p>` : s.qr || link ? '' : '<p class="muted">客服联系方式还没有设置。</p>'}
-    <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
-}
-document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
+// 联系我们：共用 pal.js 里的 openContact（点 [data-support] 自动打开）
 // 返回：统一成带左箭头的小按钮（.back）
 const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 const page = (html, active) => { document.body.className = ''; $app.innerHTML = `${topnav(active)}<main class="page wide">${html}</main>`; window.scrollTo(0, 0); };

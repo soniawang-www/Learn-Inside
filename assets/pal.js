@@ -3,6 +3,9 @@ export const WEEK = '一二三四五六日';
 // 吉祥物「狸狸」和学科小伙伴在 cast.js；这里转出去，各页面照旧从 pal.js 引
 // 形象怎么放看布局：打卡卡片紧挨着的地方不再放第二个大形象；列表里的小头像、成绩页的小伙伴可以有
 import { mascot, friend, FRIENDS, castRow } from './cast.js?v=20261122e';
+import { XHS } from './brand.js?v=20261122a';
+import qrcode from './print/qrcode.js?v=20261111';
+export { XHS };
 export { mascot, friend, FRIENDS, castRow };
 // 科目小头像：数学圆圆、语文墨墨、英语乐乐
 export const subjHead = (subject) => friend(FRIENDS[subject], 'happy', { head: true });
@@ -112,8 +115,9 @@ addEventListener('appinstalled', () => pev('a2hs_new', { once: true }));
 if (INAPP) pev('inapp_seen');
 const inappOff = () => Date.now() - Number(LS.get('li.inappOff') || 0) < 7 * 86400e3; // 点了 ✕ 一周内不再提
 
-// 小红书：账号靠名字搜，点一下把名字复制好
-export const XHS_NAME = 'learn-inside';
+// ───────── 联系我们：客服微信、小红书、公众号（有了才显示）─────────
+const IN_WX = /MicroMessenger/i.test(navigator.userAgent);
+const escH = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function copyText(s) {
   try { await navigator.clipboard.writeText(s); return true; } catch {}
   try { const ta = document.createElement('textarea'); ta.value = s; ta.style.cssText = 'position:fixed;opacity:0'; document.body.append(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch { return false; }
@@ -123,12 +127,40 @@ function toast(html) {
   const t = document.createElement('div'); t.className = 'li-toast'; t.innerHTML = html; document.body.append(t);
   setTimeout(() => t.classList.add('out'), 2600); setTimeout(() => t.remove(), 3000);
 }
-if (!window.__liXhs) {
-  window.__liXhs = true;
-  document.addEventListener('click', async (e) => {
-    if (!e.target.closest('[data-xhs]')) return;
-    e.preventDefault(); pev('xhs_copy');
-    toast((await copyText(XHS_NAME)) ? `已复制「${XHS_NAME}」<br>打开小红书搜索就能找到` : `打开小红书，搜「${XHS_NAME}」`);
+const qrOf = (url) => { try { const q = qrcode(0, 'M'); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 3, margin: 2, scalable: true }); } catch { return ''; } };
+let contactCache = null;
+/** 联系我们。只要客服时（比如「把转发截图发给客服」）传 only: 'support' */
+export async function openContact({ title = '联系我们', only = '' } = {}) {
+  try { contactCache ||= await (await fetch('/api/support')).json(); } catch { contactCache = {}; }
+  const s = contactCache, link = /^https:\/\//.test(s.url || '') ? s.url : '';
+  const qrImg = (src, alt) => `<img src="${escH(src)}" alt="${alt}">`;
+  const row = (cls, qr, body) => `<div class="ct-row ${cls}"><div class="ct-qr">${qr}</div><div class="ct-body">${body}</div></div>`;
+  const support = row('ct-sup', s.qr && !(link && IN_WX) ? qrImg(s.qr, '客服微信二维码') : `<span class="ct-ic">${mascot('happy', { head: true })}</span>`,
+    `<b>客服微信</b>${link && IN_WX ? `<a class="ct-btn" href="${escH(link)}">打开微信客服</a>` : '<small>微信扫一扫，直接和客服聊</small>'}${s.text ? `<small>${escH(s.text)}</small>` : ''}`);
+  const xhs = row('ct-xhs', qrOf(XHS.link),
+    `<b><i class="xhs-tag">小红书</i>${escH(XHS.name)}</b><small>小红书号 ${XHS.id} <a href="javascript:" data-copy="${XHS.id}">复制</a></small>
+     <small class="ct-how">小红书「扫一扫」扫码关注</small><a class="ct-btn ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书主页</a>`);
+  const mp = s.mp ? row('ct-mp', s.mp.qr ? qrImg(s.mp.qr, '公众号二维码') : '',
+    `<b><i class="mp-tag">公众号</i>${escH(s.mp.name)}</b>${IN_WX && s.mp.qr ? '<small>长按二维码关注</small>' : `<small>微信搜「${escH(s.mp.name)}」${s.mp.name ? ` <a href="javascript:" data-copy="${escH(s.mp.name)}">复制</a>` : ''}</small>`}`) : '';
+  const dlg = document.createElement('dialog'); dlg.className = 'ct-dlg';
+  dlg.innerHTML = `<div class="ct-head"><h2>${escH(title)}</h2><button class="ct-x" aria-label="关闭">×</button></div>${only === 'support' ? support : support + xhs + mp}`;
+  dlg.querySelector('.ct-x').onclick = () => dlg.close();
+  dlg.addEventListener('click', async (e) => {
+    if (e.target === dlg) return dlg.close();
+    const c = e.target.closest('[data-copy]'); if (!c) return;
+    e.preventDefault(); toast((await copyText(c.dataset.copy)) ? `已复制「${escH(c.dataset.copy)}」` : '没复制上，请手动记一下');
+  });
+  dlg.querySelector('.ct-open')?.addEventListener('click', () => pev('xhs_open'));
+  dlg.addEventListener('close', () => dlg.remove());
+  document.body.append(dlg); dlg.showModal(); pev('contact_open');
+}
+if (!window.__liContact) {
+  window.__liContact = true;
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-support], [data-xhs]'); if (!a) return;
+    e.preventDefault();
+    const t = a.dataset.support;
+    openContact(t ? { title: t, only: 'support' } : {});
   });
 }
 

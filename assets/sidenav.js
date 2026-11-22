@@ -41,8 +41,7 @@ export function sideNav({ section = 'math', sub = [], who = null } = {}) {
   ].join('');
   const more = `<details class="sn-more"${onPlan || onTeam ? ' open' : ''}><summary title="更多">${ic('dots')}<span>更多</span></summary>
       ${item('/math/#/plan', '备考计划', 'plan', onPlan)}${item('/math/#/team', '组队', 'team', onTeam)}
-      <a href="javascript:" data-xhs title="小红书搜「learn-inside」">${ic('note')}<span>小红书 @learn-inside</span></a>
-      <a href="javascript:" data-support title="联系客服">${ic('chat')}<span>联系客服</span></a></details>`;
+      <a href="javascript:" data-support title="联系我们：客服、小红书">${ic('chat')}<span>联系我们</span></a></details>`;
   const name = who?.name ? esc(who.name) : '登录 / 注册';
   return `<aside class="side" aria-label="导航">
     <div class="sn-top"><a class="sn-logo" href="/" title="learn-inside 首页">${LOGO}<span>learn-inside</span></a>

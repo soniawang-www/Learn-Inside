@@ -6,14 +6,14 @@
 //       #/write/:题目 id（模拟写作）  #/draw/:题库?s=轮次（抽一题）  #/phrases（句型和名言）  #/join（登录 / 注册，在全站账号页）
 // 账号全站通用：和数学、语文共用 li.token / li.student。接口在 /api/english/（worker/english.js）。
 
-import { sideNav } from '/assets/sidenav.js?v=20261122k';
+import { sideNav } from '/assets/sidenav.js?v=20261122l';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
-import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122h';
-import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261122h';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122h';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122h';
-import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122h';
+import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122l';
+import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261122l';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122l';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122l';
+import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122l';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
@@ -98,17 +98,7 @@ function topnav(active = '') {
   const who = me ? { name: me.guest ? '游客 · 注册' : auth.student?.nickname || '账号', note: me.guest ? '注册送 10 次' : '' } : null;
   return sideNav({ section: 'english', sub: [['#/ket', 'KET', 'exam', active === 'ket'], ['#/pet', 'PET', 'exam', active === 'pet'], ['#/tj', '小托福', 'exam', active === 'tj'], ['#/phrases', '句型积累', 'exam', active === 'phrases'], ['#/grammar', '语法课', 'exam', active === 'grammar']], who });
 }
-let supportCache = null;
-async function showSupport() {
-  try { supportCache ||= await (await fetch('/api/support')).json(); } catch { supportCache = {}; }
-  const s = supportCache;
-  const link = /^https:\/\//.test(s.url || '') ? s.url : '';
-  modal(`<h2>联系客服</h2>${link && IN_WX ? `<p><a class="btn primary block" href="${esc(link)}">打开微信客服</a></p>` : ''}
-    ${s.qr && !(link && IN_WX) ? `<p class="center"><img src="${esc(s.qr)}" alt="微信客服二维码" style="width:220px;max-width:100%;border-radius:12px;background:#fff;padding:8px"></p><p class="center small muted">微信扫一扫，直接和客服聊</p>` : ''}
-    ${s.text ? `<p class="muted">${esc(s.text)}</p>` : s.qr || link ? '' : '<p class="muted">客服联系方式还没有设置。</p>'}
-    <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div>`);
-}
-document.addEventListener('click', (e) => { if (e.target.closest('[data-support]')) { e.preventDefault(); showSupport(); } });
+// 联系我们：共用 pal.js 里的 openContact（点 [data-support] 自动打开）
 let cleanup = null; // 离开页面时停掉计时器、麦克风
 // 返回：统一成带左箭头的小按钮（.back）
 const BACK_IC = '<svg class="bk-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';

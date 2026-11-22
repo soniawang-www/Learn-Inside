@@ -203,8 +203,8 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 @media (prefers-reduced-motion:reduce){.home-stale .today-card::after,.home-stale.resume::after{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261122h">
-<link rel="modulepreload" href="/assets/pal.js?v=20261122h">
+<link rel="stylesheet" href="/assets/pal.css?v=20261122l">
+<link rel="modulepreload" href="/assets/pal.js?v=20261122l">
 <link rel="modulepreload" href="/assets/cast.js?v=20261122e">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
@@ -269,11 +269,11 @@ body{font-size:1rem}
     <a class="zone en" href="english/"><i>英</i><span><b>英语</b><small>KET · PET · 小托福 · ESDP 演讲 · 语法课</small></span><em>›</em></a>
   </nav>
 
-  <button class="xhs-card" type="button" data-xhs><span class="xhs-tag">小红书</span><span><b>搜「learn-inside」</b><small>每天一个知识点</small></span><em>复制名字</em></button>
+  <button class="xhs-card" type="button" data-xhs><span class="xhs-tag">小红书</span><span><b id="xhs-name">一天一个知识点 | learn-inside</b><small id="xhs-id">小红书号 95981992924</small></span><em>关注 ›</em></button>
 
   <div class="foot">
     <span>learn-inside · 知里才知理</span>
-    <span class="foot-r"><button class="theme" id="sup">联系客服</button><button class="theme" id="theme">切换深色 / 浅色</button></span>
+    <span class="foot-r"><button class="theme" data-support>联系我们</button><button class="theme" id="theme">切换深色 / 浅色</button></span>
   </div>
 </div>
 
@@ -288,20 +288,12 @@ if(localStorage.getItem("li.noev")!=="true"){const d=new Date(Date.now()+8*3600e
 document.body.classList.remove("net-wait");
 /* 账号：已登录显示孩子昵称 */
 {try{const st=JSON.parse(localStorage.getItem("li.student")||"null");if(st&&st.nickname){const n=String(st.nickname);$("me").innerHTML=`<span class="av">${esc(n.slice(0,1))}</span>${esc(n)}`}}catch(e){}}
-/* 联系客服：后台上传的微信二维码 */
-$("sup").onclick=async()=>{
-  let s={qr:null,text:""};
-  if(/^https?:$/.test(location.protocol)){try{s=await (await fetch("/api/support")).json()}catch(e){}}
-  const qr=typeof s.qr==="string"&&/^(data:image\/|https:|\/math\/)/.test(s.qr)?s.qr:"";
-  const link=typeof s.url==="string"&&/^https:\/\//.test(s.url)?s.url:"",inWx=/MicroMessenger/i.test(navigator.userAgent);
-  const d=document.createElement("div");d.className="dlg";
-  d.innerHTML=`<div class="dlg-box" role="dialog" aria-label="联系客服"><h2>联系客服</h2>${link&&inWx?`<a class="btn go" href="${esc(link)}">打开微信客服</a>`:qr?`<img src="${esc(qr)}" alt="微信客服二维码"><p>微信扫一扫，直接和客服聊</p>`:""}${s.text?`<p>${esc(String(s.text))}</p>`:qr||link?"":"<p>客服联系方式还没有设置。</p>"}<button class="btn go">关闭</button></div>`;
-  d.onclick=e=>{if(e.target===d||e.target.closest(".btn"))d.remove()};document.body.appendChild(d);
-};
+/* 联系我们：pal.js 里的 openContact（点 [data-support] / [data-xhs] 自动打开） */
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL, subjHead } from "/assets/pal.js?v=20261122h";
+import { todayCard, bindToday, START_URL, subjHead, XHS } from "/assets/pal.js?v=20261122l";
+{ const n = document.getElementById("xhs-name"), d = document.getElementById("xhs-id"); if (n) n.innerHTML = XHS.name.split(" | ").map((x) => `<span style="white-space:nowrap">${x.replace(/[&<>"]/g, "")}</span>`).join(" | "); if (d) d.textContent = "小红书号 " + XHS.id; }
 // 真题专区：数学圆圆、语文墨墨、英语乐乐
 for (const [sel, s] of [[".zone:not(.zh):not(.en) i", "math"], [".zone.zh i", "chinese"], [".zone.en i", "english"]]) { const i = document.querySelector(sel); if (i) { i.innerHTML = subjHead(s); i.classList.add("pal"); } }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

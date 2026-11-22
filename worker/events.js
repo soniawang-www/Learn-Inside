@@ -29,6 +29,8 @@ export const CLIENT_EVENTS = {
   inapp_seen: '在微信 / 小红书里打开',
   inapp_tap: '点了「去浏览器打开」',
   xhs_copy: '复制小红书账号名',
+  contact_open: '打开「联系我们」',
+  xhs_open: '点「打开小红书主页」',
 };
 // 漏斗里依次显示的事件（服务器端的也在这里起名字）
 export const EV_NAMES = {

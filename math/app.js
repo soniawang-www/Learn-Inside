@@ -1,12 +1,12 @@
-import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122h';
+import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122l';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
 import { SIMS } from './sims.js';
-import { sideNav } from '/assets/sidenav.js?v=20261122k';
+import { sideNav } from '/assets/sidenav.js?v=20261122l';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { mountGraph } from './graph.js';
-import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261122h';
+import { PRINT_ICON, openPrint } from '/assets/print/kit.js?v=20261122l';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { PRINT_CSS, sheetBlocks, embeddedKatexCss } from './print.js?v=20261116s';
 const printLinkUrl = (token) => `${location.origin}/math/?print=${encodeURIComponent(token)}`;
@@ -183,22 +183,9 @@ const ICON = {
 const icon = (k, size = 20) => `<svg class="ic ic-${k}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
 let lastMe = null; // 侧栏显示会员 / 剩余次数
 // 客服：管理后台上传的微信二维码
-let supportCache = null;
 // 在微信里打开：客服直接点链接进聊天；图片不能下载只能长按；支付宝付款要换到浏览器
 const IN_WX = /MicroMessenger/i.test(navigator.userAgent);
-async function showSupport(title = '联系客服') {
-  try { supportCache ||= await (await fetch('/api/support')).json(); } catch { supportCache = { qr: null, text: '' }; }
-  const s = supportCache;
-  const inWx = IN_WX;
-  const link = /^https:\/\//.test(s.url || '') ? s.url : '';
-  modal(`<div class="support"><h2>${esc(title)}</h2>
-    ${link && inWx ? `<a class="btn primary block" href="${esc(link)}">打开微信客服</a>` : ''}
-    ${s.qr && !(link && inWx) ? `<img class="support-qr" src="${esc(s.qr)}" alt="微信客服二维码"><p>微信扫一扫，直接和客服聊</p>` : ''}
-    ${link && !inWx ? `<p class="small"><a href="${esc(link)}" target="_blank" rel="noopener">在微信里打开客服链接</a></p>` : ''}
-    ${s.text ? `<p class="muted">${esc(s.text)}</p>` : s.qr || link ? '' : '<p class="muted">客服联系方式还没有设置。</p>'}
-    <div class="actions" style="justify-content:center"><button class="btn" data-close>关闭</button></div></div>`);
-}
-document.addEventListener('click', (e) => { const a = e.target.closest('[data-support]'); if (a) { e.preventDefault(); showSupport(a.dataset.support || '联系客服'); } });
+// 联系我们：共用 pal.js 里的 openContact（点 [data-support] 自动打开）
 function topnav() {
   const s = auth.student;
   if (!s) return sideNav({ section: SECTION, sub: [], who: null });
@@ -359,7 +346,7 @@ function renderJoin() {
     const i2 = document.querySelector('#join [name=password2]'); if (i2) i2.type = i.type;
   };
   if (joinPrefill) { const jp = joinPrefill; joinPrefill = null; document.querySelector('#join [name=phone]').value = jp.phone; document.getElementById('err').textContent = jp.msg; document.querySelector('#join [name=password]').focus(); }
-  document.getElementById('forgot')?.addEventListener('click', () => showSupport('忘记密码？加客服帮你重置'));
+  document.getElementById('forgot')?.addEventListener('click', () => openContact({ title: '忘记密码？加客服帮你重置', only: 'support' }));
   const err = document.getElementById('err');
   document.getElementById('join').onsubmit = async (e) => {
     e.preventDefault();
