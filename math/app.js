@@ -1,4 +1,4 @@
-import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122e';
+import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122g';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';
@@ -688,9 +688,7 @@ function examGrid(f, allExams, fid, limit = 0) {
 // 打卡完成：暖色光芒转动、火苗长大跳动、火星往上飘、天数翻页 +1、今天的格子点亮带波纹、两侧礼花炮 + 中间彩纸、统计卡依次升起
 const CELE_LINE = (k) => k >= 100 ? '百日达成！' : k >= 30 ? '一个月不间断！' : k >= 14 ? '两周不间断！' : k >= 7 ? '整整一周！' : k >= 3 ? '越来越稳了！' : k === 1 ? '好的开始！' : '继续保持！';
 // 回来的路：每日提醒（手机日历）和放到桌面。网页没有推送，这是让孩子第二天回来的主要办法
-const INAPP = /MicroMessenger|XiaoHongShu|xhsdiscover|Weibo|QQ\//i.test(navigator.userAgent); // 微信、小红书等 App 里打开的网页
 const IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 let bip = null; addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); bip = e; }); // 安卓 Chrome：能直接弹「添加到桌面」
 const RM_TIMES = ['0730', '1700', '1930', '2030'];
 const hhmm = (t) => `${t.slice(0, 2)}:${t.slice(2)}`;
@@ -703,7 +701,7 @@ async function addReminder(t) {
 function remindBlock(t0) {
   return `<div class="cele-hook" id="rm"><b>明天几点提醒？</b>
     <div class="rm-times">${RM_TIMES.map((t) => `<button type="button" data-rt="${t}" aria-pressed="${t === t0}">${hhmm(t)}</button>`).join('')}</div>
-    <button class="btn primary block" id="rm-add">加到手机日历</button>${INAPP ? '<small>加不上的话：点右上角 ···，选「在浏览器打开」</small>' : ''}
+    <button class="btn primary block" id="rm-add">加到手机日历</button>
     <button class="cele-skip" id="rm-no">不用了</button></div>`;
 }
 function a2hsBlock() {
@@ -711,7 +709,13 @@ function a2hsBlock() {
     : IOS ? '<small>点 Safari 底部的「分享」，选「添加到主屏幕」</small>' : '<small>点浏览器菜单，选「添加到主屏幕」</small>';
   return `<div class="cele-hook" id="a2hs"><b>放到手机桌面，每天一点就进来</b>${how}<button class="cele-skip" id="a2hs-no">知道了</button></div>`;
 }
+// 在微信 / 小红书里：日历加不上、也放不到桌面，先请他换到浏览器
+function inappBlock() {
+  return `<div class="cele-hook" id="ib"><b>去浏览器打开，能设每日提醒、放到桌面</b><button class="btn primary block" id="ib-go">怎么打开</button><button class="cele-skip" id="ib-no">不用了</button></div>`;
+}
 function bindHooks(root) {
+  root.querySelector('#ib-go')?.addEventListener('click', () => openInBrowserGuide({ token: auth.token }));
+  root.querySelector('#ib-no')?.addEventListener('click', () => { store.set('li.inappOff', Date.now()); root.querySelector('#ib').remove(); });
   let t = RM_TIMES[2];
   root.querySelectorAll('[data-rt]').forEach((b) => (b.onclick = () => { t = b.dataset.rt; root.querySelectorAll('[data-rt]').forEach((x) => x.setAttribute('aria-pressed', x === b)); }));
   root.querySelector('#rm-add')?.addEventListener('click', async () => { await addReminder(t); root.querySelector('#rm').innerHTML = `<b>每天 ${hhmm(t)} 提醒 ✓</b><small>日历里没出现的话，再点一次「加到手机日历」</small>`; });
@@ -721,6 +725,7 @@ function bindHooks(root) {
 }
 // 完成页只出一个：还没设提醒先问提醒；第 2 次打卡起（不是从桌面打开、不在 App 里）请他放到桌面
 function hookFor(p) {
+  if (INAPP) return Date.now() - Number(store.get('li.inappOff') || 0) < 7 * 86400e3 ? '' : inappBlock();
   if (!store.get('li.remind')) { ev('remind_prompt'); return remindBlock(RM_TIMES[2]); }
   if (!STANDALONE && !INAPP && (p.total || 0) >= 2 && !store.get('li.a2hsOff')) { ev('a2hs_prompt'); return a2hsBlock(); }
   return '';

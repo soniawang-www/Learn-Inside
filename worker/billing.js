@@ -230,13 +230,23 @@ export function registerBilling({ route, json, HttpError, body, requireAccount, 
     if (!key) { key = (uid() + uid()).replace(/-/g, '').slice(0, 32); await env.DB.prepare('UPDATE account SET resume_key = ? WHERE id = ?').bind(key, acc.id).run(); }
     return json({ key });
   });
+  // 在微信 / 小红书里点「去浏览器打开」：给一把一次性钥匙，带到浏览器里接上游客的记录
+  route('POST', '/api/account/handoff', async (req, env) => {
+    const acc = await requireAccount(req, env);
+    if (!acc.guest) return json({ key: null });
+    const key = (uid() + uid()).replace(/-/g, '').slice(0, 32);
+    await env.DB.prepare('UPDATE account SET handoff_key = ?, handoff_exp = ? WHERE id = ?').bind(key, Date.now() + 15 * 60e3, acc.id).run();
+    return json({ key });
+  });
   route('POST', '/api/auth/resume', async (req, env) => {
     const { key = '' } = await body(req).catch(() => ({}));
     if (!/^[0-9a-f]{32}$/.test(key)) throw new HttpError(400, '链接不对');
-    const acc = await env.DB.prepare('SELECT id, token, guest FROM account WHERE resume_key = ?').bind(key).first();
+    const acc = await env.DB.prepare('SELECT id, token, guest, resume_key FROM account WHERE resume_key = ? OR (handoff_key = ? AND handoff_exp > ?)').bind(key, key, Date.now()).first();
     if (!acc || !acc.guest) throw new HttpError(404, '这个提醒链接已经不能用了，请登录');
+    const handoff = acc.resume_key !== key;
+    if (handoff) await env.DB.prepare('UPDATE account SET handoff_key = NULL, handoff_exp = NULL WHERE id = ?').bind(acc.id).run();
     const student = await env.DB.prepare('SELECT id, nickname FROM student WHERE account_id = ? ORDER BY created_at LIMIT 1').bind(acc.id).first();
-    await bump(env, 'resume_link');
+    await bump(env, handoff ? 'handoff_ok' : 'resume_link');
     return json({ token: acc.token, student, guest: true });
   });
 

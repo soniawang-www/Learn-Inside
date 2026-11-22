@@ -4,7 +4,7 @@
 // 材料在 exam.sections[0].groups，一组是一个 Part；题目 extra.group 指回所在的组
 // 题型：选择（kind choice）、填空（kind fill，没有选项）、写作（kind self，交卷后按官方评分项自评）
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261117a';
-import { scorePal } from '/assets/pal.js?v=20261122e';
+import { scorePal } from '/assets/pal.js?v=20261122g';
 import { playerHTML, bindPlayers } from './player.js?v=20261114a';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 let X; // app.js 传进来的工具：api、page、esc、enc、modal、store、auth、BACK_IC、$app、setCleanup

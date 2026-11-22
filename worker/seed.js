@@ -129,6 +129,9 @@ const MIGRATIONS = [
   'ALTER TABLE exam_session ADD COLUMN draft TEXT',
   // 逐题练 / 打卡里空着没做的题记成「未作」（skipped = 1）：不算错、不进错题本、不影响掌握度；限时模考、纸笔卷空着照样算错
   'ALTER TABLE attempt_event ADD COLUMN skipped INTEGER',
+  // 从微信 / 小红书里换到浏览器：一次性钥匙，15 分钟内用一次
+  'ALTER TABLE account ADD COLUMN handoff_key TEXT',
+  'ALTER TABLE account ADD COLUMN handoff_exp INTEGER',
   'CREATE INDEX IF NOT EXISTS idx_ae_unclassified ON attempt_event(id) WHERE skipped IS NULL', // 只用来让下面的补数据每次几乎不读行
 ];
 // 每次都执行的数据修正（幂等）

@@ -25,6 +25,9 @@ export const CLIENT_EVENTS = {
   remind_prompt: '完成页看到「明天几点提醒」',
   a2hs_prompt: '看到「放到手机桌面」',
   a2hs_done: '从桌面图标打开',
+  a2hs_new: '新放到桌面（这台设备第一次从图标打开）',
+  inapp_seen: '在微信 / 小红书里打开',
+  inapp_tap: '点了「去浏览器打开」',
 };
 // 漏斗里依次显示的事件（服务器端的也在这里起名字）
 export const EV_NAMES = {
@@ -45,6 +48,7 @@ export const EV_NAMES = {
   extra_start: '打完卡再练一组',
   points_redeem: '积分换互动解析',
   resume_link: '从提醒链接接上游客记录',
+  handoff_ok: '换到浏览器后接上了记录',
 };
 
 const day = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); // 北京时间

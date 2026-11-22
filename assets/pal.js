@@ -95,8 +95,53 @@ export async function pointsSheet({ sid, token, onDone } = {}) {
   document.body.append(dlg); dlg.showModal();
 }
 
+// ───────── 回来的路：从桌面图标打开、在微信 / 小红书里打开 ─────────
+const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const bjDay = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+/** 计一次数（同一台设备同一天只计一次；后台统计页里设成「自己的设备」的不计） */
+export function pev(e, { once = false } = {}) {
+  if (LS.get('li.noev') === 'true') return;
+  const k = 'li.ev.' + e, v = once ? 'y' : bjDay();
+  if (LS.get(k) === v) return; LS.set(k, v);
+  fetch('/api/ev', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ e }), keepalive: true }).catch(() => {});
+}
+export const INAPP = /MicroMessenger|XiaoHongShu|xhsdiscover|Weibo|QQ\//i.test(navigator.userAgent); // 微信、小红书等 App 里打开的网页
+export const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || /[?&]src=home\b/.test(location.search);
+if (STANDALONE) { pev('a2hs_done'); pev('a2hs_new', { once: true }); } // 苹果没有「装好了」的通知，所以以第一次从图标打开为准
+addEventListener('appinstalled', () => pev('a2hs_new', { once: true }));
+if (INAPP) pev('inapp_seen');
+const inappOff = () => Date.now() - Number(LS.get('li.inappOff') || 0) < 7 * 86400e3; // 点了 ✕ 一周内不再提
+
+/** 教他点右上角换到浏览器：游客先拿一把一次性钥匙放进地址，浏览器打开后接上原来的记录 */
+export async function openInBrowserGuide({ token } = {}) {
+  pev('inapp_tap');
+  const back = location.href;
+  const ov = document.createElement('div'); ov.className = 'ib-ov';
+  ov.innerHTML = `<svg class="ib-arrow" viewBox="0 0 90 110" aria-hidden="true"><path d="M14 104C20 60 44 30 76 14" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/><path d="M58 10L80 10L76 32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="ib-txt"><b>点右上角 ···</b><b>选「在浏览器打开」</b><span>打开后能放到桌面、设每日提醒</span></div>
+    <button class="ib-ok">知道了</button>`;
+  const close = () => { ov.remove(); if (location.href !== back) history.replaceState(null, '', back); };
+  ov.addEventListener('click', close);
+  document.body.append(ov);
+  if (token) try {
+    const r = await fetch('/api/account/handoff', { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+    const j = await r.json(); if (r.ok && j.key && ov.isConnected) history.replaceState(null, '', `/?r=${j.key}`);
+  } catch {}
+}
+/** 在 App 里打开时，打卡卡片上面一条：去浏览器打开 */
+function inAppBar(root, token) {
+  if (!INAPP || inappOff() || document.querySelector('.ib-bar')) return;
+  const card = root.querySelector('.today-card'); if (!card) return;
+  const bar = document.createElement('div'); bar.className = 'ib-bar';
+  bar.innerHTML = `<button class="ib-go"><svg class="ib-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>去浏览器打开</b><small>能放到桌面、每天提醒</small></span><i>›</i></button><button class="ib-x" aria-label="不再提示">×</button>`;
+  bar.querySelector('.ib-go').onclick = () => openInBrowserGuide({ token });
+  bar.querySelector('.ib-x').onclick = () => { LS.set('li.inappOff', String(Date.now())); bar.remove(); };
+  (root.id === 'today' ? root : card).before(bar);
+}
+
 /** 点备考项：没出题先出题，再进答题页；做完的看解析 */
 export function bindToday(root, { sid, token }) {
+  inAppBar(root, token);
   root.querySelector('[data-pts]')?.addEventListener('click', () => pointsSheet({ sid, token }));
   root.querySelector('[data-tc-more]')?.addEventListener('click', async (e) => { // 今天的都做完了：再练一组（不算打卡）
     const b = e.currentTarget; b.disabled = true;
