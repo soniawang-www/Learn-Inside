@@ -226,42 +226,210 @@ function stepper(box, p, api) {
 // ── 格子填数：点格子，再点下面的数字填进去；实时检查 ──
 // { rows, cols, cell, gap（格子间距，默认 0 挨着）, round: true（圆格）, fills: {'r,c': 颜色}（格子底色，主题色名或固定色）,
 //   given: {'r,c': 值}（题目给的，不能改）, block: ['r,c']（不能填的格，画灰；配 hide_block: true 就不画，用来摆出三角形、圆圈等任意形状）, nums: [可填的值],
-//   bg / fg: 'SVG 表达式', info, goal, bad（返回要标红的 'r,c' 数组）。表达式里：G（二维数组，空格是 null）、R、C、filled（填满了没有） }
+//   bg / fg: 'SVG 表达式', info, goal, bad（返回要标红的 'r,c' 数组）。表达式里：G（二维数组，空格是 null）、R、C、filled（填满了没有）、V（格名→值）、sums
+// 任意位置的圆圈（幻星、三角形数阵）：cells: [{k, x, y}]（圆心坐标，格名随便起）代替 rows / cols，配 vw / vh
+// lines: [[格名, …], …]：画出这些线并在线尾显示和（sums[i]，没填满是 null）；sum: 目标和（填满后不等的线标红，不给 goal 时「全部填满且每条线都等于 sum」算完成）
+// once: true：每个数只能用一次（用过的数按钮变灰）
 function gridfill(box, p, api) {
-  const R = p.rows, C = p.cols, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10, gap = p.gap || 0, st = c + gap;
-  const G = Array.from({ length: R }, () => Array(C).fill(null)), given = p.given || {}, block = new Set(p.block || []);
-  for (const [k, v] of Object.entries(given)) { const [r, cc] = k.split(',').map(Number); G[r][cc] = v; }
-  const keys = ['G', 'R', 'C', 'filled'];
-  const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: fn(p.goal, keys), bad: fn(p.bad, keys) };
+  const free = !!p.cells, R = free ? 0 : p.rows, C = free ? 0 : p.cols, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10, gap = p.gap || 0, st = c + gap;
+  const round = free || p.round, given = p.given || {}, block = new Set(p.block || []);
+  const cells = free ? p.cells.map((q) => ({ k: String(q.k), cx: q.x, cy: q.y }))
+    : Array.from({ length: R * C }, (_, n) => { const i = Math.floor(n / C), j = n % C; return { k: `${i},${j}`, i, j, cx: x0 + j * st + c / 2, cy: y0 + i * st + c / 2 }; });
+  const at = Object.fromEntries(cells.map((q) => [q.k, q]));
+  const V = Object.fromEntries(cells.map((q) => [q.k, given[q.k] ?? null]));
+  const lines = (p.lines || []).map((L) => L.map(String));
+  const keys = ['G', 'R', 'C', 'filled', 'V', 'sums'];
+  // goal: true（布尔）时用自动条件（填满且每条线等于 sum）
+  const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: typeof p.goal === 'string' ? fn(p.goal, keys) : null, bad: fn(p.bad, keys) };
   const ok = once(() => api.solved(p.say_ok));
   let sel = null;
-  const vw = p.vw || x0 * 2 + C * st - gap, vh = p.vh || y0 * 2 + R * st - gap;
+  const vw = p.vw || (free ? Math.max(...cells.map((q) => q.cx)) + c : x0 * 2 + C * st - gap), vh = p.vh || (free ? Math.max(...cells.map((q) => q.cy)) + c : y0 * 2 + R * st - gap);
+  const nums = p.nums || [1, 2, 3, 4, 5, 6, 7, 8, 9];
   box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg gfsvg', 1.5) + '<div class="sl-info"></div>' +
-    `<div class="gf-pad">${(p.nums || [1, 2, 3, 4, 5, 6, 7, 8, 9]).map((v) => `<button class="lp-ghost gf-n" data-v="${esc(v)}">${esc(v)}</button>`).join('')}<button class="lp-ghost gf-n" data-v="">清除</button></div>` + bar(btn('gf-reset', '重来'));
-  const env = () => ({ G, R, C, filled: G.every((row, i) => row.every((v, j) => v !== null || block.has(`${i},${j}`))) });
+    `<div class="gf-pad">${nums.map((v) => `<button class="lp-ghost gf-n" data-v="${esc(v)}">${esc(v)}</button>`).join('')}<button class="lp-ghost gf-n" data-v="">清除</button></div>` + bar(btn('gf-reset', '重来'));
+  const num = (x) => (typeof x === 'number' ? x : +x);
+  const env = () => {
+    const G = Array.from({ length: R }, (_, i) => Array.from({ length: C }, (_, j) => V[`${i},${j}`]));
+    const sums = lines.map((L) => (L.every((k) => V[k] !== null && V[k] !== undefined) ? L.reduce((t, k) => t + num(V[k]), 0) : null));
+    return { G, R, C, V, sums, filled: cells.every((q) => V[q.k] !== null || block.has(q.k)) };
+  };
+  const autoGoal = (v) => p.sum !== undefined && lines.length && v.filled && v.sums.every((x) => x === p.sum);
   const draw = () => {
     const v = env(), bad = new Set(run(F.bad, v, []) || []);
     let g = run(F.bg, v, '') || '';
-    for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) {
-      const k = `${i},${j}`, x = x0 + j * st, y = y0 + i * st, val = G[i][j];
+    lines.forEach((L, li) => {
+      const a = at[L[0]], b = at[L[L.length - 1]]; if (!a || !b) return;
+      const sm = v.sums[li], wrong = p.sum !== undefined && sm !== null && sm !== p.sum;
+      g += `<line x1="${a.cx}" y1="${a.cy}" x2="${b.cx}" y2="${b.cy}" style="stroke:${wrong ? 'var(--lp-warn)' : 'var(--lp-line)'}" stroke-width="${wrong ? 3 : 2}"/>`;
+      if (p.line_sums !== false) {
+        const d = Math.hypot(b.cx - a.cx, b.cy - a.cy) || 1, ex = b.cx + ((b.cx - a.cx) / d) * c * 0.95, ey = b.cy + ((b.cy - a.cy) / d) * c * 0.95;
+        g += `<text x="${ex.toFixed(1)}" y="${(ey + 5).toFixed(1)}" text-anchor="middle" font-size="${Math.round((p.size || 18) * 0.8)}" class="st${sm === null ? ' muted' : wrong ? ' warn' : ' jade'}" font-weight="700">${sm === null ? '·' : sm}</text>`;
+      }
+    });
+    for (const q of cells) {
+      const k = q.k, val = V[k], x = q.cx - c / 2, y = q.cy - c / 2;
       if (block.has(k) && p.hide_block) continue;
-      const cls = (block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`) + (p.round ? ' gf-round' : '');
+      const cls = (block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`) + (round ? ' gf-round' : '');
       const fl = p.fills?.[k] && !bad.has(k) && sel !== k ? ` style="fill:${col(p.fills[k])}"` : '';
-      g += `<g class="gf-i" data-k="${k}"><rect x="${x}" y="${y}" width="${c}" height="${c}"${p.round ? ` rx="${c / 2}"` : ''} class="${cls}"${fl}/>${val !== null && val !== undefined ? `<text x="${x + c / 2}" y="${y + c / 2 + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : ''}</g>`;
+      g += `<g class="gf-i" data-k="${esc(k)}"><rect x="${x}" y="${y}" width="${c}" height="${c}"${round ? ` rx="${c / 2}"` : ''} class="${cls}"${fl}/>${val !== null && val !== undefined ? `<text x="${q.cx}" y="${q.cy + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : ''}</g>`;
     }
     g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.gf-g').innerHTML = g;
+    if (p.once) {
+      const used = new Set(Object.entries(V).filter(([k, x]) => x !== null && k !== sel).map(([, x]) => String(x)));
+      box.querySelectorAll('.gf-n').forEach((b) => { b.disabled = b.dataset.v !== '' && used.has(b.dataset.v); });
+    }
     if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, v, ''); tex(el); }
-    if (run(F.goal, v, false)) ok();
+    if (F.goal ? run(F.goal, v, false) : autoGoal(v)) ok();
   };
   box.addEventListener('click', (e) => {
-    if (e.target.closest('.gf-reset')) { for (let i = 0; i < R; i++) for (let j = 0; j < C; j++) if (given[`${i},${j}`] === undefined) G[i][j] = null; sel = null; draw(); return; }
+    if (e.target.closest('.gf-reset')) { for (const q of cells) if (given[q.k] === undefined) V[q.k] = null; sel = null; draw(); return; }
     const cell = e.target.closest('.gf-i');
     if (cell) { const k = cell.dataset.k; if (!block.has(k) && given[k] === undefined) sel = k; draw(); return; }
     const b = e.target.closest('.gf-n');
-    if (b && sel) { const [i, j] = sel.split(',').map(Number); const raw = b.dataset.v; G[i][j] = raw === '' ? null : (isNaN(+raw) ? raw : +raw); draw(); }
+    if (b && sel && !b.disabled) { const raw = b.dataset.v; V[sel] = raw === '' ? null : (isNaN(+raw) ? raw : +raw); draw(); }
   });
   draw();
+}
+
+// ── 阶梯取石子：一排格子，从左到右编号 n-1 … 0；每次从一格（0 号除外）挑任意多个球挪到右边紧邻的格；球全到 0 号时结束，挪最后一次的赢。孩子先手、电脑最优 ──
+// { cells: [5, 6, 7, 0]（从左到右每格的球数，最右是 0 号）或 starts: [[…], […]]（让孩子选开局）, odd: true（奇数号格涂底色）, names, games（默认 2）, why: '电脑说的话，{r} 换成局面' }
+function stairnim(box, p, api) {
+  const names = p.names || ['你', '电脑'], need = p.games || 2, starts = p.starts || [p.cells];
+  const ok = once(() => api.solved(p.say_ok));
+  // P[j] 是 j 号格的球数（P[0] 是最右的 0 号格）
+  const toP = (row) => row.slice().reverse();
+  const nimx = (P) => P.reduce((x, n, j) => (j % 2 ? x ^ n : x), 0);
+  const bestMove = (P) => { // 挪完让奇数号格的球数异或为 0
+    const x = nimx(P); if (!x) return null;
+    for (let j = 1; j < P.length; j++) {
+      if (j % 2) { const t = P[j] ^ x; if (t < P[j]) return [j, P[j] - t]; }
+      else { const t = P[j - 1] ^ x; if (t > P[j - 1] && t - P[j - 1] <= P[j]) return [j, t - P[j - 1]]; }
+    }
+    return null;
+  };
+  let P = null, log = [], over = false, games = 0, pick = null;
+  const show = (Q) => Q.slice().reverse().join('、');
+  const per = 4, s = 20, cw = per * s + 16;
+  const tallest = Math.max(4, ...starts.map((row) => row.reduce((t, n) => t + n, 0)));
+  const rows = Math.ceil(Math.min(tallest, 40) / per), ch = rows * s + 16;
+  const svg = () => {
+    const L = P.length, W = L * cw + 20, top = 30;
+    let o = '';
+    for (let col = 0; col < L; col++) {
+      const j = L - 1 - col, x = 10 + col * cw, n = P[j];
+      o += `<g class="sn-c" data-j="${j}" data-n="${n}"><rect x="${x}" y="${top}" width="${cw}" height="${ch}" style="fill:${p.odd && j % 2 ? 'var(--lp-jade-soft)' : 'var(--lp-card)'};stroke:var(--lp-ink)" stroke-width="1.4"/>`;
+      const shown = Math.min(n, 40);
+      for (let b = 0; b < shown; b++) {
+        const on = pick && pick[0] === j && b >= n - pick[1];
+        o += `<circle class="sn-s" data-j="${j}" data-t="${n - b}" cx="${x + 7 + s / 2 + (b % per) * s}" cy="${top + ch - 8 - s / 2 - Math.floor(b / per) * s}" r="8" style="fill:${on ? 'var(--lp-plum)' : 'var(--lp-jade)'};opacity:.9;cursor:${j ? 'pointer' : 'default'}"/>`;
+      }
+      o += `<text x="${x + cw / 2}" y="${top - 9}" text-anchor="middle" font-size="20" font-weight="700" class="st">${n}</text>`;
+      o += `<text x="${x + cw / 2}" y="${top + ch + 22}" text-anchor="middle" font-size="17" class="st">${j} 号</text></g>`;
+    }
+    if (pick) {
+      const col = L - 1 - pick[0], x1 = 10 + col * cw + cw * 0.7, x2 = 10 + (col + 1) * cw + cw * 0.3, y = top + ch + 34;
+      o += `<path d="M${x1} ${y} Q${(x1 + x2) / 2} ${y + 14} ${x2} ${y}" fill="none" style="stroke:var(--lp-plum)" stroke-width="2.4"/><path d="M${x2 - 7} ${y - 3} L${x2} ${y} L${x2 - 3} ${y + 7}" fill="none" style="stroke:var(--lp-plum)" stroke-width="2.4"/>`;
+      o += `<text x="${(x1 + x2) / 2}" y="${y + 30}" text-anchor="middle" font-size="17" font-weight="700" class="st plum">${pick[1]} 个</text>`;
+    }
+    return SVG(W, top + ch + 70, o, 'snsvg', 1.8);
+  };
+  const paint = () => {
+    if (!P) { box.innerHTML = `<div class="tk-pick"><p>选一个开局，你先挪：</p>${bar(starts.map((row, k) => btn(`sn-start" data-k="${k}`, row.join('、'))).join(''))}</div>`; return; }
+    box.innerHTML = `<div class="tk">${svg()}<div class="tk-log">${log.map((x) => `<div>${x}</div>`).join('')}</div>
+      ${over ? bar(btn('sn-again', '再来一盘')) : `<div class="tk-moves"><span>${pick ? `把 ${pick[0]} 号格的 <b>${pick[1]}</b> 个挪到 ${pick[0] - 1} 号格` : '点球：点到哪个，就从那个挪到这一格最上面'}</span>${pick ? btn('sn-go', '就这样挪') : ''}</div>`}</div>`;
+  };
+  const end = (who) => { over = true; games++; log.push(`<b class="${who ? 'plum' : ''}">${esc(names[who])}挪了最后一次，${esc(names[who])}赢了。</b>`); if (games >= need) ok(); else api.say(who ? `${names[1]}赢了。再试一盘？` : `${names[0]}赢了！再来一盘？`); };
+  const doMove = (j, k) => { P[j] -= k; P[j - 1] += k; };
+  const done = () => P.every((n, j) => !j || !n);
+  box.addEventListener('click', (e) => {
+    const t = e.target.closest('button, .sn-s'); if (!t) return;
+    if (t.classList.contains('sn-start')) { P = toP(starts[+t.dataset.k]); log = []; over = false; pick = null; paint(); return; }
+    if (t.classList.contains('sn-again')) { P = starts.length > 1 ? null : toP(starts[0]); log = []; over = false; pick = null; paint(); return; }
+    if (over) return;
+    if (t.classList.contains('sn-s')) { const j = +t.dataset.j; if (j) pick = [j, +t.dataset.t]; paint(); return; }
+    if (t.classList.contains('sn-go') && pick) {
+      doMove(...pick); log.push(`${esc(names[0])}把 ${pick[0]} 号格的 ${pick[1]} 个挪到 ${pick[0] - 1} 号 → ${show(P)}`); pick = null;
+      if (done()) { end(0); paint(); return; }
+      const m = bestMove(P) || (() => { for (let j = 1; j < P.length; j++) if (P[j]) return [j, 1]; return null; })();
+      doMove(...m);
+      log.push(`${esc(names[1])}把 ${m[0]} 号格的 ${m[1]} 个挪到 ${m[0] - 1} 号 → ${show(P)}${p.why ? `<span class="muted">（${esc(p.why.replace('{r}', show(P)))}）</span>` : ''}`);
+      if (done()) end(1);
+      paint();
+    }
+  });
+  if (starts.length === 1) P = toP(starts[0]);
+  paint();
+}
+
+// ── 汉诺塔：按住最上面的盘子拖到另一根柱子（也可以先点一根柱子、再点另一根）；大盘不能压在小盘上 ──
+// { n: 盘子数, pegs: 柱子数（默认 3，最多 6）, labels: ['A', 'B', 'C']（默认 A、B、C…）, from: 0, to: 最后一根, best: 最少步数（给了就显示）,
+//   strict: true（步数要等于 best 才算完成，多了提示重来） }
+function hanoi(box, p, api) {
+  const n = p.n || 3, K = Math.min(p.pegs || 3, 6), from = p.from ?? 0, to = p.to ?? K - 1;
+  const labels = p.labels || 'ABCDEF'.slice(0, K).split('');
+  const ok = once(() => api.solved(p.say_ok));
+  const COL = ['#e07a5f', '#f2b134', '#81b29a', '#3d9ad1', '#9b72cf', '#e56b9f', '#5fb3a8', '#c08552', '#7f8fa6', '#d4a373'];
+  let S, hist, moves, sel = null, drag = null, msg = '', fin = false;
+  const reset = () => { S = Array.from({ length: K }, () => []); for (let d = n; d >= 1; d--) S[from].push(d); hist = []; moves = 0; sel = null; drag = null; msg = ''; fin = false; };
+  reset();
+  const dh = 24, pw = Math.max(120, 50 + n * 16), W = K * pw + 20, base = 36 + (n + 1) * dh + 8, Hh = base + 32;
+  const px = (q) => 10 + q * pw + pw / 2, dw = (d) => 36 + ((pw - 46) * (d - 1)) / Math.max(1, n - 1);
+  const disc = (d, cx, y, lift) => `<g${lift ? ' style="filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))"' : ''}><rect x="${(cx - dw(d) / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${dw(d).toFixed(1)}" height="${dh - 3}" rx="7" style="fill:${COL[(d - 1) % COL.length]};stroke:#1f2933" stroke-width="1"/><text x="${cx.toFixed(1)}" y="${(y + dh - 8).toFixed(1)}" text-anchor="middle" font-size="14" font-weight="700" style="fill:#1f2933">${d}</text></g>`;
+  box.innerHTML = SVG(W, Hh, '<g class="hn-g"></g>', 'hnsvg', 1.4) + '<div class="sl-info hn-info"></div>' + bar(btn('hn-undo', '退一步') + btn('hn-reset', '重来'));
+  const svg = box.querySelector('svg');
+  const paint = () => {
+    let o = `<rect x="6" y="${base}" width="${W - 12}" height="8" rx="3" style="fill:var(--lp-soft)"/>`;
+    for (let q = 0; q < K; q++) {
+      o += `<rect x="${px(q) - 3}" y="30" width="6" height="${base - 30}" rx="3" style="fill:${sel === q ? 'var(--lp-plum)' : 'var(--lp-soft)'}"/>`;
+      o += `<text x="${px(q)}" y="${base + 24}" text-anchor="middle" font-size="18" font-weight="700" class="st${q === to ? ' jade' : ''}">${esc(labels[q])}</text>`;
+      S[q].forEach((d, h) => { if (!(sel === q && h === S[q].length - 1)) o += disc(d, px(q), base - (h + 1) * dh, false); });
+    }
+    if (sel !== null) { const d = S[sel][S[sel].length - 1]; o += drag && drag.moved ? disc(d, drag.x, drag.y - dh / 2, true) : disc(d, px(sel), 8, true); }
+    for (let q = 0; q < K; q++) o += `<rect class="hn-hit" data-q="${q}" x="${10 + q * pw}" y="0" width="${pw}" height="${Hh}" fill="transparent" style="cursor:pointer"/>`;
+    box.querySelector('.hn-g').innerHTML = o;
+    box.querySelector('.hn-info').innerHTML = `已走 <b>${moves}</b> 步${p.best ? `　最少 ${p.best} 步` : ''}${msg ? `<br>${msg}` : ''}`;
+  };
+  const pt = (e) => { const m = svg.getScreenCTM(); if (!m) return { x: 0, y: 0 }; const q = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()); return { x: q.x, y: q.y }; };
+  const pegAt = (x) => Math.max(0, Math.min(K - 1, Math.floor((x - 10) / pw)));
+  const tryMove = (a, b) => {
+    const d = S[a][S[a].length - 1], top = S[b][S[b].length - 1];
+    if (top !== undefined && top < d) { msg = `<b class="plum">不行</b>：${d} 号盘比 ${top} 号盘大，不能压在它上面。`; api.say('大盘不能压在小盘上。'); return; }
+    S[b].push(S[a].pop()); hist.push([a, b]); moves++; msg = '';
+    if (S[to].length === n) {
+      fin = true;
+      if (p.strict && p.best && moves > p.best) { msg = `全搬过去了，用了 ${moves} 步，比最少的 ${p.best} 步多。按「重来」再试试。`; api.say(`用了 ${moves} 步，还能更少。`); }
+      else { msg = `全搬到 ${esc(labels[to])} 柱了，用了 ${moves} 步。`; ok(); }
+    }
+  };
+  svg.addEventListener('pointerdown', (e) => {
+    if (fin) return;
+    const q = pegAt(pt(e).x), P0 = pt(e);
+    if (sel === null) { if (!S[q].length) return; sel = q; drag = { ...P0, sx: P0.x, sy: P0.y, moved: false, fresh: true }; }
+    else drag = { ...P0, sx: P0.x, sy: P0.y, moved: false, fresh: false };
+    try { svg.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件没有指针 */ }
+    paint();
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!drag || sel === null) return;
+    const q = pt(e); drag.x = q.x; drag.y = q.y;
+    if (Math.hypot(q.x - drag.sx, q.y - drag.sy) > 8) drag.moved = true;
+    if (drag.moved) paint();
+  });
+  const up = (e) => {
+    if (!drag) return;
+    const q = pegAt(pt(e).x), d0 = drag; drag = null;
+    if (sel !== null && q !== sel) { tryMove(sel, q); sel = null; }
+    else if (!d0.fresh || d0.moved) sel = null;
+    paint();
+  };
+  svg.addEventListener('pointerup', up);
+  svg.addEventListener('pointercancel', () => { drag = null; sel = null; paint(); });
+  box.addEventListener('click', (e) => {
+    if (e.target.closest('.hn-reset')) { reset(); paint(); return; }
+    if (e.target.closest('.hn-undo') && hist.length && !(fin && !p.strict)) { const [a, b] = hist.pop(); S[a].push(S[b].pop()); moves--; fin = false; sel = null; msg = ''; paint(); }
+  });
+  paint();
 }
 
 // ── 多堆取石子：每次从一堆里拿（最多 max 颗，不给就随便拿），拿到最后一颗的赢（misere: true 时拿到最后一颗的输）。孩子先手，电脑最优 ──
@@ -345,4 +513,4 @@ function sorter(box, p, api) {
   paint();
 }
 
-export const SIMS_SWB = { takeaway, dotpath, toggles, stepper, gridfill, nim, sorter };
+export const SIMS_SWB = { takeaway, dotpath, toggles, stepper, gridfill, nim, sorter, stairnim, hanoi };

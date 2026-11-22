@@ -19,17 +19,26 @@ function compile(expr, keys) {
   // eslint-disable-next-line no-new-func
   return new Function('__v', '__h', `const {${Object.keys(H).join(',')}} = __h; const {${keys.join(',')}} = __v; return (${expr});`);
 }
+// found: '表达式，返回当前取值的名字（不算数时返回空串）'：记住找到过的不同取值，显示在下面；表达式里 nfound（个数）、seen（名字数组）
 function slider(box, p, api) {
-  const keys = p.vars.map((v) => v.k);
+  const keys = [...p.vars.map((v) => v.k), ...(p.found ? ['nfound', 'seen'] : [])];
   const view = p.view ? compile(p.view, keys) : null, info = p.info ? compile(p.info, keys) : null, goal = p.goal ? compile(p.goal, keys) : null;
-  const tip = p.tip ? compile(p.tip, keys) : null;
+  const tip = p.tip ? compile(p.tip, keys) : null, found = p.found ? compile(p.found, keys) : null;
+  const seen = [];
   const v = Object.fromEntries(p.vars.map((x) => [x.k, x.init ?? x.min]));
-  box.innerHTML = (view ? SVG(p.vw || 360, p.vh || 220, '<g class="sl-g"></g>', 'slsvg') : '') + '<div class="sl-info"></div>' +
+  if (found) Object.assign(v, { nfound: 0, seen });
+  box.innerHTML = (view ? SVG(p.vw || 360, p.vh || 220, '<g class="sl-g"></g>', 'slsvg') : '') + '<div class="sl-info"></div>' + (found ? '<div class="hk-found sl-found"></div>' : '') +
     p.vars.map((x) => bar(`<span>${esc(x.label || x.k)} = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}</span><input type="range" min="${x.min}" max="${x.max}" step="${x.step || 1}" value="${v[x.k]}" data-k="${x.k}" aria-label="${esc(x.label || x.k)}">`)).join('');
   if (p.maxw && box.querySelector('svg')) Object.assign(box.querySelector('svg').style, { maxWidth: `${p.maxw}px`, marginInline: 'auto' }); // 小图别拉满整宽
   const ok = once(() => api.solved(p.say_ok));
   let lastTip = '';
   const draw = () => {
+    if (found) {
+      let nm = ''; try { nm = found(v, H); } catch (e) { /* 取值不合适时不算 */ }
+      if (nm && !seen.includes(String(nm))) seen.push(String(nm));
+      v.nfound = seen.length;
+      box.querySelector('.sl-found').innerHTML = `${esc(p.found_label || '找到')}：${seen.map((x) => `<span>${esc(x)}</span>`).join('') || '<span class="muted">还没有</span>'}`;
+    }
     if (view) box.querySelector('.sl-g').innerHTML = view(v, H);
     box.querySelectorAll('.sl-v').forEach((e) => { e.textContent = fmt(v[e.dataset.k]); });
     if (info) {

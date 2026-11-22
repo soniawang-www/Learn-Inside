@@ -1339,6 +1339,10 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .slsvg .gf-sel { stroke:var(--lp-plum); stroke-width:3; }
 .gf-pad { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
 .gf-pad .lp-ghost { margin-top:0; min-width:2.6em; }
+.gf-pad .lp-ghost:disabled { opacity:.3; cursor:default; }
+.sim-stairnim > .tk { width:100%; }
+.hnsvg { touch-action:none; user-select:none; -webkit-user-select:none; }
+.sl-found { margin-top:4px; }
 .so-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
 .so-c { min-width:48px; height:52px; padding:0 10px; border:2px solid var(--lp-line); background:var(--lp-card); color:var(--lp-ink); border-radius:10px; font-size:1.1rem; font-weight:700; cursor:pointer; }
 .so-c.on { border-color:var(--lp-plum); background:var(--lp-plum-soft); color:var(--lp-plum); }
