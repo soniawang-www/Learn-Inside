@@ -186,7 +186,6 @@
 .ct-pn i { width: 8px; height: 8px; border-radius: 50%; background: #07C160; }
 .ct-xhs .ct-pn i { background: #FF2E4D; }
 .ct-qr { position: relative; width: 92px; height: 92px; flex: none; padding: 4px; box-sizing: border-box; border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(24,48,42,.06), 0 4px 14px rgba(24,48,42,.09); display: grid; place-items: center; }
-.ct-qr .ct-qic { position: absolute; left: 50%; top: 50%; width: 24%; height: 24%; transform: translate(-50%, -50%); border-radius: 22%; box-shadow: 0 0 0 2px #fff; }
 .ct-qr img, .ct-qr > svg { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ct-open { padding: 4px 12px; border-radius: 999px; border: 1.5px solid #FF2E4D66; color: #FF2E4D !important; font-size: 13px; font-weight: 700; text-decoration: none; }
 .ct-sup { display: flex; align-items: center; gap: 14px; margin: 18px 18px 14px; padding: 12px; border-radius: 16px; background: var(--surface, var(--card, #fff)); border: 1px solid var(--border, var(--line, #E8E3D8)); }

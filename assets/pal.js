@@ -137,7 +137,7 @@ export async function openContact({ title = '联系我们', only = '' } = {}) {
   // 平台名：有官方 logo 就放 logo，没有就放一个平台色小圆点
   const pn = (name, logo) => `<span class="ct-pn">${logo ? `<img src="${escH(logo)}" alt="">` : '<i></i>'}${name}</span>`;
   const plats = [
-    `<div class="ct-plat ct-xhs">${pn('小红书', LOGO.xhs)}<div class="ct-qr">${qrOf(XHS.link, LOGO.xhs ? 'H' : 'M')}${LOGO.xhs ? `<img class="ct-qic" src="${escH(LOGO.xhs)}" alt="">` : ''}</div><a class="ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书</a></div>`,
+    `<div class="ct-plat ct-xhs">${pn('小红书', LOGO.xhs)}<div class="ct-qr">${qrOf(XHS.link)}</div><a class="ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书</a></div>`,
     s.mp ? `<div class="ct-plat ct-mp">${pn('公众号', LOGO.mp || LOGO.wechat)}${s.mp.qr ? `<div class="ct-qr"><img src="${escH(s.mp.qr)}" alt="公众号二维码"></div>` : ''}</div>` : '',
   ].join('');
   // 上半：客服；下半：像搜索框一样写着 learn-inside（点一下复制），下面是能搜到的平台
