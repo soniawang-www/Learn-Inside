@@ -310,7 +310,7 @@ function stairnim(box, p, api) {
   };
   let P = null, log = [], over = false, games = 0, pick = null;
   const show = (Q) => Q.slice().reverse().join('、');
-  const per = 4, s = 20, cw = per * s + 16;
+  const wide = Math.max(...starts.map((row) => row.length)) >= 5, per = wide ? 3 : 4, s = wide ? 26 : 20, br = wide ? 10.5 : 8, cw = per * s + 16;
   const tallest = Math.max(4, ...starts.map((row) => row.reduce((t, n) => t + n, 0)));
   const rows = Math.ceil(Math.min(tallest, 40) / per), ch = rows * s + 16;
   const svg = () => {
@@ -318,11 +318,11 @@ function stairnim(box, p, api) {
     let o = '';
     for (let col = 0; col < L; col++) {
       const j = L - 1 - col, x = 10 + col * cw, n = P[j];
-      o += `<g class="sn-c" data-j="${j}" data-n="${n}"><rect x="${x}" y="${top}" width="${cw}" height="${ch}" style="fill:${p.odd && j % 2 ? 'var(--lp-jade-soft)' : 'var(--lp-card)'};stroke:var(--lp-ink)" stroke-width="1.4"/>`;
+      o += `<g class="sn-c" data-j="${j}" data-n="${n}"><rect x="${x}" y="${top}" width="${cw}" height="${ch}" class="sn-box" data-j="${j}" style="fill:${p.odd && j % 2 ? 'var(--lp-jade)' : 'var(--lp-card)'};fill-opacity:${p.odd && j % 2 ? 0.2 : 1};stroke:var(--lp-ink);cursor:${j ? 'pointer' : 'default'}" stroke-width="1.4"/>`;
       const shown = Math.min(n, 40);
       for (let b = 0; b < shown; b++) {
         const on = pick && pick[0] === j && b >= n - pick[1];
-        o += `<circle class="sn-s" data-j="${j}" data-t="${n - b}" cx="${x + 7 + s / 2 + (b % per) * s}" cy="${top + ch - 8 - s / 2 - Math.floor(b / per) * s}" r="8" style="fill:${on ? 'var(--lp-plum)' : 'var(--lp-jade)'};opacity:.9;cursor:${j ? 'pointer' : 'default'}"/>`;
+        o += `<circle class="sn-s" data-j="${j}" data-t="${n - b}" cx="${x + 7 + s / 2 + (b % per) * s}" cy="${top + ch - 8 - s / 2 - Math.floor(b / per) * s}" r="${br}" style="fill:${on ? 'var(--lp-plum)' : 'var(--lp-jade)'};opacity:.9;cursor:${j ? 'pointer' : 'default'}"/>`;
       }
       o += `<text x="${x + cw / 2}" y="${top - 9}" text-anchor="middle" font-size="20" font-weight="700" class="st">${n}</text>`;
       o += `<text x="${x + cw / 2}" y="${top + ch + 22}" text-anchor="middle" font-size="17" class="st">${j} 号</text></g>`;
@@ -337,16 +337,17 @@ function stairnim(box, p, api) {
   const paint = () => {
     if (!P) { box.innerHTML = `<div class="tk-pick"><p>选一个开局，你先挪：</p>${bar(starts.map((row, k) => btn(`sn-start" data-k="${k}`, row.join('、'))).join(''))}</div>`; return; }
     box.innerHTML = `<div class="tk">${svg()}<div class="tk-log">${log.map((x) => `<div>${x}</div>`).join('')}</div>
-      ${over ? bar(btn('sn-again', '再来一盘')) : `<div class="tk-moves"><span>${pick ? `把 ${pick[0]} 号格的 <b>${pick[1]}</b> 个挪到 ${pick[0] - 1} 号格` : '点球：点到哪个，就从那个挪到这一格最上面'}</span>${pick ? btn('sn-go', '就这样挪') : ''}</div>`}</div>`;
+      ${over ? bar(btn('sn-again', '再来一盘')) : `<div class="tk-moves"><span>${pick ? `把 ${pick[0]} 号格的 <b>${pick[1]}</b> 个挪到 ${pick[0] - 1} 号格` : '点球：点到哪个，就从那个挪到这一格最上面（点格子空白处一次多挪一个）'}</span>${pick ? btn('sn-go', '就这样挪') : ''}</div>`}</div>`;
   };
   const end = (who) => { over = true; games++; log.push(`<b class="${who ? 'plum' : ''}">${esc(names[who])}挪了最后一次，${esc(names[who])}赢了。</b>`); if (games >= need) ok(); else api.say(who ? `${names[1]}赢了。再试一盘？` : `${names[0]}赢了！再来一盘？`); };
   const doMove = (j, k) => { P[j] -= k; P[j - 1] += k; };
   const done = () => P.every((n, j) => !j || !n);
   box.addEventListener('click', (e) => {
-    const t = e.target.closest('button, .sn-s'); if (!t) return;
+    const t = e.target.closest('button, .sn-s, .sn-box'); if (!t) return;
     if (t.classList.contains('sn-start')) { P = toP(starts[+t.dataset.k]); log = []; over = false; pick = null; paint(); return; }
     if (t.classList.contains('sn-again')) { P = starts.length > 1 ? null : toP(starts[0]); log = []; over = false; pick = null; paint(); return; }
     if (over) return;
+    if (t.classList.contains('sn-box')) { const j = +t.dataset.j; if (j && P[j]) pick = pick && pick[0] === j ? [j, (pick[1] % P[j]) + 1] : [j, 1]; paint(); return; }
     if (t.classList.contains('sn-s')) { const j = +t.dataset.j; if (j) pick = [j, +t.dataset.t]; paint(); return; }
     if (t.classList.contains('sn-go') && pick) {
       doMove(...pick); log.push(`${esc(names[0])}把 ${pick[0]} 号格的 ${pick[1]} 个挪到 ${pick[0] - 1} 号 → ${show(P)}`); pick = null;
