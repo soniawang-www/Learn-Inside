@@ -31,7 +31,8 @@ function takeaway(box, p, api) {
     if (k > shown) out += `<text x="${20 + per * s}" y="${20 + 3 * s}" text-anchor="end" font-size="14" class="st">…共 ${k} 颗</text>`;
     return SVG(20 + per * s, Math.max(44, 20 + Math.ceil(shown / per) * s), out);
   };
-  const paint = () => {
+  const paint = () => { paint0(); const lg = box.querySelector('.tk-log'); if (lg) lg.scrollTop = lg.scrollHeight; };
+  const paint0 = () => {
     if (n === null) {
       box.innerHTML = `<div class="tk-pick"><p>${esc(p.pick || '先选一堆石子的颗数，你先拿：')}</p>${bar(p.ns.map((x) => btn('tk-n', x, `data-n="${x}"`)).join(''))}</div>`;
       return;
@@ -233,7 +234,7 @@ function stepper(box, p, api) {
 function gridfill(box, p, api) {
   const free = !!p.cells, R = free ? 0 : p.rows, C = free ? 0 : p.cols, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10, gap = p.gap || 0, st = c + gap;
   const round = free || p.round, given = p.given || {}, block = new Set(p.block || []);
-  const cells = free ? p.cells.map((q) => ({ k: String(q.k), cx: q.x, cy: q.y }))
+  const cells = free ? p.cells.map((q) => ({ k: String(q.k), cx: q.x, cy: q.y, label: q.label }))
     : Array.from({ length: R * C }, (_, n) => { const i = Math.floor(n / C), j = n % C; return { k: `${i},${j}`, i, j, cx: x0 + j * st + c / 2, cy: y0 + i * st + c / 2 }; });
   const at = Object.fromEntries(cells.map((q) => [q.k, q]));
   const V = Object.fromEntries(cells.map((q) => [q.k, given[q.k] ?? null]));
@@ -271,7 +272,7 @@ function gridfill(box, p, api) {
       if (block.has(k) && p.hide_block) continue;
       const cls = (block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`) + (round ? ' gf-round' : '');
       const fl = p.fills?.[k] && !bad.has(k) && sel !== k ? ` style="fill:${col(p.fills[k])}"` : '';
-      g += `<g class="gf-i" data-k="${esc(k)}"><rect x="${x}" y="${y}" width="${c}" height="${c}"${round ? ` rx="${c / 2}"` : ''} class="${cls}"${fl}/>${val !== null && val !== undefined ? `<text x="${q.cx}" y="${q.cy + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : ''}</g>`;
+      g += `<g class="gf-i" data-k="${esc(k)}"><rect x="${x}" y="${y}" width="${c}" height="${c}"${round ? ` rx="${c / 2}"` : ''} class="${cls}"${fl}/>${val !== null && val !== undefined ? `<text x="${q.cx}" y="${q.cy + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : q.label ? `<text x="${q.cx}" y="${q.cy + 5}" text-anchor="middle" font-size="${Math.round((p.size || 18) * 0.85)}" font-style="italic" class="st muted" style="pointer-events:none">${esc(q.label)}</text>` : ''}</g>`;
     }
     g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.gf-g').innerHTML = g;
@@ -334,7 +335,8 @@ function stairnim(box, p, api) {
     }
     return SVG(W, top + ch + 70, o, 'snsvg', 1.8);
   };
-  const paint = () => {
+  const paint = () => { paint0(); const lg = box.querySelector('.tk-log'); if (lg) lg.scrollTop = lg.scrollHeight; };
+  const paint0 = () => {
     if (!P) { box.innerHTML = `<div class="tk-pick"><p>选一个开局，你先挪：</p>${bar(starts.map((row, k) => btn(`sn-start" data-k="${k}`, row.join('、'))).join(''))}</div>`; return; }
     box.innerHTML = `<div class="tk">${svg()}<div class="tk-log">${log.map((x) => `<div>${x}</div>`).join('')}</div>
       ${over ? bar(btn('sn-again', '再来一盘')) : `<div class="tk-moves"><span>${pick ? `把 ${pick[0]} 号格的 <b>${pick[1]}</b> 个挪到 ${pick[0] - 1} 号格` : '点球：点到哪个，就从那个挪到这一格最上面（点格子空白处一次多挪一个）'}</span>${pick ? btn('sn-go', '就这样挪') : ''}</div>`}</div>`;
@@ -367,12 +369,13 @@ function stairnim(box, p, api) {
 // { n: 盘子数, pegs: 柱子数（默认 3，最多 6）, labels: ['A', 'B', 'C']（默认 A、B、C…）, from: 0, to: 最后一根, best: 最少步数（给了就显示）,
 //   strict: true（步数要等于 best 才算完成，多了提示重来） }
 function hanoi(box, p, api) {
-  const n = p.n || 3, K = Math.min(p.pegs || 3, 6), from = p.from ?? 0, to = p.to ?? K - 1;
+  // start / target：[[柱 1 从下到上的盘号], …]，给了就从这个局面开始、到 target 局面算完成
+  const K = Math.min(p.pegs || p.start?.length || 3, 6), n = p.start ? p.start.flat().length : p.n || 3, from = p.from ?? 0, to = p.to ?? K - 1;
   const labels = p.labels || 'ABCDEF'.slice(0, K).split('');
   const ok = once(() => api.solved(p.say_ok));
   const COL = ['#e07a5f', '#f2b134', '#81b29a', '#3d9ad1', '#9b72cf', '#e56b9f', '#5fb3a8', '#c08552', '#7f8fa6', '#d4a373'];
   let S, hist, moves, sel = null, drag = null, msg = '', fin = false;
-  const reset = () => { S = Array.from({ length: K }, () => []); for (let d = n; d >= 1; d--) S[from].push(d); hist = []; moves = 0; sel = null; drag = null; msg = ''; fin = false; };
+  const reset = () => { S = Array.from({ length: K }, (_, q) => (p.start ? (p.start[q] || []).slice() : [])); if (!p.start) for (let d = n; d >= 1; d--) S[from].push(d); hist = []; moves = 0; sel = null; drag = null; msg = ''; fin = false; };
   reset();
   const dh = 24, pw = Math.max(120, 50 + n * 16), W = K * pw + 20, base = 36 + (n + 1) * dh + 8, Hh = base + 32;
   const px = (q) => 10 + q * pw + pw / 2, dw = (d) => 36 + ((pw - 46) * (d - 1)) / Math.max(1, n - 1);
@@ -383,13 +386,14 @@ function hanoi(box, p, api) {
     let o = `<rect x="6" y="${base}" width="${W - 12}" height="8" rx="3" style="fill:var(--lp-soft)"/>`;
     for (let q = 0; q < K; q++) {
       o += `<rect x="${px(q) - 3}" y="30" width="6" height="${base - 30}" rx="3" style="fill:${sel === q ? 'var(--lp-plum)' : 'var(--lp-soft)'}"/>`;
-      o += `<text x="${px(q)}" y="${base + 24}" text-anchor="middle" font-size="18" font-weight="700" class="st${q === to ? ' jade' : ''}">${esc(labels[q])}</text>`;
+      o += `<text x="${px(q)}" y="${base + 24}" text-anchor="middle" font-size="18" font-weight="700" class="st${q === to && !p.target ? ' jade' : ''}">${esc(labels[q])}</text>`;
       S[q].forEach((d, h) => { if (!(sel === q && h === S[q].length - 1)) o += disc(d, px(q), base - (h + 1) * dh, false); });
     }
     if (sel !== null) { const d = S[sel][S[sel].length - 1]; o += drag && drag.moved ? disc(d, drag.x, drag.y - dh / 2, true) : disc(d, px(sel), 8, true); }
     for (let q = 0; q < K; q++) o += `<rect class="hn-hit" data-q="${q}" x="${10 + q * pw}" y="0" width="${pw}" height="${Hh}" fill="transparent" style="cursor:pointer"/>`;
     box.querySelector('.hn-g').innerHTML = o;
-    box.querySelector('.hn-info').innerHTML = `已走 <b>${moves}</b> 步${p.best ? `　最少 ${p.best} 步` : ''}${msg ? `<br>${msg}` : ''}`;
+    const goalTxt = p.target ? `目标：${p.target.map((col, q) => (col.length ? `${esc(labels[q])} 柱 ${col.join('、')}` : '')).filter(Boolean).join('；')}（从下到上）<br>` : '';
+    box.querySelector('.hn-info').innerHTML = `${goalTxt}已走 <b>${moves}</b> 步${p.best ? `　最少 ${p.best} 步` : ''}${msg ? `<br>${msg}` : ''}`;
   };
   const pt = (e) => { const m = svg.getScreenCTM(); if (!m) return { x: 0, y: 0 }; const q = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()); return { x: q.x, y: q.y }; };
   const pegAt = (x) => Math.max(0, Math.min(K - 1, Math.floor((x - 10) / pw)));
@@ -397,10 +401,10 @@ function hanoi(box, p, api) {
     const d = S[a][S[a].length - 1], top = S[b][S[b].length - 1];
     if (top !== undefined && top < d) { msg = `<b class="plum">不行</b>：${d} 号盘比 ${top} 号盘大，不能压在它上面。`; api.say('大盘不能压在小盘上。'); return; }
     S[b].push(S[a].pop()); hist.push([a, b]); moves++; msg = '';
-    if (S[to].length === n) {
+    if (p.target ? p.target.every((col, q) => col.join(',') === S[q].join(',')) : S[to].length === n) {
       fin = true;
       if (p.strict && p.best && moves > p.best) { msg = `全搬过去了，用了 ${moves} 步，比最少的 ${p.best} 步多。按「重来」再试试。`; api.say(`用了 ${moves} 步，还能更少。`); }
-      else { msg = `全搬到 ${esc(labels[to])} 柱了，用了 ${moves} 步。`; ok(); }
+      else { msg = p.target ? `摆好了，用了 ${moves} 步。` : `全搬到 ${esc(labels[to])} 柱了，用了 ${moves} 步。`; ok(); }
     }
   };
   svg.addEventListener('pointerdown', (e) => {
@@ -460,7 +464,8 @@ function nim(box, p, api) {
     });
     return SVG(w + 30, 20 + P.length * 40, o, '', 1.4);
   };
-  const paint = () => {
+  const paint = () => { paint0(); const lg = box.querySelector('.tk-log'); if (lg) lg.scrollTop = lg.scrollHeight; };
+  const paint0 = () => {
     if (!P) { box.innerHTML = `<div class="tk-pick"><p>选一个开局，你先拿：</p>${bar(starts.map((st, k) => btn(`nm-start" data-k="${k}`, st.join('、'))).join(''))}</div>`; return; }
     box.innerHTML = `<div class="tk">${pileSvg()}<div class="tk-log">${log.map((x) => `<div>${x}</div>`).join('')}</div>
       ${over ? bar(btn('nm-again', '再来一盘')) : `<div class="tk-moves"><span>${pick ? `从第 ${pick[0] + 1} 堆拿 <b>${pick[1]}</b> 颗` : `点石子：点到哪颗，就从那颗拿到这一堆的末尾${max < Infinity ? `（每次最多 ${max} 颗）` : ''}`}</span>${pick ? btn('nm-go', '就这样拿') : ''}</div>`}</div>`;
