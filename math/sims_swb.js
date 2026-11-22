@@ -260,7 +260,7 @@ function gridfill(box, p, api) {
     lines.forEach((L, li) => {
       const a = at[L[0]], b = at[L[L.length - 1]]; if (!a || !b) return;
       const sm = v.sums[li], wrong = p.sum !== undefined && sm !== null && sm !== p.sum;
-      g += `<line x1="${a.cx}" y1="${a.cy}" x2="${b.cx}" y2="${b.cy}" style="stroke:${wrong ? 'var(--lp-warn)' : 'var(--lp-line)'}" stroke-width="${wrong ? 3 : 2}"/>`;
+      g += `<line x1="${a.cx}" y1="${a.cy}" x2="${b.cx}" y2="${b.cy}" style="stroke:${wrong ? 'var(--lp-warn)' : 'var(--lp-soft)'};stroke-opacity:${wrong ? 1 : 0.7}" stroke-width="${wrong ? 3 : 2}"/>`;
       if (p.line_sums !== false) {
         const d = Math.hypot(b.cx - a.cx, b.cy - a.cy) || 1, ex = b.cx + ((b.cx - a.cx) / d) * c * 0.95, ey = b.cy + ((b.cy - a.cy) / d) * c * 0.95;
         g += `<text x="${ex.toFixed(1)}" y="${(ey + 5).toFixed(1)}" text-anchor="middle" font-size="${Math.round((p.size || 18) * 0.8)}" class="st${sm === null ? ' muted' : wrong ? ' warn' : ' jade'}" font-weight="700">${sm === null ? '·' : sm}</text>`;
