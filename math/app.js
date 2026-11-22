@@ -1,4 +1,4 @@
-import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122l';
+import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122p';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js';

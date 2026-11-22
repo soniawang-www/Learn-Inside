@@ -124,7 +124,7 @@ async function copyText(s) {
 }
 function toast(html) {
   document.querySelector('.li-toast')?.remove();
-  const t = document.createElement('div'); t.className = 'li-toast'; t.innerHTML = html; document.body.append(t);
+  const t = document.createElement('div'); t.className = 'li-toast'; t.innerHTML = html; (document.querySelector('dialog[open]') || document.body).append(t); // 弹窗开着时放进弹窗里，不然被盖住
   setTimeout(() => t.classList.add('out'), 2600); setTimeout(() => t.remove(), 3000);
 }
 const qrOf = (url) => { try { const q = qrcode(0, 'M'); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 3, margin: 2, scalable: true }); } catch { return ''; } };
@@ -133,17 +133,24 @@ let contactCache = null;
 export async function openContact({ title = '联系我们', only = '' } = {}) {
   try { contactCache ||= await (await fetch('/api/support')).json(); } catch { contactCache = {}; }
   const s = contactCache, link = /^https:\/\//.test(s.url || '') ? s.url : '';
-  const qrImg = (src, alt) => `<img src="${escH(src)}" alt="${alt}">`;
-  const row = (cls, qr, body) => `<div class="ct-row ${cls}"><div class="ct-qr">${qr}</div><div class="ct-body">${body}</div></div>`;
-  const support = row('ct-sup', s.qr && !(link && IN_WX) ? qrImg(s.qr, '客服微信二维码') : `<span class="ct-ic">${mascot('happy', { head: true })}</span>`,
-    `<b>客服微信</b>${link && IN_WX ? `<a class="ct-btn" href="${escH(link)}">打开微信客服</a>` : '<small>微信扫一扫，直接和客服聊</small>'}${s.text ? `<small>${escH(s.text)}</small>` : ''}`);
-  const xhs = row('ct-xhs', qrOf(XHS.link),
-    `<b><i class="xhs-tag">小红书</i>${escH(XHS.name)}</b><small>小红书号 ${XHS.id} <a href="javascript:" data-copy="${XHS.id}">复制</a></small>
-     <small class="ct-how">小红书「扫一扫」扫码关注</small><a class="ct-btn ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书主页</a>`);
-  const mp = s.mp ? row('ct-mp', s.mp.qr ? qrImg(s.mp.qr, '公众号二维码') : '',
-    `<b><i class="mp-tag">公众号</i>${escH(s.mp.name)}</b>${IN_WX && s.mp.qr ? '<small>长按二维码关注</small>' : `<small>微信搜「${escH(s.mp.name)}」${s.mp.name ? ` <a href="javascript:" data-copy="${escH(s.mp.name)}">复制</a>` : ''}</small>`}`) : '';
-  const dlg = document.createElement('dialog'); dlg.className = 'ct-dlg';
-  dlg.innerHTML = `<div class="ct-head"><h2>${escH(title)}</h2><button class="ct-x" aria-label="关闭">×</button></div>${only === 'support' ? support : support + xhs + mp}`;
+  const COPY = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
+  // 一张卡：平台色的小标签、二维码、名字、一行说明、（手机上）一个按钮
+  const card = (cls, tag, qr, name, sub, act = '') => `<div class="ct-card ${cls}"><span class="ct-tag">${tag}</span>
+      <div class="ct-qr">${qr || `<span class="ct-ic">${mascot('happy', { head: true })}</span>`}</div>
+      <b class="ct-name">${name}</b>${sub ? `<small class="ct-sub">${sub}</small>` : ''}${act}</div>`;
+  const nm = (x) => x.split(' | ').map((p) => `<span>${escH(p)}</span>`).join('');
+  const support = card('ct-sup', '客服微信', s.qr ? `<img src="${escH(s.qr)}" alt="客服微信二维码">` : '', '有问题直接问',
+    s.text ? escH(s.text) : IN_WX && link ? '' : '微信扫码',
+    link && IN_WX ? `<a class="ct-act" href="${escH(link)}">打开微信客服</a>` : '');
+  const xhs = card('ct-xhs', '小红书', qrOf(XHS.link), nm(XHS.name),
+    `<a href="javascript:" class="ct-copy" data-copy="${XHS.id}" title="复制小红书号"><i>小红书号</i>${XHS.id}${COPY}</a>`,
+    `<a class="ct-act ct-open" href="${escH(XHS.link)}" target="_blank" rel="noopener">打开小红书</a>`);
+  const mp = s.mp ? card('ct-mp', '公众号', s.mp.qr ? `<img src="${escH(s.mp.qr)}" alt="公众号二维码">` : '', nm(s.mp.name || '公众号'),
+    IN_WX && s.mp.qr ? '长按二维码关注' : s.mp.name ? `<a href="javascript:" class="ct-copy" data-copy="${escH(s.mp.name)}" title="复制公众号名字"><i>微信搜</i>${escH(s.mp.name)}${COPY}</a>` : '微信扫码关注') : '';
+  const cards = only === 'support' ? [support] : [support, xhs, mp].filter(Boolean);
+  const dlg = document.createElement('dialog'); dlg.className = `ct-dlg n${cards.length}`;
+  dlg.innerHTML = `<div class="ct-hero"><span class="ct-grab"></span><div class="ct-fox">${mascot('cheer')}</div><h2>${escH(title)}</h2><button class="ct-x" aria-label="关闭">×</button></div>
+    <div class="ct-cards n${cards.length}">${cards.join('')}</div>`;
   dlg.querySelector('.ct-x').onclick = () => dlg.close();
   dlg.addEventListener('click', async (e) => {
     if (e.target === dlg) return dlg.close();

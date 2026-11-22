@@ -13,7 +13,7 @@ import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122l';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261122l';
 import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122l';
 import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122l';
-import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122l';
+import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122p';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 
