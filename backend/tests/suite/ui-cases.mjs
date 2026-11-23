@@ -11,7 +11,7 @@ const WX_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKi
 
 export const UI_FEATURES = [
   { id: 'U1', area: '界面', name: '数学首页', cases: [
-    { id: 'U1-1', name: '只放竞赛入口卡片（AMC 8 / AMC 10 / AMC 12 / 袋鼠数学 / 思维 100 / 走美杯 / YMO / 希望数学），不铺试卷', run: async (p, c) => { await c.go('#/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('.exam-tile').count()}`; }, expect: same('8/0') },
+    { id: 'U1-1', name: '只放竞赛入口卡片（AMC 8 / AMC 10 / AMC 12 / 袋鼠数学 / 思维 100 / 走美杯 / YMO / 世少赛 / 希望数学），不铺试卷', run: async (p, c) => { await c.go('#/'); return `${await p.locator('a.fam-card').count()}/${await p.locator('.exam-tile').count()}`; }, expect: same('9/0') },
     { id: 'U1-2', name: '点竞赛卡片进到这个竞赛的试卷', run: async (p, c) => { await c.go('#/'); await p.locator('a.fam-card', { hasText: 'AMC 8' }).click(); await c.settle(); return `${p.url().endsWith('#/contest/amc8')}/${await p.locator('.exam-tile').count()}`; }, expect: same('true/26') },
     { id: 'U1-3', name: '「今天做什么」「最近成绩」一直显示', run: async (p, c) => { await c.go('#/'); return p.locator('.dash-grid > .card').count(); }, expect: same(2) },
     { id: 'U1-4', name: '侧栏底部身份（游客是注册提示）', run: async (p, c) => { await c.go('#/'); const t = await c.text('.sn-who small'); return t.includes('注册送') ? '注册提示' : t.includes('会员') ? '会员' : t.replace(/\s/g, ''); }, expect: { guest: '注册提示', user: '免费次数10', member: '会员' } },
