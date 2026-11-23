@@ -271,7 +271,12 @@ function gridfill(box, p, api) {
       const sm = v.sums[li], wrong = p.sum !== undefined && sm !== null && sm !== p.sum, LO = lineObj[li], sh = LO.shape;
       const sty = `style="fill:none;stroke:${wrong ? 'var(--lp-warn)' : 'var(--lp-soft)'};stroke-opacity:${wrong ? 1 : 0.7}" stroke-width="${wrong ? 3 : 2}"`;
       const P = L.map((k) => at[k]).filter(Boolean), mx = P.reduce((t, q) => t + q.cx, 0) / P.length, my = P.reduce((t, q) => t + q.cy, 0) / P.length;
-      if (sh === 'circle') g += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${(P.reduce((t, q) => t + Math.hypot(q.cx - mx, q.cy - my), 0) / P.length).toFixed(1)}" ${sty}/>`;
+      if (sh === 'circle') {
+        // 过前三个格的外接圆（三点共线时退回平均位置）
+        const [A, B, C2] = P, d = 2 * (A.cx * (B.cy - C2.cy) + B.cx * (C2.cy - A.cy) + C2.cx * (A.cy - B.cy));
+        const [ox, oy] = P.length >= 3 && Math.abs(d) > 1e-6 ? [((A.cx ** 2 + A.cy ** 2) * (B.cy - C2.cy) + (B.cx ** 2 + B.cy ** 2) * (C2.cy - A.cy) + (C2.cx ** 2 + C2.cy ** 2) * (A.cy - B.cy)) / d, ((A.cx ** 2 + A.cy ** 2) * (C2.cx - B.cx) + (B.cx ** 2 + B.cy ** 2) * (A.cx - C2.cx) + (C2.cx ** 2 + C2.cy ** 2) * (B.cx - A.cx)) / d] : [mx, my];
+        g += `<circle cx="${ox.toFixed(1)}" cy="${oy.toFixed(1)}" r="${Math.hypot(A.cx - ox, A.cy - oy).toFixed(1)}" ${sty}/>`;
+      }
       else if (sh === 'path' || sh === 'closed') g += `<${sh === 'closed' ? 'polygon' : 'polyline'} points="${P.map((q) => `${q.cx},${q.cy}`).join(' ')}" ${sty}/>`;
       else g += `<line x1="${a.cx}" y1="${a.cy}" x2="${b.cx}" y2="${b.cy}" ${sty}/>`;
       if (p.line_sums !== false) {
