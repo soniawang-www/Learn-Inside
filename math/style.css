@@ -1879,3 +1879,31 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
   .ritem > summary > .muted.small { order: 2; flex-basis: calc(100% - 38px); margin-left: 38px; }
 }
 .et-dur { font-style: normal; }
+/* 钟面 / 一笔画 / 火柴棒 */
+.ck2svg, .tr2svg, .mtsvg { touch-action:none; user-select:none; -webkit-user-select:none; }
+.ck2svg .ck2-face { fill:var(--lp-card); stroke:var(--lp-ink); stroke-width:2.4; }
+.ck2svg .ck2-tk { stroke:var(--lp-soft); stroke-width:1.2; } .ck2svg .ck2-tk.big { stroke:var(--lp-ink); stroke-width:2.2; }
+.ck2svg .ck2-hh { stroke:var(--lp-ink); stroke-width:6; stroke-linecap:round; }
+.ck2svg .ck2-mh { stroke:var(--lp-plum); stroke-width:3.6; stroke-linecap:round; }
+.ck2svg .ck2-c { fill:var(--lp-ink); }
+.ck2svg .ck2-arc { fill:var(--lp-jade-soft); stroke:var(--lp-jade); stroke-width:1.2; }
+.ck2svg .ck2-hit { stroke:transparent; stroke-width:22; stroke-linecap:round; cursor:grab; }
+.tr2svg .tr2-e { fill:none; stroke:var(--lp-line); stroke-width:5; stroke-linecap:round; }
+.tr2svg .tr2-e.on { stroke:var(--lp-plum); } .tr2svg .tr2-e.on.s1 { stroke:var(--lp-jade); } .tr2svg .tr2-e.on.s2 { stroke:var(--lp-warn); }
+.tr2svg .tr2-hit { fill:none; stroke:transparent; stroke-width:18; cursor:pointer; }
+.tr2svg .tr2-no { fill:var(--lp-plum); }
+.tr2svg .tr2-n { cursor:pointer; } .tr2svg .tr2-hn { fill:transparent; }
+.tr2svg .tr2-d { fill:var(--lp-ink); } .tr2svg .tr2-d.odd { fill:var(--lp-warn); }
+.tr2svg .tr2-n.cur .tr2-d { fill:var(--lp-plum); stroke:var(--lp-card); stroke-width:2; }
+.tr2svg .tr2-n:hover .tr2-hn { fill:var(--lp-plum-soft); }
+.mtsvg .mt-s { cursor:pointer; }
+.mtsvg .mt-hit { stroke:transparent; stroke-width:16; }
+.mtsvg .mt-slot { stroke:var(--lp-line); stroke-width:2; stroke-dasharray:3 4; stroke-linecap:round; }
+.mtsvg .mt-s.off:hover .mt-slot { stroke:var(--lp-plum); stroke-width:3; }
+.mtsvg .mt-wood { stroke:#d9a24a; stroke-width:5; stroke-linecap:round; }
+.mtsvg .mt-head { fill:#c8402e; }
+.mtsvg .mt-s.sel .mt-wood { stroke:var(--lp-plum); stroke-width:6; }
+.mtsvg .mt-s.sel .mt-head { fill:var(--lp-plum); }
+.tg-tag { pointer-events:none; }
+.ck2svg .ck2-alab { paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; stroke-linejoin:round; }
+.tr2svg .tr2-rm { fill:none; stroke:var(--lp-soft); stroke-width:2; stroke-dasharray:5 5; }

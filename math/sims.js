@@ -524,5 +524,6 @@ function circles18(box, p, api) {
 import { SIMS24 } from './sims24.js';
 import { SIMS23 } from './sims23.js';
 import { SIMS_SWB } from './sims_swb.js';
+import { SIMS_YMO } from './sims_ymo.js';
 import { SIMS_HS } from './sims_hs.js';
-export const SIMS = { ...SIMS23, ...SIMS24, ...SIMS_SWB, ...SIMS_HS, circles18,  tap, sum, seq, deal, erase, clock, rotate, circle12, hist, insertN, fold, pairs16, cars, cheese, assign, hooks, n2, trap, mirror };
+export const SIMS = { ...SIMS23, ...SIMS24, ...SIMS_SWB, ...SIMS_HS, ...SIMS_YMO, circles18,  tap, sum, seq, deal, erase, clock, rotate, circle12, hist, insertN, fold, pairs16, cars, cheese, assign, hooks, n2, trap, mirror };

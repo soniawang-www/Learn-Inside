@@ -25,10 +25,23 @@ function slider(box, p, api) {
   const view = p.view ? compile(p.view, keys) : null, info = p.info ? compile(p.info, keys) : null, goal = p.goal ? compile(p.goal, keys) : null;
   const tip = p.tip ? compile(p.tip, keys) : null, found = p.found ? compile(p.found, keys) : null;
   const seen = [];
-  const v = Object.fromEntries(p.vars.map((x) => [x.k, x.init ?? x.min]));
+  // values: [取值, …]：滑块只停在这些值上（不等距、分数 1/11 等），labels: [显示的字, …]（和 values 一一对应，如 '9:15'）
+  const idxOf = (x, val) => { let b = 0; x.values.forEach((y, i) => { if (Math.abs(y - val) < Math.abs(x.values[b] - val)) b = i; }); return b; };
+  const shown = (x, val) => (x.values && x.labels ? x.labels[idxOf(x, val)] : fmt(val));
+  const v = Object.fromEntries(p.vars.map((x) => [x.k, x.init ?? (x.values ? x.values[0] : x.min)]));
+  // trail: {k: 't', pt: '[x, y] 表达式', color, w, dash} 或几个这样的：把 k 从最小值走到当前值时 pt 经过的点连成线（轨迹、滚动留下的路线）
+  const trails = (p.trail ? [].concat(p.trail) : []).map((tr) => ({ ...tr, f: compile(tr.pt, keys), x: p.vars.find((q) => q.k === tr.k) }));
+  const trailSvg = () => trails.map((tr) => {
+    const x = tr.x, lo = x.values ? x.values[0] : x.min, cur = v[tr.k], st = (x.step || 1) / (tr.fine || 1), pts = [];
+    const vals = x.values ? x.values.filter((y) => y <= cur) : Array.from({ length: Math.min(4000, Math.floor((cur - lo) / st + 1e-9) + 1) }, (_, i) => lo + i * st).concat([cur]);
+    for (const val of vals) { try { const q = tr.f({ ...v, [tr.k]: val }, H); if (q && isFinite(q[0]) && isFinite(q[1])) pts.push(`${Math.round(q[0] * 10) / 10},${Math.round(q[1] * 10) / 10}`); } catch (e) { /* 跳过 */ } }
+    return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${tr.color || 'var(--lp-plum)'}" stroke-width="${tr.w || 2.5}"${tr.dash ? ` stroke-dasharray="${tr.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round"/>` : '';
+  }).join('');
   if (found) Object.assign(v, { nfound: 0, seen });
   box.innerHTML = (view ? SVG(p.vw || 360, p.vh || 220, '<g class="sl-g"></g>', 'slsvg') : '') + '<div class="sl-info"></div>' + (found ? '<div class="hk-found sl-found"></div>' : '') +
-    p.vars.map((x) => bar(`<span>${esc(x.label || x.k)} = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}</span><input type="range" min="${x.min}" max="${x.max}" step="${x.step || 1}" value="${v[x.k]}" data-k="${x.k}" aria-label="${esc(x.label || x.k)}">`)).join('');
+    p.vars.map((x) => bar(`<span>${esc(x.label || x.k)} = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}</span>` + (x.values
+      ? `<input type="range" min="0" max="${x.values.length - 1}" step="1" value="${idxOf(x, v[x.k])}" data-k="${x.k}" data-values="1" aria-label="${esc(x.label || x.k)}">`
+      : `<input type="range" min="${x.min}" max="${x.max}" step="${x.step || 1}" value="${v[x.k]}" data-k="${x.k}" aria-label="${esc(x.label || x.k)}">`))).join('');
   if (p.maxw && box.querySelector('svg')) Object.assign(box.querySelector('svg').style, { maxWidth: `${p.maxw}px`, marginInline: 'auto' }); // 小图别拉满整宽
   const ok = once(() => api.solved(p.say_ok));
   let lastTip = '';
@@ -39,8 +52,8 @@ function slider(box, p, api) {
       v.nfound = seen.length;
       box.querySelector('.sl-found').innerHTML = `${esc(p.found_label || '找到')}：${seen.map((x) => `<span>${esc(x)}</span>`).join('') || '<span class="muted">还没有</span>'}`;
     }
-    if (view) box.querySelector('.sl-g').innerHTML = view(v, H);
-    box.querySelectorAll('.sl-v').forEach((e) => { e.textContent = fmt(v[e.dataset.k]); });
+    if (view) box.querySelector('.sl-g').innerHTML = (p.trail_top ? '' : trailSvg()) + view(v, H) + (p.trail_top ? trailSvg() : '');
+    box.querySelectorAll('.sl-v').forEach((e) => { e.textContent = shown(p.vars.find((x) => x.k === e.dataset.k), v[e.dataset.k]); });
     if (info) {
       const el = box.querySelector('.sl-info'), h = info(v, H);
       el.innerHTML = h;
@@ -50,7 +63,8 @@ function slider(box, p, api) {
     if (tip) { const t = tip(v, H); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
     if (goal && goal(v, H)) ok();
   };
-  box.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('input', () => { stop(); v[r.dataset.k] = +r.value; draw(); }));
+  const valOf = (r) => { const x = p.vars.find((q) => q.k === r.dataset.k); return x.values ? x.values[+r.value] : +r.value; };
+  box.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('input', () => { stop(); v[r.dataset.k] = valOf(r); draw(); }));
   // play: 'k' 时加一个「播放」按钮，让变量 k 从当前值自动走到最大值（行程、旋转等动画）；ms 是每一小步的间隔
   let timer = null;
   const stop = () => { if (timer) { clearInterval(timer); timer = null; } const b = box.querySelector('.sl-play'); if (b) b.textContent = '▶ 播放'; };
@@ -60,13 +74,14 @@ function slider(box, p, api) {
     box.insertAdjacentHTML('beforeend', bar(btn('sl-play', '▶ 播放')));
     box.querySelector('.sl-play').onclick = (e) => {
       if (timer) return stop();
-      if (v[x.k] >= x.max) v[x.k] = x.min;
+      const top = x.values ? x.values.length - 1 : x.max;
+      if (x.values ? +r.value >= top : v[x.k] >= x.max) { r.value = x.values ? 0 : x.min; v[x.k] = valOf(r); }
       e.currentTarget.textContent = '❚❚ 暂停';
       timer = setInterval(() => {
         if (!box.isConnected) return stop();
-        v[x.k] = Math.min(x.max, +(v[x.k] + (x.step || 1)).toFixed(6));
-        r.value = v[x.k]; draw();
-        if (v[x.k] >= x.max) stop();
+        if (x.values) { r.value = +r.value + 1; v[x.k] = valOf(r); } else { v[x.k] = Math.min(x.max, +(v[x.k] + (x.step || 1)).toFixed(6)); r.value = v[x.k]; }
+        draw();
+        if (x.values ? +r.value >= top : v[x.k] >= x.max) stop();
       }, p.ms || 60);
     };
   }

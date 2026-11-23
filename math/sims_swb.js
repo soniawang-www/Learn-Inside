@@ -129,6 +129,8 @@ const col = (c) => (c === 'none' ? 'transparent' : COLORS[c] || c || 'var(--lp-c
 //   init: {k: 状态号}, stroke: false（所有格都不描边，透明热区叠在图上时用）,
 //   bg: 'SVG 内容（画在格子下面，表达式）', fg: '画在格子上面', info: 'HTML 表达式', goal: '布尔表达式', bad: '表达式，返回要标红的 k 数组',
 //   found: '表达式，返回当前摆法的名字（字符串，不算数的摆法返回空）'：记住找到过的不同摆法，表达式里 nfound 是个数、seen 是名字数组（「找出全部 4 种」用 goal: 'nfound >= 4'）,
+//   状态里 text 可写 '{label}' 代入格子自己的 label（如 '{label} ✓'）；tag: '真'（右上角小角标，格子文字不变，tag_cls 换颜色类）；sub 覆盖格子的 sub。
+//   found_show: true：下面显示「找到：…」一排找到过的名字（名字要写成给孩子看的话；found_label 改前面的字）
 //   表达式里可用：S（k→状态号）、L（按 items 顺序的状态号数组）、K（k 数组）、cnt(状态号)、on(k)（状态号≠0）、nfound、seen }
 function toggles(box, p, api) {
   // seg：线段热区，自动换成沿线段的细长多边形（宽 w，默认 14），默认不描边；状态的 fill 写 'none' 时颜色自己在 bg 里按 on() 画
@@ -146,7 +148,7 @@ function toggles(box, p, api) {
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   const tip = fn(p.tip, keys);
   const vw = p.vw || 360, vh = p.vh || 220;
-  box.innerHTML = SVG(vw, vh, '<g class="tg-g"></g>', 'slsvg tgsvg', 1.6) + '<div class="sl-info"></div>' + bar(btn('tg-reset', '重来'));
+  box.innerHTML = SVG(vw, vh, '<g class="tg-g"></g>', 'slsvg tgsvg', 1.6) + '<div class="sl-info"></div>' + (p.found && p.found_show ? '<div class="hk-found sl-found tg-found"></div>' : '') + bar(btn('tg-reset', '重来'));
   const env = () => { const L = items.map((it) => S[it.k]); return { S, L, K: items.map((it) => it.k), cnt: (v) => L.filter((x) => x === v).length, on: (k) => S[k] !== 0, nfound: seen.length, seen }; };
   const draw = () => {
     let v = env();
@@ -163,11 +165,15 @@ function toggles(box, p, api) {
       const dN = it.d && it.cx === undefined ? (String(it.d).match(/-?\d*\.?\d+/g) || []).map(Number) : null; // path：取数字两两成点的包围盒中心（近似）
       const dC = dN && dN.length >= 2 ? (() => { const X = dN.filter((_, i) => i % 2 === 0), Y = dN.filter((_, i) => i % 2 === 1); return [(Math.min(...X) + Math.max(...X)) / 2, (Math.min(...Y) + Math.max(...Y)) / 2]; })() : null;
       const [cx, cy] = it.cx !== undefined ? [it.cx, it.cy] : dC ? dC : it.r ? [it.x, it.y] : it.pts ? [it.pts.reduce((t, q) => t + q[0], 0) / it.pts.length, it.pts.reduce((t, q) => t + q[1], 0) / it.pts.length] : [it.x + it.w / 2, it.y + it.h / 2];
-      const txt = st.text ?? it.label ?? '';
-      g += `<g class="tg-i${it.fixed ? ' fixed' : ''}" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}"${st.color ? ` style="fill:${st.color}"` : ''}>${esc(txt)}</text>` : ''}${it.sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.h !== undefined ? it.y + it.h : cy + 10) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(it.sub)}</text>` : ''}</g>`;
+      const txt = String(st.text ?? it.label ?? '').replace('{label}', it.label ?? ''), sub = st.sub ?? it.sub;
+      // tag：状态的小角标（格子文字不变，右上角标出状态）
+      const [tx, ty] = it.tx !== undefined ? [it.tx, it.ty] : it.r ? [it.x + it.r * 0.78, it.y - it.r * 0.6] : it.w !== undefined && !it.pts && !it.d ? [it.x + it.w - 3, it.y + 12] : [cx + 14, cy - 10];
+      const tag = st.tag ? `<text x="${tx}" y="${ty}" text-anchor="${it.r || it.tx !== undefined || it.pts || it.d ? 'middle' : 'end'}" font-size="${p.tag_size || 11}" font-weight="700" class="st tg-tag ${st.tag_cls || 'plum'}">${esc(st.tag)}</text>` : '';
+      g += `<g class="tg-i${it.fixed ? ' fixed' : ''}" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}"${st.color ? ` style="fill:${st.color}"` : ''}>${esc(txt)}</text>` : ''}${sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.h !== undefined ? it.y + it.h : cy + 10) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(sub)}</text>` : ''}${tag}</g>`;
     }
     g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.tg-g').innerHTML = g;
+    const fd = box.querySelector('.tg-found'); if (fd) fd.innerHTML = `${esc(p.found_label || '找到')}：${seen.map((x) => `<span>${esc(x)}</span>`).join('') || '<span class="muted">还没有</span>'}`;
     if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, v, ''); tex(el); }
     if (tip) { const t = run(tip, v, ''); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
     if (run(F.goal, v, false)) ok();
@@ -238,7 +244,9 @@ function gridfill(box, p, api) {
     : Array.from({ length: R * C }, (_, n) => { const i = Math.floor(n / C), j = n % C; return { k: `${i},${j}`, i, j, cx: x0 + j * st + c / 2, cy: y0 + i * st + c / 2 }; });
   const at = Object.fromEntries(cells.map((q) => [q.k, q]));
   const V = Object.fromEntries(cells.map((q) => [q.k, given[q.k] ?? null]));
-  const lines = (p.lines || []).map((L) => L.map(String));
+  // lines 的一项也可以写 {cells: [格名, …], shape: 'path'（依次连过每个格）| 'closed'（连成闭合多边形）| 'circle'（过这些格画圆）, at: [x, y]（和写在哪）}
+  const lineObj = (p.lines || []).map((L) => (Array.isArray(L) ? { cells: L.map(String) } : { ...L, cells: L.cells.map(String) }));
+  const lines = lineObj.map((L) => L.cells);
   const keys = ['G', 'R', 'C', 'filled', 'V', 'sums'];
   // goal: true（布尔）时用自动条件（填满且每条线等于 sum）
   const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: typeof p.goal === 'string' ? fn(p.goal, keys) : null, bad: fn(p.bad, keys) };
@@ -260,10 +268,15 @@ function gridfill(box, p, api) {
     let g = run(F.bg, v, '') || '';
     lines.forEach((L, li) => {
       const a = at[L[0]], b = at[L[L.length - 1]]; if (!a || !b) return;
-      const sm = v.sums[li], wrong = p.sum !== undefined && sm !== null && sm !== p.sum;
-      g += `<line x1="${a.cx}" y1="${a.cy}" x2="${b.cx}" y2="${b.cy}" style="stroke:${wrong ? 'var(--lp-warn)' : 'var(--lp-soft)'};stroke-opacity:${wrong ? 1 : 0.7}" stroke-width="${wrong ? 3 : 2}"/>`;
+      const sm = v.sums[li], wrong = p.sum !== undefined && sm !== null && sm !== p.sum, LO = lineObj[li], sh = LO.shape;
+      const sty = `style="fill:none;stroke:${wrong ? 'var(--lp-warn)' : 'var(--lp-soft)'};stroke-opacity:${wrong ? 1 : 0.7}" stroke-width="${wrong ? 3 : 2}"`;
+      const P = L.map((k) => at[k]).filter(Boolean), mx = P.reduce((t, q) => t + q.cx, 0) / P.length, my = P.reduce((t, q) => t + q.cy, 0) / P.length;
+      if (sh === 'circle') g += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${(P.reduce((t, q) => t + Math.hypot(q.cx - mx, q.cy - my), 0) / P.length).toFixed(1)}" ${sty}/>`;
+      else if (sh === 'path' || sh === 'closed') g += `<${sh === 'closed' ? 'polygon' : 'polyline'} points="${P.map((q) => `${q.cx},${q.cy}`).join(' ')}" ${sty}/>`;
+      else g += `<line x1="${a.cx}" y1="${a.cy}" x2="${b.cx}" y2="${b.cy}" ${sty}/>`;
       if (p.line_sums !== false) {
-        const d = Math.hypot(b.cx - a.cx, b.cy - a.cy) || 1, ex = b.cx + ((b.cx - a.cx) / d) * c * 0.95, ey = b.cy + ((b.cy - a.cy) / d) * c * 0.95;
+        const a2 = sh === 'path' ? P[P.length - 2] || a : a, d = Math.hypot(b.cx - a2.cx, b.cy - a2.cy) || 1;
+        const [ex, ey] = LO.at ? LO.at : sh === 'circle' || sh === 'closed' ? [mx, my] : [b.cx + ((b.cx - a2.cx) / d) * c * 0.95, b.cy + ((b.cy - a2.cy) / d) * c * 0.95];
         g += `<text x="${ex.toFixed(1)}" y="${(ey + 5).toFixed(1)}" text-anchor="middle" font-size="${Math.round((p.size || 18) * 0.8)}" class="st${sm === null ? ' muted' : wrong ? ' warn' : ' jade'}" font-weight="700">${sm === null ? '·' : sm}</text>`;
       }
     });
