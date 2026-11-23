@@ -167,10 +167,10 @@ route('GET', '/api/exams', async (req, env, _p, url) => {
     .prepare(
       `SELECT e.id, e.title, e.year, e.grade, e.source, e.duration_sec,
               COALESCE(e.problem_count, (SELECT COUNT(*) FROM problem p WHERE p.exam_id = e.id)) AS problem_count,
-              (SELECT s.score FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_score,
-              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session,
-              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NULL AND s.deadline_at > ? ORDER BY s.started_at DESC LIMIT 1) AS open_session,
-              (SELECT s.mode FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.submitted_at IS NULL AND s.deadline_at > ? ORDER BY s.started_at DESC LIMIT 1) AS open_mode
+              (SELECT s.score FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.part IS NULL AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_score,
+              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.part IS NULL AND s.submitted_at IS NOT NULL ORDER BY s.submitted_at DESC LIMIT 1) AS last_session,
+              (SELECT s.id FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.part IS NULL AND s.submitted_at IS NULL AND s.deadline_at > ? ORDER BY s.started_at DESC LIMIT 1) AS open_session,
+              (SELECT s.mode FROM exam_session s WHERE s.student_id = ? AND s.exam_id = e.id AND s.part IS NULL AND s.submitted_at IS NULL AND s.deadline_at > ? ORDER BY s.started_at DESC LIMIT 1) AS open_mode
          FROM exam e WHERE e.published = 1${prefix ? ' AND e.id LIKE ?' : ''} ORDER BY e.year DESC, e.grade, e.id`
     )
     .bind(studentId, studentId, studentId, now(), studentId, now(), ...(prefix ? [prefix + '%'] : []))
@@ -198,7 +198,7 @@ route('GET', '/api/toefljr/:id', async (_req, env, p) => {
 //   { problem_ids, purpose }   错题本：purpose = pending 订正 / due 复习（只影响标题）
 route('POST', '/api/sessions', async (req, env) => {
   const acc = await requireAccount(req, env);
-  const { exam_id, student_id, mode = 'exam', kp_id, problem_ids, purpose } = await body(req);
+  const { exam_id, student_id, mode = 'exam', kp_id, problem_ids, purpose, part } = await body(req);
   await requireStudent(env, acc, student_id);
   const firstEver = !(await env.DB.prepare('SELECT 1 FROM exam_session es JOIN student st ON st.id = es.student_id WHERE st.account_id = ? LIMIT 1').bind(acc.id).first());
   const counted = async () => { await bump(env, 'start'); if (firstEver) await bump(env, 'first_start'); };
@@ -206,6 +206,21 @@ route('POST', '/api/sessions', async (req, env) => {
   if ([exam_id, ...(Array.isArray(problem_ids) ? problem_ids : [])].some((x) => familyOf(x ?? '')?.subject === 'english' && !familyOf(x ?? '').exams)) throw new HttpError(400, '英语题库不能开考');
   const id = uid();
   const t = now();
+  if (part != null) { // 英语错题本：重做一套卷子里的这几个部分（材料要一起看，所以整篇 / 整段重做）
+    const fam = familyOf(exam_id ?? '');
+    if (fam?.subject !== 'english' || !fam.exams) throw new HttpError(400, '只有英语仿真卷可以按部分重做');
+    const ex = await env.DB.prepare('SELECT id, title, sections FROM exam WHERE id = ? AND published = 1').bind(exam_id).first();
+    if (!ex) throw new HttpError(404, '试卷不存在');
+    const gs = (parseJ(ex.sections, [])?.[0]?.groups || []);
+    const want = [...new Set(String(part).split(',').map((x) => x.trim()).filter(Boolean))];
+    if (!want.length || want.length > 8 || want.some((g) => !gs.some((x) => x.id === g))) throw new HttpError(400, 'part 不合法');
+    const names = want.map((g) => { const x = gs.find((y) => y.id === g); return x.name ? x.name.replace(/^(Reading|Listening) /, '') : x.title || g; });
+    const title = `${{ due: '错题复习', pending: '错题订正' }[purpose] || '错题订正'} · ${fam.name} ${ex.title.replace(/^(KET |PET )?仿真模拟 /, '')} · ${names.join('、')}`.slice(0, 80);
+    await env.DB.prepare("INSERT INTO exam_session (id, student_id, exam_id, mode, started_at, deadline_at, title, subject, part) VALUES (?, ?, ?, 'practice', ?, ?, ?, 'english', ?)")
+      .bind(id, student_id, exam_id, t, t + PAPER_DAYS * 86400e3, title, want.join(',')).run();
+    await counted();
+    return json(await sessionPayload(env, id));
+  }
   if (kp_id || problem_ids) {
     if (kp_id) requireRegistered(acc); // 知识项突击只对注册用户；错题订正 / 复习、单题练习游客也能做
     let ids, title;
@@ -1245,7 +1260,7 @@ route('GET', '/api/students/:id/mistakes', async (req, env, p, url) => {
 async function mistakeBook(env, studentId, subject = 'math') {
   const { results: rows } = await env.DB
     .prepare(
-      `SELECT ae.problem_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, p.types, e.title AS exam_title, e.year
+      `SELECT ae.problem_id, ae.session_id, ae.choice, ae.correct, ae.error_reason, ae.created_at, p.number, p.types, p.kind, p.exam_id, e.title AS exam_title, e.year
          FROM attempt_event ae JOIN problem p ON p.id = ae.problem_id JOIN exam e ON e.id = p.exam_id
         WHERE ae.student_id = ? AND COALESCE(ae.skipped, 0) = 0
           AND ae.problem_id IN (SELECT problem_id FROM attempt_event WHERE student_id = ? AND correct = 0 AND COALESCE(skipped, 0) = 0)
@@ -1255,14 +1270,14 @@ async function mistakeBook(env, studentId, subject = 'math') {
     .all();
   const by = new Map();
   for (const r of rows) {
-    const m = by.get(r.problem_id) || { problem_id: r.problem_id, label: labelOf(r), year: r.year, number: r.number, wrong_n: 0, right_since: 0,
+    const m = by.get(r.problem_id) || { problem_id: r.problem_id, exam_id: r.exam_id, kind: r.kind ?? null, label: labelOf(r), year: r.year, number: r.number, wrong_n: 0, right_since: 0,
       types: parseJ(r.types, []).filter((t) => t.w >= 1).map((t) => t.name) };
     if (r.correct) m.right_since++;
-    else { m.wrong_n++; m.right_since = 0; m.last_wrong_at = r.created_at; m.last_choice = r.choice; if (r.error_reason) m.reason = r.error_reason; }
+    else { m.wrong_n++; m.right_since = 0; m.last_wrong_at = r.created_at; m.last_wrong_sid = r.session_id; m.last_choice = r.choice; if (r.error_reason) m.reason = r.error_reason; }
     m.last_at = r.created_at;
     by.set(r.problem_id, m);
   }
-  const list = [...by.values()].filter((m) => subjectOf(m.problem_id) === subject);
+  const list = [...by.values()].filter((m) => subjectOf(m.problem_id) === subject && !(subject === 'english' && m.kind === 'self')); // 英语写作是自评，不算错题
   if (!list.length) return [];
   const kps = (await allIn(env, `SELECT pk.problem_id, pk.weight, k.id, k.name FROM problem_kp pk JOIN knowledge_point k ON k.id = pk.kp_id
                WHERE pk.weight >= 0.5 AND pk.problem_id IN (?IDS)`, list.map((x) => x.problem_id))).sort((a, b) => b.weight - a.weight);
