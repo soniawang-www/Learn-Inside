@@ -110,6 +110,7 @@ export async function renderKETExam(sid) {
   const G = (d.exam.sections?.[0]?.groups || []).filter((g) => P.some((p) => p.extra?.group === g.id)); // 打卡只做其中一两个 Part
   const inG = (g) => P.filter((p) => p.extra?.group === g.id);
   const prep = !!d.session.prep;
+  const redo = !!d.session.part && !prep; // 错题本里重做一部分：不限时，退出回错题本
   const key = `ket.s.${sid}`;
   const D = draftSync({ api: X.api, store: X.store, key, sid, server: d.session.draft, init: { g: 0, answers: {}, pos: {}, pick: {} } });
   const { S, save } = D;
@@ -197,8 +198,8 @@ export async function renderKETExam(sid) {
     const last = S.g === G.length - 1;
     const wide = ['notices', 'people', 'article', 'cloze', 'match8', 'gapped'].includes(g.kind);
     const writing = ['email', 'story', 'choose'].includes(g.kind);
-    X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="#/${F.id}">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
-        ${prep ? '' : `<span class="tj-clock" id="clock">${mmss(left())}</span>`}<span class="tj-done"></span><button class="btn sm" id="fin">${prep ? '完成打卡' : '交卷'}</button></div>
+    X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="${redo ? '#/mistakes' : `#/${F.id}`}">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
+        ${prep || redo ? '' : `<span class="tj-clock" id="clock">${mmss(left())}</span>`}<span class="tj-done"></span><button class="btn sm" id="fin">${prep ? '完成打卡' : '交卷'}</button></div>
       <main class="page ${wide ? 'wide' : ''} tj-main kt-main">
         <div class="kt-head"><b>${X.esc(g.name)}</b><span>${range(g)}</span></div>${writing && g.kind !== 'choose' ? '' : `<p class="kt-rub">${X.esc(g.rubric || rub(F, g))}</p>`}
         ${body(g)}
@@ -232,26 +233,15 @@ export async function renderKETExam(sid) {
     let tick = 0;
     audio = bindPlayers(X.$app, audioOf(F), { pos: S.pos, onPos: (f, t) => { S.pos[f] = t; if (Date.now() - tick > 2000) { tick = Date.now(); save(); } }, onError: () => say('录音没能播放，请检查网络后再点一次。') });
   }
-  if (!prep) timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
+  if (!prep && !redo) timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
   draw();
 }
 
 // ───────── 复盘 ─────────
 // 写作按官方评分项自评：KET 三项（各 0–5，满分 15），PET 四项（各 0–5，满分 20）
-export async function renderKETReview(sid) {
-  const r = await X.api(`/api/sessions/${X.enc(sid)}/review`);
-  const F = famOf(r.exam.id); const part = partOf(r.exam.id);
-  const items = r.items;
-  const G = (r.exam.sections?.[0]?.groups || []).filter((g) => items.some((it) => it.extra?.group === g.id));
+// 复盘、错题本共用：一组（一个 Part）的材料 + 题目和对错；items 是这一组里要显示的题（带 choice、correct）
+export function ketGroupRev(F, items) {
   const inG = (g) => items.filter((it) => it.extra?.group === g.id);
-  let audio = null; X.setCleanup(() => audio?.());
-  const auto = items.filter((it) => it.kind !== 'self');
-  const right = auto.filter((it) => it.correct).length;
-  const W = items.filter((it) => it.kind === 'self');
-  const wFull = W.length ? (F.id === 'pet' ? 40 : 30) : 0;
-  const wGot = () => W.reduce((s, it) => s + (+it.got || 0), 0);
-  const bars = G.filter((g) => inG(g).some((it) => it.kind !== 'self')).map((g) => { const its = inG(g); const a = its.filter((x) => x.correct).length; return [g.name.replace(/^(Reading|Listening) /, ''), a, its.length]; });
-
   const optRow = (it) => Object.entries(it.choices).map(([k, v]) => `<div class="tj-ro ${k === it.answer ? 'key' : ''} ${k === it.choice && !it.correct ? 'bad' : ''}"><i>${k}</i><span>${X.esc(v)}</span>${k === it.answer ? '<em>正确答案</em>' : k === it.choice ? '<em>你的选择</em>' : ''}</div>`).join('');
   const shortRow = (it) => `<div class="kt-fill"><span class="${it.correct ? 'ok' : 'bad'}">你选的：${it.choice ? `<b>${it.choice}</b>` : '没选'}</span><span>答案：<b>${it.answer}</b> ${X.esc(it.choices[it.answer] || '')}</span></div>`;
   const st = (it) => (it.correct ? 'ok' : it.choice ? 'bad' : 'skip');
@@ -297,10 +287,30 @@ export async function renderKETReview(sid) {
     }
     return `<section class="card tj-rg"><div class="tj-rg-h">${X.esc(g.name)} · ${range(g)}</div>${mat}${qs}</section>`;
   };
+  return groupRev;
+}
+
+export async function renderKETReview(sid) {
+  const r = await X.api(`/api/sessions/${X.enc(sid)}/review`);
+  const F = famOf(r.exam.id); const part = partOf(r.exam.id);
+  const items = r.items;
+  const G = (r.exam.sections?.[0]?.groups || []).filter((g) => items.some((it) => it.extra?.group === g.id));
+  const inG = (g) => items.filter((it) => it.extra?.group === g.id);
+  let audio = null; X.setCleanup(() => audio?.());
+  const auto = items.filter((it) => it.kind !== 'self');
+  const right = auto.filter((it) => it.correct).length;
+  const W = items.filter((it) => it.kind === 'self');
+  const wFull = W.length ? (F.id === 'pet' ? 40 : 30) : 0;
+  const wGot = () => W.reduce((s, it) => s + (+it.got || 0), 0);
+  const bars = G.filter((g) => inG(g).some((it) => it.kind !== 'self')).map((g) => { const its = inG(g); const a = its.filter((x) => x.correct).length; return [g.name.replace(/^(Reading|Listening) /, ''), a, its.length]; });
+
+  const groupRev = ketGroupRev(F, items);
+  const st = (it) => (it.correct ? 'ok' : it.choice ? 'bad' : 'skip');
   const big = (v, full, lab, id = '') => `<div class="tj-big"><b ${id ? `id="${id}"` : ''}>${v}</b> / ${full}<small>${lab}</small></div>`;
   const wBig = () => big(W.some((x) => x.got) ? fmt(wGot()) : '–', wFull, '写作自评', 'wsum');
   const sum = (auto.length ? big(right, auto.length, partName(F, part).replace('写作', '')) : '') + (W.length ? wBig() : '');
-  X.page(`<a class="back" href="#/${F.id}">${X.BACK_IC}${F.name}</a>
+  const back = r.session.part && !r.session.prep ? ['#/mistakes', '错题本'] : [`#/${F.id}`, `${F.name}`];
+  X.page(`<a class="back" href="${back[0]}">${X.BACK_IC}${back[1]}</a>
     <div class="hero"><h1>${X.esc(r.exam.title)}</h1></div>
     <div class="tj-sum card">${sum}${scorePal('english', right, auto.length)}
       <div class="tj-types">${bars.map(([t, a, b]) => `<div class="tj-type"><span>${X.esc(t)}</span><i><u style="width:${(100 * a) / b}%"></u></i><em>${a}/${b}</em></div>`).join('')}</div></div>

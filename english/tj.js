@@ -112,6 +112,7 @@ export async function renderTJExam(sid) {
   const P = d.problems; const byNum = new Map(P.map((p) => [p.number, p]));
   const G = (d.exam.sections?.[0]?.groups || []).filter((g) => byNum.has(g.from)); // 打卡只做其中一两篇
   const prep = !!d.session.prep;
+  const redo = !!d.session.part && !prep; // 错题本里重做一部分：不限时，退出回错题本
   const key = `tj.s.${sid}`;
   const D = draftSync({ api: X.api, store: X.store, key, sid, server: d.session.draft, init: { g: 0, answers: {}, pos: {} } });
   const { S, save } = D;
@@ -154,8 +155,8 @@ export async function renderTJExam(sid) {
       mat = `<div class="tj-listen">${playerHTML(g.audio, true)}<p class="small muted">${g.from === g.to ? `第 ${g.from} 题` : `第 ${g.from}–${g.to} 题`}</p></div>`;
     } else mat = `<article class="tj-text">${g.title ? `<h3>${X.esc(g.title)}</h3>` : ''}${part === 'f' ? formText(g) : paras(g.text)}</article>`;
     const qsHtml = qs.map((p) => qBlock(p, part === 'l' || part === 'r' ? p.stem : '')).join('');
-    X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="#/tj">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
-        ${prep ? '' : `<span class="tj-clock" id="clock">${mmss(left())}</span>`}<span class="tj-done">${done}/${P.length}</span><button class="btn sm" id="fin">${prep ? '完成打卡' : '交卷'}</button></div>
+    X.$app.innerHTML = `<div class="tj-bar"><a class="back" href="${redo ? '#/mistakes' : `#/tj`}">${X.BACK_IC}退出</a><b>${X.esc(d.exam.title)}</b>
+        ${prep || redo ? '' : `<span class="tj-clock" id="clock">${mmss(left())}</span>`}<span class="tj-done">${done}/${P.length}</span><button class="btn sm" id="fin">${prep ? '完成打卡' : '交卷'}</button></div>
       <main class="page wide tj-main ${part === 'l' ? 'tj-l' : 'tj-2col'}">
         <div class="tj-mat">${mat}</div><div class="tj-qs">${qsHtml}</div>
       </main>
@@ -181,7 +182,7 @@ export async function renderTJExam(sid) {
     let tick = 0;
     audio = bindPlayers(X.$app, AUDIO, { pos: S.pos, onPos: (f, t) => { S.pos[f] = t; if (Date.now() - tick > 2000) { tick = Date.now(); save(); } }, onError: () => X.modal('<p>录音没能播放，请检查网络后再点一次。</p><div class="actions"><button class="btn" data-close>好</button></div>') });
   }
-  if (!prep) timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
+  if (!prep && !redo) timer = setInterval(() => { const el = X.$app.querySelector('#clock'); if (el) el.textContent = mmss(left()); if (left() <= 0) submit(true); }, 1000);
   draw();
 }
 
@@ -192,6 +193,23 @@ const formType = (t = '') => /名词短语/.test(t) ? '名词短语与词序'
   : /含义/.test(t) ? '词义' : /时|语态|主谓|谓语|will|情态|原形|短语动词|hide/.test(t) ? '动词的形式' : '其他';
 
 // ───────── 复盘 ─────────
+// 复盘、错题本共用：一组（一篇文章 / 一段录音）的材料 + 题目和对错；list 是要显示的题（带 choice、correct）
+export function tjGroupRev(part, list) {
+  const items = new Map(list.map((it) => [it.number, it]));
+  const optRow = (it) => Object.entries(it.choices).map(([k, v]) => `<div class="tj-ro ${k === it.answer ? 'key' : ''} ${k === it.choice && !it.correct ? 'bad' : ''}"><i>${k}</i><span>${X.esc(v)}</span>${k === it.answer ? '<em>正确答案</em>' : k === it.choice ? '<em>你的选择</em>' : ''}</div>`).join('');
+  const qRev = (it) => `<div class="tj-rq ${it.correct ? 'ok' : it.choice ? 'bad' : 'skip'}" id="q${it.number}"><div class="tj-qh"><b>${it.number}</b>${it.stem ? `<span>${X.esc(it.stem)}</span>` : ''}<small>${it.extra?.type || ''}</small></div>
+    ${optRow(it)}${it.basic ? `<p class="tj-exp">${X.esc(it.basic)}</p>` : ''}</div>`;
+  const formRev = (g) => paras(g.text).replace(/\[\[(\d+)\]\]/g, (_, n) => { const it = list.find((x) => x.extra?.blank === +n); return `<a class="tj-blank on ${it?.correct ? 'ok' : 'bad'}" href="#q${it?.number}"><sup>${it?.number}</sup>${X.esc(it?.choices[it.answer] ?? '')}</a>`; });
+  const groupRev = (g) => {
+    const its = []; for (let n = g.from; n <= g.to; n++) its.push(items.get(n));
+    const mat = part === 'l'
+      ? `<div class="tj-script">${playerHTML(g.audio)}<details><summary>录音原文</summary>${g.script.map(([who, , line]) => `<p><b>${X.esc(who)}:</b> ${X.esc(line)}</p>`).join('')}</details></div>`
+      : `<article class="tj-text">${g.title ? `<h3>${X.esc(g.title)}</h3>` : ''}${part === 'f' ? formRev(g) : paras(g.text)}</article>`;
+    return `<section class="card tj-rg"><div class="tj-rg-h">${g.from === g.to ? `第 ${g.from} 题` : `第 ${g.from}–${g.to} 题`}</div>${mat}${its.map(qRev).join('')}</section>`;
+  };
+  return groupRev;
+}
+
 export async function renderTJReview(sid) {
   const r = await X.api(`/api/sessions/${X.enc(sid)}/review`);
   const part = partOf(r.exam.id);
@@ -202,18 +220,9 @@ export async function renderTJReview(sid) {
   for (const it of r.items) { const t = part === 'f' ? formType(it.extra?.type) : it.extra?.type || '其他'; (types[t] ||= [0, 0])[1]++; if (it.correct) types[t][0]++; }
   const typeRows = Object.entries(types).sort((a, b) => a[1][0] / a[1][1] - b[1][0] / b[1][1]);
   let audio = null; X.setCleanup(() => audio?.());
-  const optRow = (it) => Object.entries(it.choices).map(([k, v]) => `<div class="tj-ro ${k === it.answer ? 'key' : ''} ${k === it.choice && !it.correct ? 'bad' : ''}"><i>${k}</i><span>${X.esc(v)}</span>${k === it.answer ? '<em>正确答案</em>' : k === it.choice ? '<em>你的选择</em>' : ''}</div>`).join('');
-  const qRev = (it) => `<div class="tj-rq ${it.correct ? 'ok' : it.choice ? 'bad' : 'skip'}" id="q${it.number}"><div class="tj-qh"><b>${it.number}</b>${it.stem ? `<span>${X.esc(it.stem)}</span>` : ''}<small>${it.extra?.type || ''}</small></div>
-    ${optRow(it)}${it.basic ? `<p class="tj-exp">${X.esc(it.basic)}</p>` : ''}</div>`;
-  const formRev = (g) => paras(g.text).replace(/\[\[(\d+)\]\]/g, (_, n) => { const it = r.items.find((x) => x.extra?.blank === +n); return `<a class="tj-blank on ${it?.correct ? 'ok' : 'bad'}" href="#q${it?.number}"><sup>${it?.number}</sup>${X.esc(it?.choices[it.answer] ?? '')}</a>`; });
-  const groupRev = (g) => {
-    const its = []; for (let n = g.from; n <= g.to; n++) its.push(items.get(n));
-    const mat = part === 'l'
-      ? `<div class="tj-script">${playerHTML(g.audio)}<details><summary>录音原文</summary>${g.script.map(([who, , line]) => `<p><b>${X.esc(who)}:</b> ${X.esc(line)}</p>`).join('')}</details></div>`
-      : `<article class="tj-text">${g.title ? `<h3>${X.esc(g.title)}</h3>` : ''}${part === 'f' ? formRev(g) : paras(g.text)}</article>`;
-    return `<section class="card tj-rg"><div class="tj-rg-h">${g.from === g.to ? `第 ${g.from} 题` : `第 ${g.from}–${g.to} 题`}</div>${mat}${its.map(qRev).join('')}</section>`;
-  };
-  X.page(`<a class="back" href="#/tj">${X.BACK_IC}小托福</a>
+  const groupRev = tjGroupRev(part, r.items);
+  const back = r.session.part && !r.session.prep ? ['#/mistakes', '错题本'] : [`#/tj`, `小托福`];
+  X.page(`<a class="back" href="${back[0]}">${X.BACK_IC}${back[1]}</a>
     <div class="hero"><h1>${X.esc(r.exam.title)}</h1></div>
     <div class="tj-sum card"><div class="tj-big"><b>${right}</b> / ${r.items.length}<small>答对</small></div>${scorePal('english', right, r.items.length)}
       <div class="tj-types">${typeRows.map(([t, [a, b]]) => `<div class="tj-type"><span>${X.esc(t)}</span><i><u style="width:${(100 * a) / b}%"></u></i><em>${a}/${b}</em></div>`).join('')}</div></div>

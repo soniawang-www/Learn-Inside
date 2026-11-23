@@ -693,3 +693,19 @@ body.tj-mode { padding-bottom: 72px; }
 @media (min-width: 1400px) { main.page, main.ob, .ez, .ex, .tj-main, .tj-bar, .tj-nav { zoom: 1.25; } }
 
 .grp-h { font-size: 15px; color: var(--muted); font-weight: 600; margin: 18px 2px 8px; }
+
+/* ───────── 错题本 ───────── */
+.mk-top { display: grid; gap: 10px; }
+.mk-top p { margin: 0; }
+.mk-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mk-filter .seg { margin: 0; }
+.mk-card { display: grid; gap: 8px; margin-bottom: 20px; }
+.mk-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mk-h > div { display: grid; gap: 2px; min-width: 0; }
+.mk-h .btn { flex-shrink: 0; }
+.mk-body .tj-rg { margin: 0; }
+.mk-body.only .tj-rq:not(.mk-q) { display: none; }
+.mk-q .tj-qh { flex-wrap: wrap; align-items: center; }
+.mk-st { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.mk-more { justify-self: start; border: 0; background: none; color: var(--accent); font-weight: 600; padding: 4px 0; cursor: pointer; }
+@media (min-width: 900px) { .mk-h b { font-size: 17px; } .mk-h .btn.sm { padding: 10px 18px; font-size: 15px; } .mk-more { font-size: 15px; } }

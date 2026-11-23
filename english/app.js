@@ -11,8 +11,9 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122x';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261122x';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261122x';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261122x';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261123a';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261123a';
+import { initMistakes, renderMistakes, englishMistakes } from './mistakes.js?v=20261123a';
 import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122y';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
@@ -96,7 +97,7 @@ function renderGrammar() {
 
 function topnav(active = '') {
   const who = me ? { name: me.guest ? '游客 · 注册' : auth.student?.nickname || '账号', note: me.guest ? '注册送 10 次' : '' } : null;
-  return sideNav({ section: 'english', sub: [['#/ket', 'KET', 'exam', active === 'ket'], ['#/pet', 'PET', 'exam', active === 'pet'], ['#/tj', '小托福', 'exam', active === 'tj'], ['#/phrases', '句型积累', 'exam', active === 'phrases'], ['#/grammar', '语法课', 'exam', active === 'grammar']], who });
+  return sideNav({ section: 'english', sub: [['#/ket', 'KET', 'exam', active === 'ket'], ['#/pet', 'PET', 'exam', active === 'pet'], ['#/tj', '小托福', 'exam', active === 'tj'], ['#/phrases', '句型积累', 'exam', active === 'phrases'], ['#/grammar', '语法课', 'exam', active === 'grammar'], ['#/mistakes', '错题本', 'mistakes', active === 'mistakes']], who });
 }
 // 联系我们：共用 pal.js 里的 openContact（点 [data-support] 自动打开）
 let cleanup = null; // 离开页面时停掉计时器、麦克风
@@ -141,6 +142,7 @@ async function router() {
       if (parts[1] === 'review') return await renderTJReview(parts[2]);
       return await renderTJ();
     }
+    if (parts[0] === 'mistakes') return await renderMistakes();
     if (parts[0] === 'esdp') return await renderEsdp();
     if (parts[0] === 'bank') return await renderBank(parts[1], q);
     if (parts[0] === 'learn') return await renderLearn(parts[1]);
@@ -163,7 +165,7 @@ function ev(e) {
 }
 ev('view_english');
 const ctx = { api, page: (...a) => page(...a), esc, enc, modal, store, auth, BACK_IC, $app, setCleanup: (f) => { cleanup = f; } };
-initTJ(ctx); initKET(ctx);
+initTJ(ctx); initKET(ctx); initMistakes(ctx);
 window.addEventListener('hashchange', router);
 
 // 题库缓存（一个题库一百来题，同一次打开里反复抽题不用重新拉）
@@ -180,6 +182,8 @@ async function renderHome() {
   const [d, pr, tm, prof] = await Promise.all([api(`/api/english/banks?student=${enc(auth.student.id)}`),
     api(`/api/students/${enc(auth.student.id)}/prep`).catch(() => null), api(`/api/students/${enc(auth.student.id)}/team`).catch(() => null),
     api(`/api/students/${enc(auth.student.id)}/profile?subject=english`).catch(() => ({ sessions: [] }))]);
+  const mk = await englishMistakes().catch(() => []);
+  const mkTodo = mk.filter((m) => m.status === 'pending' || m.status === 'due').length;
   // 第一次来（没定备考项、没打过卡、没做过题）：先走新手引导，直接选英语比赛
   if (pr && !pr.items?.length && !pr.total && !store.get('li.obSkip') && !(prof.sessions || []).length && !d.recent?.length) { location.replace(`${START_URL}/english`); return; }
   const n = d.banks.reduce((a, b) => a + (b.problem_count || 0), 0);
@@ -191,11 +195,12 @@ async function renderHome() {
   page(`<div class="hero"><h1>英语备考</h1></div>
     ${pr ? todayCard(pr, { team: tm, only: 'english' }) : ''}
     ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
+    ${mkTodo ? `<a class="cont-go alt" href="#/mistakes"><b>${mkTodo} 道错题</b><span>待订正</span><i>›</i></a>` : ''}
     <h2 class="grp-h">考试</h2>
     <div class="fam-cards">
-      <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
-      <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
-      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 20 套</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 30 套</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/pet"><b>PET</b><span>仿真模拟 30 套</span><small></small><i>›</i></a>
+      <a class="fam-card" href="#/tj"><b>小托福</b><span>仿真模拟 30 套</span><small></small><i>›</i></a>
       <a class="fam-card" href="#/esdp"><b>ESDP</b><span>${n ? `口语 · 写作 ${n} 题` : '录入中'}</span><small>${done ? `已练 ${done} 题` : ''}</small><i>›</i></a>
     </div>
     <h2 class="grp-h">语法课</h2>
