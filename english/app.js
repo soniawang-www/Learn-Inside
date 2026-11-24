@@ -192,10 +192,10 @@ async function renderHome() {
   const open = ((await api(`/api/students/${enc(auth.student.id)}/open?subject=english`).catch(() => null))?.sessions || [])
     .map((x) => ({ sid: x.id, t: x.title, f: x.exam_id.startsWith('ket-') ? 'ket' : x.exam_id.startsWith('pet-') ? 'pet' : 'tj' }));
   const cur = open;
+  const strip = [cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : '', mkTodo ? `<a class="cont-go alt" href="#/mistakes"><b>${mkTodo} 道错题</b><span>待订正</span><i>›</i></a>` : ''].filter(Boolean);
   page(`<div class="hero"><h1>英语备考</h1></div>
     ${pr ? todayCard(pr, { team: tm, only: 'english' }) : ''}
-    ${cur.length ? `<a class="cont-go" href="#/${cur[0].f}/exam/${enc(cur[0].sid)}"><b>继续答题</b><span>${esc(cur[0].t || '')}</span><i>›</i></a>` : ''}
-    ${mkTodo ? `<a class="cont-go alt" href="#/mistakes"><b>${mkTodo} 道错题</b><span>待订正</span><i>›</i></a>` : ''}
+    ${strip.length ? `<div class="cont-strip">${strip.join('')}</div>` : ''}
     <h2 class="grp-h">考试</h2>
     <div class="fam-cards">
       <a class="fam-card" href="#/ket"><b>KET</b><span>仿真模拟 30 套</span><small></small><i>›</i></a>

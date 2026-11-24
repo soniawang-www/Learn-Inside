@@ -676,7 +676,6 @@ body.tj-mode { padding-bottom: 72px; }
 .kt-pick2 button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); }
 .tj-text .kt-inmail .kt-mail-h { margin: 0; border-radius: 0; }
 .kt-inmail .kt-mail-b { font-size: 15px; }
-.cont-go + .fam-cards { margin-top: 14px; }
 
 /* 比赛入口：手机上两列小卡片 */
 @media (max-width: 860px) {
