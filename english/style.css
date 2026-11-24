@@ -93,6 +93,7 @@ h2 { font-size: 18px; margin: 0 0 12px; }
 /* 试卷上方的「继续」条（回访用户：没做完的模考、待订正错题） */
 .cont-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .cont-go { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: var(--accent); color: var(--surface); text-decoration: none; min-width: 0; }
+:not(.cont-strip) > .cont-go + .cont-go { margin-top: 10px; } /* 万一没放进 .cont-strip，也不会贴在一起 */
 .cont-go.alt { background: var(--surface); color: var(--text); border: 1.5px solid var(--bad); }
 .cont-go b { flex: none; font-size: 15px; }
 .cont-go.alt b { color: var(--bad); }
@@ -495,6 +496,7 @@ body.tj-mode { padding-bottom: 72px; }
 .tj-rq.bad { border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
 .tj-ro { display: flex; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 8px; font-family: var(--en); font-size: 15px; }
 .tj-ro em { margin-left: auto; font-style: normal; font-size: 12px; font-family: var(--sans); white-space: nowrap; }
+.tj-ro + .tj-ro { margin-top: 6px; } /* 你的选择、正确答案两条有底色，不能贴在一起 */
 .tj-ro.key { background: var(--ok-soft); }
 .tj-ro.key i { background: var(--ok); color: #fff; }
 .tj-ro.key em { color: var(--ok); }
