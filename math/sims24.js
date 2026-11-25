@@ -13,7 +13,7 @@ const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
 const num = (x) => Number(x).toLocaleString('en-US');
 
 // ── 通用滑块：vars 是变量，view / info / goal 是用这些变量写的表达式 ──
-// { vars: [{ k, min, max, step, init, label }], view: 'SVG 内容表达式', vw, vh, info: 'HTML 表达式', goal: '布尔表达式', say_ok }
+// { vars: [{ k, min, max, step, init, label, hide }], hide（true 或 ['k', …]）, view: 'SVG 内容表达式', vw, vh, info: 'HTML 表达式', goal: '布尔表达式', say_ok }
 const H = { T, fmt, gcd, num, esc, pi: Math.PI, sqrt: Math.sqrt, abs: Math.abs, round: Math.round, floor: Math.floor, min: Math.min, max: Math.max, sin: Math.sin, cos: Math.cos, tan: Math.tan, atan2: Math.atan2, hypot: Math.hypot, ceil: Math.ceil, log: Math.log, exp: Math.exp, atan: Math.atan, asin: Math.asin, acos: Math.acos, sign: Math.sign, sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, log2: Math.log2, log10: Math.log10, cbrt: Math.cbrt, pow: Math.pow, trunc: Math.trunc };
 function compile(expr, keys) {
   // eslint-disable-next-line no-new-func
@@ -39,7 +39,8 @@ function slider(box, p, api) {
   }).join('');
   if (found) Object.assign(v, { nfound: 0, seen });
   box.innerHTML = (view ? SVG(p.vw || 360, p.vh || 220, '<g class="sl-g"></g>', 'slsvg') : '') + '<div class="sl-info"></div>' + (found ? '<div class="hk-found sl-found"></div>' : '') +
-    p.vars.map((x) => bar(`<span>${esc(x.label || x.k)} = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}</span>` + (x.values
+    // hide：滑块旁不显示数值（免得露答案）；vars 里单个写 hide: true，或整个组件写 hide: true / ['k', …]
+    p.vars.map((x) => bar(`<span>${esc(x.label || x.k)}${x.hide || p.hide === true || (Array.isArray(p.hide) && p.hide.includes(x.k)) ? `<b class="sl-v" data-k="${x.k}" hidden></b>` : ` = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}`}</span>` + (x.values
       ? `<input type="range" min="0" max="${x.values.length - 1}" step="1" value="${idxOf(x, v[x.k])}" data-k="${x.k}" data-values="1" aria-label="${esc(x.label || x.k)}">`
       : `<input type="range" min="${x.min}" max="${x.max}" step="${x.step || 1}" value="${v[x.k]}" data-k="${x.k}" aria-label="${esc(x.label || x.k)}">`))).join('');
   if (p.maxw && box.querySelector('svg')) Object.assign(box.querySelector('svg').style, { maxWidth: `${p.maxw}px`, marginInline: 'auto' }); // 小图别拉满整宽

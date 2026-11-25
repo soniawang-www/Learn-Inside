@@ -117,6 +117,8 @@ function dotpath(box, p, api) {
 const tex = (el) => { if (el && /\$/.test(el.textContent) && window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false }); };
 const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 const fn = (expr, keys) => (expr ? compile(expr, keys) : null);
+// bg / fg 直接写 SVG 字符串（以 < 开头，不是合法表达式）时当静态内容，不用再包成 JS 字符串
+const fnSvg = (expr, keys) => (typeof expr === 'string' && expr.trim().startsWith('<') ? () => expr : fn(expr, keys));
 const run = (f, v, dflt) => { if (!f) return dflt; try { return f(v, H); } catch (e) { return dflt; } };
 const COLORS = { card: 'var(--lp-card)', jade: 'var(--lp-jade)', plum: 'var(--lp-plum)', ink: 'var(--lp-ink)', soft: 'var(--lp-soft)', warn: 'var(--lp-warn)', jsoft: 'var(--lp-jade-soft)', psoft: 'var(--lp-plum-soft)', line: 'var(--lp-line)', white: '#ffffff', black: '#2a2a2a' };
 const col = (c) => (c === 'none' ? 'transparent' : COLORS[c] || c || 'var(--lp-card)'); // 'none'：不画填充（颜色自己在 bg 里按 on() 画）
@@ -143,7 +145,7 @@ function toggles(box, p, api) {
   const stOf = (it) => it.states || states;
   const S = {}; items.forEach((it) => { S[it.k] = (p.init || {})[it.k] ?? 0; });
   const keys = ['S', 'L', 'K', 'cnt', 'on', 'nfound', 'seen'];
-  const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: fn(p.goal, keys), bad: fn(p.bad, keys), found: fn(p.found, keys) };
+  const F = { bg: fnSvg(p.bg, keys), fg: fnSvg(p.fg, keys), info: fn(p.info, keys), goal: fn(p.goal, keys), bad: fn(p.bad, keys), found: fn(p.found, keys) };
   const seen = [];
   const ok = once(() => api.solved(p.say_ok)); let lastTip = '';
   const tip = fn(p.tip, keys);
@@ -236,35 +238,39 @@ function stepper(box, p, api) {
 //   bg / fg: 'SVG 表达式', info, goal, bad（返回要标红的 'r,c' 数组）。表达式里：G（二维数组，空格是 null）、R、C、filled（填满了没有）、V（格名→值）、sums
 // 任意位置的圆圈（幻星、三角形数阵）：cells: [{k, x, y}]（圆心坐标，格名随便起）代替 rows / cols，配 vw / vh
 // lines: [[格名, …], …]：画出这些线并在线尾显示和（sums[i]，没填满是 null）；sum: 目标和（填满后不等的线标红，不给 goal 时「全部填满且每条线都等于 sum」算完成）
-// once: true：每个数只能用一次（用过的数按钮变灰）
+// once: true：每个数只能用一次（用过的数按钮变灰；行列模式、圆圈模式都行）
+// cw / ch：长方形格子（宽 / 高，默认都等于 cell）；round: false 时 cells 模式也画方格；labels: {'r,c': 'A'}（格子左上角的小字母，填了数也在）；
+// given_frame: false 题目给的数不画框（竖式里的普通数字）；found: '表达式，返回当前填法的名字'（记住找到过的不同填法，nfound / seen，found_label / found_show: false）
 function gridfill(box, p, api) {
-  const free = !!p.cells, R = free ? 0 : p.rows, C = free ? 0 : p.cols, c = p.cell || 44, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10, gap = p.gap || 0, st = c + gap;
-  const round = free || p.round, given = p.given || {}, block = new Set(p.block || []);
+  const free = !!p.cells, R = free ? 0 : p.rows, C = free ? 0 : p.cols, c = p.cell || 44, cw = p.cw || c, ch = p.ch || c, x0 = p.x0 ?? 10, y0 = p.y0 ?? 10, gap = p.gap || 0, stx = cw + gap, sty = ch + gap;
+  const round = p.round ?? free, given = p.given || {}, block = new Set(p.block || []), corner = p.labels || {};
   const cells = free ? p.cells.map((q) => ({ k: String(q.k), cx: q.x, cy: q.y, label: q.label }))
-    : Array.from({ length: R * C }, (_, n) => { const i = Math.floor(n / C), j = n % C; return { k: `${i},${j}`, i, j, cx: x0 + j * st + c / 2, cy: y0 + i * st + c / 2 }; });
+    : Array.from({ length: R * C }, (_, n) => { const i = Math.floor(n / C), j = n % C; return { k: `${i},${j}`, i, j, cx: x0 + j * stx + cw / 2, cy: y0 + i * sty + ch / 2 }; });
   const at = Object.fromEntries(cells.map((q) => [q.k, q]));
   const V = Object.fromEntries(cells.map((q) => [q.k, given[q.k] ?? null]));
   // lines 的一项也可以写 {cells: [格名, …], shape: 'path'（依次连过每个格）| 'closed'（连成闭合多边形）| 'circle'（过这些格画圆）, at: [x, y]（和写在哪）}
   const lineObj = (p.lines || []).map((L) => (Array.isArray(L) ? { cells: L.map(String) } : { ...L, cells: L.cells.map(String) }));
   const lines = lineObj.map((L) => L.cells);
-  const keys = ['G', 'R', 'C', 'filled', 'V', 'sums'];
+  const keys = ['G', 'R', 'C', 'filled', 'V', 'sums', 'nfound', 'seen'], seen = [];
   // goal: true（布尔）时用自动条件（填满且每条线等于 sum）
-  const F = { bg: fn(p.bg, keys), fg: fn(p.fg, keys), info: fn(p.info, keys), goal: typeof p.goal === 'string' ? fn(p.goal, keys) : null, bad: fn(p.bad, keys) };
+  const F = { bg: fnSvg(p.bg, keys), fg: fnSvg(p.fg, keys), info: fn(p.info, keys), goal: typeof p.goal === 'string' ? fn(p.goal, keys) : null, bad: fn(p.bad, keys), found: fn(p.found, keys) };
   const ok = once(() => api.solved(p.say_ok));
   let sel = null;
-  const vw = p.vw || (free ? Math.max(...cells.map((q) => q.cx)) + c : x0 * 2 + C * st - gap), vh = p.vh || (free ? Math.max(...cells.map((q) => q.cy)) + c : y0 * 2 + R * st - gap);
+  const vw = p.vw || (free ? Math.max(...cells.map((q) => q.cx)) + cw : x0 * 2 + C * stx - gap), vh = p.vh || (free ? Math.max(...cells.map((q) => q.cy)) + ch : y0 * 2 + R * sty - gap);
   const nums = p.nums || [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg gfsvg', 1.5) + '<div class="sl-info"></div>' +
+  box.innerHTML = SVG(vw, vh, '<g class="gf-g"></g>', 'slsvg gfsvg', 1.5) + '<div class="sl-info"></div>' + (p.found && p.found_show !== false ? '<div class="hk-found sl-found gf-found"></div>' : '') +
     `<div class="gf-pad">${nums.map((v) => `<button class="lp-ghost gf-n" data-v="${esc(v)}">${esc(v)}</button>`).join('')}<button class="lp-ghost gf-n" data-v="">清除</button></div>` + bar(btn('gf-reset', '重来'));
   const num = (x) => (typeof x === 'number' ? x : +x);
   const env = () => {
     const G = Array.from({ length: R }, (_, i) => Array.from({ length: C }, (_, j) => V[`${i},${j}`]));
     const sums = lines.map((L) => (L.every((k) => V[k] !== null && V[k] !== undefined) ? L.reduce((t, k) => t + num(V[k]), 0) : null));
-    return { G, R, C, V, sums, filled: cells.every((q) => V[q.k] !== null || block.has(q.k)) };
+    return { G, R, C, V, sums, filled: cells.every((q) => V[q.k] !== null || block.has(q.k)), nfound: seen.length, seen };
   };
   const autoGoal = (v) => p.sum !== undefined && lines.length && v.filled && v.sums.every((x) => x === p.sum);
   const draw = () => {
-    const v = env(), bad = new Set(run(F.bad, v, []) || []);
+    let v = env();
+    if (F.found) { const nm = run(F.found, v, ''); if (nm && !seen.includes(String(nm))) { seen.push(String(nm)); v = env(); } }
+    const bad = new Set(run(F.bad, v, []) || []);
     let g = run(F.bg, v, '') || '';
     lines.forEach((L, li) => {
       const a = at[L[0]], b = at[L[L.length - 1]]; if (!a || !b) return;
@@ -286,11 +292,13 @@ function gridfill(box, p, api) {
       }
     });
     for (const q of cells) {
-      const k = q.k, val = V[k], x = q.cx - c / 2, y = q.cy - c / 2;
+      const k = q.k, val = V[k], x = q.cx - cw / 2, y = q.cy - ch / 2;
       if (block.has(k) && p.hide_block) continue;
       const cls = (block.has(k) ? 'gf-blk' : `gf-c${given[k] !== undefined ? ' gf-giv' : ''}${sel === k ? ' gf-sel' : ''}${bad.has(k) ? ' gf-bad' : ''}`) + (round ? ' gf-round' : '');
       const fl = p.fills?.[k] && !bad.has(k) && sel !== k ? ` style="fill:${col(p.fills[k])}"` : '';
-      g += `<g class="gf-i" data-k="${esc(k)}"><rect x="${x}" y="${y}" width="${c}" height="${c}"${round ? ` rx="${c / 2}"` : ''} class="${cls}"${fl}/>${val !== null && val !== undefined ? `<text x="${q.cx}" y="${q.cy + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : q.label ? `<text x="${q.cx}" y="${q.cy + 5}" text-anchor="middle" font-size="${Math.round((p.size || 18) * 0.85)}" font-style="italic" class="st muted" style="pointer-events:none">${esc(q.label)}</text>` : ''}</g>`;
+      const plain = given[k] !== undefined && p.given_frame === false && !bad.has(k);
+      const cl = corner[k] !== undefined ? `<text x="${x + 3}" y="${y + 11}" font-size="10" font-weight="700" class="st muted gf-cl">${esc(corner[k])}</text>` : '';
+      g += `<g class="gf-i" data-k="${esc(k)}">${plain ? '' : `<rect x="${x}" y="${y}" width="${cw}" height="${ch}"${round ? ` rx="${Math.min(cw, ch) / 2}"` : ''} class="${cls}"${fl}/>`}${cl}${val !== null && val !== undefined ? `<text x="${q.cx}" y="${q.cy + 6}" text-anchor="middle" font-size="${p.size || 18}" class="st lbl${given[k] !== undefined ? '' : ' plum'}">${esc(val)}</text>` : q.label ? `<text x="${q.cx}" y="${q.cy + 5}" text-anchor="middle" font-size="${Math.round((p.size || 18) * 0.85)}" font-style="italic" class="st muted" style="pointer-events:none">${esc(q.label)}</text>` : ''}</g>`;
     }
     g += '<g style="pointer-events:none">' + (run(F.fg, v, '') || '') + '</g>';
     box.querySelector('.gf-g').innerHTML = g;
@@ -298,6 +306,7 @@ function gridfill(box, p, api) {
       const used = new Set(Object.entries(V).filter(([k, x]) => x !== null && k !== sel).map(([, x]) => String(x)));
       box.querySelectorAll('.gf-n').forEach((b) => { b.disabled = b.dataset.v !== '' && used.has(b.dataset.v); });
     }
+    const fd = box.querySelector('.gf-found'); if (fd) fd.innerHTML = `${esc(p.found_label || '找到')}：${seen.map((x) => `<span>${esc(x)}</span>`).join('') || '<span class="muted">还没有</span>'}`;
     if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, v, ''); tex(el); }
     if (F.goal ? run(F.goal, v, false) : autoGoal(v)) ok();
   };

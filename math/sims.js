@@ -526,4 +526,5 @@ import { SIMS23 } from './sims23.js';
 import { SIMS_SWB } from './sims_swb.js';
 import { SIMS_YMO } from './sims_ymo.js';
 import { SIMS_HS } from './sims_hs.js';
-export const SIMS = { ...SIMS23, ...SIMS24, ...SIMS_SWB, ...SIMS_HS, ...SIMS_YMO, circles18,  tap, sum, seq, deal, erase, clock, rotate, circle12, hist, insertN, fold, pairs16, cars, cheese, assign, hooks, n2, trap, mirror };
+import { SIMS_R7 } from './sims_r7.js';
+export const SIMS = { ...SIMS23, ...SIMS24, ...SIMS_SWB, ...SIMS_HS, ...SIMS_YMO, ...SIMS_R7, circles18,  tap, sum, seq, deal, erase, clock, rotate, circle12, hist, insertN, fold, pairs16, cars, cheese, assign, hooks, n2, trap, mirror };
