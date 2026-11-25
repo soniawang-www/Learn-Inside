@@ -680,9 +680,11 @@ function solid(box, p, api) {
     // texts：任意位置写字（面上的数字等），被挡住的变淡
     for (const [k, txt, c] of [...(p.texts || []), ...(D.texts || [])]) {
       const q = pr(k); if (!q) continue;
-      const w = at(k), hid = auto && (hidden(q) || (w && onBack(w)));
+      // 写在顶点上的字：像顶点名那样往外挪一点，只看有没有被前面的面挡住（顶点总挨着背面，不能按 onBack 算）
+      const vtx = !Array.isArray(k) && k in MM.V, w = at(k), hid = auto && (hidden(q) || (!vtx && w && onBack(w)));
       if (hid && !p.texts_back) continue;
-      g += `<text x="${q[0]}" y="${r2(q[1] + 5)}" font-size="15" text-anchor="middle" class="st sd-t${c ? ' sd-t-' + c : ''}${hid ? ' hid' : ''}">${esc(txt)}</text>`;
+      let ox = 0, oy = 0; if (vtx) { const ctr = proj(C); ox = q[0] - ctr[0]; oy = q[1] - ctr[1]; const L = Math.hypot(ox, oy) || 1; ox = (ox / L) * 15; oy = (oy / L) * 15 || -15; }
+      g += `<text x="${r2(q[0] + ox)}" y="${r2(q[1] + oy + 5)}" font-size="15" text-anchor="middle" class="st sd-t${c ? ' sd-t-' + c : ''}${hid ? ' hid' : ''}">${esc(txt)}</text>`;
     }
     if (!CUBES) {
       const named = Object.keys(PT).filter((k) => !k.startsWith('_'));

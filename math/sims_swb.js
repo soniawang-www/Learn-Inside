@@ -118,14 +118,14 @@ const tex = (el) => { if (el && /\$/.test(el.textContent) && window.renderMathIn
 const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 const fn = (expr, keys) => (expr ? compile(expr, keys) : null);
 const run = (f, v, dflt) => { if (!f) return dflt; try { return f(v, H); } catch (e) { return dflt; } };
-const COLORS = { card: 'var(--lp-card)', jade: 'var(--lp-jade)', plum: 'var(--lp-plum)', ink: 'var(--lp-ink)', soft: 'var(--lp-soft)', warn: 'var(--lp-warn)', jsoft: 'var(--lp-jade-soft)', psoft: 'var(--lp-plum-soft)', line: 'var(--lp-line)' };
+const COLORS = { card: 'var(--lp-card)', jade: 'var(--lp-jade)', plum: 'var(--lp-plum)', ink: 'var(--lp-ink)', soft: 'var(--lp-soft)', warn: 'var(--lp-warn)', jsoft: 'var(--lp-jade-soft)', psoft: 'var(--lp-plum-soft)', line: 'var(--lp-line)', white: '#ffffff', black: '#2a2a2a' };
 const col = (c) => (c === 'none' ? 'transparent' : COLORS[c] || c || 'var(--lp-card)'); // 'none'：不画填充（颜色自己在 bg 里按 on() 画）
 
 // ── 开关格：点一下在几种状态间切换（真话/假话、黑/白、左/右、选/不选） ──
 // { items: [{k, x, y, w, h, r, label}]（r 给了画圆，否则画矩形；pts: [[x, y], …] 画多边形、d: 'SVG path' 画任意形状，文字放在 cx / cy（多边形默认重心）；
 //            seg: [[x1, y1], [x2, y2]]（点线段：沿线段的细长热区，w 宽度，默认不描边）；stroke: false 不描边；states: 这一格自己的状态（覆盖全局）；flip: [k, …] 点这一格时这些格也一起切换；fixed: 不能点）
 //   也可用 grid: [行, 列], cell, x0, y0 自动生成 k='r行c列'）,
-//   states: [{label, fill, text}]（默认两种：空 / 绿；fill 可以是主题色名 card / jade / plum / ink / soft / warn / jsoft / psoft / line，也可以写固定颜色 '#d64545'，深色模式不变）,
+//   states: [{label, fill, text}]（默认两种：空 / 绿；fill 可以是主题色名 card / jade / plum / ink / soft / warn / jsoft / psoft / line，white / black（真白 / 真黑，深色模式也不变，黑白格图案用），也可以写固定颜色 '#d64545'，深色模式不变）,
 //   init: {k: 状态号}, stroke: false（所有格都不描边，透明热区叠在图上时用）,
 //   bg: 'SVG 内容（画在格子下面，表达式）', fg: '画在格子上面', info: 'HTML 表达式', goal: '布尔表达式', bad: '表达式，返回要标红的 k 数组',
 //   found: '表达式，返回当前摆法的名字（字符串，不算数的摆法返回空）'：记住找到过的不同摆法，表达式里 nfound 是个数、seen 是名字数组（「找出全部 4 种」用 goal: 'nfound >= 4'）,
@@ -167,7 +167,7 @@ function toggles(box, p, api) {
       const [cx, cy] = it.cx !== undefined ? [it.cx, it.cy] : dC ? dC : it.r ? [it.x, it.y] : it.pts ? [it.pts.reduce((t, q) => t + q[0], 0) / it.pts.length, it.pts.reduce((t, q) => t + q[1], 0) / it.pts.length] : [it.x + it.w / 2, it.y + it.h / 2];
       const txt = String(st.text ?? it.label ?? '').replace('{label}', it.label ?? ''), sub = st.sub ?? it.sub;
       // tag：状态的小角标（格子文字不变，右上角标出状态）
-      const [tx, ty] = it.tx !== undefined ? [it.tx, it.ty] : it.r ? [it.x + it.r * 0.78, it.y - it.r * 0.6] : it.w !== undefined && !it.pts && !it.d ? [it.x + it.w - 3, it.y + 12] : [cx + 14, cy - 10];
+      const [tx, ty] = it.tx !== undefined ? [it.tx, it.ty] : it.r ? [it.x + it.r * 0.78, it.y - it.r * 0.6] : it.w !== undefined && !it.pts && !it.d ? (it.h < 36 ? [it.x + it.w, it.y - 3] : [it.x + it.w - 3, it.y + 12]) : [cx + 14, cy - 10];
       const tag = st.tag ? `<text x="${tx}" y="${ty}" text-anchor="${it.r || it.tx !== undefined || it.pts || it.d ? 'middle' : 'end'}" font-size="${p.tag_size || 11}" font-weight="700" class="st tg-tag ${st.tag_cls || 'plum'}">${esc(st.tag)}</text>` : '';
       g += `<g class="tg-i${it.fixed ? ' fixed' : ''}" data-k="${esc(it.k)}">${shape}${txt !== '' ? `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${it.size || p.size || 15}" class="st lbl${st.fill === 'ink' || st.fill === 'plum' || st.fill === 'jade' ? ' tg-on' : ''}"${st.color ? ` style="fill:${st.color}"` : ''}>${esc(txt)}</text>` : ''}${sub ? `<text x="${cx}" y="${(it.r ? it.y + it.r : it.h !== undefined ? it.y + it.h : cy + 10) + 15}" text-anchor="middle" font-size="12" class="st lbl">${esc(sub)}</text>` : ''}${tag}</g>`;
     }

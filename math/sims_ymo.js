@@ -1,4 +1,4 @@
-// 钟面 clockface、一笔画 trace、火柴棒 matches（接口同 sims.js：(box, p, api)）
+// 钟面 clockface、一笔画 trace、火柴棒 matches、线段图 tape、天平 balance（接口同 sims.js：(box, p, api)）
 // 表达式写法同 slider：只来自后台导入的课程内容。YMO_CORE 里是不碰页面的部分，生成检查脚本也用它。
 
 import { compile, H } from './sims24.js';
@@ -317,5 +317,259 @@ function matches(box, p, api) {
   draw();
 }
 
-export const SIMS_YMO = { clockface, trace, matches };
-export const YMO_CORE = { CK_KEYS, ckEnv, ckLabel, TR_KEYS, trEdges, trRun, trEnv, trGoal, MT_KEYS, mtLayout, mtRun, mtGoal, mtText, mtValid };
+// ───────── 线段图 ─────────
+// { bars: [{label, x0, parts: [{len, text, cls, unit, show, drag}]}]（len / x0 / show 可以是表达式；text 里 {表达式} 会换成算出的数；
+//     cls: a 绿、b 粉、c 橙、d 灰、ghost 虚线空格；unit 每隔多长画一道分份线；drag: 'x' 这段的右端能拖，拖动改变量 x）,
+//   braces: [{row, from, to 或 parts: [i, j], text, side: 'top' | 'bottom', show}] 或 {rows: [a, b], text}（右边竖着括几行）,
+//   marks: [{at, rows, text, cls}]（竖虚线：相遇点、对齐线）, vars: [{k, min, max, step, init, label, unit, values, labels}]（下面的滑块）,
+//   max（全长对应多少，默认按变量取值自动算）, vw, labelw, bh（条高）, play: 'k', ms, info, goal, tip, found, found_label, solution: {k: 值} }
+// 表达式里：各变量、L（每行的总长）、nfound、seen
+const TP_BASE = ['L', 'nfound', 'seen'];
+const fmtN = (x) => (typeof x !== 'number' ? String(x ?? '') : Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : String(+x.toFixed(2)));
+function tpKeys(p) { return [...(p.vars || []).map((x) => x.k), ...TP_BASE]; }
+function tpInit(p) { return Object.fromEntries((p.vars || []).map((x) => [x.k, x.init ?? (x.values ? x.values[0] : x.min)])); }
+function tpEval(p) {
+  const keys = tpKeys(p), cache = new Map();
+  const fn = (e) => { if (!cache.has(e)) cache.set(e, compile(String(e), keys)); return cache.get(e); };
+  const ev = (x, v, d = 0) => (x === undefined || x === null ? d : typeof x === 'number' || typeof x === 'boolean' ? x : fn(x)(v, H));
+  const txt = (t, v) => String(t ?? '').replace(/\{([^{}]+)\}/g, (_, e) => fmtN(ev(e, v)));
+  return { ev, txt };
+}
+// 每行每段的起止（单位长度），不碰页面；表达式出错直接抛出
+function tpLayout(p, vals, E = tpEval(p), seen = []) {
+  const v0 = { ...vals, L: [], nfound: seen.length, seen };
+  const rows = (p.bars || []).map((b) => {
+    let x = +E.ev(b.x0, v0, 0);
+    const parts = (b.parts || []).map((q, i) => { const len = Math.max(0, +E.ev(q.len, v0, 0)), on = !!E.ev(q.show, v0, true), o = { i, x0: x, x1: x + len, len, on }; x += len; return o; });
+    return { parts, end: x };
+  });
+  const v = { ...v0, L: rows.map((r) => r.end) };
+  rows.forEach((r, ri) => r.parts.forEach((o) => { o.text = E.txt(p.bars[ri].parts[o.i].text, v); }));
+  return { rows, v };
+}
+function tpVals(x) { if (x.values) return x.values; const st = x.step || 1, n = Math.min(4000, Math.round((x.max - x.min) / st)); return Array.from({ length: n + 1 }, (_, i) => +(x.min + i * st).toFixed(6)); }
+function tpMax(p, E = tpEval(p)) {
+  if (p.max) return p.max;
+  const v0 = tpInit(p), tries = [v0];
+  for (const x of p.vars || []) { const vs = tpVals(x); tries.push({ ...v0, [x.k]: vs[0] }, { ...v0, [x.k]: vs[vs.length - 1] }); }
+  let m = 0; for (const t of tries) { try { for (const r of tpLayout(p, t, E).rows) m = Math.max(m, r.end, ...r.parts.map((o) => o.x1)); } catch (e) { /* 生成检查会报 */ } }
+  return m || 1;
+}
+function brace(x1, x2, y, dir, h = 8) {
+  // 横着的大括号：dir = -1 尖朝上，1 尖朝下；y 是括号贴着线段的那一边
+  const q = Math.min(6, (x2 - x1) / 4), m = (x1 + x2) / 2, yh = y + dir * h / 2, yt = y + dir * h;
+  return `M${r1(x1)},${r1(y)} Q${r1(x1)},${r1(yh)} ${r1(x1 + q)},${r1(yh)} L${r1(m - q)},${r1(yh)} Q${r1(m)},${r1(yh)} ${r1(m)},${r1(yt)} Q${r1(m)},${r1(yh)} ${r1(m + q)},${r1(yh)} L${r1(x2 - q)},${r1(yh)} Q${r1(x2)},${r1(yh)} ${r1(x2)},${r1(y)}`;
+}
+function vbrace(y1, y2, x, h = 8) {
+  const q = Math.min(6, (y2 - y1) / 4), m = (y1 + y2) / 2, xh = x + h / 2, xt = x + h;
+  return `M${r1(x)},${r1(y1)} Q${r1(xh)},${r1(y1)} ${r1(xh)},${r1(y1 + q)} L${r1(xh)},${r1(m - q)} Q${r1(xh)},${r1(m)} ${r1(xt)},${r1(m)} Q${r1(xh)},${r1(m)} ${r1(xh)},${r1(m + q)} L${r1(xh)},${r1(y2 - q)} Q${r1(xh)},${r1(y2)} ${r1(x)},${r1(y2)}`;
+}
+function tape(box, p, api) {
+  const E = tpEval(p), keys = tpKeys(p), bars = p.bars || [], braces = p.braces || [], marks = p.marks || [];
+  const F = { info: fnc(p.info, keys), goal: typeof p.goal === 'string' && p.goal ? fnc(p.goal, keys) : null, tip: fnc(p.tip, keys), found: fnc(p.found, keys) };
+  const ok = once(() => api.solved(p.say_ok));
+  const vals = tpInit(p), seen = [];
+  let lastTip = '', timer = null, drag = null;
+  const vw = p.vw || 360, BH = p.bh || 26, LW = p.labelw ?? (bars.some((b) => b.label) ? 46 : 8), RW = braces.some((b) => b.rows) ? 64 : 14;
+  const MAX = tpMax(p, E), sc = (vw - LW - RW) / MAX, X = (u) => r1(LW + u * sc);
+  // 竖向排布：每行上下留出括号的地方
+  const hasB = (ri, side) => braces.some((b) => !b.rows && (b.row ?? 0) === ri && (b.side || 'top') === side);
+  const markTxt = marks.some((m) => m.text);
+  const Y = []; let y = markTxt ? 20 : 6;
+  bars.forEach((_, ri) => { y += hasB(ri, 'top') ? 28 : 8; Y.push(y); y += BH + (hasB(ri, 'bottom') ? 28 : 6); });
+  const vh = p.vh || y + 6;
+  const vk = (p.vars || []);
+  const shown = (x, val) => { if (x.values && x.labels) { const i = x.values.findIndex((q) => Math.abs(q - val) < 1e-9); return x.labels[i] ?? fmtN(val); } return fmtN(val); };
+  box.innerHTML = SVG(vw, vh, '<g class="tp-g"></g>', 'tpsvg') + '<div class="sl-info"></div>' + (p.found && p.found_show !== false ? '<div class="hk-found sl-found tp-found"></div>' : '') +
+    vk.map((x) => bar(`<span>${esc(x.label || x.k)} = <b class="sl-v" data-k="${x.k}"></b>${x.unit ? ` ${esc(x.unit)}` : ''}</span>` + (x.values
+      ? `<input type="range" min="0" max="${x.values.length - 1}" step="1" value="0" data-k="${x.k}" data-values="1" aria-label="${esc(x.label || x.k)}">`
+      : `<input type="range" min="${x.min}" max="${x.max}" step="${x.step || 1}" value="${vals[x.k]}" data-k="${x.k}" aria-label="${esc(x.label || x.k)}">`))).join('') +
+    (p.play || vk.length ? bar((p.play ? btn('tp-play', '▶ 播放') : '') + btn('tp-reset', '重来')) : '');
+  if (p.maxw) Object.assign(box.querySelector('svg').style, { maxWidth: `${p.maxw}px`, marginInline: 'auto' });
+  const draw = () => {
+    let L; try { L = tpLayout(p, vals, E, seen); } catch (e) { return; }
+    let v = L.v;
+    if (F.found) { const nm = run(F.found, v, ''); if (nm && !seen.includes(String(nm))) { seen.push(String(nm)); v = { ...v, nfound: seen.length, seen }; } }
+    let s = '';
+    L.rows.forEach((r, ri) => {
+      const b = bars[ri], yy = Y[ri];
+      if (b.label) s += `<text x="${LW - 8}" y="${r1(yy + BH / 2 + 5)}" text-anchor="end" font-size="14" class="st lbl" font-weight="700">${esc(E.txt(b.label, v))}</text>`;
+      for (const o of r.parts) {
+        if (!o.on || o.len <= 0) continue;
+        const q = b.parts[o.i], x1 = X(o.x0), x2 = X(o.x1), w = r1(x2 - x1);
+        s += `<rect x="${x1}" y="${yy}" width="${w}" height="${BH}" class="tp-p c-${esc(E.txt(q.cls || 'a', v))}"/>`;
+        const u = +E.ev(q.unit, v, 0);
+        if (u > 0 && o.len / u <= 60) for (let k = 1; k * u < o.len - 1e-9; k++) s += `<line x1="${X(o.x0 + k * u)}" y1="${yy}" x2="${X(o.x0 + k * u)}" y2="${yy + BH}" class="tp-u"/>`;
+        if (o.text && w >= Math.min(16, o.text.length * 7)) s += `<text x="${r1((x1 + x2) / 2)}" y="${r1(yy + BH / 2 + 4.5)}" text-anchor="middle" font-size="13" class="st lbl tp-t">${esc(o.text)}</text>`;
+      }
+      for (const o of r.parts) {
+        const q = b.parts[o.i]; if (!q.drag || !o.on) continue;
+        const hx = X(o.x1);
+        s += `<line x1="${hx}" y1="${yy - 4}" x2="${hx}" y2="${yy + BH + 4}" class="tp-h"/><circle cx="${hx}" cy="${r1(yy + BH / 2)}" r="7" class="tp-hd"/>` +
+          `<rect x="${r1(hx - 14)}" y="${yy - 8}" width="28" height="${BH + 16}" class="tp-hit" data-r="${ri}" data-i="${o.i}" data-k="${esc(q.drag)}"/>`;
+      }
+    });
+    for (const bz of braces) {
+      if (!E.ev(bz.show, v, true)) continue;
+      const t = E.txt(bz.text, v);
+      if (bz.rows) {
+        const [a, c] = bz.rows, x = X(Math.max(...bz.rows.map((ri) => L.rows[ri]?.end ?? 0))) + 4, y1 = Y[a], y2 = Y[c] + BH;
+        s += `<path d="${vbrace(y1, y2, x)}" class="tp-br"/><text x="${x + 12}" y="${r1((y1 + y2) / 2 + 4.5)}" font-size="13" class="st lbl tp-bt">${esc(t)}</text>`;
+        continue;
+      }
+      const ri = bz.row ?? 0, r = L.rows[ri]; if (!r) continue;
+      let a, c;
+      if (bz.parts) { a = r.parts[bz.parts[0]]?.x0; c = r.parts[bz.parts[1] ?? bz.parts[0]]?.x1; } else { a = +E.ev(bz.from, v, 0); c = +E.ev(bz.to, v, r.end); }
+      if (a === undefined || c === undefined || c - a <= 0) continue;
+      const top = (bz.side || 'top') === 'top', yy = top ? Y[ri] - 3 : Y[ri] + BH + 3, x1 = X(a), x2 = X(c);
+      s += `<path d="${brace(x1, x2, yy, top ? -1 : 1)}" class="tp-br"/><text x="${r1((x1 + x2) / 2)}" y="${top ? yy - 13 : yy + 22}" text-anchor="middle" font-size="13" class="st lbl tp-bt">${esc(t)}</text>`;
+    }
+    for (const m of marks) {
+      if (!E.ev(m.show, v, true)) continue;
+      const rs = m.rows || bars.map((_, i) => i), x = X(+E.ev(m.at, v, 0)), y1 = Y[Math.min(...rs)] - 6, y2 = Y[Math.max(...rs)] + BH + 6;
+      s += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" class="tp-m ${esc(m.cls || '')}"/>`;
+      if (m.text) s += `<text x="${x}" y="${y1 - 4}" text-anchor="middle" font-size="12" class="st lbl tp-mt">${esc(E.txt(m.text, v))}</text>`;
+    }
+    box.querySelector('.tp-g').innerHTML = s;
+    vk.forEach((x) => { box.querySelector(`.sl-v[data-k="${x.k}"]`).textContent = shown(x, vals[x.k]); const r = box.querySelector(`input[data-k="${x.k}"]`); r.value = x.values ? Math.max(0, x.values.findIndex((q) => Math.abs(q - vals[x.k]) < 1e-9)) : vals[x.k]; });
+    const fd = box.querySelector('.tp-found'); if (fd) fd.innerHTML = `${esc(p.found_label || '找到')}：${seen.map((x) => `<span>${esc(x)}</span>`).join('') || '<span class="muted">还没有</span>'}`;
+    if (F.info) { const el = box.querySelector('.sl-info'); el.innerHTML = run(F.info, v, ''); tex(el); }
+    if (F.tip) { const t = run(F.tip, v, ''); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
+    if (run(F.goal, v, false)) ok();
+  };
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; } const b = box.querySelector('.tp-play'); if (b) b.textContent = '▶ 播放'; };
+  box.querySelectorAll('input[type=range]').forEach((r) => r.addEventListener('input', () => { stop(); const x = vk.find((q) => q.k === r.dataset.k); vals[x.k] = x.values ? x.values[+r.value] : +r.value; draw(); }));
+  box.addEventListener('click', (e) => {
+    if (e.target.closest('.tp-reset')) { stop(); Object.assign(vals, tpInit(p)); draw(); return; }
+    const b = e.target.closest('.tp-play'); if (!b) return;
+    if (timer) return stop();
+    const x = vk.find((q) => q.k === p.play); if (!x) return;
+    const vs = tpVals(x); if (vals[x.k] >= vs[vs.length - 1]) vals[x.k] = vs[0];
+    b.textContent = '❚❚ 暂停';
+    timer = setInterval(() => { if (!box.isConnected) return stop(); const i = vs.findIndex((q) => q > vals[x.k] + 1e-9); if (i < 0) return stop(); vals[x.k] = vs[i]; draw(); if (i === vs.length - 1) stop(); }, p.ms || 120);
+  });
+  // 拖段的右端：在变量的所有取值里找右端最接近手指的那个
+  const ux = (e) => { const svg = box.querySelector('svg'), q = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse()); return (q.x - LW) / sc; };
+  box.addEventListener('pointerdown', (e) => {
+    const h = e.target.closest('.tp-hit'); if (!h) return;
+    const x = vk.find((q) => q.k === h.dataset.k); if (!x) return;
+    e.preventDefault(); stop(); drag = { r: +h.dataset.r, i: +h.dataset.i, x, vs: tpVals(x) };
+    box.querySelector('svg').setPointerCapture?.(e.pointerId);
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const want = ux(e); let best = vals[drag.x.k], bd = Infinity;
+    for (const val of drag.vs) { let o; try { o = tpLayout(p, { ...vals, [drag.x.k]: val }, E).rows[drag.r].parts[drag.i]; } catch (er) { continue; } const d = Math.abs(o.x1 - want); if (d < bd - 1e-9) { bd = d; best = val; } }
+    if (best !== vals[drag.x.k]) { vals[drag.x.k] = best; draw(); }
+  });
+  const end = () => { drag = null; };
+  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+  draw();
+}
+
+// ───────── 天平 ─────────
+// { items: [{k, label（物体上的字，1～2 个字）, name（说话用的名字）, w（真实重量，不显示）, cls: a/b/c/d, shape: circle/square/tri/weight}],
+//   left / right: {k: 个数}（一开始盘里有的）, tray: [k, …]（下面能往盘里放的，默认全部；tray: false 不能放）, remove: false（不能点盘里的拿走）,
+//   subs: [{from: {k: n}, to: {k: n}, label, pan: 'L' | 'R'}]（「等量代换」按钮：把一边盘里的 from 换成 to）, both: true（两边都有同一种时出现「两边各拿走 1 个」）,
+//   given: [{left, right}]（上面画几架已知的小天平）, show_w: true（盘下写总重）, max（每盘最多几个，默认 16）, info, goal, tip, found, solution: ['L+A', 'R-B', 'sub:0', 'both:A', …] }
+// 表达式里：L / R（盘里 k→个数）、wl / wr（两边总重）、bal（平衡）、tilt（-1 左沉、0 平、1 右沉）、nl / nr（个数）、ops（操作了几步）、nfound、seen
+const BL_KEYS = ['L', 'R', 'wl', 'wr', 'bal', 'tilt', 'nl', 'nr', 'ops', 'nfound', 'seen'];
+const cnt = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+function blW(p, o) { const W = Object.fromEntries((p.items || []).map((it) => [String(it.k), +it.w || 0])); return Object.entries(o).reduce((a, [k, n]) => a + (W[k] || 0) * n, 0); }
+function blInit(p) { const cl = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, n]) => n > 0).map(([k, n]) => [String(k), n])); return { L: cl(p.left), R: cl(p.right), ops: 0 }; }
+function blEnv(p, st, seen = []) {
+  const wl = blW(p, st.L), wr = blW(p, st.R), d = wr - wl, tilt = Math.abs(d) < 1e-9 ? 0 : Math.sign(d);
+  return { L: { ...st.L }, R: { ...st.R }, wl, wr, bal: tilt === 0, tilt, nl: cnt(st.L), nr: cnt(st.R), ops: st.ops, nfound: seen.length, seen };
+}
+const blName = (p, k) => { const it = (p.items || []).find((q) => String(q.k) === k); return it ? it.name || it.label || k : k; };
+function blApply(p, st, a) {
+  const S = { L: { ...st.L }, R: { ...st.R }, ops: st.ops + 1 }, max = p.max || 16, ks = (p.items || []).map((q) => String(q.k));
+  let m = /^([LR])([+-])(.+)$/.exec(a);
+  if (m) {
+    const [, side, op, k] = m; if (!ks.includes(k)) return `没有 ${k} 这种东西`;
+    if (op === '+') { if (cnt(S[side]) >= max) return '盘里放不下了'; S[side][k] = (S[side][k] || 0) + 1; } else { if (!S[side][k]) return `${side === 'L' ? '左' : '右'}盘里没有${blName(p, k)}`; if (--S[side][k] === 0) delete S[side][k]; }
+    return S;
+  }
+  if ((m = /^both:(.+)$/.exec(a))) { const k = m[1]; if (!S.L[k] || !S.R[k]) return `两边不是都有${blName(p, k)}`; for (const side of ['L', 'R']) if (--S[side][k] === 0) delete S[side][k]; return S; }
+  if ((m = /^sub:(\d+)$/.exec(a))) {
+    const sb = (p.subs || [])[+m[1]]; if (!sb) return '没有这个代换';
+    const has = (side) => Object.entries(sb.from).every(([k, n]) => (S[side][String(k)] || 0) >= n);
+    const side = sb.pan || (has('L') ? 'L' : has('R') ? 'R' : null);
+    if (!side || !has(side)) return '盘里凑不齐要换掉的东西';
+    for (const [k, n] of Object.entries(sb.from)) { S[side][k] -= n; if (!S[side][k]) delete S[side][k]; }
+    for (const [k, n] of Object.entries(sb.to)) S[side][k] = (S[side][k] || 0) + n;
+    if (cnt(S[side]) > max) return '盘里放不下了';
+    return S;
+  }
+  return `不认识的操作 ${a}`;
+}
+function blRun(p, sol) { let st = blInit(p); for (const a of sol || []) { const r = blApply(p, st, a); if (typeof r === 'string') return [st, `${a}：${r}`]; st = r; } return [st, null]; }
+const BL_SHAPE = (it, x, y, R) => {
+  const c = `bl-k c-${esc(it.cls || 'a')}`;
+  if (it.shape === 'square') return `<rect x="${r1(x - R)}" y="${r1(y - R)}" width="${2 * R}" height="${2 * R}" rx="3" class="${c}"/>`;
+  if (it.shape === 'tri') return `<path d="M${r1(x)},${r1(y - R * 1.1)} L${r1(x + R * 1.05)},${r1(y + R * 0.9)} L${r1(x - R * 1.05)},${r1(y + R * 0.9)} Z" class="${c}"/>`;
+  if (it.shape === 'weight') return `<path d="M${r1(x - R * 0.6)},${r1(y - R)} L${r1(x + R * 0.6)},${r1(y - R)} L${r1(x + R)},${r1(y + R)} L${r1(x - R)},${r1(y + R)} Z" class="bl-k bl-wt"/>`;
+  return `<circle cx="${x}" cy="${y}" r="${R}" class="${c}"/>`;
+};
+// 画一架天平（不带外层 svg）：中心 cx，支点高 py；act 为真时盘里的东西能点
+function blDraw(p, st, cx, py, act) {
+  const env = blEnv(p, st), Lb = 118, S = 84, deg = env.tilt === 0 ? 0 : env.tilt * Math.min(11, 5 + 6 * Math.abs(env.wr - env.wl) / Math.max(env.wl, env.wr, 1e-9));
+  const rad = deg * Math.PI / 180, ex = Lb * Math.cos(rad), ey = Lb * Math.sin(rad), ground = py + S + 38;
+  let s = `<path d="M${cx},${py} L${cx - 26},${ground} L${cx + 26},${ground} Z" class="bl-post"/><line x1="${cx - 70}" y1="${ground}" x2="${cx + 70}" y2="${ground}" class="bl-base"/>`;
+  const its = Object.fromEntries((p.items || []).map((it) => [String(it.k), it]));
+  for (const [side, sx, sy] of [['L', cx - ex, py - ey], ['R', cx + ex, py + ey]]) {
+    const pw = 56, panY = sy + S;
+    s += `<line x1="${r1(sx)}" y1="${r1(sy)}" x2="${r1(sx - pw)}" y2="${r1(panY)}" class="bl-str"/><line x1="${r1(sx)}" y1="${r1(sy)}" x2="${r1(sx + pw)}" y2="${r1(panY)}" class="bl-str"/>`;
+    s += `<path d="M${r1(sx - pw - 4)},${r1(panY)} Q${r1(sx)},${r1(panY + 16)} ${r1(sx + pw + 4)},${r1(panY)} Z" class="bl-pan"/>`;
+    const list = []; for (const [k, n] of Object.entries(st[side])) for (let i = 0; i < n; i++) list.push(k);
+    const N = list.length, per = N > 12 ? 6 : 4, R = N > 12 ? 8 : 10.5, gap = 2 * R + 3;
+    list.forEach((k, i) => {
+      const row = Math.floor(i / per), inRow = Math.min(per, N - row * per), col = i % per, x = r1(sx + (col - (inRow - 1) / 2) * gap), y = r1(panY - R - 1 - row * (2 * R + 2));
+      const it = its[k] || { k }, lab = it.label ?? k;
+      s += `<g class="${act && p.remove !== false ? 'bl-act bl-tok' : ''}" data-a="${side}-${esc(k)}">${BL_SHAPE(it, x, y, R)}<text x="${x}" y="${r1(y + (it.shape === 'tri' ? 6 : 4.5))}" text-anchor="middle" font-size="${R > 9 ? (String(lab).length > 1 ? 10 : 12) : 9}" class="bl-kt" font-weight="700">${esc(lab)}</text></g>`;
+    });
+    if (p.show_w) s += `<text x="${r1(sx)}" y="${r1(panY + 30)}" text-anchor="middle" font-size="13" class="st lbl">${fmtN(side === 'L' ? env.wl : env.wr)}</text>`;
+  }
+  s += `<line x1="${r1(cx - ex)}" y1="${r1(py - ey)}" x2="${r1(cx + ex)}" y2="${r1(py + ey)}" class="bl-beam"/><circle cx="${cx}" cy="${py}" r="5" class="bl-piv"/>`;
+  return s;
+}
+function balance(box, p, api) {
+  const F = { info: fnc(p.info, BL_KEYS), goal: typeof p.goal === 'string' && p.goal ? fnc(p.goal, BL_KEYS) : null, tip: fnc(p.tip, BL_KEYS), found: fnc(p.found, BL_KEYS) };
+  const ok = once(() => api.solved(p.say_ok));
+  const items = p.items || [], tray = p.tray === false ? [] : (p.tray || items.map((it) => it.k)).map(String), seen = [];
+  let st = blInit(p), hist = [], lastTip = '';
+  const VW = 360, VH = 180;
+  const chip = (it) => `<svg viewBox="-13 -13 26 26" class="bl-chip">${BL_SHAPE(it, 0, 0, 11)}<text x="0" y="${it.shape === 'tri' ? 6 : 4.5}" text-anchor="middle" font-size="${String(it.label ?? it.k).length > 1 ? 10 : 12}" class="bl-kt" font-weight="700">${esc(it.label ?? it.k)}</text></svg>`;
+  const chipsOf = (o) => Object.entries(o || {}).flatMap(([k, n]) => Array(n).fill(k)).map((k) => chip(items.find((q) => String(q.k) === String(k)) || { k })).join('');
+  const given = (p.given || []).map((g) => `<span class="bl-eq">${chipsOf(g.left)}<b>=</b>${chipsOf(g.right)}</span>`).join('');
+  box.innerHTML = (given ? `<div class="bl-given">${given}</div>` : '') + SVG(VW, VH, '<g class="bl-g"></g>', 'blsvg bl-main') + '<div class="sl-info"></div>' +
+    (p.found && p.found_show !== false ? '<div class="hk-found sl-found bl-found"></div>' : '') +
+    (tray.length ? `<div class="bl-tray">${tray.map((k) => { const it = items.find((q) => String(q.k) === k) || { k }; return `<span class="bl-ti">${chip(it)}<b>${esc(it.name || it.label || k)}</b>${btn('bl-act', '放左边').replace('<button', `<button data-a="L+${esc(k)}"`)}${btn('bl-act', '放右边').replace('<button', `<button data-a="R+${esc(k)}"`)}</span>`; }).join('')}</div>` : '') +
+    `<div class="lp-gbar bl-ops"></div>`;
+  Object.assign(box.querySelector('.bl-main').style, { maxWidth: `${p.maxw || 340}px`, marginInline: 'auto' });
+  const desc = (o) => Object.entries(o).map(([k, n]) => `${esc(blName(p, k))}×${n}`).join('、') || '空';
+  const draw = () => {
+    let v = blEnv(p, st, seen);
+    if (F.found) { const nm = run(F.found, v, ''); if (nm && !seen.includes(String(nm))) { seen.push(String(nm)); v = blEnv(p, st, seen); } }
+    box.querySelector('.bl-g').innerHTML = blDraw(p, st, VW / 2, 30, true);
+    const el = box.querySelector('.sl-info');
+    el.innerHTML = F.info ? run(F.info, v, '') : `左边 ${desc(st.L)}　右边 ${desc(st.R)}　<b class="${v.bal ? 'jade' : ''}">${v.bal ? '平衡' : v.tilt < 0 ? '左边重' : '右边重'}</b>`; tex(el);
+    const subs = (p.subs || []).map((sb, i) => (typeof blApply(p, st, `sub:${i}`) === 'string' ? '' : `<button class="lp-ghost bl-act" data-a="sub:${i}">${esc(sb.label || '代换')}</button>`)).join('');
+    const both = p.both ? Object.keys(st.L).filter((k) => st.R[k]).map((k) => `<button class="lp-ghost bl-act" data-a="both:${esc(k)}">两边各拿走 1 个${esc(blName(p, k))}</button>`).join('') : '';
+    box.querySelector('.bl-ops').innerHTML = subs + both + btn('bl-undo', '退一步') + btn('bl-reset', '重来');
+    const fd = box.querySelector('.bl-found'); if (fd) fd.innerHTML = `${esc(p.found_label || '找到')}：${seen.map((x) => `<span>${esc(x)}</span>`).join('') || '<span class="muted">还没有</span>'}`;
+    if (F.tip) { const t = run(F.tip, v, ''); if (t && t !== lastTip) { lastTip = t; api.say(t); } }
+    if (run(F.goal, v, false)) ok();
+  };
+  box.addEventListener('click', (e) => {
+    if (e.target.closest('.bl-reset')) { st = blInit(p); hist = []; draw(); return; }
+    if (e.target.closest('.bl-undo')) { if (hist.length) st = hist.pop(); draw(); return; }
+    const a = e.target.closest('.bl-act'); if (!a) return;
+    const r = blApply(p, st, a.dataset.a); if (typeof r === 'string') { api.say(r + '。'); return; }
+    hist.push(st); st = r; draw();
+  });
+  draw();
+}
+
+export const SIMS_YMO = { clockface, trace, matches, tape, balance };
+export const YMO_CORE = { CK_KEYS, ckEnv, ckLabel, TR_KEYS, trEdges, trRun, trEnv, trGoal, MT_KEYS, mtLayout, mtRun, mtGoal, mtText, mtValid, TP_BASE, tpKeys, tpInit, tpEval, tpLayout, tpVals, BL_KEYS, blInit, blEnv, blApply, blRun };
