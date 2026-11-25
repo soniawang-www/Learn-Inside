@@ -1913,7 +1913,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tpsvg .tp-p.c-c { fill:var(--lp-warn); stroke:var(--lp-warn); } .tpsvg .tp-p.c-d { fill:var(--lp-soft); stroke:var(--lp-soft); }
 .tpsvg .tp-p.c-ghost { fill:none; stroke:var(--lp-soft); stroke-dasharray:5 4; }
 .tpsvg .tp-u { stroke:var(--lp-ink); stroke-width:1; stroke-opacity:.45; }
-.tpsvg .tp-t { font-weight:700; }
+.tpsvg .tp-t { font-weight:700; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; stroke-linejoin:round; }
 .tpsvg .tp-br { fill:none; stroke:var(--lp-ink); stroke-width:1.4; }
 .tpsvg .tp-m { stroke:var(--lp-plum); stroke-width:1.6; stroke-dasharray:4 3; } .tpsvg .tp-m.jade { stroke:var(--lp-jade); }
 .tpsvg .tp-h { stroke:var(--lp-plum); stroke-width:2.4; } .tpsvg .tp-hd { fill:var(--lp-plum); stroke:var(--lp-card); stroke-width:2; }
@@ -1935,3 +1935,6 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .bl-chip { width:26px; height:26px; }
 .bl-ops { flex-wrap:wrap; margin-top:6px; }
 .stp-html { font-size:1.1rem; color:var(--lp-ink); text-align:center; line-height:1.7; } .stp-html .katex { font-size:1.12em; }
+.tpsvg, .blsvg { user-select:none; -webkit-user-select:none; }
+.bl-ti .lp-ghost:disabled { opacity:.4; cursor:default; }
+.tpsvg .tp-dot { fill:var(--lp-plum); stroke:var(--lp-card); stroke-width:2; } .tpsvg .tp-dot.jade { fill:var(--lp-jade); }
