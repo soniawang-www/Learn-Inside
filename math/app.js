@@ -1125,7 +1125,7 @@ function showInstructions(exam, mode) {
   const mins = Math.round(exam.duration_sec / 60);
   modal(`<div class="instructions"><h2>${esc(exam.title)} · ${mode === 'exam' ? '限时模考' : '逐题练'}</h2>
     <ol>
-      ${/^(hope|swb100|zoumei|ymo|shishao)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
+      ${/^(hope|swb100|zoumei|ymo|shishao|chunlei)-/.test(exam.id) ? `<li>本卷共 ${exam.problem_count} 题。选择题点选一个选项；填空题填答案，分数写成 3/4；一空要填几个数时按顺序用逗号隔开。</li>
       <li>答对 1 题得 1 分，答错不扣分。</li>
       ${mode === 'practice' ? '' : `<li>作答时间 ${mins} 分钟，时间到会自动交卷。</li>`}
       ${mode === 'practice' ? '<li>练习模式每题提交后马上看对错和解析，也可以逐级看提示（最多 3 级）。</li>' : ''}` : `<li>本卷共 ${exam.problem_count} 道选择题，每题有 A、B、C、D、E 五个选项，只有一个正确。</li>
@@ -1287,7 +1287,7 @@ async function renderExam(sid) {
   if (data.session.mode === 'paper') return renderPaper(sid, data);
   document.body.classList.add('exam-mode');
   // 希望数学：布局同 AMC 8，用 learn-inside 自己的风格
-  const li = /^(hope|swb100|zoumei|ymo|shishao)-/.test(data.exam.id || '') || (data.session.drill && !hasEn(data.problems));
+  const li = /^(hope|swb100|zoumei|ymo|shishao|chunlei)-/.test(data.exam.id || '') || (data.session.drill && !hasEn(data.problems));
   document.body.classList.toggle('exam-li', !!li);
   const key = `amc8.s.${sid}`;
   const D = draftSync({ api, store, key, sid, server: data.session.draft, init: { answers: {}, flags: {}, times: {}, hints: {}, checked: {}, cur: 0, big: false } });
