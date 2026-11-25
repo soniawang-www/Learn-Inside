@@ -1938,3 +1938,5 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .tpsvg, .blsvg { user-select:none; -webkit-user-select:none; }
 .bl-ti .lp-ghost:disabled { opacity:.4; cursor:default; }
 .tpsvg .tp-dot { fill:var(--lp-plum); stroke:var(--lp-card); stroke-width:2; } .tpsvg .tp-dot.jade { fill:var(--lp-jade); }
+/* 最窄手机（≤360px）：两列放不下「逐题练 / 限时模考」两个按钮，改成一行一张 */
+@media (max-width: 360px) { .exam-grid { grid-template-columns: minmax(0, 1fr); } }

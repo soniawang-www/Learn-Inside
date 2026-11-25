@@ -231,7 +231,7 @@ body.exam-mode { background: var(--ex-bg); background-attachment: fixed; min-hei
 /* 年级切换 */
 .seg { display: inline-flex; flex-wrap: nowrap; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .seg::-webkit-scrollbar { display: none; }
-@media (max-width: 600px) { .seg button, .seg a { padding: 7px 11px; font-size: 14px; } }
+@media (max-width: 600px) { .seg { flex-wrap: wrap; border-radius: 18px; } .seg button, .seg a { padding: 7px 11px; font-size: 14px; } }
 /* 年级多（古诗文大会五个）时手机上放不下：整个标签换到下一行，不再一个字一行 */
 .seg button { flex: none; white-space: nowrap; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 7px 16px; border-radius: 999px; cursor: pointer; }
 .seg button.on { background: var(--accent); color: var(--surface); }
