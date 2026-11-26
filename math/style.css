@@ -2068,6 +2068,12 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-turn { border-radius:var(--lp-sketch); transform:rotate(2deg); }
 /* 读题：荧光笔、圈、手写批注 */
 .lp-read { position:relative; max-width:34em; margin:0 auto; text-align:left; }
+.lp-scr.solo .lp-read { max-width:56em; width:100%; }
+.lp-read.rd-side { display:grid; grid-template-columns:minmax(0, 28em) minmax(11em, 15em); justify-content:center; column-gap:56px; align-items:start; }
+.lp-read.rd-side .rd-notes { position:relative; margin:0; padding:0; }
+.lp-read.rd-side .rd-note { position:absolute; left:0; right:0; }
+.lp-read:not(.rd-side) .rd-notes { gap:22px; margin-top:22px; }
+.lp-read:not(.rd-side) .rd-note { width:fit-content; max-width:100%; }
 .lp-read .rd-text { position:relative; z-index:1; font-family:var(--lp-hand); font-size:1.28rem; line-height:2.2; margin:0; }
 .lp-read .rd-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
 .lp-read .rd-svg.under { z-index:0; } .lp-read .rd-svg.over { z-index:2; }
