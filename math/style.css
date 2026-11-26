@@ -2010,3 +2010,23 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .vt-k { width:44px; font-family:inherit; height:44px; border-radius:12px; border:1.5px solid var(--lp-line); background:var(--lp-card); color:var(--lp-ink); font-size:1.15rem; font-weight:700; touch-action:manipulation; }
 .vt-k:hover { border-color:var(--lp-jade); } .vt-k:active { background:var(--lp-jade-soft); }
 .vt-info { max-width:32em; }
+/* 第七轮补充（2026-11-26）：月历 vary / 打码 / 当前日圈选 / 两月并排；连线公式字号；竖式删除键、锁定格、符号字母、逐列判、角标 */
+.cl-wrap.multi .clsvg { flex:1 1 250px; width:auto; max-width:340px; min-width:0; }
+.clsvg .cl-ring { fill:none; stroke:var(--lp-jade); stroke-width:2.6; }
+.clsvg .cl-d.cl-x .cl-b { fill:transparent; stroke:var(--lp-line); stroke-dasharray:3 3; }
+.clsvg .cl-d.cl-x.cur .cl-b { fill:var(--lp-plum); stroke:var(--lp-plum); stroke-dasharray:none; }
+.cl-vary { flex-wrap:wrap; gap:6px; align-items:center; }
+.cl-vary .cl-seg { min-width:40px; min-height:34px; padding:3px 10px; margin-top:0; }
+.cl-vary .cl-seg.on { background:var(--lp-jade); color:var(--lp-card); }
+.mc-tx .katex { font-size:1.1em; }
+.vt-k.vt-del { font-weight:400; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+.vt-k.vt-del svg { display:block; }
+.vt-k:disabled { opacity:.3; cursor:default; }
+.vtsvg .vt-vl { fill:var(--lp-soft); font-weight:700; paint-order:stroke; stroke:var(--lp-card); stroke-width:3px; stroke-linejoin:round; pointer-events:none; }
+.vtsvg .vt-shp { fill:none; stroke:var(--lp-plum); stroke-width:2.2; stroke-linejoin:round; pointer-events:none; }
+.vtsvg .vt-shp.f { fill:var(--lp-plum); }
+.vtsvg .vt-c.vt-given { cursor:default; pointer-events:none; }
+.vtsvg .vt-given .vt-in { fill:var(--lp-ink); }
+.vtsvg .vt-given .vt-box.sq { fill:var(--lp-bg); }
+.vtsvg .vt-colbad { fill:var(--lp-plum-soft); }
+.vtsvg .vt-mkok { fill:var(--lp-jade); font-weight:700; } .vtsvg .vt-mkbad { fill:var(--lp-plum); font-weight:700; }
