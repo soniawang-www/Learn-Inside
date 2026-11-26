@@ -148,7 +148,7 @@ function readWidget(s, animate) {
   const html = md(s.text || '').replace(/\[\[([hou])(\d*):(.+?)\]\]/g, (_, k, n, t) => { marks.push({ k, n }); return `<span class="rd-m" data-m="${marks.length - 1}">${t}</span>`; });
   const notes = (s.notes || []).map(([n, t]) => ({ n: String(n), t }));
   box.innerHTML = `<svg class="rd-svg under"></svg><p class="rd-text">${html}</p>` +
-    (notes.length ? `<div class="rd-notes">${notes.map((x) => `<div class="rd-note" data-n="${x.n}">${md(x.t)}</div>`).join('')}</div>` : '') + '<svg class="rd-svg over"></svg>';
+    (notes.length ? `<div class="rd-notes">${notes.map((x) => `<div class="rd-note" data-n="${x.n}">${x.n ? `<span class="rd-n">${x.n}</span>` : ''}${md(x.t)}</div>`).join('')}</div>` : '') + '<svg class="rd-svg over"></svg>';
   const order = [];
   marks.forEach((m, k) => { order.push({ m: k }); if (m.n) notes.filter((x) => x.n === m.n).forEach((x) => order.push({ note: x.n })); });
   notes.forEach((x) => { if (!order.some((o) => o.note === x.n)) order.push({ note: x.n }); });
@@ -225,13 +225,18 @@ function readWidget(s, animate) {
       });
       if (side) nbox.style.minHeight = `${bottom}px`;
       // 箭头
+      // 线不能穿过字：宽屏从题目右边缘连出去；窄屏只有圈在最后一行时才连线，不然用编号对应
+      const T = box.querySelector('.rd-text').getBoundingClientRect();
       nEls.forEach((el, j) => {
         const mr = markRect[el.dataset.n]; if (!mr) return;
+        const clean = side || mr.r.y + mr.r.h >= T.bottom - B.top - mr.r.h * 0.9;
+        el.classList.toggle('num', !clean);
+        if (!clean) { o += `<text class="rd-num" x="${f1(mr.r.x + mr.r.w + (mr.k === 'o' ? 6 : 2))}" y="${f1(mr.r.y + 2)}">${el.dataset.n}</text>`; return; }
         const R = el.getBoundingClientRect(), r = mr.r, d = first ? (delay['n' + el.dataset.n] || 0) : 0;
         const st = (len) => ` style="--len:${Math.ceil(len)};--d:${d.toFixed(2)}s"`, cls = first ? ' rd-draw' : '';
         const ox = mr.k === 'o' ? 7 : 2;
-        if (side) o += arrow(r.x + r.w + ox, r.y + r.h / 2, R.left - B.left - 6, R.top - B.top + Math.min(R.height / 2, 14), j % 2 ? -0.6 : 0.6, st, cls);
-        else o += arrow(r.x + r.w / 2 + (j % 2 ? 6 : -6), r.y + r.h + 3, R.left - B.left + Math.min(R.width * 0.3, 40), R.top - B.top - 2, j % 2 ? 0.5 : -0.5, st, cls);
+        if (side) o += arrow(T.right - B.left + 8, r.y + r.h / 2, R.left - B.left - 6, R.top - B.top + Math.min(R.height / 2, 14), 0.25, st, cls);
+        else o += arrow(R.left - B.left + Math.min(R.width * 0.3, 40), R.top - B.top - 2, r.x + r.w / 2, r.y + r.h + 4, 0.3, st, cls);
       });
     }
     under.innerHTML = u; over.innerHTML = o;
@@ -289,7 +294,59 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     prob.querySelector('.lp-pmore').onclick = (e) => { const o = prob.classList.toggle('open'); e.currentTarget.textContent = o ? '收起' : '展开'; };
   }
   const vis = $('.lp-vis'), side = $('.lp-main'), say = $('.lp-say'), turn = $('.lp-turn'), scr = $('.lp-scr');
-  const setSay = (t) => { say.innerHTML = md(t); typeset(say); if (playing && voice.on) voice.speak(t, () => {}); };
+  const setSay = (t) => { say.innerHTML = md(t); typeset(say); annLater(true); if (playing && voice.on) voice.speak(t, () => {}); };
+  // 讲解写成批注：圈出这一步里和它说的是同一件事的重点词，箭头指过去；线会穿过别的字就不连线
+  scr.insertAdjacentHTML('beforeend', '<svg class="lp-ann" aria-hidden="true"></svg>');
+  const annSvg = scr.querySelector('.lp-ann');
+  let annT = 0, annKey = '';
+  const annLater = (anim) => { clearTimeout(annT); annT = setTimeout(() => requestAnimationFrame(() => ann(anim)), anim && !reduce() ? 380 : 0); };
+  function ann(anim) {
+    annSvg.innerHTML = ''; say.classList.remove('side', 'ann-anim'); say.style.left = say.style.top = say.style.width = '';
+    if (!say.textContent.trim()) return;
+    const S = scr.getBoundingClientRect(); if (!S.width) return;
+    const main = scr.classList.contains('solo') ? vis : side;
+    const ok = (c) => /[\u4e00-\u9fa5\dA-Za-z]/.test(c), chars = new Set([...say.textContent].filter(ok));
+    let tgt = null, best = 1;
+    main.querySelectorAll('b, strong').forEach((b) => { const cs = [...b.textContent].filter(ok); const t = cs.filter((c) => chars.has(c)).length, sc = t * t / cs.length; if (t >= 2 && t >= cs.length * 0.4 && sc > best) { best = sc; tgt = b; } });
+    const block = tgt ? tgt.closest('.card, .lp-q, .lp-html, .lp-quiz, .lp-fill') : [...main.children].filter((e) => e.offsetHeight).pop();
+    const P = (r) => ({ x: r.left - S.left, y: r.top - S.top, w: r.width, h: r.height });
+    const cls = anim && !reduce() ? ' rd-draw' : '';
+    const st = (len, d) => ` style="--len:${Math.ceil(len)};--d:${d}s"`;
+    let out = '', ty = null, tx = null;
+    if (tgt) {
+      const rs = [...tgt.getClientRects()].filter((r) => r.width > 0.5).map(P);
+      rs.forEach((r, j) => {
+        const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rx = r.w / 2 + 6, ry = r.h / 2 + 3;
+        let pth = ''; for (let q = 0; q <= 44; q++) { const t = -2.5 + (q / 40) * Math.PI * 2, f = 1 + 0.04 * Math.sin(q * 0.8); pth += `${q ? 'L' : 'M'}${(cx + rx * f * Math.cos(t)).toFixed(1)},${(cy + ry * f * Math.sin(t)).toFixed(1)}`; }
+        out += `<path class="${cls.trim()}" d="${pth}"${st(Math.PI * (rx + ry) * 1.15, 0.05 + j * 0.2)}/>`;
+      });
+      const r0 = rs[0]; ty = r0.y + r0.h / 2; tx = r0.x + r0.w / 2;
+    }
+    const head = (x2, y2, cx, cy) => { const a = Math.atan2(y2 - cy, x2 - cx), L = 8, h = (t) => `M${x2.toFixed(1)},${y2.toFixed(1)} L${(x2 - L * Math.cos(a + t)).toFixed(1)},${(y2 - L * Math.sin(a + t)).toFixed(1)}`; return `${h(0.45)} ${h(-0.45)}`; };
+    const line = (x1, y1, x2, y2, bend) => { const cx = (x1 + x2) / 2 + bend * (y2 - y1), cy = (y1 + y2) / 2 - bend * (x2 - x1); return `<path class="${cls.trim()}" d="M${x1.toFixed(1)},${y1.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${head(x2, y2, cx, cy)}"${st(Math.hypot(x2 - x1, y2 - y1) * 1.2 + 20, 0.45)}/>`; };
+    if (block) {
+      const K = P(block.getBoundingClientRect()), free = S.width - 20 - (K.x + K.w + 44);
+      if (tgt && free >= 150) {
+        // 宽屏：批注写在右边空白，和重点同一高度，从块的右边缘连过去
+        say.classList.add('side');
+        const w = Math.min(280, free), y0 = ty ?? K.y + 18;
+        say.style.width = `${w}px`;
+        const O = (say.offsetParent || scr).getBoundingClientRect(), dx = S.left - O.left, dy = S.top - O.top;
+        say.style.left = `${K.x + K.w + 44 + dx}px`;
+        const top = Math.max(8, Math.min(y0 - 16, S.height - say.offsetHeight - 12)); say.style.top = `${top + dy}px`;
+        out += line(K.x + K.w + 8, y0, K.x + K.w + 38, top + 16, 0.15);
+      } else {
+        // 窄屏：批注在下面；中间没有别的东西才连线
+        const R = P(say.getBoundingClientRect()), kb = K.y + K.h;
+        const between = [...scr.querySelectorAll('.lp-vis > *, .lp-main > *, .lp-quiz > *, .lp-fill > *')].some((e) => { if (block.contains(e) || e.contains(block)) return false; const r = P(e.getBoundingClientRect()); return r.h > 0 && r.y >= kb - 2 && r.y < R.y - 2; });
+        if (!between && R.y - kb > 6) { const x = Math.max(R.x + 16, Math.min(R.x + R.w - 16, tx ?? R.x + 30)); out += line(R.x + 24, R.y - 2, x, kb + 4, 0.08); }
+      }
+    }
+    annSvg.innerHTML = out;
+    if (cls) { say.classList.add('ann-anim'); }
+    annKey = `${S.width}x${S.height}`;
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => { const S = scr.getBoundingClientRect(); if (annKey && `${S.width}x${S.height}` !== annKey) annLater(false); }).observe(scr);
   const interactive = (s) => ['quiz', 'pick2', 'fill'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw') || (s.type === 'sim' && !!s.goal);
 
   function solvedNow(i0, text) {
@@ -403,6 +460,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     if (solved.has(i) && s.ok) first = s.ok;
     say.innerHTML = sameAsCard(s, first) ? '' : md(first);
     typeset(vis); typeset(side); typeset(say);
+    annLater(true); if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => annLater(false));
     if (rd) Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 600))]).then(() => requestAnimationFrame(() => { if (rd.isConnected) rd.draw(); }));
     for (const el of [vis, side]) { el.classList.remove('lp-in'); void el.offsetWidth; if (!reduce()) el.classList.add('lp-in'); }
     if (playing) {
