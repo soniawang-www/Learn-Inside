@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>春蕾杯解析对照</title>
+<link rel="stylesheet" href="/math/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="/math/style.css?v=20261126a">
+<script defer src="/math/vendor/katex/katex.min.js"></script>
+<script defer src="/math/vendor/katex/contrib/auto-render.min.js"></script>
+<style>
+  :root { --pv-bg: #f6f7f9; --pv-fg: #1f2933; --pv-mute: #6b7480; --pv-line: #dde1e6; --pv-chip: #ffffff; --pv-acc: #1f7a5c; --pv-accfg: #ffffff; }
+  :root.before { --pv-acc: #8a5a00; }
+  @media (prefers-color-scheme: dark) { :root { --pv-bg: #15181c; --pv-fg: #e6e9ed; --pv-mute: #9aa3ad; --pv-line: #2c3238; --pv-chip: #1e2227; } }
+  body { background: var(--pv-bg); color: var(--pv-fg); margin: 0; }
+  .pv { max-width: 820px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 14px; }
+  .pv-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .pv-tag { background: var(--pv-acc); color: var(--pv-accfg); font-weight: 700; padding: 4px 12px; border-radius: 999px; text-decoration: none; }
+  .pv-alt { color: var(--pv-mute); }
+  .pv-top select { font: inherit; padding: 6px 8px; border: 1px solid var(--pv-line); border-radius: 8px; background: var(--pv-chip); color: var(--pv-fg); max-width: 100%; }
+  .pv-nums { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pv-nums button { font: inherit; font-variant-numeric: tabular-nums; border: 1px solid var(--pv-line); background: var(--pv-chip); color: var(--pv-fg); border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+  .pv-nums button small { color: var(--pv-mute); margin-left: 3px; }
+  .pv-nums button.on { background: var(--pv-acc); border-color: var(--pv-acc); color: var(--pv-accfg); }
+  .pv-nums button.on small { color: var(--pv-accfg); }
+  #prob { padding: 16px; min-width: 0; overflow-x: auto; }
+  #prob h3 { margin: 0 0 8px; }
+  #prob .fig { margin: 10px 0; overflow-x: auto; }
+  #prob .fig svg { max-width: 100%; height: auto; }
+  #lesson { min-width: 0; }
+</style>
+</head>
+<body>
+<div class="pv">
+  <div class="pv-top">
+    <span class="pv-tag" id="tag"></span>
+    <a class="pv-alt" id="alt"></a>
+    <select id="paper" aria-label="试卷"></select>
+  </div>
+  <div class="pv-nums" id="nums"></div>
+  <div id="prob" class="card"></div>
+  <div id="lesson" class="lp-overlay" style="position:static"></div>
+</div>
+<script type="module">
+import { mountPlayer } from '/math/player.js?v=20261126a';
+const V = new URLSearchParams(location.search).get('v') === 'before' ? 'before' : 'after';
+document.documentElement.classList.toggle('before', V === 'before');
+document.getElementById('tag').textContent = V === 'before' ? '改前' : '改后';
+const hp = () => new URLSearchParams(location.hash.slice(1));
+const K = hp().get('k') || '';
+const b64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+const key = await crypto.subtle.importKey('raw', b64(K), 'AES-GCM', false, ['decrypt']);
+async function get(name) {
+  const buf = new Uint8Array(await (await fetch(`${V}/${name}.bin`)).arrayBuffer());
+  const gz = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12));
+  return JSON.parse(await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+}
+const list = await get('index');
+const sel = document.getElementById('paper'), nums = document.getElementById('nums'), alt = document.getElementById('alt');
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+sel.innerHTML = list.map((e) => `<option value="${e.id}">${esc(e.title)}</option>`).join('');
+const cache = {};
+const load = (id) => cache[id] || (cache[id] = get(id));
+const katexReady = () => new Promise((r) => { const t = () => window.renderMathInElement ? r() : setTimeout(t, 50); t(); });
+const go = (id, n) => { location.hash = `k=${K}&p=${id.replace(/^chunlei-/, '')}-${n}`; };
+async function show() {
+  const m = /^(.+)-(\d+)$/.exec(hp().get('p') || '');
+  let id = m ? 'chunlei-' + m[1] : list[0].id, n = m ? +m[2] : 1;
+  const meta = list.find((e) => e.id === id) || list[0];
+  id = meta.id; sel.value = id;
+  alt.href = `?v=${V === 'before' ? 'after' : 'before'}${location.hash}`;
+  alt.textContent = V === 'before' ? '看改后' : '看改前';
+  nums.innerHTML = meta.n.map(([k, s]) => `<button type="button" data-n="${k}" class="${k === n ? 'on' : ''}">${k}<small>${s}步</small></button>`).join('');
+  const ex = await load(id);
+  const p = ex.problems.find((x) => x.number === n) || ex.problems[0];
+  document.getElementById('prob').innerHTML = `<h3>${esc(ex.title)} · 第 ${p.number} 题</h3><p>${md(p.stem)}</p>
+    ${p.figure ? `<div class="fig">${p.figure}</div>` : ''}
+    ${Object.keys(p.choices || {}).length ? `<p>${Object.entries(p.choices).map(([k, v]) => `<b>${k}</b>. ${md(v)}`).join('　')}</p>` : ''}
+    <p><b>答案</b>：${esc(p.answer)}</p>`;
+  await katexReady();
+  renderMathInElement(document.getElementById('prob'), { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false });
+  const host = document.getElementById('lesson'); host.innerHTML = '';
+  if (p.advanced) mountPlayer(host, p.advanced, {});
+}
+sel.addEventListener('change', () => go(sel.value, 1));
+nums.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) go(sel.value, b.dataset.n); });
+window.addEventListener('hashchange', show);
+show();
+</script>
+</body>
+</html>

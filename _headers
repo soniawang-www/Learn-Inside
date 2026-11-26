@@ -7,3 +7,6 @@
   Cache-Control: no-cache
 /english/*
   Cache-Control: no-cache
+/review/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
