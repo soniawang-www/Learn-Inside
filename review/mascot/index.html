@@ -36,6 +36,12 @@ svg.mascot, svg.mascot-happy { display: block; width: 100%; height: auto; }
 figure { margin: 0; text-align: center; }
 figure svg { max-width: 150px; margin: 0 auto; }
 figcaption { font-size: .85rem; color: var(--mute); margin-top: 2px; }
+.v3 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; align-items: end; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 12px 12px; }
+.v3 img { display: block; width: 100%; height: auto; max-width: 200px; margin: 0 auto; }
+.v3 .on { grid-column: 1 / -1; background: var(--jade); border-radius: 10px; display: flex; justify-content: center; align-items: flex-end; gap: 8%; padding: 14px 12px 6px; }
+.v3 .on img { width: 30%; max-width: 170px; margin: 0; }
+.v3 .on img.s { width: 13%; max-width: 70px; }
+@media (max-width: 620px) { .v3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .v2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; }
 .v2 img, .poses img { display: block; width: 100%; height: auto; }
 .v2 .hero { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 14px 10px; display: flex; align-items: flex-end; }
@@ -68,6 +74,10 @@ figcaption { font-size: .85rem; color: var(--mute); margin-top: 2px; }
 </defs></svg>
 <main>
 <header><h1>learn-inside 新形象草图</h1></header>
+<section><h2>第三版 · 长颈鹿 <small>简单卡通</small></h2>
+<div class="v3"><figure><img src="img/giraffe-dot.webp?v=3" width="580" height="831" alt="小黑点眼睛"><figcaption>小黑点眼睛</figcaption></figure><figure><img src="img/giraffe-big.webp?v=3" width="580" height="831" alt="大圆眼睛"><figcaption>大圆眼睛</figcaption></figure><figure><img src="img/giraffe-dot-wave.webp?v=3" width="580" height="833" alt="招手"><figcaption>招手</figcaption></figure><figure><img src="img/giraffe-dot-cheer.webp?v=3" width="638" height="827" alt="欢呼"><figcaption>欢呼</figcaption></figure><div class="on"><img src="img/giraffe-dot-cheer.webp?v=3" width="638" height="827" alt=""><img src="img/giraffe-dot.webp?v=3" width="580" height="831" alt=""><img class="s" src="img/giraffe-dot.webp?v=3" width="580" height="831" alt=""></div></div></section>
+<section><h2>第三版 · 河狸 <small>同样的手法</small></h2>
+<div class="v3"><figure><img src="img/beaver3-dot.webp?v=3" width="794" height="706" alt="小黑点眼睛"><figcaption>小黑点眼睛</figcaption></figure><figure><img src="img/beaver3-big.webp?v=3" width="794" height="706" alt="大圆眼睛"><figcaption>大圆眼睛</figcaption></figure><figure><img src="img/beaver3-dot-wave.webp?v=3" width="794" height="711" alt="招手"><figcaption>招手</figcaption></figure><figure><img src="img/beaver3-dot-cheer.webp?v=3" width="783" height="698" alt="欢呼"><figcaption>欢呼</figcaption></figure><div class="on"><img src="img/beaver3-dot-cheer.webp?v=3" width="783" height="698" alt=""><img src="img/beaver3-dot.webp?v=3" width="794" height="706" alt=""><img class="s" src="img/beaver3-dot.webp?v=3" width="794" height="706" alt=""></div></div></section>
 <section><h2>第二版 · 河狸狸狸 <small>黏土质感</small></h2>
 <div class="v2">
   <div class="hero"><img src="img/beaver-hero.webp?v=2" width="879" height="835" alt="河狸狸狸，举着铅笔"></div>
