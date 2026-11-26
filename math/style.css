@@ -2089,3 +2089,23 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 @media (prefers-reduced-motion: reduce) { .lp-read .rd-draw, .lp-read .rd-note.rd-anim { animation:none; stroke-dashoffset:0; clip-path:none; } }
 
 .lp-q, .lp-scr.solo .lp-q, .lp-scr:not(.solo) .lp-q { font-family:var(--lp-hand); }
+
+/* 思路：大纲 + 展开引导 */
+.lp-plan { width:100%; max-width:36em; margin:0 auto; text-align:left; }
+.lp-plan .lp-h { display:table; margin:0 auto 10px; }
+.lp-plan ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.lp-plan li { border-bottom:1.5px dashed var(--lp-line); padding-bottom:8px; }
+.lp-plan .pl-row { all:unset; box-sizing:border-box; width:100%; display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-family:var(--lp-hand); font-size:1.12rem; line-height:1.7; color:var(--lp-ink); }
+.lp-plan .pl-row:focus-visible { outline:2px solid var(--lp-jade); outline-offset:3px; border-radius:6px; }
+.lp-plan .pl-n { flex:none; display:inline-flex; align-items:center; justify-content:center; width:1.6em; height:1.6em; margin-top:.1em; border:2px solid var(--lp-pen); color:var(--lp-pen); border-radius:50% 45% 52% 48%; font-size:.9em; font-weight:700; }
+.lp-plan .pl-line { flex:1; min-width:0; }
+.lp-plan .pl-from { font-weight:700; }
+.lp-plan .pl-arr { color:var(--lp-pen); font-weight:700; margin:0 .35em; }
+.lp-plan .pl-tog { flex:none; align-self:center; font-size:.85rem; color:var(--lp-ink2, var(--lp-jade)); border:1.5px solid currentColor; border-radius:var(--lp-sketch); padding:0 8px; }
+.lp-plan li.open .pl-tog { opacity:.6; }
+.lp-plan .pl-body { margin:8px 0 2px 2.3em; display:flex; flex-direction:column; align-items:flex-start; gap:8px; font-family:var(--lp-hand); font-size:1.05rem; line-height:1.7; }
+.lp-plan .pl-body[hidden], .lp-plan .pl-body [hidden] { display:none; }
+.lp-plan .pl-ask { margin:0; color:var(--lp-ink2, var(--lp-jade)); -webkit-text-stroke:.35px currentColor; }
+.lp-plan .pl-ask::before { content:"想一想："; font-weight:700; }
+.lp-plan .pl-see { font:inherit; font-size:.95rem; border:1.8px solid var(--lp-ink); border-radius:var(--lp-sketch); background:var(--lp-card); color:var(--lp-ink); padding:2px 12px; cursor:pointer; }
+.lp-plan .pl-why { margin:0; padding:6px 12px; background:var(--lp-sticky, #FFF3B0); border-radius:2px 2px 3px 12px; box-shadow:0 6px 10px -8px rgba(40,30,0,.4); transform:rotate(-.6deg); }

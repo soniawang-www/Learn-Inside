@@ -257,7 +257,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     const main = scr.classList.contains('solo') ? vis : side;
     const ok = (c) => /[\u4e00-\u9fa5\dA-Za-z]/.test(c), chars = new Set([...say.textContent].filter(ok));
     let tgt = null, best = 1;
-    main.querySelectorAll('b, strong').forEach((b) => { const cs = [...b.textContent].filter(ok); const t = cs.filter((c) => chars.has(c)).length, sc = t * t / cs.length; if (t >= 2 && t >= cs.length * 0.4 && sc > best) { best = sc; tgt = b; } });
+    main.querySelectorAll('b, strong').forEach((b) => { if (b.closest('.lp-plan')) return; const cs = [...b.textContent].filter(ok); const t = cs.filter((c) => chars.has(c)).length, sc = t * t / cs.length; if (t >= 2 && t >= cs.length * 0.4 && sc > best) { best = sc; tgt = b; } });
     stickKey = `${S.width}x${S.height}`;
     if (!tgt) return;
     const T = tgt.getClientRects()[0]; if (!T) return;
@@ -305,7 +305,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     }
     const main = hasVis ? side : vis;
     vis.innerHTML = ''; side.innerHTML = '';
-    if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html}</div>`);
+    if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html.replace(/(<div class=['"]lp-h['"]>)内核(<\/div>)/, '$1思路$2')}</div>`);
     turn.hidden = !(interactive(s) && !solved.has(i));
     if (s.grid && s.type !== 'grid' && s.sim !== 'toggles') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
     if (s.fig) vis.insertAdjacentHTML('beforeend', `<div class="lp-fig">${s.fig}</div>`);
@@ -384,6 +384,22 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       main.appendChild(box);
     }
     if (s.type === 'grid') vis.appendChild(gridWidget(s.grid, (t) => solvedNow(i, t), setSay));
+    if (s.type === 'plan') {
+      // 思路：先列大纲（从什么 → 推出什么），点一条展开：先问一句引导，想好了再看为什么
+      const box = document.createElement('div');
+      box.className = 'lp-plan';
+      box.innerHTML = `<div class="lp-h">思路</div><ol>${s.items.map((it, k) => `<li data-k="${k}"><button type="button" class="pl-row" aria-expanded="false"><span class="pl-n">${k + 1}</span><span class="pl-line">从 <b class="pl-from">${md(it.from)}</b><span class="pl-arr">→</span><span class="pl-to">${md(it.to)}</span></span><span class="pl-tog">展开</span></button>` +
+        `<div class="pl-body" hidden>${it.ask ? `<p class="pl-ask">${md(it.ask)}</p>` : ''}${it.why ? (it.ask ? `<button type="button" class="pl-see">想好了，看看</button><p class="pl-why" hidden>${md(it.why)}</p>` : `<p class="pl-why">${md(it.why)}</p>`) : ''}</div></li>`).join('')}</ol>`;
+      main.appendChild(box);
+      box.addEventListener('click', (e) => {
+        const see = e.target.closest('.pl-see');
+        if (see) { const li = see.closest('li'); see.hidden = true; li.querySelector('.pl-why').hidden = false; typeset(li); return; }
+        const row = e.target.closest('.pl-row'); if (!row) return;
+        const li = row.closest('li'), body = li.querySelector('.pl-body'), open = body.hidden;
+        body.hidden = !open; row.setAttribute('aria-expanded', open); li.classList.toggle('open', open); row.querySelector('.pl-tog').textContent = open ? '收起' : '展开';
+        if (open) typeset(li);
+      });
+    }
     if (s.type === 'here') {
       const box = document.createElement('div');
       box.className = 'lp-here';
