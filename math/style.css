@@ -2043,16 +2043,13 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-main .lp-h { display:inline-block; font-size:1.4rem; background:linear-gradient(transparent 62%, var(--lp-hl) 62%, var(--lp-hl) 92%, transparent 92%); padding:0 6px; transform:rotate(-1deg); }
 .lp-html .card { border:1.8px solid var(--lp-ink); border-radius:var(--lp-sketch); background:var(--lp-card); }
 .lp-html b, .lp-say b, .lp-q b, .lp-ans b, .lp-fig + .lp-html b { font-weight:700; background:linear-gradient(100deg, transparent 2%, var(--lp-hl) 4%, var(--lp-hl) 96%, transparent 98%) 0 72% / 100% 46% no-repeat; padding:0 2px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
-.lp-say, .lp-scr.solo .lp-say { position:relative; align-self:center; width:auto; max-width:30em; margin:16px auto 4px; padding:0 4px; background:none; color:var(--lp-ink2); border:0; border-radius:0; box-shadow:none; font-family:var(--lp-hand); font-size:1.15rem; line-height:1.7; text-align:left; transform:rotate(-1deg); transform-origin:left top; }
-.lp-say::before { content:none; display:none; }
+.lp-say, .lp-scr.solo .lp-say { position:relative; align-self:center; width:auto; max-width:30em; margin:18px auto 6px; padding:14px 18px 12px; background:var(--lp-sticky); color:var(--lp-ink); border:0; border-radius:2px 2px 3px 16px / 2px 2px 3px 12px; box-shadow:0 8px 12px -8px rgba(40,30,0,.35); font-family:var(--lp-hand); font-size:1.12rem; line-height:1.7; text-align:left; transform:rotate(-1.2deg); }
+.lp-say::before { content:""; position:absolute; left:var(--tx, 50%); top:-10px; bottom:auto; width:78px; height:20px; transform:translateX(-50%) rotate(-3deg); background:repeating-linear-gradient(-45deg, var(--lp-tape) 0 7px, var(--lp-tape2) 7px 14px); opacity:.85; animation:none; border-radius:1px; }
 .lp-say b { color:inherit; }
-.lp-scr .lp-say.side, .lp-scr.solo .lp-say.side { position:absolute; margin:0; max-width:none; z-index:2; }
-.lp-say.ann-anim { clip-path:inset(0 100% 0 0); animation:rd-write .9s ease forwards; animation-delay:.75s; }
-.lp-ann { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:3; }
-.lp-ann path { fill:none; stroke:var(--lp-ink2); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-.lp-ann .rd-draw { stroke-dasharray:var(--len); stroke-dashoffset:var(--len); animation:rd-draw .5s ease forwards; animation-delay:var(--d); }
-@media (prefers-reduced-motion: reduce) { .lp-ann .rd-draw, .lp-say.ann-anim { animation:none; stroke-dashoffset:0; clip-path:none; } }
-.lp-read .rd-note .rd-n { display:none; } .lp-read .rd-note.num .rd-n { display:inline-flex; }
+.lp-scr .lp-say.side, .lp-scr.solo .lp-say.side { position:absolute; margin:0; max-width:none; z-index:2; height:auto; bottom:auto; }
+.lp-say.tape-l::before { left:-34px; top:var(--ty, 22px); width:62px; height:20px; transform:translateY(-50%) rotate(-4deg); }
+.lp-say, .lp-read .rd-note { -webkit-text-stroke:.45px currentColor; }
+.lp-read .rd-pen { stroke-width:2.8; }
 /* 题目：用胶带贴在本子上，一直在 */
 .lp-prob { position:relative; width:100%; max-width:46em; align-self:center; box-sizing:border-box; margin:2px auto 8px; padding:12px 16px 10px; background:var(--lp-card); border:1.5px solid var(--lp-line); border-radius:3px; box-shadow:2px 3px 0 var(--lp-line); transform:rotate(-.35deg); text-align:left; font-family:var(--lp-hand); font-size:1.02rem; line-height:1.75; display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
 .lp-prob[hidden] { display:none; }
@@ -2075,12 +2072,6 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-turn { border-radius:var(--lp-sketch); transform:rotate(2deg); }
 /* 读题：荧光笔、圈、手写批注 */
 .lp-read { position:relative; max-width:34em; margin:0 auto; text-align:left; }
-.lp-scr.solo .lp-read { max-width:56em; width:100%; }
-.lp-read.rd-side { display:grid; grid-template-columns:minmax(0, 28em) minmax(11em, 15em); justify-content:center; column-gap:56px; align-items:start; }
-.lp-read.rd-side .rd-notes { position:relative; margin:0; padding:0; }
-.lp-read.rd-side .rd-note { position:absolute; left:0; right:0; }
-.lp-read:not(.rd-side) .rd-notes { gap:22px; margin-top:22px; }
-.lp-read:not(.rd-side) .rd-note { width:fit-content; max-width:100%; }
 .lp-read .rd-text { position:relative; z-index:1; font-family:var(--lp-hand); font-size:1.28rem; line-height:2.2; margin:0; }
 .lp-read .rd-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
 .lp-read .rd-svg.under { z-index:0; } .lp-read .rd-svg.over { z-index:2; }
