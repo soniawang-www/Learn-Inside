@@ -138,6 +138,71 @@ function gridWidget(cfg, onSolved, setSay) {
   return wrap;
 }
 
+// ───────── 读题：荧光笔划重点、红笔圈出关键处、旁边手写批注 ─────────
+// text 里：[[h:要求的 / 重点]] 荧光笔；[[o1:关键条件]] 红笔圈，编号 1 对应 notes 里的批注；[[u2:…]] 红笔波浪线。
+// notes=[[1, '看到「同样长」→ 差会不会变？'], …]
+function readWidget(s, animate) {
+  const box = document.createElement('div');
+  box.className = 'lp-read';
+  const marks = [];
+  const html = md(s.text || '').replace(/\[\[([hou])(\d*):(.+?)\]\]/g, (_, k, n, t) => { marks.push({ k, n }); return `<span class="rd-m" data-m="${marks.length - 1}">${t}</span>`; });
+  const notes = (s.notes || []).map(([n, t]) => ({ n: String(n), t }));
+  box.innerHTML = `<svg class="rd-svg under"></svg><p class="rd-text">${html}</p><svg class="rd-svg over"></svg>` +
+    (notes.length ? `<div class="rd-notes">${notes.map((x) => `<div class="rd-note" data-n="${x.n}"><span class="rd-n">${x.n}</span>${md(x.t)}</div>`).join('')}</div>` : '');
+  const order = [];
+  marks.forEach((m, k) => { order.push({ m: k }); if (m.n) notes.filter((x) => x.n === m.n).forEach((x) => order.push({ note: x.n })); });
+  notes.forEach((x) => { if (!order.some((o) => o.note === x.n)) order.push({ note: x.n }); });
+  const delay = {}; order.forEach((o, k) => { delay[o.m !== undefined ? 'm' + o.m : 'n' + o.note] = 0.25 + k * 0.75; });
+  let first = animate;
+  const jit = (k) => (Math.sin(k * 12.9898) * 43758.5453) % 1;
+  const draw = () => {
+    const under = box.querySelector('.rd-svg.under'), over = box.querySelector('.rd-svg.over');
+    const B = box.getBoundingClientRect();
+    if (!B.width) return;
+    let u = '', o = '';
+    box.querySelectorAll('.rd-m').forEach((el) => {
+      const k = +el.dataset.m, m = marks[k], d = first ? delay['m' + k] : 0;
+      const cls = first ? ' rd-draw' : '';
+      // 公式会拆成很多小框：同一行的并成一个
+      const rs = [];
+      [...el.getClientRects()].filter((r) => r.width > 0.5).forEach((r) => {
+        const a = { x: r.left - B.left, y: r.top - B.top, w: r.width, h: r.height };
+        const L = rs.find((q) => Math.abs((q.y + q.h / 2) - (a.y + a.h / 2)) < Math.max(q.h, a.h) * 0.6);
+        if (!L) { rs.push(a); return; }
+        const x1 = Math.min(L.x, a.x), y1 = Math.min(L.y, a.y), x2 = Math.max(L.x + L.w, a.x + a.w), y2 = Math.max(L.y + L.h, a.y + a.h);
+        Object.assign(L, { x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+      });
+      rs.forEach((r, j) => {
+        const st = (len) => ` style="--len:${Math.ceil(len)};--d:${(d + j * 0.25).toFixed(2)}s"`;
+        if (m.k === 'h') {
+          const y = r.y + r.h * 0.62, a = jit(k + j) * 2;
+          u += `<path class="rd-hl${cls}" stroke-width="${(r.h * 0.5).toFixed(1)}" d="M${r.x - 2},${y + a} L${r.x + r.w + 2},${y - a}"${st(r.w + 4)}/>`;
+        } else if (m.k === 'o') {
+          const cx = r.x + r.w / 2, cy = r.y + r.h / 2, rx = r.w / 2 + 6, ry = r.h / 2 + 2, t0 = -2.6 + jit(k) * 0.4;
+          let pth = '';
+          for (let q = 0; q <= 44; q++) { const t = t0 + (q / 40) * Math.PI * 2, f = 1 + 0.05 * Math.sin(q * 0.7 + k); pth += `${q ? 'L' : 'M'}${(cx + rx * f * Math.cos(t)).toFixed(1)},${(cy + ry * f * Math.sin(t)).toFixed(1)}`; }
+          o += `<path class="rd-pen${cls}" d="${pth}"${st(Math.PI * (rx + ry) * 1.15)}/>`;
+          if (m.n && j === rs.length - 1) o += `<text class="rd-num" x="${(cx + rx + 2).toFixed(1)}" y="${(cy - ry + 2).toFixed(1)}">${m.n}</text>`;
+        } else {
+          const y = r.y + r.h - 2; let pth = `M${r.x},${y}`;
+          for (let x = r.x; x < r.x + r.w; x += 8) pth += ` q2,3 4,0 t4,0`;
+          o += `<path class="rd-pen${cls}" d="${pth}"${st(r.w * 1.3)}/>`;
+          if (m.n && j === rs.length - 1) o += `<text class="rd-num" x="${(r.x + r.w + 3).toFixed(1)}" y="${(y + 2).toFixed(1)}">${m.n}</text>`;
+        }
+      });
+    });
+    under.innerHTML = u; over.innerHTML = o;
+    box.querySelectorAll('.rd-note').forEach((el) => {
+      if (first) { el.classList.add('rd-anim'); el.style.setProperty('--d', `${delay['n' + el.dataset.n] || 0}s`); }
+    });
+    first = false;
+  };
+  box.draw = draw;
+  let w0 = 0;
+  if (window.ResizeObserver) new ResizeObserver(() => { const w = box.clientWidth; if (w0 && w !== w0 && !first) draw(); w0 = w; }).observe(box);
+  return box;
+}
+
 // ───────── 播放器 ─────────
 export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onClose } = {}) {
   const steps = (lesson.steps || lesson).map((s) => (s.type ? s : { type: 'info', say: s.body, html: s.title ? `<div class="lp-h">${md(s.title)}</div>` : '' }));
@@ -189,6 +254,8 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     turn.hidden = !(interactive(s) && !solved.has(i));
     if (s.grid && s.type !== 'grid' && s.sim !== 'toggles') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
     if (s.fig) vis.insertAdjacentHTML('beforeend', `<div class="lp-fig">${s.fig}</div>`);
+    let rd = null;
+    if (s.type === 'read') { rd = readWidget(s, !reduce()); main.appendChild(rd); }
     if (s.type === 'sim') {
       const box = document.createElement('div');
       box.className = `lp-simbox sim-${s.sim}`;
@@ -269,13 +336,20 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       vis.appendChild(box);
     }
     if (solved.has(i) && s.ok) first = s.ok;
-    say.innerHTML = md(first);
+    say.innerHTML = sameAsCard(s, first) ? '' : md(first);
     typeset(vis); typeset(side); typeset(say);
+    if (rd) Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 600))]).then(() => requestAnimationFrame(() => { if (rd.isConnected) rd.draw(); }));
     for (const el of [vis, side]) { el.classList.remove('lp-in'); void el.offsetWidth; if (!reduce()) el.classList.add('lp-in'); }
     if (playing) {
       if (interactive(s) && !solved.has(i)) voice.speak(first, () => {}); // 等孩子操作
       else voice.speak(first, () => { if (playing && steps[i] === s) go(i + 1); });
     }
+  }
+
+  function sameAsCard(s, t) {
+    if (s.type !== 'info' || !s.html || !t) return false;
+    const norm = (x) => String(x).replace(/<div class=['"]lp-h['"]>[^<]*<\/div>/, '').replace(/<[^>]+>|\*\*|\$|\s|[。，、：；！？,.]/g, '');
+    return norm(t) === norm(s.html);
   }
 
   function go(n) {

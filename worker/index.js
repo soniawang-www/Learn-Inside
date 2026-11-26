@@ -701,6 +701,10 @@ async function kpTags(env, acc, problemIds) {
  * 互动解析的缩略图：课件里第一个带图的步骤（互动演示优先，其次是配图），加上总步数。
  * 没解锁也给（只是一张图）：分步演示只给第一帧，不带讲解文字。
  */
+// 课件结尾的「错题诊所」「小结」「回想」不再给孩子看（2026-11-26 家长反馈：敷衍、没用）
+const TAIL_RE = /^<div class=['"]lp-h['"]>(小结|错题诊所)<\/div>/;
+const lessonSteps = (steps) => steps.filter((s) => !(s && (s.type === 'recall' || TAIL_RE.test(s.html || ''))));
+
 function advThumb(content, pid) {
   let v; try { v = JSON.parse(content); } catch { return {}; }
   const steps = Array.isArray(v) ? v : v?.steps;
@@ -714,14 +718,14 @@ function advThumb(content, pid) {
   };
   // 事先挑好的「最精彩」一张（backend/scripts/pick-thumbs.mjs）；没挑过的题用第一张
   const pk = THUMBS[pid], ps = pk && steps[pk.step];
-  if (ps && pk.fig && ps.fig) return { steps: steps.length, thumb: { ...thumb, fig: ps.fig } };
-  if (ps && ps.type === 'sim' && ps.sim) { simThumb(ps, pk.frame || 0, pk.vars); return { steps: steps.length, thumb }; }
+  if (ps && pk.fig && ps.fig) return { steps: lessonSteps(steps).length, thumb: { ...thumb, fig: ps.fig } };
+  if (ps && ps.type === 'sim' && ps.sim) { simThumb(ps, pk.frame || 0, pk.vars); return { steps: lessonSteps(steps).length, thumb }; }
   const sim = steps.find((x) => x.type === 'sim' && x.sim);
   if (sim) simThumb(sim);
   // 互动演示画不出图（只有文字和滑块）时，用课件里的配图；都没有就用标题
   const f = steps.find((x) => x.fig);
   if (f && !thumb.svg) thumb.fig = f.fig;
-  return { steps: steps.length, thumb };
+  return { steps: lessonSteps(steps).length, thumb };
 }
 
 // 复盘数据：答案、解题思路、考点（带锁定状态）
@@ -829,6 +833,7 @@ route('GET', '/api/problems/:id/advanced', async (req, env, p) => {
   }
   let lesson;
   try { const v = JSON.parse(sol.content); lesson = Array.isArray(v) ? { steps: v } : v; } catch { lesson = { steps: [{ title: '解析', body: sol.content }] }; }
+  lesson = { ...lesson, steps: lessonSteps(lesson.steps || []) };
   return json({ locked: false, lesson, steps: lesson.steps, url: sol.url });
 });
 

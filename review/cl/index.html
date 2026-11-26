@@ -6,7 +6,8 @@
 <meta name="robots" content="noindex, nofollow">
 <title>春蕾杯解析对照</title>
 <link rel="stylesheet" href="/math/vendor/katex/katex.min.css">
-<link rel="stylesheet" href="/math/style.css?v=20261126a">
+<link rel="stylesheet" href="/assets/fonts/wenkai/wenkai.css">
+<link rel="stylesheet" href="/math/style.css?v=20261126c">
 <script defer src="/math/vendor/katex/katex.min.js"></script>
 <script defer src="/math/vendor/katex/contrib/auto-render.min.js"></script>
 <style>
@@ -43,7 +44,7 @@
   <div id="lesson" class="lp-overlay" style="position:static"></div>
 </div>
 <script type="module">
-import { mountPlayer } from '/math/player.js?v=20261126a';
+import { mountPlayer } from '/math/player.js?v=20261126c';
 const V = new URLSearchParams(location.search).get('v') === 'before' ? 'before' : 'after';
 document.documentElement.classList.toggle('before', V === 'before');
 document.getElementById('tag').textContent = V === 'before' ? '改前' : '改后';

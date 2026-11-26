@@ -10,3 +10,5 @@
 /review/*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
