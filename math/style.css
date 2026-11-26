@@ -2109,3 +2109,43 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-plan .pl-ask::before { content:"想一想："; font-weight:700; }
 .lp-plan .pl-see { font:inherit; font-size:.95rem; border:1.8px solid var(--lp-ink); border-radius:var(--lp-sketch); background:var(--lp-card); color:var(--lp-ink); padding:2px 12px; cursor:pointer; }
 .lp-plan .pl-why { margin:0; padding:6px 12px; background:var(--lp-sticky, #FFF3B0); border-radius:2px 2px 3px 12px; box-shadow:0 6px 10px -8px rgba(40,30,0,.4); transform:rotate(-.6deg); }
+
+/* 思路链：贴在题目下面的一串小纸条，做完一环写上结论 */
+.lp-chain { width:100%; max-width:46em; align-self:center; box-sizing:border-box; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px 4px; margin:0 auto 6px; font-family:var(--lp-hand); }
+.lp-chain[hidden] { display:none; }
+.lp-scr:not(.solo) > .lp-chain { grid-column:1 / -1; }
+.lp-chain .ch { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:2px 10px 2px 3px; font-size:.95rem; line-height:1.5; border:1.6px dashed var(--lp-line); border-radius:var(--lp-sketch); background:var(--lp-card); color:var(--lp-soft); text-align:left; }
+.lp-chain .ch b { flex:none; display:inline-flex; align-items:center; justify-content:center; width:1.5em; height:1.5em; border:1.8px solid currentColor; border-radius:50% 45% 52% 48%; font-size:.85em; }
+.lp-chain .ch.cur { border-style:solid; border-color:var(--lp-ink); color:var(--lp-ink); background:var(--lp-sticky); transform:rotate(-.8deg); -webkit-text-stroke:.3px currentColor; }
+.lp-chain .ch.done { border-style:solid; border-color:var(--lp-jade); color:var(--lp-ink); }
+.lp-chain .ch.done b { background:var(--lp-jade); border-color:var(--lp-jade); color:var(--lp-card); }
+.lp-chain .ch.new { animation:ch-pop .5s ease; }
+@keyframes ch-pop { 0% { transform:scale(.9); background:var(--lp-hl); } 60% { transform:scale(1.06); } 100% { transform:none; } }
+.lp-chain .ch-ar { font-style:normal; color:var(--lp-pen); font-weight:700; }
+@media (max-width: 640px) {
+  .lp-chain { justify-content:flex-start; }
+  .lp-chain .ch.todo .ch-t { display:none; }
+  .lp-chain .ch.todo { padding-right:3px; }
+  .lp-prob p { max-height:3.7em; }
+}
+@media (prefers-reduced-motion: reduce) { .lp-chain .ch.new { animation:none; } }
+/* 思路大纲页（链式）：每一环先是一个问题 */
+.lp-plan.chain .pl-row { cursor:default; }
+.lp-plan.chain li { border-bottom:1.5px dashed var(--lp-line); padding:4px 0 10px; }
+.lp-plan.chain li.done .pl-n { background:var(--lp-jade); border-color:var(--lp-jade); color:var(--lp-card); }
+.lp-plan.chain .pl-line { font-size:1.15rem; }
+/* 记住：推理链 + 题眼 + 换个数自己来 */
+.lp-keep { width:100%; max-width:38em; margin:0 auto; text-align:left; font-family:var(--lp-hand); display:flex; flex-direction:column; gap:14px; }
+.lp-keep .lp-h { align-self:center; margin:0; }
+.lp-keep .pl-n { flex:none; display:inline-flex; align-items:center; justify-content:center; width:1.5em; height:1.5em; border:2px solid var(--lp-jade); background:var(--lp-jade); color:var(--lp-card); border-radius:50% 45% 52% 48%; font-size:.85em; font-weight:700; margin-top:.15em; }
+.lp-keep .pl-arr { color:var(--lp-pen); font-weight:700; margin:0 .35em; }
+.lp-keep .kp-chain { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:1.02rem; line-height:1.65; }
+.lp-keep .kp-chain li { display:flex; gap:8px; align-items:flex-start; }
+.lp-keep .kp-cue { position:relative; padding:14px 16px 12px; background:var(--lp-sticky); border-radius:2px 2px 3px 16px / 2px 2px 3px 12px; box-shadow:0 8px 12px -8px rgba(40,30,0,.35); transform:rotate(-.6deg); font-size:1.08rem; line-height:1.75; }
+.lp-keep .kp-cue::before { content:""; position:absolute; left:26px; top:-10px; width:70px; height:20px; transform:rotate(-4deg); background:repeating-linear-gradient(-45deg, var(--lp-tape) 0 7px, var(--lp-tape2) 7px 14px); opacity:.85; }
+.lp-keep .kp-name { display:inline-block; margin-right:10px; padding:0 8px; border:1.8px solid var(--lp-pen); color:var(--lp-pen); border-radius:var(--lp-sketch); font-size:.9em; transform:rotate(-2deg); }
+.lp-keep .kp-var { border:1.8px solid var(--lp-ink); border-radius:var(--lp-sketch); background:var(--lp-card); padding:10px 14px 12px; display:flex; flex-direction:column; gap:8px; }
+.lp-keep .kp-t { align-self:flex-start; font-size:.9rem; color:var(--lp-card); background:var(--lp-plum); padding:0 10px; border-radius:var(--lp-sketch); transform:rotate(-1.5deg); }
+.lp-scr .lp-keep .lp-q, .lp-scr.solo .lp-keep .lp-q { font-family:var(--lp-hand); font-size:1.1rem; line-height:1.7; font-weight:400; margin:0; text-align:left; }
+.lp-keep .lp-frow { justify-content:flex-start; }
+.lp-keep .lp-frow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }

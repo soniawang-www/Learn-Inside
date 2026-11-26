@@ -245,6 +245,22 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     typeset(prob);
     prob.querySelector('.lp-pmore').onclick = (e) => { const o = prob.classList.toggle('open'); e.currentTarget.textContent = o ? '收起' : '展开'; };
   }
+  // 思路链：大纲是整节课的骨架。plan 步列出每一环要回答的问题；带 link 的步骤是那一环的展开，孩子做完这一环才写上结论
+  const planStep = steps.find((x) => x.type === 'plan');
+  const chain = planStep && steps.some((x) => x.link) ? planStep.items : null;
+  const planAt = chain ? steps.indexOf(planStep) : -1;
+  const lastOf = chain ? chain.map((_, k) => steps.reduce((m, x, j) => (x.link === k + 1 ? j : m), -1)) : [];
+  const linkDone = (k) => (lastOf[k] < 0 ? i > planAt : lastOf[k] < i || (lastOf[k] === i && solved.has(i)));
+  let chainEl = null, wasDone = [];
+  if (chain) { chainEl = document.createElement('div'); chainEl.className = 'lp-chain'; $('.lp-scr').insertBefore(chainEl, $('.lp-vis')); }
+  function drawChain() {
+    if (!chainEl) return;
+    const s = steps[i], cur = s.link ? s.link - 1 : -1;
+    chainEl.hidden = i <= planAt || s.type === 'read' || s.type === 'keep';
+    chainEl.innerHTML = chain.map((it, k) => { const d = linkDone(k); return `${k ? '<i class="ch-ar">→</i>' : ''}<span class="ch ${d ? 'done' : k === cur ? 'cur' : 'todo'}${d && wasDone[k] === false ? ' new' : ''}"><b>${k + 1}</b><span class="ch-t">${md(d ? it.to : it.ask)}</span></span>`; }).join('');
+    wasDone = chain.map((_, k) => linkDone(k));
+    typeset(chainEl);
+  }
   const vis = $('.lp-vis'), side = $('.lp-main'), say = $('.lp-say'), turn = $('.lp-turn'), scr = $('.lp-scr');
   const setSay = (t) => { say.innerHTML = md(t); typeset(say); stickLater(); if (playing && voice.on) voice.speak(t, () => {}); };
   // 便利贴贴在要注意的地方旁边：找出这一步里和讲解说同一件事的重点词，胶带朝着它贴
@@ -257,7 +273,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     const main = scr.classList.contains('solo') ? vis : side;
     const ok = (c) => /[\u4e00-\u9fa5\dA-Za-z]/.test(c), chars = new Set([...say.textContent].filter(ok));
     let tgt = null, best = 1;
-    main.querySelectorAll('b, strong').forEach((b) => { if (b.closest('.lp-plan')) return; const cs = [...b.textContent].filter(ok); const t = cs.filter((c) => chars.has(c)).length, sc = t * t / cs.length; if (t >= 2 && t >= cs.length * 0.4 && sc > best) { best = sc; tgt = b; } });
+    main.querySelectorAll('b, strong').forEach((b) => { if (b.closest('.lp-plan, .lp-keep')) return; const cs = [...b.textContent].filter(ok); const t = cs.filter((c) => chars.has(c)).length, sc = t * t / cs.length; if (t >= 2 && t >= cs.length * 0.4 && sc > best) { best = sc; tgt = b; } });
     stickKey = `${S.width}x${S.height}`;
     if (!tgt) return;
     const T = tgt.getClientRects()[0]; if (!T) return;
@@ -280,11 +296,12 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     }
   }
   if (window.ResizeObserver) new ResizeObserver(() => { const S = scr.getBoundingClientRect(); if (stickKey && `${S.width}x${S.height}` !== stickKey) stickLater(); }).observe(scr);
-  const interactive = (s) => ['quiz', 'pick2', 'fill'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw') || (s.type === 'sim' && !!s.goal);
+  const interactive = (s) => ['quiz', 'pick2', 'fill'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw') || (s.type === 'sim' && !!s.goal) || (s.type === 'keep' && !!s.q);
 
   function solvedNow(i0, text) {
     solved.add(i0);
     turn.hidden = true;
+    drawChain();
     setSay(text);
     if (playing) voice.speak(text, () => { if (playing && i === i0) go(i + 1); });
   }
@@ -305,6 +322,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     }
     const main = hasVis ? side : vis;
     vis.innerHTML = ''; side.innerHTML = '';
+    drawChain();
     if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html.replace(/(<div class=['"]lp-h['"]>)内核(<\/div>)/, '$1思路$2')}</div>`);
     turn.hidden = !(interactive(s) && !solved.has(i));
     if (s.grid && s.type !== 'grid' && s.sim !== 'toggles') vis.appendChild(gridWidget(s.grid, () => {}, setSay));
@@ -384,7 +402,37 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       main.appendChild(box);
     }
     if (s.type === 'grid') vis.appendChild(gridWidget(s.grid, (t) => solvedNow(i, t), setSay));
-    if (s.type === 'plan') {
+    if (s.type === 'plan' && chain) {
+      // 思路大纲：每一环先是一个要回答的问题；做完的那一环换成「从 … → 推出 …」
+      const box = document.createElement('div');
+      box.className = 'lp-plan chain';
+      box.innerHTML = `<div class="lp-h">思路</div><ol>${chain.map((it, k) => { const d = linkDone(k); return `<li class="${d ? 'done' : ''}"><span class="pl-row"><span class="pl-n">${k + 1}</span><span class="pl-line">${d ? `从 <b class="pl-from">${md(it.from)}</b><span class="pl-arr">→</span><span class="pl-to">${md(it.to)}</span>` : md(it.ask)}</span></span></li>`; }).join('')}</ol>`;
+      main.appendChild(box);
+    }
+    if (s.type === 'keep') {
+      // 记住：整条推理链 + 一句题眼（看到什么 → 想到什么）+ 换个数自己做一道
+      const box = document.createElement('div');
+      box.className = 'lp-keep';
+      box.innerHTML = '<div class="lp-h">记住</div>' +
+        (chain ? `<ol class="kp-chain">${chain.map((it, k) => `<li><span class="pl-n">${k + 1}</span><span>从 <b>${md(it.from)}</b><span class="pl-arr">→</span>${md(it.to)}</span></li>`).join('')}</ol>` : '') +
+        `<div class="kp-cue">${s.name ? `<span class="kp-name">${md(s.name)}</span>` : ''}<span class="kp-see">看到 <b>${md(s.cue)}</b></span><span class="pl-arr">→</span><span class="kp-think">想到 <b>${md(s.think)}</b></span></div>` +
+        (s.q ? `<div class="kp-var"><div class="kp-t">换个数，自己来</div><div class="lp-q">${md(s.q)}</div><div class="lp-frow">${s.pre ? `<span>${md(s.pre)}</span>` : ''}<input class="lp-input" inputmode="decimal" autocomplete="off" aria-label="答案">${s.post ? `<span>${md(s.post)}</span>` : ''}<button class="lp-chk">确定</button></div></div>` : '');
+      main.appendChild(box);
+      if (s.q) {
+        let tries = 0;
+        const inp = box.querySelector('.lp-input');
+        const check = () => {
+          if (solved.has(i)) return;
+          const v = inp.value.trim().replace(/\s+/g, '').replace(/，/g, ',');
+          if (!v) return;
+          if (s.a.map(String).includes(v)) { inp.classList.add('ok'); inp.disabled = true; solvedNow(i, s.ok || '对啦！这一类题你会了。'); }
+          else { tries++; inp.classList.add('no'); setTimeout(() => inp.classList.remove('no'), 500); setSay(tries >= 2 && s.show ? s.show : '照上面的思路，一环一环来。'); }
+        };
+        box.querySelector('.lp-chk').onclick = check;
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
+      }
+    }
+    if (s.type === 'plan' && !chain) {
       // 思路：先列大纲（从什么 → 推出什么），点一条展开：先问一句引导，想好了再看为什么
       const box = document.createElement('div');
       box.className = 'lp-plan';
