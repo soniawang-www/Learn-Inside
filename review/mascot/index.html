@@ -36,6 +36,17 @@ svg.mascot, svg.mascot-happy { display: block; width: 100%; height: auto; }
 figure { margin: 0; text-align: center; }
 figure svg { max-width: 150px; margin: 0 auto; }
 figcaption { font-size: .85rem; color: var(--mute); margin-top: 2px; }
+.v2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; }
+.v2 img, .poses img { display: block; width: 100%; height: auto; }
+.v2 .hero { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 14px 10px; display: flex; align-items: flex-end; }
+.v2 .side { display: grid; gap: 14px; grid-template-rows: minmax(0, 1fr) auto; }
+.v2 .band { background: var(--jade); border-radius: 14px; padding: 16px 16px 8px; display: flex; align-items: flex-end; justify-content: center; }
+.v2 .band img { max-width: 250px; }
+.v2 .mini { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; display: flex; align-items: flex-end; justify-content: center; gap: 22px; }
+.v2 .mini img:nth-child(1) { width: 104px; } .v2 .mini img:nth-child(2) { width: 68px; } .v2 .mini img:nth-child(3) { width: 42px; }
+.poses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 12px 12px; }
+.poses figure img { max-width: 240px; margin: 0 auto; }
+@media (max-width: 620px) { .v2 { grid-template-columns: minmax(0, 1fr); } .poses { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { h1 { font-size: 1.4rem; } .cmp > * { padding: 10px 4px; } .cell { gap: 6px; } }
 </style>
 </head>
@@ -56,8 +67,18 @@ figcaption { font-size: .85rem; color: var(--mute); margin-top: 2px; }
   <radialGradient id="g-skin" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#F7E2C4"/><stop offset="1" stop-color="#E2BE92"/></radialGradient>
 </defs></svg>
 <main>
-<header><h1>learn-inside 新形象草图</h1><p class="sub">河狸、穿山甲，和现在的狐狸放在一起比。</p></header>
-<section>
+<header><h1>learn-inside 新形象草图</h1></header>
+<section><h2>第二版 · 河狸狸狸 <small>黏土质感</small></h2>
+<div class="v2">
+  <div class="hero"><img src="img/beaver-hero.webp?v=2" width="879" height="835" alt="河狸狸狸，举着铅笔"></div>
+  <div class="side">
+    <div class="band"><img src="img/beaver-cheer.webp?v=2" width="865" height="836" alt="深绿底上的狸狸"></div>
+    <div class="mini"><img src="img/beaver-hero.webp?v=2" width="879" height="835" alt=""><img src="img/beaver-hero.webp?v=2" width="879" height="835" alt=""><img src="img/beaver-hero.webp?v=2" width="879" height="835" alt=""></div>
+  </div>
+</div></section>
+<section><h2>表情和动作</h2>
+<div class="poses"><figure><img src="img/beaver-hero.webp?v=2" width="879" height="835" alt="拿笔"><figcaption>拿笔</figcaption></figure><figure><img src="img/beaver-think.webp?v=2" width="879" height="830" alt="想一想"><figcaption>想一想</figcaption></figure><figure><img src="img/beaver-cheer.webp?v=2" width="865" height="836" alt="欢呼"><figcaption>欢呼</figcaption></figure><figure><img src="img/beaver-cup.webp?v=2" width="865" height="836" alt="抱奖杯"><figcaption>抱奖杯</figcaption></figure><figure><img src="img/beaver-gnaw.webp?v=2" width="868" height="835" alt="啃铅笔"><figcaption>啃铅笔</figcaption></figure><figure><img src="img/beaver-sleep.webp?v=2" width="884" height="819" alt="还没打卡"><figcaption>还没打卡</figcaption></figure></div></section>
+<section><h2>第一版 <small>平面矢量</small></h2>
 <div class="cmp">
   <div class="hd"></div><div class="hd">狐狸<small>现在的狸狸</small></div><div class="hd pick">河狸<small>候选一 · 狸狸</small></div><div class="hd pick">穿山甲<small>候选二</small></div>
   <div class="lab">全身</div><div class="cell full"><svg viewBox="0 0 200 244" class="mascot mascot-happy" aria-hidden="true"><ellipse cx="100" cy="236" rx="52" ry="6" fill="#1E2B28" opacity=".1"/><g transform="translate(0 0)"><path d="M66 214Q20 220 14 176Q8 136 34 112Q46 100 58 104Q40 124 46 152Q52 178 74 196Z" fill="#EE8A3C" /><path d="M34 112Q46 100 58 104Q48 112 44 126Q36 122 26 128Q28 118 34 112Z" fill="#FFF4E6" />
