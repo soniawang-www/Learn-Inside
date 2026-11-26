@@ -134,13 +134,18 @@ body.lp-open{overflow:hidden}
 }
 `;
 
+// 这份样式挂在整个页面上：.lp-* 选择器只在打印预览里生效，不然会撞上互动解析播放器同名的 .lp-title / .lp-top / .lp-side
+function scope(css, pre, keep) {
+  return css.replace(/(^|[{}])(\s*)(\.lp-[^{}@]*)\{/gm, (m, a, sp, sel) =>
+    a + sp + sel.split(',').map((x) => (keep.test(x.trim()) ? x : `${pre} ${x.trim()}`)).join(',') + '{');
+}
 let cssDone = false;
 function ensureCss() {
   if (cssDone) return;
   cssDone = true;
   const st = document.createElement('style');
   st.id = 'lp-css';
-  st.textContent = PAGE_CSS + UI_CSS;
+  st.textContent = scope(PAGE_CSS, '.lp-page', /\.lp-(page|out)\b/) + scope(UI_CSS, '#lp', /^\.lp-entry\b/);
   document.head.appendChild(st);
 }
 ensureCss();

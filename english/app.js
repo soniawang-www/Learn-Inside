@@ -9,11 +9,11 @@
 import { sideNav } from '/assets/sidenav.js?v=20261122l';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
-import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261122x';
-import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261122x';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261123a';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261123a';
-import { initMistakes, renderMistakes, englishMistakes } from './mistakes.js?v=20261123a';
+import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261126d';
+import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261126d';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261126d';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261126d';
+import { initMistakes, renderMistakes, englishMistakes } from './mistakes.js?v=20261126d';
 import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122y';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');

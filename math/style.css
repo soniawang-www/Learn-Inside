@@ -2032,10 +2032,10 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .vtsvg .vt-mkok { fill:var(--lp-jade); font-weight:700; } .vtsvg .vt-mkbad { fill:var(--lp-plum); font-weight:700; }
 
 /* ───── 互动解析：手写风（格子本、手写字、荧光笔、手绘框）───── */
-.lp { --lp-hand:'LXGW WenKai Screen','Kaiti SC','STKaiti','KaiTi','楷体',var(--lp-serif); --lp-grid:#DCE6EE; --lp-hl:rgba(255,222,60,.55); --lp-pen:#D2463C;
+.lp { --lp-hand:'LXGW WenKai Screen','Kaiti SC','STKaiti','KaiTi','楷体',var(--lp-serif); --lp-grid:#DCE6EE; --lp-hl:rgba(255,222,60,.55); --lp-pen:#D2463C; --lp-ink2:#2A55B8;
   --lp-sketch:255px 15px 225px 15px / 15px 225px 15px 255px; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; } }
-:root[data-theme="dark"] .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; --lp-ink2:#93B4FF; } }
+:root[data-theme="dark"] .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; --lp-ink2:#93B4FF; }
 .lp-title, .lp-scr, .lp-turn, .lp-nx, .lp-opt, .lp-tp, .lp-chk, .lp-ghost { font-family:var(--lp-hand); }
 .lp-main .lp-h, .lp-html .big { font-family:var(--lp-hand); }
 .lp-player { border:2px solid var(--lp-ink); border-radius:var(--lp-sketch); box-shadow:3px 4px 0 var(--lp-line); }
@@ -2043,7 +2043,9 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-main .lp-h { display:inline-block; font-size:1.4rem; background:linear-gradient(transparent 62%, var(--lp-hl) 62%, var(--lp-hl) 92%, transparent 92%); padding:0 6px; transform:rotate(-1deg); }
 .lp-html .card { border:1.8px solid var(--lp-ink); border-radius:var(--lp-sketch); background:var(--lp-card); }
 .lp-html b, .lp-say b, .lp-q b, .lp-ans b, .lp-fig + .lp-html b { font-weight:700; background:linear-gradient(100deg, transparent 2%, var(--lp-hl) 4%, var(--lp-hl) 96%, transparent 98%) 0 72% / 100% 46% no-repeat; padding:0 2px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
-.lp-say { border:1.8px solid var(--lp-jade); border-radius:var(--lp-sketch); font-size:1.05rem; }
+.lp-say, .lp-scr.solo .lp-say { background:none; border:0; border-radius:0; margin:14px 0 0; padding:0 4px 0 1.7em; width:auto; font-family:var(--lp-hand); color:var(--lp-ink2); font-size:1.18rem; line-height:1.75; transform:rotate(-.5deg); transform-origin:left; }
+.lp-say::before { content:"✎"; left:0; top:-.05em; bottom:auto; width:auto; height:auto; background:none; color:var(--lp-ink2); font-size:1.1em; animation:none; }
+.lp-say b { color:inherit; }
 .lp-opt { border:2px solid var(--lp-ink); border-radius:var(--lp-sketch); }
 .lp-opt:hover:not(:disabled) { border-color:var(--lp-jade); transform:rotate(-.6deg); }
 .lp-quiz.two .lp-opt { border-radius:var(--lp-sketch); }

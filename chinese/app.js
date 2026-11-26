@@ -6,8 +6,8 @@
 import { sideNav } from '/assets/sidenav.js?v=20261122l';
 import { draftSync } from '/assets/draft.js?v=20261114a';
 import { loadStart } from '/assets/loadcomic.js?v=20261109';
-import { PRINT_ICON } from '/assets/print/kit.js?v=20261122x';
-import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261122x';
+import { PRINT_ICON } from '/assets/print/kit.js?v=20261126d';
+import { openPoemPrint, openCardPrint, openCnExamPrint, openCnMistakesPrint } from './print-tpl.js?v=20261126d';
 import { todayCard, bindToday, START_URL, STAR, mascot, friend, FRIENDS, subjHead, scorePal, startPal } from '/assets/pal.js?v=20261122y';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');

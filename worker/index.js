@@ -705,6 +705,36 @@ async function kpTags(env, acc, problemIds) {
 const TAIL_RE = /^<div class=['"]lp-h['"]>(小结|错题诊所)<\/div>/;
 const lessonSteps = (steps) => steps.filter((s) => !(s && (s.type === 'recall' || TAIL_RE.test(s.html || ''))));
 
+// 老课件第一步「读题」只摘了一句问题：换成完整题干的读题步骤（手写字 + 荧光笔划出要求的问题，原来的讲解变成手写批注）
+const QWORD = /[？?]|_{2,}|（\s*）|\(\s*\)|多少|几|求|是什么|哪/;
+function markQuestion(t) {
+  const segs = []; let cur = '', inm = false;
+  for (const ch of t) {
+    cur += ch;
+    if (ch === '$') inm = !inm;
+    else if (!inm && '。！？；\n，,'.includes(ch)) { segs.push(cur); cur = ''; }
+  }
+  if (cur) segs.push(cur);
+  for (let k = segs.length - 1; k >= 0; k--) {
+    const body = segs[k].replace(/\n$/, ''), lead = body.length - body.trimStart().length;
+    if (body.trim() && QWORD.test(body.replace(/\$[^$]*\$/g, ''))) {
+      segs[k] = body.slice(0, lead) + `[[h:${body.slice(lead)}]]` + segs[k].slice(body.length);
+      return segs.join('');
+    }
+  }
+  return t;
+}
+function readStep(steps, prob) {
+  const s = steps[0];
+  if (!prob?.stem || !s || s.type !== 'info' || !/lp-h['"]>读题</.test(s.html || '')) return steps;
+  const stem = prob.stem.replace(/<br\s*\/?>/g, '\n').replace(/^（第[^）]*问）/, '');
+  if (/<[a-z]/i.test(stem) || stem.includes('[[')) return steps;
+  const fig = s.fig || prob.figure || null;
+  const rd = { type: 'read', text: markQuestion(stem), notes: s.say ? [['', s.say]] : [], say: '' };
+  if (fig) rd.fig = fig;
+  return [rd, ...steps.slice(1)];
+}
+
 function advThumb(content, pid) {
   let v; try { v = JSON.parse(content); } catch { return {}; }
   const steps = Array.isArray(v) ? v : v?.steps;
@@ -833,7 +863,8 @@ route('GET', '/api/problems/:id/advanced', async (req, env, p) => {
   }
   let lesson;
   try { const v = JSON.parse(sol.content); lesson = Array.isArray(v) ? { steps: v } : v; } catch { lesson = { steps: [{ title: '解析', body: sol.content }] }; }
-  lesson = { ...lesson, steps: lessonSteps(lesson.steps || []) };
+  const prob = await env.DB.prepare('SELECT stem, figure FROM problem WHERE id = ?').bind(p.id).first();
+  lesson = { ...lesson, steps: readStep(lessonSteps(lesson.steps || []), prob) };
   return json({ locked: false, lesson, steps: lesson.steps, url: sol.url });
 });
 

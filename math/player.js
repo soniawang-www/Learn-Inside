@@ -148,7 +148,7 @@ function readWidget(s, animate) {
   const html = md(s.text || '').replace(/\[\[([hou])(\d*):(.+?)\]\]/g, (_, k, n, t) => { marks.push({ k, n }); return `<span class="rd-m" data-m="${marks.length - 1}">${t}</span>`; });
   const notes = (s.notes || []).map(([n, t]) => ({ n: String(n), t }));
   box.innerHTML = `<svg class="rd-svg under"></svg><p class="rd-text">${html}</p><svg class="rd-svg over"></svg>` +
-    (notes.length ? `<div class="rd-notes">${notes.map((x) => `<div class="rd-note" data-n="${x.n}"><span class="rd-n">${x.n}</span>${md(x.t)}</div>`).join('')}</div>` : '');
+    (notes.length ? `<div class="rd-notes">${notes.map((x) => `<div class="rd-note" data-n="${x.n}">${x.n ? `<span class="rd-n">${x.n}</span>` : ''}${md(x.t)}</div>`).join('')}</div>` : '');
   const order = [];
   marks.forEach((m, k) => { order.push({ m: k }); if (m.n) notes.filter((x) => x.n === m.n).forEach((x) => order.push({ note: x.n })); });
   notes.forEach((x) => { if (!order.some((o) => o.note === x.n)) order.push({ note: x.n }); });
@@ -197,9 +197,12 @@ function readWidget(s, animate) {
     });
     first = false;
   };
-  box.draw = draw;
-  let w0 = 0;
-  if (window.ResizeObserver) new ResizeObserver(() => { const w = box.clientWidth; if (w0 && w !== w0 && !first) draw(); w0 = w; }).observe(box);
+  // 字体、公式晚到会改变排版：尺寸一变就重画（第一次画不出来时也靠这里补上）
+  let want = false, sz = '';
+  box.draw = () => { want = true; draw(); };
+  const again = () => { const z = `${box.clientWidth}x${box.clientHeight}`; if (want && z !== sz) { sz = z; draw(); } };
+  if (window.ResizeObserver) new ResizeObserver(again).observe(box);
+  document.fonts?.addEventListener?.('loadingdone', () => { if (box.isConnected && want) { sz = ''; again(); } });
   return box;
 }
 
