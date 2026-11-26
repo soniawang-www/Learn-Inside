@@ -231,6 +231,20 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     <p class="lp-tip">按中间的播放键会自动往下讲，遇到「轮到你了」会停下来等你。也可以自己按「下一步」。</p>
   </div>`;
   const $ = (q) => root.querySelector(q);
+  // 题目一直贴在本子上方（读题那一步本身就是题目，不重复贴）
+  const rs = steps.find((x) => x.type === 'read');
+  const probText = rs ? rs.text : lesson.problem?.text;
+  const probFig = rs ? rs.fig : lesson.problem?.fig;
+  let prob = null;
+  if (probText) {
+    prob = document.createElement('div');
+    prob.className = 'lp-prob';
+    prob.innerHTML = `<p>${md(probText).replace(/\[\[([hou])\d*:(.+?)\]\]/g, '<span class="m-$1">$2</span>')}</p>` +
+      (probFig ? `<div class="lp-pfig">${probFig}</div>` : '') + '<button type="button" class="lp-pmore" hidden>展开</button>';
+    $('.lp-scr').insertBefore(prob, $('.lp-vis'));
+    typeset(prob);
+    prob.querySelector('.lp-pmore').onclick = (e) => { const o = prob.classList.toggle('open'); e.currentTarget.textContent = o ? '收起' : '展开'; };
+  }
   const vis = $('.lp-vis'), side = $('.lp-main'), say = $('.lp-say'), turn = $('.lp-turn'), scr = $('.lp-scr');
   const setSay = (t) => { say.innerHTML = md(t); typeset(say); if (playing && voice.on) voice.speak(t, () => {}); };
   const interactive = (s) => ['quiz', 'pick2', 'fill'].includes(s.type) || (s.type === 'grid' && s.grid?.mode === 'draw') || (s.type === 'sim' && !!s.goal);
@@ -251,6 +265,11 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
     // 有图（方格路线等）时：大屏左边放图，右边放讲解和题目；没图时单列居中。手机上一律上下排。
     const hasVis = s.type === 'grid' || s.type === 'sim' || !!s.grid || !!s.fig || (s.type === 'tabs' && s.tabs.some((t) => t.grid || t.fig));
     scr.classList.toggle('solo', !hasVis);
+    if (prob) {
+      prob.hidden = s.type === 'read';
+      prob.classList.toggle('nofig', hasVis);
+      if (!prob.hidden && !prob.classList.contains('open')) requestAnimationFrame(() => { const p = prob.querySelector('p'); prob.classList.remove('short'); const fit = p.scrollHeight <= p.clientHeight + 4; prob.classList.toggle('short', fit); prob.querySelector('.lp-pmore').hidden = fit; });
+    }
     const main = hasVis ? side : vis;
     vis.innerHTML = ''; side.innerHTML = '';
     if (s.html) main.insertAdjacentHTML('beforeend', `<div class="lp-html">${s.html}</div>`);

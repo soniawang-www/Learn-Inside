@@ -727,7 +727,7 @@ function markQuestion(t) {
 function readStep(steps, prob) {
   const s = steps[0];
   if (!prob?.stem || !s || s.type !== 'info' || !/lp-h['"]>读题</.test(s.html || '')) return steps;
-  const stem = prob.stem.replace(/<br\s*\/?>/g, '\n').replace(/^（第[^）]*问）/, '');
+  const stem = prob.stem.replace(/<br\s*\/?>/g, '\n').replace(/^（第[^）]*）/, '');
   if (/<[a-z]/i.test(stem) || stem.includes('[[')) return steps;
   const fig = s.fig || prob.figure || null;
   const rd = { type: 'read', text: markQuestion(stem), notes: s.say ? [['', s.say]] : [], say: '' };
@@ -865,6 +865,10 @@ route('GET', '/api/problems/:id/advanced', async (req, env, p) => {
   try { const v = JSON.parse(sol.content); lesson = Array.isArray(v) ? { steps: v } : v; } catch { lesson = { steps: [{ title: '解析', body: sol.content }] }; }
   const prob = await env.DB.prepare('SELECT stem, figure FROM problem WHERE id = ?').bind(p.id).first();
   lesson = { ...lesson, steps: readStep(lessonSteps(lesson.steps || []), prob) };
+  if (!lesson.steps.some((x) => x.type === 'read') && prob?.stem && !/<[a-z]/i.test(prob.stem)) {
+    lesson.problem = { text: markQuestion(prob.stem.replace(/<br\s*\/?>/g, '\n').replace(/^（第[^）]*）/, '')) };
+    if (prob.figure) lesson.problem.fig = prob.figure;
+  }
   return json({ locked: false, lesson, steps: lesson.steps, url: sol.url });
 });
 

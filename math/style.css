@@ -2032,10 +2032,10 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .vtsvg .vt-mkok { fill:var(--lp-jade); font-weight:700; } .vtsvg .vt-mkbad { fill:var(--lp-plum); font-weight:700; }
 
 /* ───── 互动解析：手写风（格子本、手写字、荧光笔、手绘框）───── */
-.lp { --lp-hand:'LXGW WenKai Screen','Kaiti SC','STKaiti','KaiTi','楷体',var(--lp-serif); --lp-grid:#DCE6EE; --lp-hl:rgba(255,222,60,.55); --lp-pen:#D2463C; --lp-ink2:#2A55B8;
+.lp { --lp-hand:'LXGW WenKai Screen','Kaiti SC','STKaiti','KaiTi','楷体',var(--lp-serif); --lp-grid:#DCE6EE; --lp-hl:rgba(255,222,60,.55); --lp-pen:#D2463C; --lp-ink2:#2A55B8; --lp-sticky:#FFF3B0; --lp-tape:rgba(236,150,170,.55); --lp-tape2:rgba(236,150,170,.32); --lp-tape3:rgba(120,190,200,.55); --lp-tape4:rgba(120,190,200,.32);
   --lp-sketch:255px 15px 225px 15px / 15px 225px 15px 255px; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; --lp-ink2:#93B4FF; } }
-:root[data-theme="dark"] .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; --lp-ink2:#93B4FF; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; --lp-ink2:#93B4FF; --lp-sticky:#3B3720; --lp-tape:rgba(236,150,170,.35); --lp-tape2:rgba(236,150,170,.2); --lp-tape3:rgba(120,190,200,.35); --lp-tape4:rgba(120,190,200,.2); } }
+:root[data-theme="dark"] .lp { --lp-grid:#1F302B; --lp-hl:rgba(255,214,0,.30); --lp-pen:#FF8A7A; --lp-ink2:#93B4FF; --lp-sticky:#3B3720; --lp-tape:rgba(236,150,170,.35); --lp-tape2:rgba(236,150,170,.2); --lp-tape3:rgba(120,190,200,.35); --lp-tape4:rgba(120,190,200,.2); }
 .lp-title, .lp-scr, .lp-turn, .lp-nx, .lp-opt, .lp-tp, .lp-chk, .lp-ghost { font-family:var(--lp-hand); }
 .lp-main .lp-h, .lp-html .big { font-family:var(--lp-hand); }
 .lp-player { border:2px solid var(--lp-ink); border-radius:var(--lp-sketch); box-shadow:3px 4px 0 var(--lp-line); }
@@ -2043,9 +2043,23 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-main .lp-h { display:inline-block; font-size:1.4rem; background:linear-gradient(transparent 62%, var(--lp-hl) 62%, var(--lp-hl) 92%, transparent 92%); padding:0 6px; transform:rotate(-1deg); }
 .lp-html .card { border:1.8px solid var(--lp-ink); border-radius:var(--lp-sketch); background:var(--lp-card); }
 .lp-html b, .lp-say b, .lp-q b, .lp-ans b, .lp-fig + .lp-html b { font-weight:700; background:linear-gradient(100deg, transparent 2%, var(--lp-hl) 4%, var(--lp-hl) 96%, transparent 98%) 0 72% / 100% 46% no-repeat; padding:0 2px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
-.lp-say, .lp-scr.solo .lp-say { background:none; border:0; border-radius:0; margin:14px 0 0; padding:0 4px 0 1.7em; width:auto; font-family:var(--lp-hand); color:var(--lp-ink2); font-size:1.18rem; line-height:1.75; transform:rotate(-.5deg); transform-origin:left; }
-.lp-say::before { content:"✎"; left:0; top:-.05em; bottom:auto; width:auto; height:auto; background:none; color:var(--lp-ink2); font-size:1.1em; animation:none; }
+.lp-say, .lp-scr.solo .lp-say { position:relative; align-self:center; width:auto; max-width:30em; margin:18px auto 6px; padding:14px 18px 12px; background:var(--lp-sticky); color:var(--lp-ink); border:0; border-radius:2px 2px 3px 16px / 2px 2px 3px 12px; box-shadow:0 8px 12px -8px rgba(40,30,0,.35); font-family:var(--lp-hand); font-size:1.12rem; line-height:1.7; text-align:left; transform:rotate(-1.2deg); }
+.lp-say::before { content:""; position:absolute; left:50%; top:-10px; bottom:auto; width:78px; height:20px; transform:translateX(-50%) rotate(-3deg); background:repeating-linear-gradient(-45deg, var(--lp-tape) 0 7px, var(--lp-tape2) 7px 14px); opacity:.85; animation:none; border-radius:1px; }
 .lp-say b { color:inherit; }
+/* 题目：用胶带贴在本子上，一直在 */
+.lp-prob { position:relative; width:100%; max-width:46em; align-self:center; box-sizing:border-box; margin:2px auto 8px; padding:12px 16px 10px; background:var(--lp-card); border:1.5px solid var(--lp-line); border-radius:3px; box-shadow:2px 3px 0 var(--lp-line); transform:rotate(-.35deg); text-align:left; font-family:var(--lp-hand); font-size:1.02rem; line-height:1.75; display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+.lp-prob[hidden] { display:none; }
+.lp-prob::before, .lp-prob::after { content:""; position:absolute; top:-8px; width:54px; height:16px; background:repeating-linear-gradient(-45deg, var(--lp-tape3) 0 6px, var(--lp-tape4) 6px 12px); opacity:.85; }
+.lp-prob::before { left:-10px; transform:rotate(-28deg); } .lp-prob::after { right:-10px; transform:rotate(26deg); }
+.lp-prob p { flex:1 1 16em; min-width:0; margin:0; max-height:7em; overflow:hidden; -webkit-mask-image:linear-gradient(#000 70%, transparent); mask-image:linear-gradient(#000 70%, transparent); }
+.lp-prob.open p, .lp-prob.short p { max-height:none; -webkit-mask-image:none; mask-image:none; }
+.lp-prob .lp-pfig { flex:0 0 140px; width:140px; margin:0 auto; } .lp-prob .lp-pfig svg { display:block; width:100%; height:auto; max-height:140px; }
+.lp-prob.nofig .lp-pfig { display:none; }
+.lp-pmore { position:absolute; right:10px; bottom:4px; border:0; background:var(--lp-card); color:var(--lp-pen); font-family:var(--lp-hand); font-size:.95rem; padding:0 4px; cursor:pointer; }
+.lp-prob .m-h { background:linear-gradient(transparent 55%, var(--lp-hl) 55%, var(--lp-hl) 92%, transparent 92%); }
+.lp-prob .m-o { border:1.6px solid var(--lp-pen); border-radius:999px; padding:0 4px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+.lp-prob .m-u { text-decoration:underline wavy var(--lp-pen); text-decoration-thickness:1.3px; text-underline-offset:5px; }
+.lp-scr:not(.solo) > .lp-prob { grid-column:1 / -1; }
 .lp-opt { border:2px solid var(--lp-ink); border-radius:var(--lp-sketch); }
 .lp-opt:hover:not(:disabled) { border-color:var(--lp-jade); transform:rotate(-.6deg); }
 .lp-quiz.two .lp-opt { border-radius:var(--lp-sketch); }
@@ -2069,3 +2083,5 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-read .rd-note.rd-anim { clip-path:inset(0 100% 0 0); animation:rd-write .9s ease forwards; animation-delay:var(--d); }
 @keyframes rd-write { to { clip-path:inset(0 0 0 0); } }
 @media (prefers-reduced-motion: reduce) { .lp-read .rd-draw, .lp-read .rd-note.rd-anim { animation:none; stroke-dashoffset:0; clip-path:none; } }
+
+.lp-q, .lp-scr.solo .lp-q, .lp-scr:not(.solo) .lp-q { font-family:var(--lp-hand); }
