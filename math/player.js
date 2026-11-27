@@ -31,8 +31,8 @@ function optOrder(s, seed) {
 }
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 const typeset = (el) => { if (window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false }); };
-// 答案全是数字才弹数字键盘；有汉字、符号（星期日、<）就用普通键盘
-const imode = (a) => ((a || []).every((x) => /^[\d.,\-\/:]*$/.test(String(x))) ? 'decimal' : 'text');
+// 答案只有数字和小数点才弹数字键盘；有逗号、分数线、负号、汉字、符号（「23,20」「星期日」「<」）就用普通键盘
+const imode = (a) => ((a || []).every((x) => /^[\d.]*$/.test(String(x))) ? 'decimal' : 'text');
 const reduce = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 const ICON = {
