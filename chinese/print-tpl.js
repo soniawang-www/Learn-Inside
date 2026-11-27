@@ -223,12 +223,23 @@ function examBlocks(exam, items) {
   return out;
 }
 
-/** 打印一套语文卷子（只有题，不带答案；做完扫码在线做一遍判分） */
-export function openCnExamPrint({ exam, items, label, link, standalone, home }) {
+/** 一道题的答案：选择题写字母和选项，判断题写对错，填空、简答写参考答案 */
+function ansText(p) {
+  const ch = p.choices || {};
+  if (kindOf(p) === 'judge') return [...String(p.answer || '')].map((k) => ch[k] || k).join('、');
+  if (Object.keys(ch).length) return [...String(p.answer || '')].map((k) => `${k}${ch[k] && !isFig(ch[k]) ? ` ${ch[k]}` : ''}`).join('、');
+  return String(p.answer || '').split('|').join(' / ');
+}
+const ansBlocks = (items, num) => [{ html: '<div class="ah">答案和解析</div>', page: true, keep: true },
+  ...items.map((p, i) => `<div class="an"><b>${esc(num(p, i))}. ${esc(ansText(p))}</b>${p.label ? `<span class="src">${esc(p.label)}</span>` : ''}${p.basic ? `<div class="sol">${qtxt(p.basic)}</div>` : ''}</div>`)];
+
+/** 打印一套语文卷子：题目，可附答案和解析（另起一页）；做完扫码在线做一遍判分 */
+export function openCnExamPrint({ exam, items, label, link, standalone, home, opts }) {
   return openPrint({
     name: exam.title, label: label || '语文', unit: '题', file: 'exam', title: exam.title, info: ['姓名', '日期', '用时', '得分'],
-    opts: {}, controls: [],
-    build: async () => ({ blocks: examBlocks(exam, items), count: items.length }),
+    remember: 'cn.print.exam', force: opts || null,
+    opts: { ans: false }, controls: [{ type: 'toggle', key: 'ans', label: '附答案和解析' }],
+    build: async (o) => ({ blocks: [...examBlocks(exam, items), ...(o.ans && items.some((p) => p.answer) ? ansBlocks(items, (p) => p.disp || p.number) : [])], count: items.length }),
     css: EXAM_CSS, link, standalone, home,
     qr: `/chinese/#/intro/${encodeURIComponent(exam.id)}`, qrText: '扫码在线做这套卷、判分',
   });
@@ -254,8 +265,7 @@ export function openCnMistakesPrint({ title, pick, presets, fetch, link, standal
       if (o.ans && its.length) {
         blocks.push({ html: '<div class="ah">答案和解析</div>', page: true, keep: true });
         its.forEach((p, i) => {
-          const a = Object.keys(p.choices || {}).length ? [...String(p.answer || '')].map((k) => `${k}${p.choices[k] && !isFig(p.choices[k]) ? ` ${p.choices[k]}` : ''}`).join('、') : p.answer;
-          blocks.push(`<div class="an"><b>${i + 1}. ${esc(a)}</b><span class="src">${esc(p.label || '')}</span>${p.basic ? `<div class="sol">${qtxt(p.basic)}</div>` : ''}</div>`);
+          blocks.push(`<div class="an"><b>${i + 1}. ${esc(ansText(p))}</b><span class="src">${esc(p.label || '')}</span>${p.basic ? `<div class="sol">${qtxt(p.basic)}</div>` : ''}</div>`);
         });
       }
       return { blocks, count: its.length };

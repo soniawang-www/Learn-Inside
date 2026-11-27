@@ -526,11 +526,13 @@ export const UI_FEATURES = [
       await c.go('/chinese/#/card/p-libai'); await p.waitForTimeout(500);
       return `${v}/${hc}/${await p.locator('text=打印这张卡').count()}`;
     }, expect: same('提示字版/3/0') },
-    { id: 'U22-4', name: '古诗文大会卷子「打印」：直接出整套题（分大题、有题号），页脚有二维码', run: async (p, c) => {
+    { id: 'U22-4', name: '古诗文大会卷子「打印」：直接出整套题（分大题、有题号），页脚有二维码；默认不带答案，勾「附答案和解析」另起一页', run: async (p, c) => {
       await c.go('/chinese/#/gsw'); await p.locator('[data-pexam]').first().click(); await lpWait(p); await p.waitForTimeout(800);
-      const r = `${(await p.locator('#lp .q').count()) > 20}/${(await p.locator('#lp .sec').count()) > 0}/${(await p.locator('#lp .lp-qr svg').count()) > 0}`;
-      await lpClose(p); return r;
-    }, expect: same('true/true/true') },
+      let r = `${(await p.locator('#lp .q').count()) > 20}/${(await p.locator('#lp .sec').count()) > 0}/${(await p.locator('#lp .lp-qr svg').count()) > 0}/${await p.locator('#lp .ah').count()}`;
+      await p.locator('#lp [data-tg="ans"]').first().click(); await p.waitForTimeout(1500); // 勾「附答案和解析」：另起一页，每题答案 + 解析
+      r += `/${await p.locator('#lp .ah').count()}/${(await p.locator('#lp .an').count()) > 20}/${(await p.locator('#lp .an .sol').count()) > 0}`;
+      await p.locator('#lp [data-tg="ans"]').first().click(); await p.waitForTimeout(300); await lpClose(p); return r;
+    }, expect: same('true/true/true/0/1/true/true') },
     { id: 'U22-5', name: '汉字小达人卷子「打印」：古文字题的字形图片印出来', run: async (p, c) => {
       await c.go('/chinese/#/hanzi'); await p.locator('[data-pexam="hanzi-2021-city"]').click(); await lpWait(p); await p.waitForTimeout(800);
       const r = `${(await p.locator('#lp .q').count()) > 50}/${(await p.locator('#lp .fig img').count()) > 0}`;
