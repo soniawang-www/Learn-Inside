@@ -31,6 +31,8 @@ function optOrder(s, seed) {
 }
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 const typeset = (el) => { if (window.renderMathInElement) window.renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false }); };
+// 答案全是数字才弹数字键盘；有汉字、符号（星期日、<）就用普通键盘
+const imode = (a) => ((a || []).every((x) => /^[\d.,\-\/:]*$/.test(String(x))) ? 'decimal' : 'text');
 const reduce = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 const ICON = {
@@ -243,6 +245,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       (probFig ? `<div class="lp-pfig">${probFig}</div>` : '') + '<button type="button" class="lp-pmore" hidden>展开</button>';
     $('.lp-scr').insertBefore(prob, $('.lp-vis'));
     typeset(prob);
+    prob.querySelector('.lp-pfig')?.addEventListener('click', () => prob.classList.toggle('bigfig'));
     prob.querySelector('.lp-pmore').onclick = (e) => { const o = prob.classList.toggle('open'); e.currentTarget.textContent = o ? '收起' : '展开'; };
   }
   // 思路链：大纲是整节课的骨架。plan 步列出每一环要回答的问题；带 link 的步骤是那一环的展开，孩子做完这一环才写上结论
@@ -342,7 +345,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       const box = document.createElement('div');
       box.className = 'lp-fill';
       box.innerHTML = (s.q ? `<div class="lp-q">${md(s.q)}</div>` : '') +
-        `<div class="lp-frow">${s.pre ? `<span>${md(s.pre)}</span>` : ''}<input class="lp-input" inputmode="decimal" autocomplete="off" aria-label="答案">${s.post ? `<span>${md(s.post)}</span>` : ''}<button class="lp-chk">确定</button></div>`;
+        `<div class="lp-frow">${s.pre ? `<span>${md(s.pre)}</span>` : ''}<input class="lp-input" inputmode="${imode(s.a)}" autocomplete="off" aria-label="答案">${s.post ? `<span>${md(s.post)}</span>` : ''}<button class="lp-chk">确定</button></div>`;
       main.appendChild(box);
       let tries = 0;
       const check = () => {
@@ -416,7 +419,7 @@ export function mountPlayer(root, lesson, { onDone, doneLabel = '学完了', onC
       box.innerHTML = '<div class="lp-h">记住</div>' +
         (chain ? `<ol class="kp-chain">${chain.map((it, k) => `<li><span class="pl-n">${k + 1}</span><span>从 <b>${md(it.from)}</b><span class="pl-arr">→</span>${md(it.to)}</span></li>`).join('')}</ol>` : '') +
         `<div class="kp-cue">${s.name ? `<span class="kp-name">${md(s.name)}</span>` : ''}<span class="kp-see">看到 <b>${md(s.cue)}</b></span><span class="pl-arr">→</span><span class="kp-think">想到 <b>${md(s.think)}</b></span></div>` +
-        (s.q ? `<div class="kp-var"><div class="kp-t">换个数，自己来</div><div class="lp-q">${md(s.q)}</div><div class="lp-frow">${s.pre ? `<span>${md(s.pre)}</span>` : ''}<input class="lp-input" inputmode="decimal" autocomplete="off" aria-label="答案">${s.post ? `<span>${md(s.post)}</span>` : ''}<button class="lp-chk">确定</button></div></div>` : '');
+        (s.q ? `<div class="kp-var"><div class="kp-t">换个数，自己来</div><div class="lp-q">${md(s.q)}</div><div class="lp-frow">${s.pre ? `<span>${md(s.pre)}</span>` : ''}<input class="lp-input" inputmode="${imode(s.a)}" autocomplete="off" aria-label="答案">${s.post ? `<span>${md(s.post)}</span>` : ''}<button class="lp-chk">确定</button></div></div>` : '');
       main.appendChild(box);
       if (s.q) {
         let tries = 0;

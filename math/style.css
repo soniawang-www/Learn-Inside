@@ -2149,3 +2149,8 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .lp-scr .lp-keep .lp-q, .lp-scr.solo .lp-keep .lp-q { font-family:var(--lp-hand); font-size:1.1rem; line-height:1.7; font-weight:400; margin:0; text-align:left; }
 .lp-keep .lp-frow { justify-content:flex-start; }
 .lp-keep .lp-frow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+/* 题目卡片里的图：点一下放大，再点缩回 */
+.lp-prob .lp-pfig { cursor:zoom-in; }
+.lp-prob.bigfig .lp-pfig { cursor:zoom-out; flex:1 1 100%; width:100%; max-width:440px; }
+.lp-prob.bigfig .lp-pfig svg { max-height:none; }
