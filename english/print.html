@@ -11,13 +11,25 @@
 <body>
 <p class="msg" id="msg">正在准备…</p>
 <script type="module">
-// 打印链接页（不用登录）：#t=打印凭证&o=选项 → 统一打印预览；#phrases → 句型和名言
+// 打印链接页（不用登录）：#t=打印凭证&o=选项 → 统一打印预览；#mk=凭证 → 错题本；#phrases → 句型和名言
 import { openEnglishPrint, openPhrasesPrint, unpackOpts } from './print-tpl.js?v=20261126d';
+import { initTJ } from './tj.js?v=20261127a';
+import { initKET } from './ket.js?v=20261127a';
+import { openEnMistakesPrint } from './mistakes.js?v=20261127a';
 const H = new URLSearchParams(location.hash.slice(1));
 const msg = (t) => { document.getElementById('msg').innerHTML = t; };
 (async () => {
   try {
     if (H.has('phrases')) { msg(''); return openPhrasesPrint({ standalone: true, home: '/english/' }); }
+    if (H.get('mk')) { // 错题本的打印链接
+      const r = await fetch(`/api/print/${encodeURIComponent(H.get('mk'))}`); const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '打印链接已失效');
+      if (!d.mistakes?.length) throw new Error('没有要打印的错题');
+      const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      initTJ({ esc }); initKET({ esc });
+      msg('');
+      return openEnMistakesPrint({ list: d.mistakes, force: d.opts, standalone: true, home: '/english/#/mistakes', link: async () => location.href });
+    }
     const t = H.get('t'); if (!t) throw new Error('打印链接不完整');
     const r = await fetch(`/api/print/${encodeURIComponent(t)}`); const d = await r.json();
     if (!r.ok) throw new Error(d.error || '打印链接已失效');

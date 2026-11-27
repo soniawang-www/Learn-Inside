@@ -1197,6 +1197,11 @@ route('POST', '/api/students/:id/mistakes/print-link', async (req, env, p) => {
     problem_ids: keep, title: String(b.title || `${st.nickname}的错题本`).slice(0, 60), sub: String(b.sub || '').slice(0, 80),
     with_ans: !!b.with_ans, space: !!b.space, lang: ['en', 'zh', 'both'].includes(b.lang) ? b.lang : 'en',
   };
+  if (subjectOf(keep[0]) === 'english') { // 英语错题按组印，打印页自己取卷子；把预览里选好的选项带过去
+    const o = b.opts && typeof b.opts === 'object' ? b.opts : {};
+    payload.en_ms = true;
+    payload.opts = { scope: o.scope === 'all' ? 'all' : 'todo', fam: ['ket', 'pet', 'tj'].includes(o.fam) ? o.fam : 'all', ans: !!o.ans, exp: !!o.exp, script: !!o.script };
+  }
   await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
   await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
     .bind(token, st.id, JSON.stringify(payload), t, t + PRINT_LINK_MS).run();
@@ -1208,6 +1213,7 @@ route('GET', '/api/print/:token', async (_req, env, p) => {
   const pl = parseJ(job.payload, {});
   if (pl.exam_id) return json({ ...pl, expires_at: job.expires_at, items: (await examPrint(env, pl.exam_id)).items });
   if (pl.cn_exam) return json({ ...pl, expires_at: job.expires_at, ...(await cnExamPrint(env, pl.cn_exam)) });
+  if (pl.en_ms) { const want = new Set(pl.problem_ids || []); return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, mistakes: (await mistakeBook(env, job.student_id, 'english')).filter((m) => want.has(m.problem_id)) }); }
   if (pl.english) return json({ ...pl, ids: undefined, expires_at: job.expires_at, items: await englishPrintItems(env, job.student_id, pl.ids || [], billing) });
   return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, items: await printItems(env, job.student_id, pl.problem_ids || []) });
 });

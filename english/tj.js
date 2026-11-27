@@ -48,7 +48,7 @@ const tjCache = new Map();
 const loadTJ = async (id) => tjCache.get(id) || tjCache.set(id, await (await fetch(`/api/toefljr/${id}`)).json()).get(id);
 const pe = (s) => X.esc(s).split(/\n\s*\n/).map((x) => `<p>${x.replace(/\n/g, '<br>')}</p>`).join('');
 const optsHtml = (p) => `<div class="tq-o">${Object.entries(p.choices).map(([k, v]) => `<span>(${k}) ${X.esc(v)}</span>`).join('')}</div>`;
-function tjBlocks(d, part, o) {
+export function tjBlocks(d, part, o) {
   const G = d.sections?.[0]?.groups || [], P = new Map(d.problems.map((p) => [p.number, p])), out = [];
   for (const g of G) {
     const qs = []; for (let n = g.from; n <= g.to; n++) qs.push(P.get(n));
@@ -69,7 +69,7 @@ function tjBlocks(d, part, o) {
   }
   return out;
 }
-const TJ_CSS = `
+export const TJ_CSS = `
 .lp-sheet .tg{margin:0 0 6px}
 .lp-sheet .tg-h{font-size:12px;color:#5D6A65;margin:10px 0 4px;font-weight:600}
 .lp-sheet .tt{font-family:Georgia,"Times New Roman",serif;font-size:14.5px;line-height:1.7;border:1px solid #DCD7CA;border-radius:6px;padding:8px 12px;margin-bottom:8px}

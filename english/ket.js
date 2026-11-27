@@ -346,13 +346,13 @@ export async function renderKETReview(sid) {
 const cache = new Map();
 const loadExam = async (id) => cache.get(id) || cache.set(id, await (await fetch(`/api/toefljr/${id}`)).json()).get(id);
 const svgCache = new Map();
-async function inlineSvgs(names) {
+export async function inlineSvgs(names) {
   await Promise.all([...new Set(names)].filter((n) => !svgCache.has(n)).map(async (n) => svgCache.set(n, (await (await fetch(IMG + n)).text()).replace(/^<\?xml[^>]*>/, ''))));
 }
 const pe = (s) => X.esc(s).split(/\n\s*\n/).map((x) => `<p>${x.replace(/\n/g, '<br>')}</p>`).join('');
 const po = (p) => `<div class="tq-o">${Object.entries(p.choices).map(([k, v]) => `<span>(${k}) ${X.esc(v)}</span>`).join('')}</div>`;
 const isvg = (n) => `<span class="ki">${svgCache.get(n) || ''}</span>`;
-function examBlocks(F, d, part, o) {
+export function examBlocks(F, d, part, o) {
   const G = d.sections?.[0]?.groups || [], P = d.problems, out = [];
   const inG = (g) => P.filter((p) => p.extra?.group === g.id);
   const head = (g) => `<div class="kh"><b>${X.esc(g.name)}</b> · ${range(g)}</div><div class="kr">${X.esc(g.rubric || rub(F, g))}</div>`;
@@ -406,7 +406,7 @@ function examBlocks(F, d, part, o) {
   }
   return out;
 }
-const KET_CSS = `
+export const KET_CSS = `
 .lp-sheet .kh{font-size:14px;margin:10px 0 2px}
 .lp-sheet .kr{font-size:12.5px;color:#5D6A65;margin:0 0 6px;font-family:Georgia,"Times New Roman",serif;font-style:italic}
 .lp-sheet .tt{font-family:Georgia,"Times New Roman",serif;font-size:14px;line-height:1.65;border:1px solid #DCD7CA;border-radius:6px;padding:8px 12px;margin-bottom:8px}

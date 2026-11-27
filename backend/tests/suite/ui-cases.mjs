@@ -345,6 +345,11 @@ export const UI_FEATURES = [
       await c.go('/english/#/mistakes'); await p.locator('[data-redo]').first().click(); await p.locator('.tj-bar').waitFor();
       const back = await p.locator('.tj-bar a.back').getAttribute('href');
       return `${await p.locator('#clock').count()}/${back}/${/错题/.test(await p.locator('.tj-bar b').textContent())}`; }, expect: same('0/#/mistakes/true') },
+    { id: 'U16-20', name: '英语错题本「打印」：按组印原材料，错题号圈出来，附答案页', run: async (p, c) => {
+      await c.go('/english/#/mistakes'); await p.locator('#mk-print').click(); await lpWait(p); await p.waitForTimeout(1200);
+      const n = (s) => p.evaluate((sel) => [...document.querySelectorAll('#lp .lp-pw')].reduce((k, pw) => k + (pw.shadowRoot || pw).querySelectorAll(sel).length, 0), s);
+      const r = `${(await n('.mh')) > 0}/${(await n('.mw')) > 0}/${await n('.ah')}`; await lpClose(p); return r;
+    }, expect: same('true/true/1') },
   ] },
   { id: 'U12', area: '界面', name: '左侧导航', cases: [
     { id: 'U12-1', name: '导航项：首页 / 数学 / 语文 / 英语 / 账号 + 联系客服', run: async (p, c) => { await c.go('#/'); const a = (await p.locator('.side .sn-nav > a span').allTextContents()).join('/'); return `${a}/${await p.locator('.side .sn-soon').count()}/${await p.locator('.side .sn-help').count()}`; }, expect: same('首页/数学/语文/英语/账号/0/1') },
