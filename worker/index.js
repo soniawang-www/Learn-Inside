@@ -1197,6 +1197,11 @@ route('POST', '/api/students/:id/mistakes/print-link', async (req, env, p) => {
     problem_ids: keep, title: String(b.title || `${st.nickname}的错题本`).slice(0, 60), sub: String(b.sub || '').slice(0, 80),
     with_ans: !!b.with_ans, space: !!b.space, lang: ['en', 'zh', 'both'].includes(b.lang) ? b.lang : 'en',
   };
+  if (subjectOf(keep[0]) === 'english') { // 英语错题按组印，打印页自己取卷子；把预览里选好的选项带过去
+    const o = b.opts && typeof b.opts === 'object' ? b.opts : {};
+    payload.en_ms = true;
+    payload.opts = { scope: o.scope === 'all' ? 'all' : 'todo', fam: ['ket', 'pet', 'tj'].includes(o.fam) ? o.fam : 'all', ans: !!o.ans, exp: !!o.exp, script: !!o.script };
+  }
   await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
   await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
     .bind(token, st.id, JSON.stringify(payload), t, t + PRINT_LINK_MS).run();
@@ -1208,6 +1213,7 @@ route('GET', '/api/print/:token', async (_req, env, p) => {
   const pl = parseJ(job.payload, {});
   if (pl.exam_id) return json({ ...pl, expires_at: job.expires_at, items: (await examPrint(env, pl.exam_id)).items });
   if (pl.cn_exam) return json({ ...pl, expires_at: job.expires_at, ...(await cnExamPrint(env, pl.cn_exam)) });
+  if (pl.en_ms) { const want = new Set(pl.problem_ids || []); return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, mistakes: (await mistakeBook(env, job.student_id, 'english')).filter((m) => want.has(m.problem_id)) }); }
   if (pl.english) return json({ ...pl, ids: undefined, expires_at: job.expires_at, items: await englishPrintItems(env, job.student_id, pl.ids || [], billing) });
   return json({ ...pl, problem_ids: undefined, expires_at: job.expires_at, items: await printItems(env, job.student_id, pl.problem_ids || []) });
 });
@@ -1229,19 +1235,20 @@ route('GET', '/api/exams/:id/print', async (req, env, p) => {
   await requireAccount(req, env);
   return json(await examPrint(env, p.id));
 });
-// 语文卷子打印（古诗文大会、汉字小达人）：只有题，不带答案；共用材料、显示题号、分值一起给
+// 语文卷子打印（古诗文大会、汉字小达人）：题目、共用材料、题号、分值；可附答案和解析
 async function cnExamPrint(env, examId) {
   const exam = await env.DB.prepare('SELECT id, title, duration_sec, sections FROM exam WHERE id = ? AND published = 1').bind(examId).first();
   if (!exam || subjectOf(examId) !== 'chinese') throw new HttpError(404, '试卷不存在');
   const { results } = await env.DB
-    .prepare('SELECT id, number, section, stem, figure, choices, kind, points, extra, input_hint FROM problem WHERE exam_id = ? ORDER BY number')
+    .prepare(`SELECT p.id, p.number, p.section, p.stem, p.figure, p.choices, p.kind, p.points, p.extra, p.input_hint, p.answer, sb.content AS basic
+                FROM problem p LEFT JOIN solution sb ON sb.problem_id = p.id AND sb.kind = 'basic' WHERE p.exam_id = ? ORDER BY p.number`)
     .bind(examId).all();
   return {
     exam: { id: exam.id, title: exam.title, duration_sec: exam.duration_sec, sections: parseJ(exam.sections, []) || [] },
     items: results.map((r) => {
-      const { disp, group } = parseJ(r.extra, {}) || {}; // 简答题的得分点不给
+      const { disp, group } = parseJ(r.extra, {}) || {}; // 简答题的得分点不给；答案和解析给（打印时勾「附答案和解析」才印）
       return { problem_id: r.id, number: r.number, section: r.section, stem: r.stem, figure: r.figure, choices: parseJ(r.choices, {}) || {},
-        kind: r.kind, points: r.points, input_hint: r.input_hint, disp: disp || null, group: group || null };
+        kind: r.kind, points: r.points, input_hint: r.input_hint, disp: disp || null, group: group || null, answer: r.answer, basic: r.basic ?? null };
     }),
   };
 }
@@ -1259,7 +1266,7 @@ route('POST', '/api/chinese/exams/:id/print-link', async (req, env, p) => {
   const t = now();
   await env.DB.prepare('DELETE FROM print_job WHERE expires_at < ?').bind(t).run();
   await env.DB.prepare('INSERT INTO print_job (token, student_id, payload, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(token, st.id, JSON.stringify({ cn_exam: exam.id, title: exam.title }), t, t + PRINT_LINK_MS).run();
+    .bind(token, st.id, JSON.stringify({ cn_exam: exam.id, title: exam.title, with_ans: !!b.with_ans }), t, t + PRINT_LINK_MS).run();
   return json({ token, expires_at: t + PRINT_LINK_MS });
 });
 route('POST', '/api/exams/:id/print-link', async (req, env, p) => {
