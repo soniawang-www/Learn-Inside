@@ -1434,6 +1434,7 @@ body.exam-li .ez.big .ez-stem { font-size: 22px; }
 .rw-over p { margin: 0; max-width: 24em; text-wrap: balance; padding: 10px 16px; border-radius: 12px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 12px rgb(0 0 0 / .06); font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.6; }
 .rw-over .btn.primary { justify-self: auto; padding-left: 28px; padding-right: 28px; }
 .rw-over .mascot { width: 64px; height: 59px; margin-bottom: -10px; }
+.rw-over .mascot.teacher { width: 78px; height: 112px; margin-bottom: -4px; }
 .auth-h { display: flex; align-items: center; gap: 8px; }
 .auth-h .mascot { width: 40px; height: 37px; flex: none; }
 .team-form .cast-row, .team-join .cast-row { margin: -4px 0 6px; }

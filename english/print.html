@@ -13,9 +13,9 @@
 <script type="module">
 // 打印链接页（不用登录）：#t=打印凭证&o=选项 → 统一打印预览；#mk=凭证 → 错题本；#phrases → 句型和名言
 import { openEnglishPrint, openPhrasesPrint, unpackOpts } from './print-tpl.js?v=20261126d';
-import { initTJ } from './tj.js?v=20261128m';
-import { initKET } from './ket.js?v=20261128m';
-import { openEnMistakesPrint } from './mistakes.js?v=20261128m';
+import { initTJ } from './tj.js?v=20261128n';
+import { initKET } from './ket.js?v=20261128n';
+import { openEnMistakesPrint } from './mistakes.js?v=20261128n';
 const H = new URLSearchParams(location.hash.slice(1));
 const msg = (t) => { document.getElementById('msg').innerHTML = t; };
 (async () => {

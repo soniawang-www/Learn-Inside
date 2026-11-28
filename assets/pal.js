@@ -2,7 +2,7 @@
 export const WEEK = '一二三四五六日';
 // 学生狸狸（河狸）和长颈鹿老师在 cast.js；这里转出去，各页面照旧从 pal.js 引
 // 形象怎么放看布局：打卡卡片紧挨着的地方不再放第二个大形象；列表里的小头像、成绩页的小伙伴可以有
-import { mascot, friend, FRIENDS, castRow, teacher } from './cast.js?v=20261128m';
+import { mascot, friend, FRIENDS, castRow, teacher } from './cast.js?v=20261128n';
 import { XHS, FIND, LOGO } from './brand.js?v=20261122e';
 import qrcode from './print/qrcode.js?v=20261111';
 export { XHS, FIND };
@@ -10,8 +10,8 @@ export { mascot, friend, FRIENDS, castRow, teacher };
 // 科目小头像：各科打扮的狸狸
 export const subjHead = (subject) => friend(FRIENDS[subject], 'happy', { head: true });
 // 成绩旁边的学科小伙伴：80% 以上欢呼，50% 以上开心，再低就想一想
-// 开始答题前：学科小伙伴站在「开始」按钮旁边
-export const startPal = (subject) => `<span class="start-pal">${friend(FRIENDS[subject] || FRIENDS.math, 'happy')}</span>`;
+// 开始答题前：抱着秒表的狸狸站在「开始」按钮旁边
+export const startPal = () => `<span class="start-pal">${mascot('exam')}</span>`;
 export const scorePal = (subject, got, full) => { const r = full ? got / full : 0; return `<span class="score-pal">${friend(FRIENDS[subject] || FRIENDS.math, r >= 0.8 ? 'cheer' : r >= 0.5 ? 'happy' : 'think')}</span>`; };
 // 连续打卡里程碑：到了给一枚徽章（完成页），首页提示还差几天
 export const MILES = [3, 7, 14, 30, 60, 100, 180, 365];
@@ -37,7 +37,7 @@ export const TEAM_URL = '/math/#/team';
 export function todayCard(pr, { team = null, only = null } = {}) {
   const all = pr?.items || [];
   if (!all.length) {
-    return `<section class="today-card empty"><div class="tc-hello">${mascot('happy')}<b>每天几道真题</b></div>
+    return `<section class="today-card empty"><div class="tc-hello">${mascot('school')}<b>每天几道真题</b></div>
       <a class="tc-start" href="${START_URL}">开始</a></section>`;
   }
   const its = only ? all.filter((x) => x.subject === only) : all;
@@ -146,7 +146,7 @@ export async function openContact({ title = '联系我们', only = '' } = {}) {
   const sup = `<section class="ct-sup"><div class="ct-qr">${s.qr ? `<img src="${escH(s.qr)}" alt="客服微信二维码">` : mascot('happy', { head: true })}</div>
     <div class="ct-st">${pn('客服微信', LOGO.wechat)}<small>${s.text ? escH(s.text) : '有问题直接问，微信扫码'}</small>${link && IN_WX ? `<a class="ct-act" href="${escH(link)}">打开微信客服</a>` : ''}</div></section>`;
   const dlg = document.createElement('dialog'); dlg.className = `ct-dlg${only === 'support' ? ' only' : ''}`;
-  dlg.innerHTML = `<div class="ct-hero"><span class="ct-grab"></span><div class="ct-fox">${mascot('cheer')}</div><h2>${escH(title)}</h2><button class="ct-x" aria-label="关闭">×</button></div>
+  dlg.innerHTML = `<div class="ct-hero"><span class="ct-grab"></span><div class="ct-fox">${teacher('hello')}</div><h2>${escH(title)}</h2><button class="ct-x" aria-label="关闭">×</button></div>
     ${only === 'support' ? sup : sup + follow}`;
   dlg.querySelector('.ct-x').onclick = () => dlg.close();
   dlg.addEventListener('click', async (e) => {

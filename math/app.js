@@ -1,4 +1,4 @@
-import { WEEK, mascot, teacher, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261128m';
+import { WEEK, mascot, teacher, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261128n';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js?v=20261127c';
@@ -284,7 +284,7 @@ function rwSample(title) {
   return `<div class="rw-list">${[['第 12 题', '比和比例', '待订正'], ['第 18 题', '行程问题', '该复习了'], ['第 7 题', '面积计算', '待订正'], ['第 21 题', '计数', '已订正']].map(([a, b, c]) => `<div class="rw-row"><span class="rw-m w">✗</span>${a}<small>${b}</small><em>${c}</em></div>`).join('')}</div>`;
 }
 const regPreview = (title, href = '#/account') => `<div class="card reg-wall"><div class="rw-blur" aria-hidden="true">${rwSample(title)}</div>
-  <div class="rw-over">${mascot('happy', { head: true })}<p>${esc(RW_LINE[title] || '')}</p><a class="btn primary" href="${href}" data-regp>免费注册</a></div></div>`;
+  <div class="rw-over">${teacher('lecture')}<p>${esc(RW_LINE[title] || '')}</p><a class="btn primary" href="${href}" data-regp>免费注册</a></div></div>`;
 function regWall(title) {
   $app.innerHTML = `${topnav()}<main class="page"><header class="ph"><div><h1>${esc(title)}</h1></div></header>${regPreview(title)}</main>`;
 }
@@ -505,7 +505,7 @@ async function renderPaid(orderId) {
     await new Promise((r) => setTimeout(r, 2000));
   }
   if (!location.hash.includes(orderId)) return; // 已经离开这个页面
-  if (o.status === 'paid') return box(`<div class="pay-pal">${mascot('cheer')}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><div class="actions"><a class="btn" href="#/account">账号</a><a class="btn primary" href="#/">开始练习</a></div>`);
+  if (o.status === 'paid') return box(`<div class="pay-pal">${teacher('award')}</div><h2>${esc(o.plan_name)}已开通</h2><p>${o.member_until === 'forever' ? '永久有效' : `有效期到 <b>${fmtDay(o.member_until)}</b>`}</p><div class="actions"><a class="btn" href="#/account">账号</a><a class="btn primary" href="#/">开始练习</a></div>`);
   if (o.status === 'refunded' || o.status === 'refunding') return box(`<h2>这笔订单已退款</h2><div class="actions"><a class="btn primary" href="#/account">返回账号</a></div>`);
   if (o.status === 'closed') return box(`<h2>没有完成付款</h2><p>这笔订单（${esc(o.plan_name)} ¥${esc(o.amount)}）已关闭，没有扣款。</p><div class="actions"><a class="btn" href="#/">先不开了</a><a class="btn primary" href="#/account">重新开通</a></div>`);
   box(`<h2>还没收到付款</h2><p>${esc(o.plan_name)} · ¥${esc(o.amount)}</p><p class="small muted">如果已经付款，可能是支付宝还没通知到，点「我已付款，再查一次」；还没付可以继续支付或取消。</p>
@@ -864,7 +864,7 @@ async function renderStart(subject, newGuest) {
   const ask = (q, sub = '') => `<div class="ob-ask">${mascot('happy')}<div class="ob-bubble"><b>${q}</b>${sub ? `<small>${sub}</small>` : ''}</div></div>`;
   const VIEW = {
     hello: () => `<div class="ob-hello">${mascot('cheer')}<div class="ob-brand">learn-inside</div><p>每天几道真题，养成备考好习惯</p></div>`,
-    intro: () => `<div class="ob-intro"><div class="ob-bubble big"><b>你好！我是狸狸</b><small>回答几个小问题，马上开始第一天</small></div>${mascot('happy')}</div>`,
+    intro: () => `<div class="ob-intro"><div class="ob-bubble big"><b>你好！我是狸狸</b><small>回答几个小问题，马上开始第一天</small></div>${mascot('school')}</div>`,
     grade: () => `${ask('孩子几年级？')}<div class="ob-grid">${GRADE9.map(([g, t]) => opt(A.grade === g, 'grade', g, t)).join('')}</div>`,
     subjects: () => `${ask(adding ? '加哪些科目？' : '准备哪些科目？', '可以多选')}<div class="ob-subjs">${SUBJ_CARDS.map(([id, ic, name]) => {
       const fs = inSubj(id);
@@ -1596,7 +1596,7 @@ async function startExtra(family) {
 }
 function extraDone(r, sid, family, pts) {
   const sub = family === 'hanzi' || family === 'gushiwen' ? 'chinese' : 'math';
-  $app.innerHTML = `<main class="ob"><div class="ob-body"><div class="ob-hello">${mascot('cheer')}<div class="ob-brand">加练完成</div>
+  $app.innerHTML = `<main class="ob"><div class="ob-body"><div class="ob-hello">${mascot('grad')}<div class="ob-brand">加练完成</div>
       <p>答对 ${r.session.score}/${r.total}${pts ? ` · +${pts} 积分` : ''}</p></div></div>
     <footer class="ob-foot ob-welcome-foot"><button class="btn primary block" id="x-more">再练一组</button>
       <a class="btn block" href="${examUrl(sub, sid, true, family)}">看解析</a><a class="btn block" href="/">回首页</a></footer></main>`;
