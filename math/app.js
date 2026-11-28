@@ -1,4 +1,4 @@
-import { WEEK, mascot, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261122y';
+import { WEEK, mascot, teacher, friend, FRIENDS, castRow, subjHead, scorePal, startPal, INAPP, STANDALONE, openInBrowserGuide, openContact, STAR, MILES, MEDAL, nextMile, weekRow, todayCard, bindToday, pointsSheet, examUrl, SUBJ_NAME } from '/assets/pal.js?v=20261128m';
 // AMC 8 模拟考 · 前端（无构建步骤，原生 JS）
 // 路由：#/account（账号与会员）  #/（考试）  #/contest/:id[/stats|/records]  #/graph[/:kp]  #/mistakes  #/kp/:id  #/exam/:sid  #/review/:sid  #/problem/:id
 import { mountPlayer } from './player.js?v=20261127c';
@@ -1361,7 +1361,7 @@ async function renderExam(sid) {
             </div>
             ${hints.length && !ck ? `<div class="hint-box">${hints.map((h, i) => `<div class="hint"><b>提示 ${i + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
             ${ck ? `<div class="ck-box ${ck.correct ? 'ok' : 'bad'}">
-              <div class="ck-top">${ck.self ? '' : mascot(ck.correct ? 'happy' : 'think')}<div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `再看看这一步，正确答案 <b>${esc(ck.answer)}</b>`}</div>
+              <div class="ck-top">${ck.self ? '' : teacher(ck.correct ? 'praise' : 'mark')}<div class="ck-head">${ck.self ? `参考答案 <b>${esc(ck.answer)}</b>` : ck.correct ? '答对了' : `再看看这一步，正确答案 <b>${esc(ck.answer)}</b>`}</div>
                 ${ck.points ? `<span class="ck-pts">+${ck.points}${STAR}</span>` : ''}</div>
               ${ck.basic ? `<div class="section-label">解题思路</div><div class="solution">${rich(ck.basic)}</div>` : ''}
               ${ck.advanced ? advCard(p.id, ck.advanced) : ''}</div>` : ''}
@@ -1515,7 +1515,7 @@ async function renderDaily(sid, data) {
         ${hints.length && !ck && !redo ? `<div class="hint-box">${hints.map((h, j) => `<div class="hint"><b>提示 ${j + 1}</b>${rich(h)}</div>`).join('')}</div>` : ''}
       </main>
       <footer class="dl-foot ${ck ? (ck.correct ? 'ok' : 'bad') : ''} ${open ? 'open' : ''}">
-        ${ck ? `<div class="dl-res">${mascot(ck.correct ? 'happy' : 'think')}<div><b>${ck.correct ? (redo ? '改对了！' : '答对了！') : `正确答案 ${esc(right ?? '')}`}</b>${!ck.correct ? '<small>看看解析，最后会再出一次</small>' : ''}</div>
+        ${ck ? `<div class="dl-res">${teacher(ck.correct ? 'praise' : 'mark')}<div><b>${ck.correct ? (redo ? '改对了！' : '答对了！') : `正确答案 ${esc(right ?? '')}`}</b>${!ck.correct ? '<small>看看解析，最后会再出一次</small>' : ''}</div>
             ${ck.points ? `<span class="ck-pts">+${ck.points}${STAR}</span>` : ''}</div>
           ${c0?.basic || c0?.advanced ? `<button class="dl-why" id="why">${open ? '收起解析' : '看解析'}</button>` : ''}
           ${open ? `<div class="dl-sol">${c0?.basic ? `<div class="solution">${rich(c0.basic)}</div>` : ''}${c0?.advanced ? advCard(p.id, c0.advanced) : ''}</div>` : ''}

@@ -121,6 +121,8 @@
 .medal { width: 22px; height: 26px; flex: none; }
 /* 小伙伴的各处小用法 */
 .cast-row { display: flex; justify-content: center; }
+.mascot-sleep { filter: grayscale(.75); opacity: .72; }
+.today-card .sc-fox.on .mascot-sleep { filter: none; opacity: 1; }
 .cast-row svg { width: 54px; height: 54px; margin: 0 -4px; }
 .score-pal { margin-left: auto; align-self: center; flex: none; }
 .score-big:has(.score-pal) { display: flex; align-items: baseline; gap: 4px; }

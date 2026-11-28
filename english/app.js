@@ -11,10 +11,10 @@ import { loadStart } from '/assets/loadcomic.js?v=20261109';
 import { PHRASES, QUOTES } from './phrases.js?v=20261110';
 import { PRINT_ICON, pickRandom } from '/assets/print/kit.js?v=20261126d';
 import { openEnglishPrint, openPhrasesPrint, packOpts } from './print-tpl.js?v=20261126d';
-import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261127a';
-import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261127a';
-import { initMistakes, renderMistakes, englishMistakes } from './mistakes.js?v=20261127a';
-import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261122y';
+import { initTJ, renderTJ, renderTJExam, renderTJReview } from './tj.js?v=20261128m';
+import { initKET, renderKET, renderKETExam, renderKETReview } from './ket.js?v=20261128m';
+import { initMistakes, renderMistakes, englishMistakes } from './mistakes.js?v=20261128m';
+import { todayCard, bindToday, START_URL, STAR, mascot, startPal } from '/assets/pal.js?v=20261128m';
 const $app = document.getElementById('app');
 const $modal = document.getElementById('modal-root');
 

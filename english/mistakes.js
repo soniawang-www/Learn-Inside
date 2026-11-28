@@ -1,11 +1,11 @@
 // 英语错题本（#/mistakes）：KET、PET、小托福仿真卷里做错的题，按「一篇文章 / 一段录音」成组显示。
 // 英语题很多要看上下文（阅读原文、录音、完形的前后句、配图），所以每组都带着原材料，用的是复盘页同一套显示；
 // 订正也按组重做（整篇 / 整段），交卷后状态跟着变：待订正 → 已订正 →（7 天后）该复习了 → 再对一次就算已掌握。
-import { tjGroupRev, tjBlocks, TJ_CSS } from './tj.js?v=20261127a';
-import { ketGroupRev, examBlocks as ketBlocks, KET_CSS, inlineSvgs } from './ket.js?v=20261127a';
+import { tjGroupRev, tjBlocks, TJ_CSS } from './tj.js?v=20261128m';
+import { ketGroupRev, examBlocks as ketBlocks, KET_CSS, inlineSvgs } from './ket.js?v=20261128m';
 import { openPrint, PRINT_ICON } from '/assets/print/kit.js?v=20261126d';
 import { bindPlayers } from './player.js?v=20261114a';
-import { mascot } from '/assets/pal.js?v=20261122y';
+import { mascot } from '/assets/pal.js?v=20261128m';
 let X;
 export const initMistakes = (ctx) => { X = ctx; };
 

@@ -204,9 +204,9 @@ mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 2
 @media (prefers-reduced-motion:reduce){.home-stale .today-card::after,.home-stale.resume::after{animation:none}}
 .resume a b{font-size:.95rem}.resume a span{color:var(--soft);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resume a i{font-style:normal;color:var(--soft)}
 </style>
-<link rel="stylesheet" href="/assets/pal.css?v=20261122y">
-<link rel="modulepreload" href="/assets/pal.js?v=20261122y">
-<link rel="modulepreload" href="/assets/cast.js?v=20261122e">
+<link rel="stylesheet" href="/assets/pal.css?v=20261128m">
+<link rel="modulepreload" href="/assets/pal.js?v=20261128m">
+<link rel="modulepreload" href="/assets/cast.js?v=20261128m">
 <link rel="stylesheet" href="/assets/loadcomic.css?v=20261109">
 </head>
 <body class="net-wait">
@@ -293,9 +293,9 @@ document.body.classList.remove("net-wait");
 </script>
 <script type="module">
 /* 今日打卡（首页最上面）+ 没做完的试卷、待订正错题；第一次来的人先走新手引导 */
-import { todayCard, bindToday, START_URL, subjHead, XHS, FIND } from "/assets/pal.js?v=20261122y";
+import { todayCard, bindToday, START_URL, subjHead, XHS, FIND } from "/assets/pal.js?v=20261128m";
 { const n = document.getElementById("xhs-name"), d = document.getElementById("xhs-id"); if (n) n.innerHTML = XHS.name.split(" | ").map((x) => `<span style="white-space:nowrap">${x.replace(/[&<>"]/g, "")}</span>`).join(" | "); if (d) d.textContent = "小红书搜索 " + FIND; }
-// 真题专区：数学圆圆、语文墨墨、英语乐乐
+// 真题专区：各科打扮的狸狸
 for (const [sel, s] of [[".zone:not(.zh):not(.en) i", "math"], [".zone.zh i", "chinese"], [".zone.en i", "english"]]) { const i = document.querySelector(sel); if (i) { i.innerHTML = subjHead(s); i.classList.add("pal"); } }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let tok=null,st=null,skip=false;try{tok=JSON.parse(localStorage.getItem("li.token")||"null");st=JSON.parse(localStorage.getItem("li.student")||"null");skip=localStorage.getItem("li.obSkip")==="true"}catch(e){}
